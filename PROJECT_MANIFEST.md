@@ -141,6 +141,9 @@ The 15-week calendar uses phase lengths 4/4/4/3 and Limbo timing of one full
 Phase I week, two Phase II workdays, then one Phase III/IV workday. Limbo allows
 checklists and activity capture but no SEG ratings. Week 15 release/termination
 recommendation and automatic phase-assignment creation are not implemented.
+Officer Safety deficiencies latch UA for their named category for the rest of
+that daily report, even if the source task is rechecked; Limbo ratings stay
+suppressed.
 
 ## API contracts
 

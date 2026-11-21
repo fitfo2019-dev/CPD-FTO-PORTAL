@@ -11,6 +11,18 @@ complaint counts. This supersedes the earlier blanket prohibition on code-driven
 counts for those new runs, not for legacy saved accounting. Run activity flags
 remain separate explicit selections.
 
+The user requires categorical performance ratings only; do not introduce
+numerical performance scores. Numeric values are appropriate for factual
+activity totals and counts of categorical selections, not as a performance
+grade or converted score.
+
+**Why:** The user explicitly instructed that all requirements are strict and
+numerical ratings are not used.
+
+**How to apply:** Keep NO/A/RT/UA/NRT as the only evaluation outcomes. Do not
+average, rank, or convert them to numbers; label numeric workbook values as
+counts or totals.
+
 **Why:** The user supplied explicit 1V/2V/3V multiplier instructions after the
 manual-only rule. Existing saved totals may already include their older runs.
 
@@ -18,11 +30,11 @@ manual-only rule. Existing saved totals may already include their older runs.
 manual amounts from derived contributions, prevent double increments on resave,
 and do not present a generated payload as a completed or filed legal document.
 
-Keep the portal's current 30 SEG categories; the user chose not to expand them to the 38-category list visible in the submitted daily workbook. The workbook still guides the printable layout and activity fields.
+Keep the portal's 30 named SEG categories, even when a reference form visibly lists 38 rows. The user reconfirmed the 30-category scope when asked about the mismatch.
 
-**Why:** The user explicitly chose “Keep portal categories” when asked whether to replace the portal's SEG list with the workbook's 38 rows.
+**Why:** The user chose to keep the existing portal category model and later explicitly confirmed 30 categories for the workbook.
 
-**How to apply:** Preserve the existing category set and mappings. Keep the printable worksheet's three rating columns without adding, removing, or remapping categories.
+**How to apply:** Preserve the 30 named categories and keep the reference form's visual grouping separate from its legacy 38-row taxonomy. Do not expand or renumber the evaluation model without approval.
 
 For a 10-6 Traffic Stop with 1V, do not count PremierOne/Axon; the FTO may select Solve Citation/Summons when applicable. Enforce that mismatch rather than silently changing a saved value. The user says 3V ordinarily means an arrest; if no arrest occurred, the FTO may correct the clearance/stat entries.
 
@@ -45,11 +57,11 @@ On the editable Daily Performance Log, keep all SEG categories in one continuous
 
 **How to apply:** Keep category names, definitions, and rating choices aligned consistently in the single screen sequence; keep the daily activity totals in connected groups beneath it.
 
-The monthly summary is a read-only rollup: count ratings only from reviewed, non-Limbo daily logs, and sum the saved daily activity totals for the selected PO and month. Color Acceptable green, RT yellow, UA/NRT red, and NO neutral. Never write monthly totals back to daily records.
+The monthly Excel summary is a read-only rollup of reviewed, non-Limbo daily rating counts and saved activity totals. Keep it aggregate-only without raw incident IDs, locations, or narratives, and never write monthly totals back to daily records.
 
 **Why:** The user requested a monthly export with all rating categories and monthly statistics, while keeping source daily logs distinct.
 
-**How to apply:** Offer a monthly PDF/print view and Excel workbook with source daily-log details, clear inclusion rules, and color-coded rating counts. Keep the aggregation limited to the selected PO/month.
+**How to apply:** Keep the export limited to the selected PO/month and clearly label weekly tabs and rating-frequency counts. Do not include raw run narratives or incident/location fields in the monthly workbook.
 
 The user requires exactly four weekly Excel tabs with SEG and activity grids on
 each. A month can span more than four Sunday–Saturday weeks, and no overflow

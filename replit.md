@@ -2,7 +2,7 @@
 
 Offline-capable Field Training Officer Portal with an empty initial workspace and encrypted device-local drafts. No protected report service is connected; the application is not approved for operational or CJIS-restricted data.
 
-Read `PROJECT_MANIFEST.md` before changing the codebase; it is the source of truth for the main application and its security boundaries.
+Read `PROJECT_MANIFEST.md` and `.replit-context.md` before changing the codebase. Treat `.replit-context.md` as the user's persistent specification for SEG scope, page flow, clearance multipliers, checklist behavior, and four-tab exports. It is an instruction document, not a parser-enforced lock; verify implementation claims against code before describing them as existing behavior.
 
 ## Current workspace
 

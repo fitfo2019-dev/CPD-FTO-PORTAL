@@ -73,6 +73,10 @@ It preserves the 30-category data model. More than four source weeks is rejected
 dropping dates. New reviewed runs use versioned clearance multipliers; legacy
 manual totals are not silently migrated. Legal-document payloads remain local
 drafts, not completed or filed forms.
+The 15-week phase calendar applies Limbo windows and blocks rating review on
+Limbo days. Officer Safety UA remains locked for the affected category for that
+day. Week 15 release recommendations and automatic next-phase assignment
+creation are not yet provided.
 
 ### Agency-managed monorepo startup
 

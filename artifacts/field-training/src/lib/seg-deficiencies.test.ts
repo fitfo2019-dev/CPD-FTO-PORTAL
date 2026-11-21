@@ -51,16 +51,18 @@ test('same-incident failures consolidate, keep source coordinates, and cap weekl
 });
 
 test('manual overrides restore the old category and preserve long narratives; rechecking restores the baseline',()=>{
-  let report=reconcileDeficiencyRatings({...base(),runs:[failingRun()]},packet({...base(),runs:[failingRun()]}));
+  const nonSafetyRun={...run(),runKind:'call_for_service' as const,checklist:newRunChecklist('call_for_service')};
+  nonSafetyRun.checklist['task-0']=false;
+  let report=reconcileDeficiencyRatings({...base(),runs:[nonSafetyRun]},packet({...base(),runs:[nonSafetyRun]}));
   const group=report.checklistDeficiencies![0];
   const text='Observed facts. '.repeat(9000);
   report={...report,deficiencyNarratives:{[group.id]:text}};
   report=overrideDeficiency(report,group,'formUsage');
   report=reconcileDeficiencyRatings(report,packet(report));
-  assert.equal(report.ratings.buildingSearch.rating,defaultRatings().buildingSearch.rating);
+  assert.equal(report.ratings.communicationsUsage.rating,defaultRatings().communicationsUsage.rating);
   assert.equal(report.ratings.formUsage.rating,'UA');
   assert.equal(report.checklistDeficiencies?.[0].narrative,text);
-  const cleared={...report,runs:[run()]};
+  const cleared={...report,runs:[{...run(),runKind:'call_for_service' as const,checklist:newRunChecklist('call_for_service')}]};
   const restored=reconcileDeficiencyRatings(cleared,packet(cleared));
   assert.equal(restored.ratings.formUsage.rating,defaultRatings().formUsage.rating);
   assert.equal(restored.deficiencyNarratives?.['run-one:formUsage'],text);
@@ -91,6 +93,16 @@ test('Officer Safety UA remains locked for the day after its checklist task is r
   assert.equal(weeklyRatingCount([reviewed],'buildingSearch','A'),0);
   const limbo=reconcileDeficiencyRatings({...final,limboDay:true,ratings:structuredClone(base().ratings)},packet({...final,limboDay:true}));
   assert.deepEqual(limbo.deficiencySafetyLocks,[]);
+});
+
+test('multiple failed checks in one safety category on one run count once, separate runs count independently',()=>{
+  const first=failingRun('safety-first');
+  const second=failingRun('safety-second');
+  const source={...base(),runs:[first,second]};
+  const next=reconcileDeficiencyRatings(source,packet(source));
+  assert.equal(next.checklistDeficiencies?.filter(group=>group.category==='buildingSearch').length,2);
+  const reviewed={...next,ratingsReviewedAt:'2026-11-09T17:00:00Z'};
+  assert.equal(weeklyRatingCount([reviewed],'buildingSearch','UA'),2);
 });
 
 test('distinct incidents remain distinct weekly evidence, with no fabricated training time',()=>{
