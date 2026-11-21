@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ClerkProvider, SignIn, useClerk } from '@clerk/react';
+import { ClerkProvider, SignIn, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { ErrorBoundary } from '@/components/error-boundary.js';
@@ -126,21 +126,28 @@ function SignUpPage() {
   );
 }
 
-function ClerkQueryClientCacheInvalidator() {
+function ClerkWorkspaceSessionPurger() {
   const { addListener } = useClerk();
   const cache = useQueryClient();
-  const previousUserId = useRef<string | null | undefined>(undefined);
+  const { user } = useUser();
+  const { lockNow } = useWorkspace();
+  const previousUserId = useRef<string | null>(user?.id ?? null);
 
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
-      if (previousUserId.current !== undefined && previousUserId.current !== userId) {
+      if (previousUserId.current !== userId) {
         cache.clear();
+        lockNow();
       }
       previousUserId.current = userId;
     });
-    return unsubscribe;
-  }, [addListener, cache]);
+    return () => {
+      unsubscribe();
+      cache.clear();
+      lockNow();
+    };
+  }, [addListener, cache, lockNow]);
 
   return null;
 }
@@ -216,9 +223,18 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
 function DemoWorkspace() {
   return (
     <WorkspaceProvider>
+      <ClerkWorkspaceSessionPurger />
       <Shell><WorkspaceRoutes /></Shell>
     </WorkspaceProvider>
   );
+}
+
+function AuthenticatedWorkspace() {
+  const { isLoaded, isSignedIn, user } = useUser();
+
+  if (!isLoaded) return null;
+  if (!isSignedIn || !user) return <Redirect to="/sign-in" />;
+  return <DemoWorkspace key={user.id} />;
 }
 
 function ClerkRoutes() {
@@ -238,11 +254,10 @@ function ClerkRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
-      <ClerkQueryClientCacheInvalidator />
       <Switch>
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
-        <Route component={DemoWorkspace} />
+        <Route component={AuthenticatedWorkspace} />
       </Switch>
     </ClerkProvider>
   );

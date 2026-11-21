@@ -1,5 +1,6 @@
 import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { useClerk, useUser } from '@clerk/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
 import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, Users, FolderOpen, ClipboardList, BookOpen } from 'lucide-react';
@@ -55,6 +56,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const [loc,setLocation] = useLocation();
   const { night, toggle } = useTheme();
   const w = useWorkspace();
+  const queryClient = useQueryClient();
   const { user, isLoaded, isSignedIn } = useUser();
   const { signOut } = useClerk();
   const { toast } = useToast();
@@ -105,6 +107,16 @@ export function Shell({ children }: { children: ReactNode }) {
     catch { toast({ title: 'Save failed', description: 'Local storage error. Your on-screen work is unchanged.', variant: 'destructive' }); }
   }
 
+  async function onSignOut() {
+    queryClient.clear();
+    w.lockNow();
+    try {
+      await signOut({ redirectUrl: import.meta.env.BASE_URL || '/' });
+    } catch {
+      toast({ title: 'Sign out could not be completed', description: 'Your local workspace was cleared. Please try signing out again.', variant: 'destructive' });
+    }
+  }
+
   return (
     <div data-app-shell className="min-h-[100dvh] flex flex-col bg-background" onClickCapture={guardInternalLink}>
       <div role="note" data-testid="banner-operational-status" className="sticky top-0 z-40 border-t-[3px] border-accent bg-[#f1f3f5] px-3 py-2 text-center text-xs sm:text-sm font-semibold text-[#202934]">
@@ -145,7 +157,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   <span className="hidden max-w-48 break-words text-[0.65rem] font-semibold text-white/80 xl:inline" title="Signed-in account">
                     {user?.fullName || user?.primaryEmailAddress?.emailAddress}
                   </span>
-                  <button type="button" onClick={() => signOut({ redirectUrl: import.meta.env.BASE_URL || '/' })} className="h-8 rounded-sm border border-white/30 px-2 text-xs font-semibold text-white hover:bg-white/10">Sign out</button>
+                  <button type="button" onClick={() => void onSignOut()} className="h-8 rounded-sm border border-white/30 px-2 text-xs font-semibold text-white hover:bg-white/10">Sign out</button>
                 </>
               ) : (
                 <Link href="/sign-in" className="h-8 rounded-sm border border-white/30 px-2 py-1.5 text-xs font-semibold text-white hover:bg-white/10">Sign in</Link>
@@ -177,7 +189,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
           <div className="ml-auto flex w-full min-w-0 items-center gap-1.5 md:w-auto">
             {isLoaded && isSignedIn ? (
-              <button type="button" onClick={() => signOut({ redirectUrl: import.meta.env.BASE_URL || '/' })} aria-label="Sign out" className="h-9 shrink-0 rounded-sm border px-2 text-xs font-semibold md:hidden">
+              <button type="button" onClick={() => void onSignOut()} aria-label="Sign out" className="h-9 shrink-0 rounded-sm border px-2 text-xs font-semibold md:hidden">
                 Sign out
               </button>
             ) : (
