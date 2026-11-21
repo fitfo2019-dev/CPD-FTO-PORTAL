@@ -20,3 +20,14 @@ export const logger = pino({
         },
       }),
 });
+
+// Process-failure records must remain one JSON line even in development and
+// must be flushed before the process exits. Use a synchronous stdout target.
+export const processLogger = pino(
+  {
+    level: "fatal",
+    base: null,
+    timestamp: pino.stdTimeFunctions.isoTime,
+  },
+  pino.destination({ fd: 1, sync: true }),
+);
