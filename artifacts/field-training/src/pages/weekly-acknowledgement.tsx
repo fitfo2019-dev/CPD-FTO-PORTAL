@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import { Printer, Save, ShieldAlert } from 'lucide-react';
 import { useUser } from '@clerk/react';
@@ -8,7 +8,7 @@ import { PrintableWeeklyAcknowledgement } from '@/components/printable-weekly-ac
 import { useToast } from '@/hooks/use-toast.js';
 import { phaseAssignmentLabel, phaseLabel, uid, type Phase, type WeeklyPacketAcknowledgement } from '@/lib/model.js';
 import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
-import { useWorkspace } from '@/state/workspace.js';
+import { useTimelineInterpolation, useWorkspace } from '@/state/workspace.js';
 
 export default function WeeklyAcknowledgementPage() {
   const { ws, upsertWeeklyAcknowledgement } = useWorkspace();
@@ -34,47 +34,116 @@ export default function WeeklyAcknowledgementPage() {
         return week?.start === selectedWeek.start;
       })
     : [];
-  const baseReport = reportsForWeek[0];
-  const recruitBadge = ws.caseFolder?.recruitBadge ?? baseReport?.recruitBadge ?? '';
-  const matchingReport = reportsForWeek.find(report=>report.recruitBadge===recruitBadge);
-  const assignmentSource = matchingReport ?? (ws.caseFolder ? undefined : baseReport);
-  const assignment = phaseAssignmentLabel(assignmentSource?.ftoAssignment ?? ws.caseFolder?.ftoAssignment, assignmentSource?.shift ?? ws.caseFolder?.shift);
+  const folderReport = ws.caseFolder
+    ? reportsForWeek.find(report =>
+      report.recruitBadge === ws.caseFolder?.recruitBadge
+      && (report.className ?? '') === (ws.caseFolder?.className ?? '')
+      && report.phase === ws.caseFolder?.phase,
+    )
+    : undefined;
+  const baseReport = folderReport ?? reportsForWeek[0];
+  const recruitBadge = baseReport?.recruitBadge ?? ws.caseFolder?.recruitBadge ?? '';
+  const matchingReport = reportsForWeek.find(report =>
+    report.recruitBadge === recruitBadge
+    && (baseReport?.className === undefined || (report.className ?? '') === (baseReport.className ?? '')),
+  );
+  const activeFolder = ws.caseFolder
+    && ws.caseFolder.recruitBadge === recruitBadge
+    && (!baseReport || (
+      (ws.caseFolder.className ?? '') === (baseReport.className ?? '')
+      && ws.caseFolder.phase === baseReport.phase
+    ))
+    ? ws.caseFolder
+    : undefined;
+  const assignmentSource = matchingReport ?? (activeFolder ? undefined : baseReport);
+  const assignment = phaseAssignmentLabel(
+    assignmentSource?.ftoAssignment ?? activeFolder?.ftoAssignment,
+    assignmentSource?.shift ?? activeFolder?.shift,
+  );
   const stored = selectedWeek
     ? ws.weeklyAcknowledgements.find(ack => ack.weekStart === selectedWeek.start && ack.recruitBadge === recruitBadge)
     : undefined;
+  const timeline = useTimelineInterpolation(
+    selectedWeek?.start,
+    recruitBadge,
+    matchingReport?.className ?? activeFolder?.className,
+  );
 
-  const makeDraft = (): WeeklyPacketAcknowledgement | null => {
+  const makeDraft = useCallback((): WeeklyPacketAcknowledgement | null => {
     if (!selectedWeek) return null;
     const now = new Date().toISOString();
-    const folder = ws.caseFolder;
+    const folder = activeFolder;
     return {
       id: uid(),
       weekStart: selectedWeek.start,
       weekEnd: selectedWeek.end,
       weekNumber: getTrainingWeekNumber(selectedWeek.start, folder?.phaseStartDate ?? selectedWeek.start) ?? 1,
-      phase: (baseReport?.phase ?? folder?.phase ?? 1) as Phase,
-      recruitName: folder?.recruitName ?? baseReport?.recruitName ?? '',
+      phase: (matchingReport?.phase ?? folder?.phase ?? baseReport?.phase ?? 1) as Phase,
+      recruitName: matchingReport?.recruitName ?? folder?.recruitName ?? baseReport?.recruitName ?? '',
       recruitBadge,
       recruitAssignment: assignment,
-      ftoName: folder?.ftoName ?? baseReport?.ftoName ?? '',
-      ftoBadge: folder?.ftoBadge ?? baseReport?.ftoBadge ?? '',
+      ftoName: matchingReport?.ftoName ?? folder?.ftoName ?? baseReport?.ftoName ?? '',
+      ftoBadge: matchingReport?.ftoBadge ?? folder?.ftoBadge ?? baseReport?.ftoBadge ?? '',
       ftoAssignment: assignment,
       recruitComments: '',
-      ftoComments: '',
+      ftoComments: timeline.text,
       officeComments: '',
       signatures: {},
       status: 'draft',
       createdAt: now,
       updatedAt: now,
     };
-  };
+  }, [selectedWeek, activeFolder, matchingReport, baseReport, recruitBadge, assignment, timeline.text]);
 
   const [ack, setAck] = useState<WeeklyPacketAcknowledgement | null>(() => stored ?? makeDraft());
+  const generatedCommentsRef = useRef<{ ackId: string; text: string } | null>(null);
   useEffect(() => {
-    setAck(stored ?? makeDraft());
-  // The selected week and source report identify the local acknowledgement template.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart, stored?.id, recruitBadge, ws.caseFolder?.openedAt]);
+    if (!ack || stored || generatedCommentsRef.current) return;
+    if (ack.weekStart === selectedWeek?.start && ack.recruitBadge === recruitBadge) {
+      generatedCommentsRef.current = { ackId: ack.id, text: ack.ftoComments };
+    }
+  }, [ack, stored, selectedWeek?.start, recruitBadge]);
+
+  useEffect(() => {
+    if (!selectedWeek || !recruitBadge) {
+      generatedCommentsRef.current = null;
+      if (ack) setAck(null);
+      return;
+    }
+    if (stored) {
+      if (ack?.id !== stored.id) {
+        generatedCommentsRef.current = null;
+        setAck(stored);
+      }
+      return;
+    }
+    if (!ack || ack.weekStart !== selectedWeek.start || ack.recruitBadge !== recruitBadge) {
+      const next = makeDraft();
+      generatedCommentsRef.current = next
+        ? { ackId: next.id, text: next.ftoComments }
+        : null;
+      setAck(next);
+      return;
+    }
+    const generated = generatedCommentsRef.current;
+    if (
+      generated?.ackId === ack.id
+      && ack.ftoComments === generated.text
+      && ack.ftoComments !== timeline.text
+    ) {
+      const next = { ...ack, ftoComments: timeline.text, updatedAt: new Date().toISOString() };
+      generatedCommentsRef.current = { ackId: next.id, text: next.ftoComments };
+      setAck(next);
+    }
+  }, [
+    selectedWeek,
+    recruitBadge,
+    stored,
+    ack,
+    makeDraft,
+    timeline.key,
+    timeline.text,
+  ]);
 
   function update<K extends keyof WeeklyPacketAcknowledgement>(key: K, value: WeeklyPacketAcknowledgement[K]) {
     setAck(current => current ? { ...current, [key]: value, updatedAt: new Date().toISOString() } : current);

@@ -5,7 +5,7 @@ import { PageHead, Panel } from '@/components/bits.js';
 import { PrintableMonthlySummary } from '@/components/printable-monthly-summary.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
 import { DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, RATINGS, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS } from '@/lib/model.js';
-import { summarizeMonthlyReports } from '@/lib/monthly-summary.js';
+import { useMonthlyExcelAggregator } from '@/hooks/use-monthly-excel-aggregator.js';
 import { formatDateDMY } from '@/lib/training-calendar.js';
 import { useWorkspace } from '@/state/workspace.js';
 
@@ -48,8 +48,7 @@ export default function MonthlySummaryPage() {
   const months = useMemo(() => [...new Set(ownerReports.map(report => report.date.slice(0, 7)))]
     .filter(month => /^\d{4}-\d{2}$/.test(month)).sort((a, b) => b.localeCompare(a)), [ownerReports]);
   const monthKey = months.includes(selectedMonth) ? selectedMonth : months[0] ?? '';
-  const reports = monthKey ? ownerReports.filter(report => report.date.startsWith(monthKey)).sort((a, b) => a.date.localeCompare(b.date)) : [];
-  const summary = useMemo(() => summarizeMonthlyReports(reports), [reports]);
+  const { reports, summary } = useMonthlyExcelAggregator(ownerReports, monthKey);
   const monthLabel = monthKey ? formatMonth(monthKey) : 'No monthly records';
   const rangeStart = reports[0]?.date ?? '';
   const rangeEnd = reports[reports.length - 1]?.date ?? '';

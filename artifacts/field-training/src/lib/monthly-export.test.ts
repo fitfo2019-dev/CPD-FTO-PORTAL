@@ -5,6 +5,8 @@ import {
   CATEGORIES,
   emptyDailyActivitySummary,
   emptyReportingForDutyRecord,
+  newRunChecklist,
+  RUN_CHECKLIST_ITEMS,
   SEG_CATEGORIES,
   type RatingEntry,
   type Report,
@@ -62,6 +64,44 @@ test('monthly workbook lists each SEG and activity category once by program week
       ratingEntry(category === 'formUsage' ? 'A' : 'NO'),
     ])) as Report['ratings'],
   });
+  const reviewedRunChecklist = newRunChecklist('building_search');
+  reviewedRunChecklist['task-0'] = false;
+  const unreviewedRunChecklist = newRunChecklist('building_search');
+  weekOne.runs = [
+    {
+      id: '=FORMULA-RUN',
+      incidentNumber: '=PRIVATE-INCIDENT',
+      location: '=PRIVATE-LOCATION',
+      occurredAt: '2026-11-01T18:30:00.000Z',
+      runKind: 'building_search',
+      isDispatched: false,
+      trafficMode: 'none',
+      arrestMade: true,
+      transportedAfterArrest: false,
+      oviProcessed: false,
+      narrativeAdditionRequired: false,
+      activityFlags: { patDowns: true },
+      formStatus: 'complete',
+      checklist: reviewedRunChecklist,
+      checklistReviewedAt: '2026-11-01T19:00:00.000Z',
+      narrative: '=PRIVATE-NARRATIVE',
+    },
+    {
+      id: 'run-not-reviewed',
+      occurredAt: '2026-11-01T20:30:00.000Z',
+      runKind: 'building_search',
+      isDispatched: false,
+      trafficMode: 'none',
+      arrestMade: false,
+      transportedAfterArrest: false,
+      oviProcessed: false,
+      narrativeAdditionRequired: false,
+      activityFlags: { trafficCitations: true },
+      formStatus: 'in_progress',
+      checklist: unreviewedRunChecklist,
+      narrative: '',
+    },
+  ];
   const weekTwo = makeReport('week-two', {
     date: '2026-11-08',
     phaseWeek: 2,
@@ -78,8 +118,15 @@ test('monthly workbook lists each SEG and activity category once by program week
     ratingsReviewedAt: undefined,
     activity: { ...emptyDailyActivitySummary(), trafficStops: 5 },
   });
-  const workbook = buildMonthlyWorkbook([weekOne, weekTwo, unreviewed], '2026-11');
-  assert.deepEqual(workbook.SheetNames, ['Monthly Totals']);
+  const outsideMonth = makeReport('outside-month', {
+    date: '2026-12-01',
+    phaseWeek: 3,
+    ratingsReviewedAt: '2026-12-01T18:00:00.000Z',
+    activity: { ...emptyDailyActivitySummary(), trafficStops: 99 },
+    ratings: Object.fromEntries(CATEGORIES.map(category => [category, ratingEntry('UA')])) as Report['ratings'],
+  });
+  const workbook = buildMonthlyWorkbook([weekOne, weekTwo, unreviewed, outsideMonth], '2026-11');
+  assert.deepEqual(workbook.SheetNames, ['Monthly Totals', 'Run Support']);
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Monthly Totals'], { header: 1 }) as unknown[][];
   const formUsageRows = rows.filter(row => row[0] === 'Form Usage');
   assert.equal(formUsageRows.length, 1);
@@ -97,4 +144,20 @@ test('monthly workbook lists each SEG and activity category once by program week
   assert.deepEqual(trafficStops, ['Traffic Stops', 2, 8, '', '', 10]);
   assert.ok(!rows.some(row => row[0] === 'Daily Log Sources'));
   assert.ok(rows.some(row => row[1] === 'Saved daily statistics only · no statistics are inferred from run forms'));
+
+  const runSupportRows = XLSX.utils.sheet_to_json(workbook.Sheets['Run Support'], { header: 1 }) as unknown[][];
+  assert.equal(runSupportRows.find(row => row[0] === 'Run records included')?.[1], 1);
+  assert.equal(runSupportRows.find(row => row[0] === 'Pat Downs')?.[1], 1);
+  assert.equal(runSupportRows.find(row => row[0] === 'Traffic Citations')?.[1], 0);
+  assert.equal(runSupportRows.find(row => row[0] === 'Arrest Made · run metadata')?.[1], 1);
+  const clearedChecklistItem = runSupportRows.find(row => row[0] === 'Building Search' && row[2] === RUN_CHECKLIST_ITEMS.building_search[0]);
+  assert.equal(clearedChecklistItem?.[4], 0);
+  assert.equal(clearedChecklistItem?.[6], 1);
+  const runSupportText = JSON.stringify(runSupportRows);
+  assert.equal(runSupportText.includes('PRIVATE-INCIDENT'), false);
+  assert.equal(runSupportText.includes('PRIVATE-LOCATION'), false);
+  assert.equal(runSupportText.includes('PRIVATE-NARRATIVE'), false);
+  assert.equal(runSupportText.includes("'=FORMULA-RUN"), true);
+  const runSupportSheet = workbook.Sheets['Run Support'];
+  assert.equal(Object.values(runSupportSheet).some(cell => typeof cell === 'object' && cell !== null && 'f' in cell), false);
 });

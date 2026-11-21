@@ -4,6 +4,7 @@ import { createEmptyWorkspace } from '@/lib/empty-workspace.js';
 import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
 import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography.js';
 import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
+import { buildTimelineInterpolation, type TimelineInterpolation } from '@/lib/timeline-interpolation.js';
 import { getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
 
 export type VaultState = 'none' | 'unlocked';
@@ -411,6 +412,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 export function useWorkspace() { const c = useContext(C); if (!c) throw new Error('WorkspaceProvider missing'); return c; }
+export function useTimelineInterpolation(weekStart?: string, recruitBadge?: string, className?: string): TimelineInterpolation {
+  const { ws } = useWorkspace();
+  return useMemo(
+    () => buildTimelineInterpolation(ws.reports, weekStart, recruitBadge, className),
+    [ws.reports, weekStart, recruitBadge, className],
+  );
+}
 
 export function useTheme() {
   const [night, setNight] = useState(() => { try { return localStorage.getItem('fieldready.theme') === 'night'; } catch { return false; } });

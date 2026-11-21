@@ -125,8 +125,15 @@ async function bundlePackage(): Promise<void> {
     "utf8",
   );
 
+  const handoverManual = await readFile(
+    join(workspaceRoot, "HANDOVER_MANUAL.md"),
+    "utf8",
+  );
+  await writeFile(join(outputDir, "HANDOVER_MANUAL.md"), handoverManual, "utf8");
+
   const archiveEntries = [
     "package.json",
+    "HANDOVER_MANUAL.md",
     ...runtimeFiles.map((entry) =>
       entry.name === "index.mjs" ? "index.js" : entry.name,
     ),

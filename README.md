@@ -51,7 +51,7 @@ pnpm run build
 pnpm run bundle:production
 ```
 
-`pnpm run build` type-checks the workspace and builds the API, shared libraries, component preview, and portal. `pnpm run bundle:production` builds and type-checks the API, then recreates `dist-production/` and `dist-production.zip`. The packaging step removes prior generated package output before writing the new archive; do not run a second `zip` command on the same files.
+`pnpm run build` type-checks the workspace and builds the API, shared libraries, component preview, and portal. `pnpm run bundle:production` builds and type-checks the API, then recreates `dist-production/` and `dist-production.zip`, including the current `HANDOVER_MANUAL.md`. The packaging step removes prior generated package output before writing the new archive; no second `zip` command is needed.
 
 The standalone archive contains the compiled API entry and a production-only `package.json`. Third-party runtime packages remain external and are listed in that manifest; workspace modules are bundled into the API output. No workspace `node_modules` directory is copied. The portal's static build is separate from the API package.
 

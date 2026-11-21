@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, Trash } from 'lucide-react';
 import { useWorkspace } from '@/state/workspace.js';
@@ -17,6 +17,8 @@ import { isValidAssignment } from '@/lib/cpd-geography.js';
 import { PrintableDailyLog } from '@/components/printable-daily-log.js';
 import { PrintableDailyForms } from '@/components/printable-daily-forms.js';
 import { activityDiscrepancies, activityTotals, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
+import { checklistForMetadata, toggleChecklistSection } from '@/lib/run-checklist-state.js';
+import { buildRunNarrativeDraft } from '@/lib/run-narrative-draft.js';
 import { isRtRestricted } from '@/lib/model.js';
 import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatRadioCode, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes.js';
 import { parseRunDateTime } from '@/lib/run-details.js';
@@ -64,6 +66,8 @@ export default function ReportEditor() {
   const [editingRunId, setEditingRunId] = useState<string | null>(null);
   const [runKind, setRunKind] = useState<PrimaryRunForm>('call_for_service');
   const [runDateTimeText, setRunDateTimeText] = useState(() => r ? formatDateDMY(r.date) : '');
+  const [incidentNumber, setIncidentNumber] = useState('');
+  const [runLocation, setRunLocation] = useState('');
   const [runError, setRunError] = useState('');
   const [runDispatched, setRunDispatched] = useState(true);
   const [trafficMode, setTrafficMode] = useState<TrainingRun['trafficMode']>('none');
@@ -81,6 +85,8 @@ export default function ReportEditor() {
   const [directiveReviews,setDirectiveReviews]=useState<Partial<Record<DirectiveReviewForm,DirectiveReviewRecord>>>({});
   const [runReviewOpen, setRunReviewOpen] = useState(false);
   const [runChecklistReviewed, setRunChecklistReviewed] = useState(false);
+  const generatedNarrativeRef = useRef('');
+  const runReviewConfirmedRef = useRef(false);
   const parsedDate = parseDateDMY(dateText);
   const dateWeekday = parsedDate ? getWeekdayIndex(parsedDate) : undefined;
   const selectedDayOff = !!(isNew && ws.caseFolder && dateWeekday !== undefined && ws.caseFolder.daysOff?.includes(dateWeekday));
@@ -103,7 +109,7 @@ export default function ReportEditor() {
   const baseline = useMemo(() => JSON.stringify(existing ?? null), [existing]);
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
-  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== SITUATION_FOUND_NA || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || arrestProcessRequired || oviProcessed || narrativeAdditionRequired || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
+  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== SITUATION_FOUND_NA || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || arrestProcessRequired || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
   const isDirty = !!r && (JSON.stringify(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
   useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
@@ -180,10 +186,17 @@ export default function ReportEditor() {
       reviewedAt:undefined,
     });
   };
-  const checklistFor = (kind:PrimaryRunForm,mode:TrainingRun['trafficMode'],dispatched:boolean,arrest:boolean,transport:boolean,ovi:boolean,narrative:boolean,prior:Record<string,boolean>={},arrestProcess=false) => ({
-    ...newRunChecklist(kind,requiredSupplementalForms({runKind:kind,trafficMode:mode,isDispatched:dispatched,arrestMade:arrest,transportedAfterArrest:arrest&&transport,arrestProcessRequired:arrestProcess,oviProcessed:ovi,narrativeAdditionRequired:narrative})),
-    ...prior,
-  });
+  const checklistFor = (kind:PrimaryRunForm,mode:TrainingRun['trafficMode'],dispatched:boolean,arrest:boolean,transport:boolean,ovi:boolean,narrative:boolean,prior:Record<string,boolean>={},arrestProcess=false) =>
+    checklistForMetadata({
+      runKind:kind,
+      trafficMode:mode,
+      isDispatched:dispatched,
+      arrestMade:arrest,
+      transportedAfterArrest:arrest&&transport,
+      arrestProcessRequired:arrestProcess,
+      oviProcessed:ovi,
+      narrativeAdditionRequired:narrative,
+    },prior);
   const setArrestState = (value:boolean) => {
     setArrestMade(value);
     if(!value){setTransported(false);setArrestProcessRequired(false);}
@@ -191,7 +204,7 @@ export default function ReportEditor() {
     setRunChecklistReviewed(false);
   };
 
-  const addRun = (confirmReview = false) => {
+  const addRun = () => {
     if (!r || !editable) return;
     const localRunDateTime = parseRunDateTime(runDateTimeText);
     if (!localRunDateTime) {
@@ -204,7 +217,7 @@ export default function ReportEditor() {
     }
     const activityError=runActivityValidationError({runKind,dispatchedCode,clearanceCode,activityFlags});
     if(activityError){setRunError(activityError);return;}
-    if (!confirmReview) {
+    if (!runChecklistReviewed) {
       setRunReviewOpen(true);
       return;
     }
@@ -218,6 +231,8 @@ export default function ReportEditor() {
     const directiveReviewsToSave=Object.fromEntries(activeDirectiveForms.filter(form=>directiveReviews[form]).map(form=>[form,directiveReviews[form]])) as Partial<Record<DirectiveReviewForm,DirectiveReviewRecord>>;
     const nextRun: TrainingRun = {
       id: previous?.id ?? uid(),
+      incidentNumber: incidentNumber.trim() || undefined,
+      location: runLocation.trim() || undefined,
       occurredAt: localRunDateTime,
       runKind, isDispatched: runDispatched, trafficMode, arrestMade,
       activityFlags:{...activityFlags}, dispatchedCode, situationFoundCode, clearanceCode,
@@ -228,14 +243,27 @@ export default function ReportEditor() {
     setR(current=>current && ({...current,ratingsReviewedAt:undefined,runs: previous ? current.runs.map(item => item.id === previous.id ? nextRun : item) : [...current.runs, nextRun]}));
     resetRunForm();
   };
+  const confirmRunReview = () => {
+    if (!runChecklistReviewed) return;
+    if (!runNarrative.trim() || runNarrative === generatedNarrativeRef.current) {
+      const draft = buildRunNarrativeDraft(runKind, runChecklist, requiredSupplements);
+      generatedNarrativeRef.current = draft;
+      setRunNarrative(draft);
+    }
+    runReviewConfirmedRef.current = true;
+    setRunReviewOpen(false);
+  };
   const resetRunForm = () => {
-    setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunDispatched(true); setRunError('');
+    setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunDispatched(true); setRunError(''); runReviewConfirmedRef.current = false;
+    setIncidentNumber(''); setRunLocation(''); generatedNarrativeRef.current = '';
     setTrafficMode('none'); setArrestMade(false); setTransported(false); setArrestProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
     setActivityFlags({}); setDispatchedCode(''); setSituationFoundCode(SITUATION_FOUND_NA); setClearanceCode('');
     setRunNarrative(''); setRunChecklist(newRunChecklist('call_for_service')); setDirectiveReviews({}); setRunReviewOpen(false); setRunChecklistReviewed(false);
   };
   const editRun = (run: TrainingRun) => {
     setEditingRunId(run.id); setRunKind(run.runKind);
+    runReviewConfirmedRef.current = false;
+    setIncidentNumber(run.incidentNumber ?? ''); setRunLocation(run.location ?? ''); generatedNarrativeRef.current = '';
     const occurredAt = new Date(run.occurredAt);
     const localDateTime = new Date(occurredAt.getTime() - occurredAt.getTimezoneOffset() * 60000).toISOString();
     setRunDateTimeText(`${formatDateDMY(localDateTime.slice(0,10))} ${localDateTime.slice(11,16)}`); setRunDispatched(run.isDispatched);
@@ -376,7 +404,8 @@ export default function ReportEditor() {
 
       <Panel id="run-forms" title="Per-run paperwork" className="mb-4 scroll-mt-28">
          <div className="border-b px-4 py-3 text-sm text-muted-foreground">
-           <p>Record each training run and its required paperwork. Do not enter operational incident identifiers.</p>
+            <p>Record each training run and its required paperwork. Incident number and location are optional run metadata shared with its supplemental forms and narrative continuation pages.</p>
+            <p className="mt-1"><b className="text-foreground">Prototype data boundary:</b> this fictional demonstration is not approved for operational data. Saved workspace records are encrypted on this device; printed forms and Excel exports contain these values in plain text.</p>
            <p className="mt-1"><b className="text-foreground">Daily requirements:</b> Reporting for Duty is tracked separately above; this Daily Performance Log is completed once per tour.</p>
         </div>
         <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,.8fr)]">
@@ -392,6 +421,8 @@ export default function ReportEditor() {
                   ? <p className="text-xs text-muted-foreground sm:col-span-2">{runKind==='call_for_service'?'Call for Service is the default for each new run.':'Use Self-Initiated Run / Training when the PO initiates the activity.'} Choose a dedicated form when the manual calls for one.</p>
                   : <F l="Run origin"><SearchableSelect className={inp} value={runDispatched?'call_for_service':'self_initiated'} onChange={e=>{const dispatched=e.target.value==='call_for_service';setRunDispatched(dispatched);setRunChecklist(prev=>checklistFor(runKind,trafficMode,dispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);setRunError('');}} data-testid="select-run-origin"><option value="call_for_service">Call for Service / dispatched</option><option value="self_initiated">Self-initiated</option></SearchableSelect></F>}
                 <F l="Run date and time · MM/DD/YYYY HH:MM"><input required inputMode="text" maxLength={16} placeholder="MM/DD/YYYY HH:MM" className={inp} value={runDateTimeText} onChange={event=>{setRunDateTimeText(formatDateTimeEntryMDY(event.target.value));setRunError('');}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const now=currentDateTimeMDY();setRunDateTimeText(`${now.date} ${now.time}`);setRunError('');}}} data-testid="input-run-datetime" /><span className="text-xs font-normal text-muted-foreground">Enter date and 24-hour time together. Enter ? then press Enter to fill the current date and time.</span></F>
+                 <F l="Incident Number"><input className={inp} value={incidentNumber} onChange={event=>setIncidentNumber(event.target.value)} maxLength={120} placeholder="Optional" data-testid="input-run-incident-number" /></F>
+                 <F l="Location"><input className={inp} value={runLocation} onChange={event=>setRunLocation(event.target.value)} maxLength={200} placeholder="Optional" data-testid="input-run-location" /></F>
                 {runKind==='traffic_stop' && <F l="Traffic violator"><SearchableSelect className={inp} value={trafficMode==='none'?'motor_vehicle':trafficMode} onChange={e=>{const mode=e.target.value as TrainingRun['trafficMode'];setTrafficMode(mode);setRunChecklist(prev=>checklistFor(runKind,mode,runDispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);setRunError('');}} data-testid="select-traffic-violator"><option value="motor_vehicle">Motor vehicle</option><option value="pedestrian">Pedestrian</option><option value="bicycle">Bicycle</option><option value="other">Other</option></SearchableSelect></F>}
                 <F l="Run type / 10-code">
                   <div className="flex min-w-0">
@@ -453,8 +484,8 @@ export default function ReportEditor() {
                 <details className="mt-2 rounded border bg-muted/30 p-2 text-xs"><summary className="cursor-pointer font-semibold">{RUN_FORM_GUIDANCE[runKind]}</summary><p className="mt-1">The segments below follow the selected manual form. Hover or focus each item for its meaning. Check only when the PO completed the action acceptably; clear it if not completed acceptably, not applicable, or performed by the FTO, and document deficiencies or training in the narrative.</p></details>
                 <p className="my-2 rounded border border-warn/50 bg-warn/10 p-2 text-xs">Run checklist items start checked. Review every segment before saving; clear any item the PO did not complete acceptably or that did not apply.</p>
                <div className="mt-2 grid gap-3">
-                     {primaryChecklistGroups.map(group=><fieldset key={group.title} disabled={!editable||!!runChecklist['na-task']} className="rounded border p-3">
-                       {group.title&&<legend className="px-2 text-xs font-bold">{group.title}</legend>}
+                      {primaryChecklistGroups.map(group=><fieldset key={group.title} disabled={!editable||!!runChecklist['na-task']} className="rounded border p-3">
+                        {group.title&&<legend className="px-2 text-xs font-bold"><button type="button" disabled={!editable||!!runChecklist['na-task']} aria-label={`Toggle ${group.title} checklist`} aria-pressed={group.items.every((_,index)=>runChecklist[`task-${group.start+index}`]!==false)} onClick={()=>{const result=toggleChecklistSection(runChecklist,'task-',group.start,group.items.length,'na-task');setRunChecklist(result.checklist);if(primaryDirectiveIndex>=group.start&&primaryDirectiveIndex<group.start+group.items.length)setDirectiveReviewFlags(runKind,result.checked);setRunChecklistReviewed(false);setRunError('');}} data-testid={`button-toggle-run-section-${runKind}-${group.start}`}>{group.title}</button></legend>}
                        <div className="grid gap-2 sm:grid-cols-2">{group.items.map((item,index)=>{const itemIndex=group.start+index;return <label key={itemIndex} title={checklistHelp(selectedForm.label,item.help)} aria-label={`${item.label}. ${item.help}`} className="flex items-start gap-2 rounded-sm py-1 text-xs leading-5"><input type="checkbox" checked={runChecklist[`task-${itemIndex}`]!==false} onChange={e=>{setRunChecklist(x=>({...x,[`task-${itemIndex}`]:e.target.checked}));setRunChecklistReviewed(false);setRunError('');}} data-testid={`checkbox-run-task-${itemIndex}`} /><span>{item.label}</span></label>})}</div>
                     </fieldset>)}
                      {primaryDirectiveIndex>=0&&runChecklist[`task-${primaryDirectiveIndex}`]!==false&&<DirectiveReviewEditor value={primaryDirectiveReview} disabled={!editable} dataTestId={`directive-review-${runKind}`} onChange={(field,value)=>updateDirectiveReview(runKind,field,value)}/>}
@@ -479,7 +510,7 @@ export default function ReportEditor() {
                    </div>
                      <p className="mt-2 rounded border bg-muted/30 p-2 text-xs">{SUPPLEMENTAL_FORM_GUIDANCE[supplement]}</p>
                      {supplementItems.length>0?<><details className="mt-2 rounded border bg-muted/30 p-2 text-xs"><summary className="cursor-pointer font-semibold">How to review this form</summary><p className="mt-1">Hover or focus each item for its meaning. Check only when the PO completed the action acceptably. Clear it if not completed acceptably, not applicable, or performed by the FTO; document deficiencies and training in the narrative.</p></details>
-                     <div className="mt-2 grid gap-3">{groups.map(group=><fieldset key={group.title||group.start} disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} className="rounded border border-accent/30 p-3">{group.title&&<legend className="px-2 text-xs font-bold">{group.title}</legend>}<div className="grid gap-2 sm:grid-cols-2">{group.items.map((item,index)=>{const itemIndex=group.start+index;return <label key={itemIndex} title={checklistHelp(form.label,item.help)} aria-label={`${item.label}. ${item.help}`} className="flex items-start gap-2 rounded-sm py-1 text-xs leading-5"><input type="checkbox" checked={runChecklist[`supp-${supplement}-${itemIndex}`]!==false} onChange={event=>{setRunChecklist(x=>({...x,[`supp-${supplement}-${itemIndex}`]:event.target.checked}));setRunChecklistReviewed(false);setRunError('');}} data-testid={`checkbox-supplement-${supplement}-${itemIndex}`} /><span>{item.label}</span></label>})}</div></fieldset>)}</div>
+                      <div className="mt-2 grid gap-3">{groups.map(group=><fieldset key={group.title||group.start} disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} className="rounded border border-accent/30 p-3">{group.title&&<legend className="px-2 text-xs font-bold"><button type="button" disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} aria-label={`Toggle ${group.title} checklist`} aria-pressed={group.items.every((_,index)=>runChecklist[`supp-${supplement}-${group.start+index}`]!==false)} onClick={()=>{const result=toggleChecklistSection(runChecklist,`supp-${supplement}-`,group.start,group.items.length,`na-supp-${supplement}`);setRunChecklist(result.checklist);if(supplementDirectiveIndex>=group.start&&supplementDirectiveIndex<group.start+group.items.length)setDirectiveReviewFlags(supplement,result.checked);setRunChecklistReviewed(false);setRunError('');}} data-testid={`button-toggle-supplement-section-${supplement}-${group.start}`}>{group.title}</button></legend>}<div className="grid gap-2 sm:grid-cols-2">{group.items.map((item,index)=>{const itemIndex=group.start+index;return <label key={itemIndex} title={checklistHelp(form.label,item.help)} aria-label={`${item.label}. ${item.help}`} className="flex items-start gap-2 rounded-sm py-1 text-xs leading-5"><input type="checkbox" checked={runChecklist[`supp-${supplement}-${itemIndex}`]!==false} onChange={event=>{setRunChecklist(x=>({...x,[`supp-${supplement}-${itemIndex}`]:event.target.checked}));setRunChecklistReviewed(false);setRunError('');}} data-testid={`checkbox-supplement-${supplement}-${itemIndex}`} /><span>{item.label}</span></label>})}</div></fieldset>)}</div>
                      {supplementDirectiveIndex>=0&&runChecklist[`supp-${supplement}-${supplementDirectiveIndex}`]!==false&&<DirectiveReviewEditor value={supplementDirectiveReview} disabled={!editable} dataTestId={`directive-review-${supplement}`} onChange={(field,value)=>updateDirectiveReview(supplement,field,value)}/>}</>:<p className="mt-2 text-xs text-muted-foreground">The submitted form has no separate checkbox list here.</p>}
                </div>;
              })}
@@ -643,11 +674,12 @@ export default function ReportEditor() {
         </div>
       </Panel>
 
-      <AlertDialog open={runReviewOpen} onOpenChange={setRunReviewOpen}>
+      <AlertDialog open={runReviewOpen} onOpenChange={open=>{if(!open&&!runReviewConfirmedRef.current)setRunChecklistReviewed(false);runReviewConfirmedRef.current=false;setRunReviewOpen(open);}}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Review the prefilled run categories</AlertDialogTitle><AlertDialogDescription>The run checklist starts checked for speed. Review the full form, clear items that did not apply or were not completed acceptably, confirm arrest-related counts and additional forms (including the prefilled search and prisoner-slated counts), and verify the narrative before saving.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Review the prefilled run categories</AlertDialogTitle><AlertDialogDescription>The run checklist starts checked for speed. Review the full form, clear items that did not apply or were not completed acceptably, and confirm arrest-related counts and additional forms. Confirming creates an editable checklist-based narrative outline and returns you to the form for review and editing before saving.</AlertDialogDescription></AlertDialogHeader>
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={runChecklistReviewed} onChange={event=>setRunChecklistReviewed(event.target.checked)} data-testid="checkbox-run-checklist-review" /><span>I reviewed every active run checklist and cleared exceptions, non-applicable items, and items performed by the FTO.</span></label>
           {runError && <p role="alert" className="text-sm font-semibold text-destructive" data-testid="text-run-review-error">{runError}</p>}
-          <AlertDialogFooter><AlertDialogCancel data-testid="button-run-review-cancel">Return to run</AlertDialogCancel><AlertDialogAction onClick={()=>addRun(true)} data-testid="button-run-review-confirm">I reviewed categories and counts — save run</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel data-testid="button-run-review-cancel">Return to run</AlertDialogCancel><AlertDialogAction disabled={!runChecklistReviewed} onClick={confirmRunReview} data-testid="button-run-review-confirm">Confirm review and draft narrative</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={reviewOpen} onOpenChange={setReviewOpen}>

@@ -12,7 +12,7 @@ export function runDerivedActivityCounts(runs:TrainingRun[]):DailyActivitySummar
   for(const run of runs){
     if(run.formStatus!=='complete'||!run.checklistReviewedAt)continue;
     for(const [key,selected] of Object.entries(run.activityFlags??{})){
-      if(!selected)continue;
+      if(selected!==true)continue;
       if(key in counts) counts[key as keyof DailyActivitySummary]++;
     }
   }

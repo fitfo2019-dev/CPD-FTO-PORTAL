@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import {
   CATEGORY_LABEL,
   CATEGORIES,
@@ -23,6 +23,7 @@ import { formatDateDMY, formatDateTimeMDY, getSundaySaturdayWeek } from './train
 import { weeklyWorkbookForm } from './weekly-workbook-form.js';
 import { CLEARANCE_CODES, RADIO_CODES, formatRadioCode } from './radio-codes.js';
 import { activityTotals } from './run-activity.js';
+import { validateClassWorkbookInputs } from './export-validation.js';
 
 const safeText = (value: unknown): string | number => {
   if (typeof value === 'number') return value;
@@ -39,9 +40,95 @@ const ratingCounts = (reports: Report[]) =>
 const assignmentValue = (report: Report) => phaseAssignmentLabel(report.ftoAssignment, report.shift);
 
 function autosize(workbook: XLSX.WorkBook) {
+  const gridBorder = {
+    top: { style: 'thin', color: { rgb: 'FF555555' } },
+    bottom: { style: 'thin', color: { rgb: 'FF555555' } },
+    left: { style: 'thin', color: { rgb: 'FF555555' } },
+    right: { style: 'thin', color: { rgb: 'FF555555' } },
+  };
+  const headerStyle = {
+    fill: { patternType: 'solid', fgColor: { rgb: 'FFE8EDF2' } },
+    font: { bold: true, color: { rgb: 'FF172B45' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: gridBorder,
+  };
   for (const name of workbook.SheetNames) {
     const current = workbook.Sheets[name];
     const range = XLSX.utils.decode_range(current['!ref'] ?? 'A1');
+    for (let row = range.s.r; row <= range.e.r; row++) {
+      for (let column = range.s.c; column <= range.e.c; column++) {
+        const address = XLSX.utils.encode_cell({ r: row, c: column });
+        const cell = current[address];
+        if (!cell) continue;
+        const value = cell.v;
+        const isNumeric = typeof value === 'number' && Number.isFinite(value);
+        if (row === 0 && typeof value === 'string') cell.v = value.toLocaleUpperCase('en-US');
+        cell.s = {
+          border: gridBorder,
+          alignment: {
+            horizontal: isNumeric ? 'center' : 'left',
+            vertical: 'center',
+            wrapText: true,
+          },
+          ...(isNumeric ? { numFmt: '0' } : {}),
+          ...(row === 0 ? headerStyle : {}),
+        };
+      }
+    }
+    if (name === 'Class Summary') {
+      const title = current.A1;
+      if (title) title.s = {
+        ...headerStyle,
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFDCE5EF' } },
+        font: { bold: true, sz: 14, color: { rgb: 'FF142D4F' } },
+        alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+      };
+    }
+    if (name === 'Weekly Totals' || name === 'Phase Totals') {
+      const ratingColumns = RATINGS.map((rating, index) => {
+        const header = Array.from({ length: range.e.c + 1 }, (_, column) =>
+          current[XLSX.utils.encode_cell({ r: 0, c: column })]?.v === rating ? column : -1,
+        ).find(column => column >= 0);
+        return header ?? -1;
+      });
+      for (let row = 1; row <= range.e.r; row++) {
+        ratingColumns.forEach((column, index) => {
+          if (column < 0) return;
+          const cell = current[XLSX.utils.encode_cell({ r: row, c: column })];
+          if (!cell) return;
+          const rating = RATINGS[index];
+          const ratingFill: Record<Rating, string> = {
+            NO: 'FFE5E7EB',
+            A: 'FFDCFCE7',
+            RT: 'FFFEF3C7',
+            UA: 'FFFEE2E2',
+            NRT: 'FFFEE2E2',
+            '': 'FFFFFFFF',
+          };
+          cell.s = {
+            ...cell.s,
+            fill: { patternType: 'solid', fgColor: { rgb: ratingFill[rating] } },
+            alignment: { horizontal: 'center', vertical: 'center' },
+            border: gridBorder,
+          };
+        });
+      }
+    }
+    if (name === 'SEG Ratings') {
+      for (let row = 1; row <= range.e.r; row++) {
+        const ratingCell = current[XLSX.utils.encode_cell({ r: row, c: 7 })];
+        if (!ratingCell || typeof ratingCell.v !== 'string') continue;
+        const ratingStyleByCode: Partial<Record<Rating, { fill: { patternType: 'solid'; fgColor: { rgb: string } }; font: { bold: boolean; color: { rgb: string } } }>> = {
+          NO: { fill: { patternType: 'solid', fgColor: { rgb: 'FFE5E7EB' } }, font: { bold: true, color: { rgb: 'FF374151' } } },
+          A: { fill: { patternType: 'solid', fgColor: { rgb: 'FFDCFCE7' } }, font: { bold: true, color: { rgb: 'FF166534' } } },
+          RT: { fill: { patternType: 'solid', fgColor: { rgb: 'FFFEF3C7' } }, font: { bold: true, color: { rgb: 'FF92400E' } } },
+          UA: { fill: { patternType: 'solid', fgColor: { rgb: 'FFFEE2E2' } }, font: { bold: true, color: { rgb: 'FF991B1B' } } },
+          NRT: { fill: { patternType: 'solid', fgColor: { rgb: 'FFFEE2E2' } }, font: { bold: true, color: { rgb: 'FF991B1B' } } },
+        };
+        const ratingStyle = ratingStyleByCode[ratingCell.v as Rating];
+        if (ratingStyle) ratingCell.s = { ...ratingCell.s, ...ratingStyle, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBorder };
+      }
+    }
     current['!cols'] = Array.from({ length: range.e.c + 1 }, (_, column) => {
       let max = 10;
       for (let row = range.s.r; row <= range.e.r; row++) {
@@ -56,6 +143,11 @@ function autosize(workbook: XLSX.WorkBook) {
 }
 
 export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPacketAcknowledgement[] = [], weeklyLogs:WeeklyPerformanceLog[] = [], orientations:SubstationOrientationRecord[] = []) {
+  const validated = validateClassWorkbookInputs({ reports, acknowledgements, weeklyLogs, orientations });
+  reports = validated.reports;
+  acknowledgements = validated.acknowledgements;
+  weeklyLogs = validated.weeklyLogs;
+  orientations = validated.orientations;
   if (!reports.length) throw new Error('There are no saved daily logs to export.');
 
   const sorted = [...reports].sort((a, b) =>
@@ -357,7 +449,6 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
   for (const [name, rows] of sheets) {
     XLSX.utils.book_append_sheet(wb, sheet(rows.map(row => row.map(safeText))), name);
   }
-  autosize(wb);
   for (const reports of weeklyGroups.values()) {
     const first=reports[0];
     const week=getSundaySaturdayWeek(first.date);
@@ -372,6 +463,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
     }
     XLSX.utils.book_append_sheet(wb,weeklyWorkbookForm(reports,reports.filter(report=>!!report.ratingsReviewedAt&&!report.limboDay)),sheetName);
   }
+  autosize(wb);
   return wb;
 }
 

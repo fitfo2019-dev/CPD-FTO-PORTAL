@@ -5,3 +5,4 @@
 - [Help sources and role scope](approved-help-sources.md) — use manual/forms and official directive PDFs; distinguish directives from subsections and preserve role boundaries.
 - [Manual activity statistics](manual-statistics.md) — keep stats editable; only explicitly selected run metrics count, with the 10-6/1V exception.
 - [Print verification](print-verification.md) — verify physical PDF sheets; named-page wrappers and fixed heights can create unlabeled overflow.
+- [Run record boundaries](run-record-boundaries.md) — generate narrative drafts only after explicit checklist review; keep run evidence separate from ratings.
