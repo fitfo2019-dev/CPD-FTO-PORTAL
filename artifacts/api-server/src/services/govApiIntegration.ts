@@ -1,131 +1,220 @@
-const MAX_RESPONSE_BYTES = 1_000_000;
-const REQUEST_TIMEOUT_MS = 10_000;
-const UPSTREAM_PATH = "/api/v1/secure-records";
+import { verifyToken } from "@clerk/backend";
 
-export class GovApiError extends Error {
-  constructor(readonly statusCode: 502 | 503 | 504) {
-    super("UPSTREAM_SERVICE_FAILURE");
-    this.name = "GovApiError";
-  }
-}
+export type GovApiConfig = {
+  GOV_API_SECURE_RECORDS_URL?: string;
+  GOV_API_ALLOWED_HOSTS?: string;
+  GOV_API_AUDIENCE?: string;
+  GOV_API_AUTHORIZED_PARTIES?: string;
+  CLERK_SECRET_KEY?: string;
+};
 
-function getRealApiUrl(): URL {
-  const configuredUrl = process.env.REAL_API_URL;
-  if (!configuredUrl) {
-    throw new GovApiError(503);
-  }
+export type GovApiFailureCode =
+  | "GOV_API_NOT_CONFIGURED"
+  | "GOV_API_BEARER_INVALID"
+  | "GOV_API_BEARER_REQUIRED"
+  | "GOV_API_TIMEOUT"
+  | "GOV_API_UNAVAILABLE"
+  | "GOV_API_UPSTREAM_ERROR"
+  | "GOV_API_INVALID_RESPONSE";
 
-  try {
-    const baseUrl = new URL(configuredUrl);
-    if (
-      baseUrl.protocol !== "https:" ||
-      baseUrl.username ||
-      baseUrl.password ||
-      baseUrl.pathname !== "/" ||
-      baseUrl.search ||
-      baseUrl.hash
-    ) {
-      throw new Error("Invalid upstream base URL.");
-    }
-    return new URL(UPSTREAM_PATH, baseUrl);
-  } catch {
-    throw new GovApiError(503);
-  }
-}
-
-async function readJsonWithinLimit(response: Response): Promise<unknown> {
-  const contentType = response.headers
-    .get("content-type")
-    ?.split(";")[0]
-    .trim()
-    .toLowerCase();
-  if (
-    contentType !== "application/json" &&
-    !(contentType?.startsWith("application/") && contentType.endsWith("+json"))
+export class GovApiIntegrationError extends Error {
+  constructor(
+    readonly code: GovApiFailureCode,
+    readonly statusCode: number,
+    message: string,
   ) {
-    throw new GovApiError(502);
+    super(message);
+    this.name = "GovApiIntegrationError";
+  }
+}
+
+type FetchResponse = Pick<Response, "ok" | "status" | "headers" | "text">;
+type FetchFunction = (input: URL, init: RequestInit) => Promise<FetchResponse>;
+type TokenVerifier = (
+  token: string,
+  options: { secretKey: string; audience: string; authorizedParties: string[] },
+) => Promise<{ sub?: string }>;
+
+const REQUEST_TIMEOUT_MS = 5_000;
+const MAX_RESPONSE_BYTES = 1_000_000;
+const MAX_RECORDS = 500;
+
+function resolveApprovedEndpoint(config: GovApiConfig): URL {
+  if (
+    !config.GOV_API_SECURE_RECORDS_URL
+    || !config.GOV_API_AUDIENCE
+    || !config.GOV_API_ALLOWED_HOSTS
+    || !config.GOV_API_AUTHORIZED_PARTIES
+    || !config.CLERK_SECRET_KEY
+  ) {
+    throw new GovApiIntegrationError(
+      "GOV_API_NOT_CONFIGURED",
+      503,
+      "The approved government API connection is not configured.",
+    );
   }
 
-  const declaredLength = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_RESPONSE_BYTES) {
-    throw new GovApiError(502);
-  }
-
-  if (!response.body) {
-    throw new GovApiError(502);
-  }
-
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let totalBytes = 0;
+  let endpoint: URL;
   try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > MAX_RESPONSE_BYTES) {
-        await reader.cancel();
-        throw new GovApiError(502);
-      }
-      chunks.push(value);
-    }
-  } catch (error) {
-    if (error instanceof GovApiError) throw error;
-    throw new GovApiError(502);
-  } finally {
-    reader.releaseLock();
-  }
-
-  const bytes = new Uint8Array(totalBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  try {
-    return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+    endpoint = new URL(config.GOV_API_SECURE_RECORDS_URL);
   } catch {
-    throw new GovApiError(502);
+    throw new GovApiIntegrationError(
+      "GOV_API_NOT_CONFIGURED",
+      503,
+      "The approved government API endpoint is invalid.",
+    );
   }
+
+  const approvedHosts = new Set(
+    config.GOV_API_ALLOWED_HOSTS.split(",").map((host) => host.trim().toLowerCase()).filter(Boolean),
+  );
+  if (
+    endpoint.protocol !== "https:"
+    || endpoint.username
+    || endpoint.password
+    || endpoint.search
+    || endpoint.hash
+    || !approvedHosts.has(endpoint.hostname.toLowerCase())
+  ) {
+    throw new GovApiIntegrationError(
+      "GOV_API_NOT_CONFIGURED",
+      503,
+      "The government API endpoint is not on the approved HTTPS host list.",
+    );
+  }
+  return endpoint;
 }
 
 /**
- * Uses only the server-level credential. Never accept or forward a browser
- * Authorization header or the demonstration mock token upstream.
- *
- * Add only documented upstream headers here. If the provider requires a
- * client certificate, provision it through an approved secret/certificate
- * mechanism; never commit certificates or credential material.
+ * Forwards only the original bearer header, only to a configured HTTPS host,
+ * and only when Clerk-validated session claims contain the approved audience.
+ * The client token is never logged or returned to the caller.
  */
-export async function fetchRealGovernmentData(): Promise<unknown> {
-  const apiKey = process.env.REAL_API_KEY?.trim();
-  if (!apiKey || apiKey.length > 8192 || /[\r\n]/.test(apiKey)) {
-    throw new GovApiError(503);
+export async function fetchGovSecureRecords(
+  input: {
+    authorizationHeader: string | undefined;
+    authenticatedUserId: string;
+  },
+  config: GovApiConfig = process.env,
+  fetchImpl: FetchFunction = fetch as FetchFunction,
+  tokenVerifier: TokenVerifier = (token, options) => verifyToken(token, options),
+  requestTimeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<unknown[]> {
+  const endpoint = resolveApprovedEndpoint(config);
+  const bearerMatch = input.authorizationHeader?.match(/^Bearer ([A-Za-z0-9._~+/-]+=*)$/);
+  if (!bearerMatch) {
+    throw new GovApiIntegrationError(
+      "GOV_API_BEARER_REQUIRED",
+      401,
+      "A validated bearer token is required for the live connection.",
+    );
   }
-  const url = getRealApiUrl();
 
-  let response: Response;
+  const authorizedParties = config.GOV_API_AUTHORIZED_PARTIES!
+    .split(",")
+    .map((party) => party.trim())
+    .filter(Boolean);
+  if (!authorizedParties.length) {
+    throw new GovApiIntegrationError(
+      "GOV_API_NOT_CONFIGURED",
+      503,
+      "The approved government API connection is not configured.",
+    );
+  }
+
+  let verifiedClaims: { sub?: string };
   try {
-    response = await fetch(url, {
+    verifiedClaims = await tokenVerifier(bearerMatch[1], {
+      secretKey: config.CLERK_SECRET_KEY!,
+      audience: config.GOV_API_AUDIENCE!,
+      authorizedParties,
+    });
+  } catch {
+    throw new GovApiIntegrationError(
+      "GOV_API_BEARER_INVALID",
+      401,
+      "The bearer token could not be validated for the approved API.",
+    );
+  }
+  if (!verifiedClaims.sub || verifiedClaims.sub !== input.authenticatedUserId) {
+    throw new GovApiIntegrationError(
+      "GOV_API_BEARER_INVALID",
+      401,
+      "The bearer token identity did not match the authenticated account.",
+    );
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+  try {
+    const response = await fetchImpl(endpoint, {
       method: "GET",
       headers: {
-        accept: "application/json",
-        authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+        Authorization: input.authorizationHeader,
       },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      // Do not forward credentials across an upstream redirect.
-      redirect: "manual",
+      redirect: "error",
+      signal: controller.signal,
     });
-  } catch (error) {
-    if (error instanceof Error && error.name === "TimeoutError") {
-      throw new GovApiError(504);
+    if (!response.ok) {
+      throw new GovApiIntegrationError(
+        "GOV_API_UPSTREAM_ERROR",
+        502,
+        "The approved government API returned an unsuccessful response.",
+      );
     }
-    throw new GovApiError(502);
-  }
 
-  if (!response.ok) {
-    throw new GovApiError(502);
+    const contentLength = Number(response.headers.get("content-length") ?? "0");
+    if (contentLength > MAX_RESPONSE_BYTES) {
+      throw new GovApiIntegrationError(
+        "GOV_API_INVALID_RESPONSE",
+        502,
+        "The government API response exceeded the allowed size.",
+      );
+    }
+
+    const body = await response.text();
+    if (Buffer.byteLength(body, "utf8") > MAX_RESPONSE_BYTES) {
+      throw new GovApiIntegrationError(
+        "GOV_API_INVALID_RESPONSE",
+        502,
+        "The government API response exceeded the allowed size.",
+      );
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      throw new GovApiIntegrationError(
+        "GOV_API_INVALID_RESPONSE",
+        502,
+        "The government API returned invalid JSON.",
+      );
+    }
+    if (!Array.isArray(parsed) || parsed.length > MAX_RECORDS) {
+      throw new GovApiIntegrationError(
+        "GOV_API_INVALID_RESPONSE",
+        502,
+        "The government API response did not match the expected records array.",
+      );
+    }
+    return parsed;
+  } catch (error) {
+    if (error instanceof GovApiIntegrationError) throw error;
+    if (controller.signal.aborted) {
+      throw new GovApiIntegrationError(
+        "GOV_API_TIMEOUT",
+        504,
+        "The approved government API did not respond before the timeout.",
+      );
+    }
+    throw new GovApiIntegrationError(
+      "GOV_API_UNAVAILABLE",
+      502,
+      "The approved government API is temporarily unavailable.",
+    );
+  } finally {
+    clearTimeout(timeout);
   }
-  return readJsonWithinLimit(response);
 }

@@ -1,0 +1,419 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, type LocalChatDraft } from '@/lib/offlineStorage';
+import { createEmptyWorkspace } from '@/lib/empty-workspace';
+import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model';
+import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography';
+import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log';
+import { getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar';
+
+export type VaultState = 'none' | 'unlocked';
+type VaultIntent = 'save' | 'restore' | null;
+
+interface Ctx {
+  ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null;
+  setRole(r: Role): void; upsertReport(r: Report): void; upsertWeeklyAcknowledgement(ack: WeeklyPacketAcknowledgement): void; deleteReport(id: string): void; toggleTask(id: string, by: string): void; setCaseFolder(folder: PhaseCaseFolder): void;
+  upsertWeeklyPerformanceLog(log:WeeklyPerformanceLog):void; upsertSubstationOrientation(record:SubstationOrientationRecord):void;
+  upsertFtoPhasePosting(posting:FtoPhasePosting):void; upsertFtoPhaseSignup(signup:FtoPhaseSignup):void; upsertCoverageRequest(request:CoverageRequest):void;
+  upsertLawReviewRecord(record:LawReviewRecord):void; deleteLawReviewRecord(id:string):void;
+  importRoster(ftos: FtoRosterEntry[], assignments: TrainingAssignment[]): void; upsertAssignment(assignment: TrainingAssignment): void;
+  loadLocalChatDrafts(): Promise<LocalChatDraft[]>; saveLocalChatDraft(draft: LocalChatDraft): Promise<void>; deleteLocalChatDraft(id: string): Promise<void>;
+  intent: VaultIntent; openVault(i: Exclude<VaultIntent, null>): void; closeVault(): void;
+  setupAndSave(pass: string): Promise<void>; unlockAndRestore(pass: string): Promise<void>; saveNow(): Promise<void>; lockNow(reason?: string): void; dismissLockedNotice(): void;
+  resetWorkspace(): void;
+}
+const C = createContext<Ctx | null>(null);
+const IDLE_MS = 15 * 60 * 1000;
+const enc = (p: string) => new TextEncoder().encode(p);
+const migrateShift = (value: unknown): ReportShift => {
+  if (typeof value === 'string' && SHIFTS.includes(value as Shift)) return value as Shift;
+  if (value === 'Day' || value === 'Swing' || value === 'Night') return value;
+  throw new Error('A saved report has an unsupported shift. Its data was not changed.');
+};
+const emptyRatings = (): Report['ratings'] => Object.fromEntries<Report['ratings'][typeof CATEGORIES[number]]>(CATEGORIES.map(category => [category, { rating:'', nrtWithUnacceptable:false, nrtPriorUnacceptableIds:[], nrtPriorDocumentationReviewed:false, nrtTrainingReviewed:false, nrtCoordinatorsNotified:false, nrtFtoSergeantNotified:false, justification:'', nrtCorrectiveActions:'', nrtOfficeReviewStatus:'not_submitted' }])) as Report['ratings'];
+const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
+const DUTY_STATUSES: DutyStatus[] = ['on_duty','training','sick','off_duty','other'];
+function normalizeReportingForDuty(value: unknown) {
+  const empty = emptyReportingForDutyRecord();
+  if (!isRecord(value)) return empty;
+  const sourceChecklist = isRecord(value.checklist) ? value.checklist : {};
+  return {
+    dutyStatus: DUTY_STATUSES.includes(value.dutyStatus) ? value.dutyStatus as DutyStatus : empty.dutyStatus,
+    checklist: Object.fromEntries(Object.entries(sourceChecklist).filter(([, checked]) => typeof checked === 'boolean')),
+    notApplicable: Object.fromEntries(DAILY_DUTY_CHECKLIST.map(group=>[group.section,isRecord(value.notApplicable)&&value.notApplicable[group.section]===true])),
+    notes: typeof value.notes === 'string' ? value.notes : '',
+    reviewedAt: typeof value.reviewedAt === 'string' ? value.reviewedAt : undefined,
+  };
+}
+
+function upsertReportAndWeeklyUaLog(workspace:Workspace, report:Report):Workspace {
+  const reports=workspace.reports.some(item=>item.id===report.id)
+    ?workspace.reports.map(item=>item.id===report.id?report:item)
+    :[report,...workspace.reports];
+  const week=getSundaySaturdayWeek(report.date);
+  if(!week||!report.ratingsReviewedAt||report.limboDay||!CATEGORIES.some(category=>report.ratings[category]?.rating==='UA')) {
+    return {...workspace,reports};
+  }
+  const className=report.className??'';
+  const existing=(workspace.weeklyPerformanceLogs??[]).find(log=>
+    log.weekStart===week.start&&log.recruitBadge===report.recruitBadge&&log.className===className&&log.phase===report.phase,
+  );
+  const phaseFolder=workspace.phaseFolders.find(folder=>
+    folder.recruitBadge===report.recruitBadge&&folder.className===className&&folder.phase===report.phase,
+  );
+  const assignment=workspace.assignments.find(item=>
+    item.recruitBadge===report.recruitBadge&&item.className===className&&item.phase===report.phase,
+  );
+  const phaseStartDate=phaseFolder?.phaseStartDate??assignment?.phaseStartDate;
+  const phaseWeek=phaseStartDate?getTrainingWeekNumber(week.start,phaseStartDate)??(report.phaseWeek??1):report.phaseWeek??1;
+  const weekNumber=PHASE_PROGRAM_WEEK_START[report.phase]+phaseWeek-1;
+  const base:WeeklyPerformanceLog=existing??{
+    id:`weekly-ua-${className}-${report.recruitBadge}-${report.phase}-${week.start}`,
+    weekStart:week.start,weekEnd:week.end,weekNumber,phase:report.phase,phaseWeek:report.phaseWeek,ftoWeek:report.ftoWeek,
+    className,recruitName:report.recruitName,recruitBadge:report.recruitBadge,ftoName:report.ftoName,ftoBadge:report.ftoBadge,
+    entries:[],updatedAt:new Date().toISOString(),
+  };
+  const matchingWeekReports=reports.filter(item=>
+    item.recruitBadge===report.recruitBadge&&(item.className??'')===className&&item.phase===report.phase
+      &&getSundaySaturdayWeek(item.date)?.start===week.start,
+  );
+  const merged=mergeReviewedUaEntries(base,matchingWeekReports,workspace.assignments,phaseFolder??workspace.caseFolder);
+  if(merged===base) return {...workspace,reports};
+  const updated={...merged,updatedAt:new Date().toISOString()};
+  const logs=workspace.weeklyPerformanceLogs??[];
+  return {...workspace,reports,weeklyPerformanceLogs:existing
+    ?logs.map(log=>log.id===existing.id?updated:log)
+    :[updated,...logs]};
+}
+
+function migrateRatings(value: unknown, previous?: Report['legacyEvaluation']) {
+  const source = isRecord(value) ? value : {};
+  const alreadyManual = CATEGORIES.every(category => isRecord(source[category]) && (source[category].rating === '' || RATINGS.includes(source[category].rating as Exclude<Rating,''>)));
+  if (alreadyManual) {
+    const ratings = Object.fromEntries(CATEGORIES.map(category => {
+      const entry = source[category] as Record<string, unknown>;
+      return [category, {
+        rating: entry.rating as Rating,
+        nrtWithUnacceptable: entry.nrtWithUnacceptable === true,
+        nrtPriorUnacceptableIds: Array.isArray(entry.nrtPriorUnacceptableIds) ? entry.nrtPriorUnacceptableIds.filter((id): id is string => typeof id === 'string') : [],
+        nrtPriorDocumentationReviewed: entry.nrtPriorDocumentationReviewed === true,
+        nrtTrainingReviewed: entry.nrtTrainingReviewed === true,
+        nrtCoordinatorsNotified: entry.nrtCoordinatorsNotified === true,
+        nrtFtoSergeantNotified: entry.nrtFtoSergeantNotified === true,
+        justification: typeof entry.justification === 'string' ? entry.justification : '',
+        nrtCorrectiveActions: typeof entry.nrtCorrectiveActions === 'string' ? entry.nrtCorrectiveActions : '',
+        nrtOfficeReviewStatus: ['not_submitted','submitted','responded'].includes(String(entry.nrtOfficeReviewStatus)) ? entry.nrtOfficeReviewStatus as Report['ratings'][typeof CATEGORIES[number]]['nrtOfficeReviewStatus'] : 'not_submitted',
+        nrtOfficeAction: ['accepted_meeting','call_office','more_information'].includes(String(entry.nrtOfficeAction)) ? entry.nrtOfficeAction as Report['ratings'][typeof CATEGORIES[number]]['nrtOfficeAction'] : undefined,
+        nrtOfficeResponse: typeof entry.nrtOfficeResponse === 'string' ? entry.nrtOfficeResponse : '',
+        nrtOfficeSubmittedAt: typeof entry.nrtOfficeSubmittedAt === 'string' ? entry.nrtOfficeSubmittedAt : undefined,
+        nrtOfficeRespondedAt: typeof entry.nrtOfficeRespondedAt === 'string' ? entry.nrtOfficeRespondedAt : undefined,
+      }];
+    })) as Report['ratings'];
+    return { ratings, legacyEvaluation: previous };
+  }
+  const preserved = Object.fromEntries(Object.entries(source).map(([category, raw]) => {
+    const entry = isRecord(raw) ? raw : {};
+    return [category, { rating: String(entry.rating ?? ''), justification: typeof entry.justification === 'string' ? entry.justification : '' }];
+  }));
+  const hasPreviousValues = Object.values(preserved).some(entry => entry.rating || entry.justification);
+  const ratings = emptyRatings();
+  for (const category of CATEGORIES) {
+    const entry = source[category];
+    if (!isRecord(entry) || !(entry.rating === '' || RATINGS.includes(entry.rating))) continue;
+    ratings[category] = {
+      ...ratings[category], ...entry, rating: entry.rating,
+      justification: typeof entry.justification === 'string' ? entry.justification : '',
+    };
+  }
+  return {
+    ratings,
+    legacyEvaluation: hasPreviousValues ? {
+      source:'Preserved values from superseded SEG lists; not counted in current summaries',
+      ratings:{ ...(previous?.ratings ?? {}), ...preserved },
+    } : previous,
+  };
+}
+
+function migrateGeography(value: { zone?: unknown; precinct?: unknown; cruiserDistrict?: unknown; beat?: unknown; legacyGeography?: Report['legacyGeography'] }) {
+  const zone = String(value.zone ?? '');
+  const precinct = String(value.precinct ?? '');
+  const cruiserDistrict = String(value.cruiserDistrict ?? '');
+  const direct = isValidAssignment(zone, precinct, cruiserDistrict)
+    ? { zone, precinct, cruiserDistrict }
+    : assignmentFromPrecinctAndDistrict(precinct, cruiserDistrict || String(value.beat ?? ''));
+  const previousPrecinctText = direct ? undefined : (precinct || undefined);
+  const previousAreaText = direct ? undefined : (String(value.beat ?? '') || undefined);
+  const legacyGeography = value.legacyGeography ?? (previousPrecinctText || previousAreaText ? { previousPrecinctText, previousAreaText } : undefined);
+  return { ...(direct ?? { zone:'', precinct:'', cruiserDistrict:'' }), legacyGeography };
+}
+function migrateCaseFolder(value:unknown):PhaseCaseFolder|undefined {
+  if(!isRecord(value)) return undefined;
+  const raw=value as PhaseCaseFolder&{beat?:unknown};
+  const phase=Number(raw.phase);
+  if(![1,2,3,4].includes(phase)||!SHIFTS.includes(raw.shift as Shift)) return undefined;
+  const {beat:_oldAreaField,...folderWithoutOldField}=raw;
+  const geography=migrateGeography(raw);
+  return {
+    ...folderWithoutOldField,
+    assignmentId:typeof raw.assignmentId==='string'?raw.assignmentId:undefined,
+    className:typeof raw.className==='string'?raw.className:'',
+    recruitName:typeof raw.recruitName==='string'?raw.recruitName:'',
+    recruitBadge:typeof raw.recruitBadge==='string'?raw.recruitBadge:'',
+    ftoName:typeof raw.ftoName==='string'?raw.ftoName:'',
+    ftoBadge:typeof raw.ftoBadge==='string'?raw.ftoBadge:'',
+    phase:phase as PhaseCaseFolder['phase'],
+    shift:raw.shift as Shift,
+    ...geography,
+    zone:geography.zone,
+    precinct:geography.precinct,
+    cruiserDistrict:geography.cruiserDistrict,
+    ftoAssignment:typeof raw.ftoAssignment==='string'?raw.ftoAssignment:'',
+    daysOff:(Array.isArray(raw.daysOff)?raw.daysOff:[]).filter((day):day is Weekday=>Number.isInteger(day)&&day>=0&&day<=6),
+    phaseStartDate:typeof raw.phaseStartDate==='string'?raw.phaseStartDate:'',
+    openedAt:typeof raw.openedAt==='string'?raw.openedAt:'',
+  };
+}
+function sameCaseFolder(a:PhaseCaseFolder,b:PhaseCaseFolder) {
+  if(a.assignmentId&&b.assignmentId) return a.assignmentId===b.assignmentId;
+  return (a.className??'').toLowerCase()===(b.className??'').toLowerCase()
+    &&a.recruitBadge.toLowerCase()===b.recruitBadge.toLowerCase()
+    &&a.phase===b.phase;
+}
+
+export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const storage = useRef<OfflineStorage>(null as unknown as OfflineStorage);
+  if (!storage.current) storage.current = new OfflineStorage('fieldready-demo');
+  const [ws, setWs] = useState<Workspace>(createEmptyWorkspace);
+  const [epoch, setEpoch] = useState(0);
+  const [vault, setVault] = useState<VaultState>('none');
+  const [restored, setRestored] = useState(false);
+  const [pending, setPending] = useState(0);
+  const [dirty, setDirty] = useState(false);
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+  const [storagePersistent, setStoragePersistent] = useState<boolean | null>(null);
+  const [intent, setIntent] = useState<VaultIntent>(null);
+  const [lockedNotice, setLockedNotice] = useState(false);
+  const [lockedWithUnsaved, setLockedWithUnsaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const wasOnline = useRef(online);
+  const rev = useRef(0);
+  const wsRef = useRef(ws); wsRef.current = ws;
+  const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
+  const editorDirtyRef = useRef(editorDirty); editorDirtyRef.current = editorDirty;
+  const saveErrorRef = useRef(saveError); saveErrorRef.current = saveError;
+
+  useEffect(() => { const on = () => setOnline(true), off = () => setOnline(false);
+    window.addEventListener('online', on); window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); }; }, []);
+  useEffect(() => { void persistentStorageStatus().then(setStoragePersistent); }, []);
+
+  const refreshPending = useCallback(async () => { try { if (storage.current.isUnlocked) setPending(await storage.current.pendingCount()); } catch { /* ignore */ } }, []);
+
+  const persist = useCallback(async (w: Workspace) => {
+    const at = rev.current;
+    try { await storage.current.save<Workspace>('workspace', w); }
+    catch (e) { setSaveError(e instanceof Error ? e.message : 'Local save failed'); throw e; }
+    setSaveError(null);
+    if (rev.current === at) setDirty(false);
+    await refreshPending();
+  }, [refreshPending]);
+
+  // A recovered connection retries a failed encrypted local write. It does not
+  // upload anything; no authenticated server transport is configured here.
+  useEffect(() => {
+    const recovered = online && !wasOnline.current;
+    wasOnline.current = online;
+    if (recovered && vault === 'unlocked' && dirty) {
+      void persist(wsRef.current).catch(() => { /* surfaced via saveError banner */ });
+    }
+  }, [online, vault, dirty, persist]);
+
+  const mutate = useCallback((fn: (w: Workspace) => Workspace) => { rev.current++; setWs(w => fn(w)); setDirty(true); }, []);
+
+  // autosave when vault unlocked
+  const saveTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (vault !== 'unlocked' || !dirty) return;
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => { persist(wsRef.current).catch(() => { /* surfaced via saveError banner */ }); }, 800);
+    return () => window.clearTimeout(saveTimer.current);
+  }, [ws, vault, dirty, persist]);
+
+  const lockNow = useCallback((reason?: string) => {
+    setLockedWithUnsaved(!!reason && (dirtyRef.current || editorDirtyRef.current || !!saveErrorRef.current));
+    storage.current.lock();
+    setVault('none'); setRestored(false); setPending(0); setDirty(false); setEditorDirty(false); setSaveError(null);
+    setWs(createEmptyWorkspace()); setEpoch(e => e + 1);
+    if (reason) setLockedNotice(true);
+  }, []);
+
+  // inactivity
+  useEffect(() => {
+    if (vault !== 'unlocked') return;
+    let t = window.setTimeout(() => lockNow('idle'), IDLE_MS);
+    const reset = () => { window.clearTimeout(t); t = window.setTimeout(() => lockNow('idle'), IDLE_MS); };
+    const ev = ['pointerdown','keydown','scroll','touchstart'];
+    ev.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    return () => { window.clearTimeout(t); ev.forEach(e => window.removeEventListener(e, reset)); };
+  }, [vault, lockNow]);
+
+  const setupAndSave = useCallback(async (pass: string) => {
+    const s = storage.current;
+    await s.unlock(enc(pass));
+    let existing: Workspace | undefined;
+    try { existing = await s.get<Workspace>('workspace'); }
+    catch { s.lock(); throw new Error('A saved vault already exists on this device and this passphrase does not open it. Use "Unlock saved work" instead — nothing was overwritten.'); }
+    if (existing) { s.lock(); throw new Error('Saved work already exists on this device. Use "Unlock saved work" to restore it first — nothing was overwritten.'); }
+    const w = { ...wsRef.current, version: wsRef.current.version + 1 };
+    try { await persist(w); } catch (e) { s.lock(); throw e; }
+    setWs(w); setVault('unlocked'); setRestored(true);
+    setStoragePersistent(await requestPersistentStorage());
+    setLockedWithUnsaved(false); setLockedNotice(false);
+  }, [persist]);
+
+  const unlockAndRestore = useCallback(async (pass: string) => {
+    const s = storage.current;
+    await s.unlock(enc(pass));
+    let data: Workspace | undefined;
+    try { data = await s.get<Workspace>('workspace'); }
+    catch { s.lock(); throw new Error('Could not decrypt saved work. The passphrase may be wrong, or the data is damaged.'); }
+    if (!data) { s.lock(); throw new Error('No saved work found on this device. Use "Save locally" to create a vault.'); }
+    let migratedReports: Report[];
+    let restoredCaseFolder: PhaseCaseFolder | undefined;
+    try {
+      migratedReports = data.reports.filter(saved=>[1,2,3,4].includes(Number(saved.phase))).map(saved => {
+        const raw = saved as Report & { beat?: unknown; ratings?: unknown };
+        const { beat: _oldAreaField, ...reportWithoutOldField } = raw;
+        const geography = migrateGeography(raw);
+        const evaluation = migrateRatings(raw.ratings, raw.legacyEvaluation);
+        return {
+          ...reportWithoutOldField,
+          ...geography,
+          ...evaluation,
+          activity: normalizeDailyActivitySummary(raw.activity),
+          activityCountsIncludeRuns:raw.activityCountsIncludeRuns??true,
+          legacyActivity: { ...raw.legacyActivity, ...(isRecord(raw.activity) && 'completedPayouts' in raw.activity ? { completedPayouts: raw.activity.completedPayouts } : {}) },
+          runs: Array.isArray(raw.runs) ? raw.runs.map((sourceRun) => {
+            if (!isRecord(sourceRun)) throw new Error('A saved run form is invalid. Its data was not changed.');
+            const { citationDisposition: legacyDisposition, ...run } = sourceRun as TrainingRun & { citationDisposition?: unknown };
+            void legacyDisposition;
+            const flags = isRecord(run.activityFlags)
+              ? Object.fromEntries(Object.entries(run.activityFlags).filter(([key,value]) =>
+                  DAILY_ACTIVITY_FIELDS.some(field=>field.key===key) && typeof value==='boolean'))
+              : undefined;
+            return { ...run, activityFlags: flags } as unknown as TrainingRun;
+          }) : [],
+          reportingForDuty: normalizeReportingForDuty(raw.reportingForDuty),
+          className: typeof raw.className === 'string' ? raw.className : '',
+          shift: migrateShift(raw.shift),
+          zone: geography.zone,
+          precinct: geography.precinct,
+          cruiserDistrict: geography.cruiserDistrict,
+          ftoAssignment:typeof raw.ftoAssignment==='string'?raw.ftoAssignment:undefined,
+          recruitComments: raw.recruitComments ?? '',
+        };
+      });
+      restoredCaseFolder=migrateCaseFolder(data.caseFolder);
+    } catch (e) {
+      s.lock();
+      throw e;
+    }
+    const savedWorkspace = data as Workspace & { weeklyAcknowledgements?: WeeklyPacketAcknowledgement[]; weeklyPerformanceLogs?:WeeklyPerformanceLog[]; substationOrientations?:SubstationOrientationRecord[]; assignmentMessages?: unknown };
+    const { assignmentMessages: legacyChatHistory, ...workspaceWithoutChatHistory } = savedWorkspace;
+    void legacyChatHistory;
+    const phaseFolders=Array.isArray(savedWorkspace.phaseFolders)
+      ?savedWorkspace.phaseFolders.map(migrateCaseFolder).filter((folder):folder is PhaseCaseFolder=>!!folder)
+      :[];
+    if(restoredCaseFolder&&!phaseFolders.some(folder=>sameCaseFolder(folder,restoredCaseFolder!))) phaseFolders.push(restoredCaseFolder);
+    const weeklyAcknowledgements = Array.isArray(savedWorkspace.weeklyAcknowledgements)
+      ? savedWorkspace.weeklyAcknowledgements.map(ack => {
+          const legacy = ack.signatures as WeeklyPacketAcknowledgement['signatures'] & { sergeant?: WeeklyPacketAcknowledgement['signatures']['fto'] };
+          const { sergeant, ...signatures } = legacy;
+          return { ...ack, signatures: { ...signatures, ...(sergeant ? { legacySergeant: sergeant } : {}) } };
+        })
+      : [];
+    const weeklyPerformanceLogs=Array.isArray(savedWorkspace.weeklyPerformanceLogs)
+      ?savedWorkspace.weeklyPerformanceLogs.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.weekStart==='string'&&typeof item.recruitBadge==='string'&&Array.isArray(item.entries))
+      :[];
+    const substationOrientations=Array.isArray(savedWorkspace.substationOrientations)
+      ?savedWorkspace.substationOrientations.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&isRecord(item.checklist))
+      :[];
+    const ftoPhasePostings=Array.isArray(savedWorkspace.ftoPhasePostings)
+      ?savedWorkspace.ftoPhasePostings.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.className==='string'&&[1,2,3,4].includes(Number(item.phase))&&typeof item.phaseStartDate==='string'&&['open','closed'].includes(String(item.status)))
+      :[];
+    const ftoPhaseSignups=Array.isArray(savedWorkspace.ftoPhaseSignups)
+      ?savedWorkspace.ftoPhaseSignups.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.postingId==='string'&&typeof item.ftoBadge==='string'&&['local_unsent','selected_locally','withdrawn'].includes(String(item.status)))
+      :[];
+    const coverageRequests=Array.isArray(savedWorkspace.coverageRequests)
+      ?savedWorkspace.coverageRequests.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&typeof item.startDateTime==='string'&&typeof item.endDateTime==='string'&&['local_unsent','cancelled'].includes(String(item.status)))
+      :[];
+    const lawReviewRecords=Array.isArray(savedWorkspace.lawReviewRecords)
+      ?savedWorkspace.lawReviewRecords.filter((item):item is LawReviewRecord=>isRecord(item)&&typeof item.id==='string'&&typeof item.assignmentId==='string'&&typeof item.recruitBadge==='string'&&typeof item.recruitName==='string'&&typeof item.sourceId==='string'&&typeof item.sourceLabel==='string'&&[1,2,3,4].includes(Number(item.phase))&&['assigned','reviewed'].includes(String(item.state)))
+      :[];
+    const ftoDirectory = Array.isArray(savedWorkspace.ftoDirectory) ? savedWorkspace.ftoDirectory.filter(item=>isRecord(item)&&typeof item.badge==='string'&&typeof item.name==='string') : [];
+    const assignments = Array.isArray(savedWorkspace.assignments) ? savedWorkspace.assignments.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&[1,2,3,4].includes(Number(item.phase))) : [];
+    const tasks=Array.isArray(savedWorkspace.tasks)?savedWorkspace.tasks.filter(item=>isRecord(item)&&[1,2,3,4].includes(Number(item.phase))):[];
+    setWs({ ...workspaceWithoutChatHistory, role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords }); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(false); setLockedNotice(false); setLockedWithUnsaved(false);
+    setStoragePersistent(await requestPersistentStorage());
+    await refreshPending();
+  }, [refreshPending]);
+
+  const saveNow = useCallback(async () => {
+    if (vault !== 'unlocked') { setIntent('save'); return; }
+    await persist(wsRef.current);
+  }, [vault, persist]);
+
+  const loadLocalChatDrafts = useCallback(() => storage.current.getLocalOnlyDrafts<LocalChatDraft>(), []);
+  const saveLocalChatDraft = useCallback((draft: LocalChatDraft) => storage.current.saveLocalOnlyDraft(`chat-draft:${draft.id}`, draft), []);
+  const deleteLocalChatDraft = useCallback((id: string) => storage.current.deleteLocalOnlyDraft(`chat-draft:${id}`), []);
+
+  const value = useMemo<Ctx>(() => ({
+    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent,
+    setRole: (role) => setWs(w => ({ ...w, role: normalizePreviewRole(role) })),
+    setCaseFolder: (caseFolder) => mutate(w => {
+      const folders=w.phaseFolders??[];
+      const index=folders.findIndex(existing=>sameCaseFolder(existing,caseFolder));
+      const phaseFolders=index<0?[...folders,caseFolder]:folders.map((existing,i)=>i===index?caseFolder:existing);
+      return {...w,caseFolder,phaseFolders};
+    }),
+    importRoster: (ftos, assignments) => mutate(w => {
+      const directory = new Map(w.ftoDirectory.map(item=>[item.badge.toLowerCase(),item]));
+      ftos.forEach(item=>{
+        const previous=directory.get(item.badge.toLowerCase());
+        directory.set(item.badge.toLowerCase(),{...previous,...item,email:item.email??previous?.email});
+      });
+      const byIdentity = new Map(w.assignments.map(item=>[[item.className.toLowerCase(),item.recruitBadge.toLowerCase(),item.phase,item.phaseStartDate].join('|'),item]));
+      assignments.forEach(item=>{
+        const key=[item.className.toLowerCase(),item.recruitBadge.toLowerCase(),item.phase,item.phaseStartDate].join('|');
+        const old=byIdentity.get(key);
+        byIdentity.set(key,{...old,...item,id:old?.id??item.id,recruitEmail:item.recruitEmail??old?.recruitEmail,shift:item.shift??old?.shift,daysOff:item.daysOff??old?.daysOff,zone:item.zone??old?.zone,precinct:item.precinct??old?.precinct,cruiserDistrict:item.cruiserDistrict??old?.cruiserDistrict,ftoAssignment:item.ftoAssignment??old?.ftoAssignment});
+      });
+      return {...w,ftoDirectory:[...directory.values()],assignments:[...byIdentity.values()]};
+    }),
+    loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft,
+    upsertAssignment: (assignment) => mutate(w=>({...w,assignments:w.assignments.some(item=>item.id===assignment.id)?w.assignments.map(item=>item.id===assignment.id?assignment:item):[...w.assignments,assignment]})),
+    upsertReport: (r) => mutate(w => upsertReportAndWeeklyUaLog(w,r)),
+    upsertWeeklyAcknowledgement: (ack) => mutate(w => ({ ...w, weeklyAcknowledgements: w.weeklyAcknowledgements.some(x => x.id === ack.id) ? w.weeklyAcknowledgements.map(x => x.id === ack.id ? ack : x) : [ack, ...w.weeklyAcknowledgements] })),
+    upsertWeeklyPerformanceLog:(log)=>mutate(w=>({...w,weeklyPerformanceLogs:(w.weeklyPerformanceLogs??[]).some(item=>item.id===log.id)?w.weeklyPerformanceLogs.map(item=>item.id===log.id?log:item):[log,...(w.weeklyPerformanceLogs??[])]})),
+    upsertSubstationOrientation:(record)=>mutate(w=>({...w,substationOrientations:(w.substationOrientations??[]).some(item=>item.id===record.id)?w.substationOrientations.map(item=>item.id===record.id?record:item):[record,...(w.substationOrientations??[])]})),
+     upsertFtoPhasePosting:(posting)=>mutate(w=>({...w,ftoPhasePostings:(w.ftoPhasePostings??[]).some(item=>item.id===posting.id)?w.ftoPhasePostings.map(item=>item.id===posting.id?posting:item):[posting,...(w.ftoPhasePostings??[])]})),
+     upsertFtoPhaseSignup:(signup)=>mutate(w=>({...w,ftoPhaseSignups:(w.ftoPhaseSignups??[]).some(item=>item.id===signup.id)?w.ftoPhaseSignups.map(item=>item.id===signup.id?signup:item):[signup,...(w.ftoPhaseSignups??[])]})),
+     upsertCoverageRequest:(request)=>mutate(w=>({...w,coverageRequests:(w.coverageRequests??[]).some(item=>item.id===request.id)?w.coverageRequests.map(item=>item.id===request.id?request:item):[request,...(w.coverageRequests??[])]})),
+      upsertLawReviewRecord:(record)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).some(item=>item.id===record.id)?w.lawReviewRecords.map(item=>item.id===record.id?record:item):[record,...(w.lawReviewRecords??[])]})),
+      deleteLawReviewRecord:(id)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).filter(item=>item.id!==id)})),
+    deleteReport: (id) => mutate(w => ({ ...w, reports: w.reports.filter(r => r.id !== id) })),
+    toggleTask: (id, by) => mutate(w => ({ ...w, tasks: w.tasks.map((t: Task) => t.id !== id ? t : t.done ? { ...t, done: false, by: undefined, at: undefined } : { ...t, done: true, by, at: new Date().toISOString() }) })),
+    openVault: (i) => setIntent(i), closeVault: () => setIntent(null),
+    setupAndSave, unlockAndRestore, saveNow, lockNow, dismissLockedNotice: () => setLockedNotice(false),
+    resetWorkspace: () => { rev.current++; setWs(createEmptyWorkspace()); setDirty(true); setEditorDirty(false); setEpoch(e => e + 1); },
+  }), [ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, setupAndSave, unlockAndRestore, saveNow, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft]);
+
+  return <C.Provider value={value}>{children}</C.Provider>;
+}
+export function useWorkspace() { const c = useContext(C); if (!c) throw new Error('WorkspaceProvider missing'); return c; }
+
+export function useTheme() {
+  const [night, setNight] = useState(() => { try { return localStorage.getItem('fieldready.theme') === 'night'; } catch { return false; } });
+  useEffect(() => { document.documentElement.classList.toggle('dark', night); try { localStorage.setItem('fieldready.theme', night ? 'night' : 'day'); } catch { /* ignore */ } }, [night]);
+  return { night, toggle: () => setNight(n => !n) };
+}

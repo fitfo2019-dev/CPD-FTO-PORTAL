@@ -1,0 +1,264 @@
+import { useEffect, useRef, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { ClerkProvider, SignIn, useClerk } from '@clerk/react';
+import { publishableKeyFromHost } from '@clerk/react/internal';
+import { shadcn } from '@clerk/themes';
+import { ErrorBoundary } from '@/components/error-boundary';
+import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import NotFound from '@/pages/not-found';
+import { Redirect, Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
+import { WorkspaceProvider, useWorkspace } from '@/state/workspace';
+import { Shell } from '@/components/shell';
+import Dashboard from '@/pages/dashboard';
+import Reports from '@/pages/reports';
+import ReportEditor from '@/pages/report-editor';
+import Training from '@/pages/training';
+import Settings from '@/pages/settings';
+import WeeklyAcknowledgementPage from '@/pages/weekly-acknowledgement';
+import WeeklySummaryPage from '@/pages/weekly-summary';
+import MonthlySummaryPage from '@/pages/monthly-summary';
+import ClassOverview from '@/pages/class-overview';
+import SubstituteFtoPage from '@/pages/substitute-fto';
+import NrtFollowUpPage from '@/pages/nrt-follow-up';
+import NrtUaPortalPage from '@/pages/nrt-ua-portal';
+import PhaseSetupPage from '@/pages/phase-setup';
+import FtoForumPage from '@/pages/fto-forum';
+import HelpPage from '@/pages/help';
+import CommandReviewPage from '@/pages/command-review';
+import WeeklyPerformanceLogPage from '@/pages/weekly-performance-log';
+import SubstationOrientationPage from '@/pages/substation-orientation';
+import RoleAccessPage from '@/pages/role-access';
+import { isTechnicalRole } from '@/lib/model';
+import { getNextReportDate } from '@/lib/training-calendar';
+import FtoClassesPage from '@/pages/fto-classes';
+
+const queryClient = new QueryClient();
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+const clerkPubKey = publishableKeyFromHost(
+  window.location.hostname,
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+);
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+
+if (!clerkPubKey) {
+  throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in the Field Training Officer Portal environment.');
+}
+
+function stripBase(path: string): string {
+  return basePath && path.startsWith(basePath)
+    ? path.slice(basePath.length) || '/'
+    : path;
+}
+
+const clerkAppearance = {
+  theme: shadcn,
+  cssLayerName: 'clerk',
+  options: {
+    logoPlacement: 'inside' as const,
+    logoLinkUrl: basePath || '/',
+    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+  },
+  variables: {
+    colorPrimary: '#004b87',
+    colorForeground: '#1e293b',
+    colorMutedForeground: '#475569',
+    colorDanger: '#b42318',
+    colorBackground: '#ffffff',
+    colorInput: '#ffffff',
+    colorInputForeground: '#1e293b',
+    colorNeutral: '#1e293b',
+    fontFamily: 'Arial, "Helvetica Neue", sans-serif',
+    borderRadius: '0.375rem',
+  },
+  elements: {
+    rootBox: 'w-full flex justify-center',
+    cardBox: 'bg-white rounded-md w-[440px] max-w-full overflow-hidden',
+    card: '!shadow-none !border-0 !bg-transparent !rounded-none',
+    footer: '!shadow-none !border-0 !bg-transparent !rounded-none',
+    headerTitle: 'text-slate-900 font-bold',
+    headerSubtitle: 'text-slate-600',
+    socialButtonsBlockButtonText: 'text-slate-900 font-semibold',
+    formFieldLabel: 'text-slate-800 font-semibold',
+    footerActionLink: 'text-blue-800 font-semibold',
+    footerActionText: 'text-slate-600',
+    dividerText: 'text-slate-600',
+    identityPreviewEditButton: 'text-blue-800',
+    formFieldSuccessText: 'text-green-800',
+    alertText: 'text-slate-900',
+    logoBox: 'mx-auto',
+    logoImage: 'max-h-10',
+    socialButtonsBlockButton: 'border-slate-300 bg-white',
+    formButtonPrimary: 'bg-blue-800 text-white hover:bg-blue-900',
+    formFieldInput: 'border-slate-300 bg-white text-slate-900',
+    footerAction: 'text-slate-600',
+    dividerLine: 'bg-slate-300',
+    alert: 'border-slate-300 bg-slate-50',
+    otpCodeFieldInput: 'border-slate-300 bg-white text-slate-900',
+    formFieldRow: 'text-slate-800',
+    main: 'text-slate-900',
+  },
+};
+
+function SignInPage() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8">
+      <SignIn
+        routing="path"
+        path={`${basePath}/sign-in`}
+        signUpUrl={`${basePath}/sign-up`}
+        appearance={clerkAppearance}
+      />
+    </div>
+  );
+}
+
+function SignUpPage() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8">
+      <section className="w-full max-w-lg rounded-md border bg-card p-6" role="status">
+        <p className="label-caps">Account access</p>
+        <h1 className="mt-2 text-2xl font-bold">Account activation is invitation-only</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Account invitation and verification are not available here yet. Contact FTO Office Admin for account status. Training access opens after your department email, class, and starting phase are confirmed.</p>
+        <a href={`${basePath}/sign-in`} className="mt-5 inline-flex min-h-11 items-center rounded bg-primary px-4 text-sm font-bold text-primary-foreground">Return to sign in</a>
+      </section>
+    </div>
+  );
+}
+
+function ClerkQueryClientCacheInvalidator() {
+  const { addListener } = useClerk();
+  const cache = useQueryClient();
+  const previousUserId = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    const unsubscribe = addListener(({ user }) => {
+      const userId = user?.id ?? null;
+      if (previousUserId.current !== undefined && previousUserId.current !== userId) {
+        cache.clear();
+      }
+      previousUserId.current = userId;
+    });
+    return unsubscribe;
+  }, [addListener, cache]);
+
+  return null;
+}
+
+function WorkspaceRoutes() {
+  const { epoch, ws } = useWorkspace();
+  // Fail closed in the COC preview: no draft/class route is rendered.
+  // This UI boundary is not a substitute for server-side packet authorization.
+  if (isTechnicalRole(ws.role)) return <RoutedErrorBoundary><Switch>
+    <Route path="/help" component={HelpPage}/>
+    <Route path="/technical-access" component={RoleAccessPage}/>
+    <Route component={RoleAccessPage}/>
+  </Switch></RoutedErrorBoundary>;
+  if (ws.role === 'po') return <RoutedErrorBoundary><Switch>
+    <Route path="/help" component={HelpPage}/>
+    <Route path="/role-access" component={RoleAccessPage}/>
+    <Route component={RoleAccessPage}/>
+  </Switch></RoutedErrorBoundary>;
+  if (ws.role === 'fto_coc') return <RoutedErrorBoundary><Switch>
+    <Route path="/help" component={HelpPage}/>
+    <Route component={CommandReviewPage}/>
+  </Switch></RoutedErrorBoundary>;
+  return (
+    <RoutedErrorBoundary>
+      <Switch key={epoch}>
+        <Route path="/" component={Dashboard} />
+        <Route path="/phase-setup" component={PhaseSetupPage} />
+        <Route path="/substation-orientation" component={SubstationOrientationPage} />
+        <Route path="/fto-forum" component={FtoForumPage} />
+        <Route path="/reports" component={Reports} />
+         <Route path="/reports/new"><ShiftStartGate/></Route>
+        <Route path="/reports/weekly-summary" component={WeeklySummaryPage} />
+        <Route path="/reports/monthly-summary" component={MonthlySummaryPage} />
+        <Route path="/reports/weekly-log" component={WeeklyPerformanceLogPage} />
+        <Route path="/reports/weekly-ack" component={WeeklyAcknowledgementPage} />
+        <Route path="/nrt-ua" component={NrtUaPortalPage} />
+        <Route path="/class-overview" component={ClassOverview} />
+        <Route path="/substitute-fto" component={SubstituteFtoPage} />
+         <Route path="/fto-classes" component={FtoClassesPage} />
+        <Route path="/reports/:id/nrt-follow-up" component={NrtFollowUpPage} />
+         <Route path="/reports/:id">{(params) => <ShiftStartGate key={params.id} reportId={params.id}/>}</Route>
+        <Route path="/training" component={Training} />
+        <Route path="/settings" component={Settings} />
+        <Route path="/help" component={HelpPage} />
+        <Route path="/command-review" component={CommandReviewPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </RoutedErrorBoundary>
+  );
+}
+
+function ShiftStartGate({reportId}:{reportId?:string}) {
+  const {ws}=useWorkspace();
+  const folder=ws.caseFolder;
+  const report=reportId&&reportId!=='new'?ws.reports.find(item=>item.id===reportId):undefined;
+  const belongsToActiveFolder=!report||!!folder&&report.className===folder.className&&report.recruitBadge===folder.recruitBadge&&report.phase===folder.phase;
+  const firstDay=folder?getNextReportDate(folder,[]):'';
+  const orientationExists=!!folder&&ws.substationOrientations.some(item=>
+    item.className===folder.className&&item.recruitBadge===folder.recruitBadge
+      &&item.phaseStartDate===firstDay&&(item.phase??1)===folder.phase,
+  );
+  if(ws.role==='fto'&&folder&&belongsToActiveFolder&&!orientationExists) {
+    return <Redirect to="/substation-orientation"/>;
+  }
+  return <ReportEditor/>;
+}
+
+function RoutedErrorBoundary({ children }: { children: ReactNode }) {
+  const [location] = useLocation();
+  return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
+}
+
+function DemoWorkspace() {
+  return (
+    <WorkspaceProvider>
+      <Shell><WorkspaceRoutes /></Shell>
+    </WorkspaceProvider>
+  );
+}
+
+function ClerkRoutes() {
+  const [, setLocation] = useLocation();
+
+  return (
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      proxyUrl={clerkProxyUrl}
+      appearance={clerkAppearance}
+      signInUrl={`${basePath}/sign-in`}
+      signUpUrl={`${basePath}/sign-up`}
+      localization={{
+        signIn: { start: { title: 'Sign in to Field Training Officer Portal', subtitle: 'Use your approved staff account.' } },
+        signUp: { start: { title: 'Request a Field Training Officer Portal account', subtitle: 'An account does not grant report access.' } },
+      }}
+      routerPush={(to) => setLocation(stripBase(to))}
+      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+    >
+      <ClerkQueryClientCacheInvalidator />
+      <Switch>
+        <Route path="/sign-in/*?" component={SignInPage} />
+        <Route path="/sign-up/*?" component={SignUpPage} />
+        <Route component={DemoWorkspace} />
+      </Switch>
+    </ClerkProvider>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <WouterRouter base={basePath}>
+          <ClerkRoutes />
+        </WouterRouter>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

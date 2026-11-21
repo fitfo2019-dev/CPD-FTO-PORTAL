@@ -5,3 +5,4 @@
 .local
 /dist-production/
 /dist-production.zip
+/generated-artifacts/

@@ -2,24 +2,23 @@ import app from "./app.js";
 import { USE_REAL_API } from "./lib/config.js";
 import { logger } from "./lib/logger.js";
 
-if (
-  process.env.NODE_ENV === "production" &&
-  USE_REAL_API &&
-  !process.env.REAL_API_KEY?.trim()
-) {
-  throw new Error(
-    "CRITICAL CONFIGURATION ERROR: REAL_API_KEY must be provided when live mode is active in production.",
+if (process.env.NODE_ENV === "production" && USE_REAL_API) {
+  const requiredLiveConfig = [
+    "GOV_API_SECURE_RECORDS_URL",
+    "GOV_API_ALLOWED_HOSTS",
+    "GOV_API_AUDIENCE",
+    "GOV_API_AUTHORIZED_PARTIES",
+    "CLERK_SECRET_KEY",
+    "AUDIT_ID_HMAC_KEY",
+  ];
+  const missing = requiredLiveConfig.filter(
+    (key) => !process.env[key]?.trim(),
   );
-}
-
-if (
-  process.env.NODE_ENV === "production" &&
-  USE_REAL_API &&
-  !process.env.REAL_API_URL?.trim()
-) {
-  throw new Error(
-    "REAL_API_URL must be configured before enabling the live integration in production.",
-  );
+  if (missing.length > 0) {
+    throw new Error(
+      `Live API mode requires department-approved configuration: ${missing.join(", ")}.`,
+    );
+  }
 }
 
 const rawPort = process.env.PORT || 3000;

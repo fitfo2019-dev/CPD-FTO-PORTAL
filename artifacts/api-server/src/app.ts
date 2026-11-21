@@ -1,4 +1,6 @@
 import express, { type Express } from "express";
+import { clerkMiddleware } from "@clerk/express";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
@@ -7,6 +9,11 @@ import { randomUUID } from "node:crypto";
 import router from "./routes/index.js";
 import { corsOptions } from "./lib/cors.js";
 import { logger } from "./lib/logger.js";
+import {
+  CLERK_PROXY_PATH,
+  clerkProxyMiddleware,
+  getClerkProxyHost,
+} from "./middlewares/clerkProxyMiddleware.js";
 import {
   auditRequestMiddleware,
   recordPayloadSize,
@@ -81,6 +88,8 @@ app.use(
 app.use(cookieParser());
 app.use("/api", auditRequestMiddleware);
 app.use(cors(corsOptions));
+// Clerk's Frontend API proxy must run before any request-body parser.
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 // This API currently accepts only small, uncompressed JSON requests. Disabling
 // decompression avoids body-parser's compressed-stream denial-of-service path.
 app.use(
@@ -91,6 +100,15 @@ app.use(
       recordPayloadSize(req, buffer.byteLength);
     },
   }),
+);
+
+app.use(
+  clerkMiddleware((req) => ({
+    publishableKey: publishableKeyFromHost(
+      getClerkProxyHost(req) ?? "",
+      process.env.CLERK_PUBLISHABLE_KEY,
+    ),
+  })),
 );
 
 app.use("/api", router);

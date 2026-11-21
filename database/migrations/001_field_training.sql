@@ -1,7 +1,7 @@
 -- Portable PostgreSQL foundation. Apply using a dedicated migration role.
 -- Not automatically applied at application startup. See docs/SECURITY.md.
 BEGIN;
-CREATE TYPE fto_role AS ENUM ('RECRUIT', 'FTO', 'SERGEANT', 'ADMIN');
+CREATE TYPE fto_role AS ENUM ('RECRUIT', 'FTO', 'COC', 'ADMIN');
 CREATE TYPE dor_status AS ENUM ('DRAFT', 'FTO_SIGNED', 'RECRUIT_SIGNED', 'LOCKED');
 CREATE TYPE evaluation_rating AS ENUM ('NO','A','RT','UA','NRT');
 CREATE TYPE audit_action AS ENUM ('CREATE','READ','UPDATE','DELETE','EXPORT','LOGIN','FAILED_LOGIN');
@@ -77,7 +77,7 @@ CREATE TABLE dor_signatures (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   dor_id uuid NOT NULL REFERENCES dors(id),
   signer_id uuid NOT NULL REFERENCES users(id),
-  signer_role fto_role NOT NULL CHECK (signer_role IN ('FTO','RECRUIT','SERGEANT')),
+  signer_role fto_role NOT NULL CHECK (signer_role IN ('FTO','RECRUIT')),
   signed_at timestamptz NOT NULL DEFAULT now(),
   content_sha256 text NOT NULL CHECK (content_sha256 ~ '^[a-f0-9]{64}$'),
   report_version integer NOT NULL CHECK (report_version > 0),

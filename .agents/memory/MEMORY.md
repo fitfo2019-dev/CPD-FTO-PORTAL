@@ -1,1 +1,7 @@
 - [Portable runtime boundary](runtime-portability.md) — deployable source avoids Replit-only packages and runtime strings, uses ESM, and includes explicit local import extensions.
+- [Civic visual direction](civic-visual-direction.md) — use the requested Columbus public-service look with the portal's distinct demo notices.
+- [Columbus shift and week rules](columbus-shift-schedule.md) — phase lengths, Limbo workdays, Sunday–Saturday weeks, shifts, and required days off.
+- [FTO form and SEG sources](fto-manual-ambiguities.md) — the manual conflicts on form numbers; use the user's current portal mapping and preserve the new SEG list.
+- [Help sources and role scope](approved-help-sources.md) — use manual/forms and official directive PDFs; distinguish directives from subsections and preserve role boundaries.
+- [Manual activity statistics](manual-statistics.md) — keep stats editable; only explicitly selected run metrics count, with the 10-6/1V exception.
+- [Print verification](print-verification.md) — verify physical PDF sheets; named-page wrappers and fixed heights can create unlabeled overflow.

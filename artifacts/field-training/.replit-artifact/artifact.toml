@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Field Training Officer Portal"
+description = "Fictional field-training prototype with Daily Performance Logs, weekly summaries, class workbooks and encrypted local drafts. Not approved for operational data."
+version = "1.0.0"
+id = "artifacts/field-training"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18795
+
+[services.development]
+run = "pnpm --filter @workspace/field-training run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/field-training", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/field-training/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18795"
+BASE_PATH = "/"

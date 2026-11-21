@@ -1,0 +1,282 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "dItLvM8zWZxasGubXSGcU"
+uri = "file://generated-artifacts/form-screenshots/forms-screenshots.html"
+type = "html"
+title = "Form print screenshots — TEST ONLY"
+description = "Gallery of current printable form pages rendered with fictional test data. It includes the daily log and run forms, substation orientation, weekly summary, weekly performance log supplement, and weekly acknowledgement."
+logical_id = "59c94b2c-c831-478c-a31a-aa4d8ba29b1a"
+content_hash = "sha256:a0b017af72d939fe03f8fa78dc99ffca2bea07ee47d8ab2a30d6014c0b882001"
+size = 2718151
+mtime_ms = 1795092870473
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/59c94b2c-c831-478c-a31a-aa4d8ba29b1a/5a706c06-63f8-455b-8616-0004f8e72ea3"
+storage_version_token = "1795092918318900"
+content_type = "text/html"
+
+[[outputs]]
+id = "PYC9wtZ295brQDZqlK269"
+uri = "file://generated-artifacts/daily-log-layout/daily-log-layout-test.png"
+type = "image"
+title = "Updated Daily Performance Log layout test"
+description = "TEST ONLY fictional sample. Repeated rating headings were removed; the 30 portal categories and workbook-style three-column layout are preserved."
+logical_id = "48ef8b4b-f1c9-4df2-b29e-2814f883ba08"
+content_hash = "sha256:83813a0e0e0ff30a83fd36a62683e6c478a6b8d7128f00ffb0ff5067e2bfc910"
+size = 285769
+mtime_ms = 1795095689950
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/48ef8b4b-f1c9-4df2-b29e-2814f883ba08/3138c188-418c-437d-af8e-c06a398b3263"
+storage_version_token = "1795095711133330"
+content_type = "image/png"
+
+[[outputs]]
+id = "5nieXBfdoUsfXhvzDIUnc"
+uri = "file://generated-artifacts/daily-log-layout/connected-rating-grid.png"
+type = "image"
+title = "Connected SEG ratings preview"
+description = "Fictional TEST ONLY data. The daily ratings now use one continuous, readable row sequence."
+logical_id = "031d4954-fae3-4ca6-8113-cbcc56f8027c"
+content_hash = "sha256:86ff9c6e5603fa27dfece42289fb11e8c4f819f97484322d70f36663309161e5"
+size = 201743
+mtime_ms = 1795096399893
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/031d4954-fae3-4ca6-8113-cbcc56f8027c/5698ac6d-e761-4c55-9e38-1c99a9257843"
+storage_version_token = "1795096474760905"
+content_type = "image/png"
+
+[[outputs]]
+id = "LdDcBMlPoZCYZ0OGKu7u8"
+uri = "file://generated-artifacts/daily-log-layout/connected-activity-summary.png"
+type = "image"
+title = "Daily activity totals preview"
+description = "Fictional TEST ONLY data. Connected worksheet-style activity totals appear after the rating grid."
+logical_id = "6f6a7b84-a8de-4736-bad7-6ac9f9b58f8d"
+content_hash = "sha256:80b3153470d47a440a97c1ce65e747135419a3e943a1ca8278e28a6d53ff466f"
+size = 126930
+mtime_ms = 1795096400353
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/6f6a7b84-a8de-4736-bad7-6ac9f9b58f8d/7238cf47-ae61-4da3-9a1d-16a0b22ef7e9"
+storage_version_token = "1795096475378418"
+content_type = "image/png"
+
+[[outputs]]
+id = "PXt1UK1bOlqKYlVvsowwy"
+uri = "file://generated-artifacts/daily-log-layout/connected-print-export-01.png"
+type = "image"
+title = "Daily performance log print view"
+description = "Worksheet-style print test with fictional TEST ONLY names and counts."
+logical_id = "deabfd53-a6b8-4dac-9c4e-104bdf0201d0"
+content_hash = "sha256:b6e7328b54c04ffb5091b9c0576c222898df02de5e09928b64841ef09570703a"
+size = 200945
+mtime_ms = 1795096962269
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/deabfd53-a6b8-4dac-9c4e-104bdf0201d0/febf7c8e-5882-46f9-90c8-0124e2c23b9b"
+storage_version_token = "1795098091201977"
+content_type = "image/png"
+
+[[outputs]]
+id = "dvnBDmJqlOKTnFNwtNUtY"
+uri = "file://generated-artifacts/daily-log-layout/monthly-summary-screen.png"
+type = "image"
+title = "Monthly summary screen test"
+description = "Monthly screen using fictional TEST ONLY sample records; rating counts and activity totals are visible."
+logical_id = "fb3078dc-de8a-4324-94a7-23d43a945f4c"
+content_hash = "sha256:9af7139e0248de0848de7301f1e117f25095068837a918bb38d1f4f02fdb494e"
+size = 184068
+mtime_ms = 1795097860733
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/fb3078dc-de8a-4324-94a7-23d43a945f4c/d19286fa-ce2d-4b48-ae7d-85f5e6c921f2"
+storage_version_token = "1795098091837601"
+content_type = "image/png"
+
+[[outputs]]
+id = "ow8dlsCiqpcq_0Pk_U_uZ"
+uri = "file://generated-artifacts/daily-log-layout/monthly-summary-print-1.png"
+type = "image"
+title = "Monthly print page — November 2026"
+description = "Fictional sample of the one-page monthly summary print export."
+logical_id = "34e3ed56-ed94-447e-b168-32f212eec4b7"
+content_hash = "sha256:d5ce4a91e0fe47a55f9129d921e2f26ef47d5fccbf0895564499608e90b6bf40"
+size = 193189
+mtime_ms = 1795098779856
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/34e3ed56-ed94-447e-b168-32f212eec4b7/eb3509a4-2584-457b-8416-b092c425c0b3"
+storage_version_token = "1795098886414524"
+content_type = "image/png"
+
+[[outputs]]
+id = "6j9O1NStDbqKpfWxSkP3Q"
+uri = "file://generated-artifacts/daily-log-layout/daily-training-folder-print-test.pdf"
+type = "pdf"
+title = "Daily print packet — fictional test"
+description = "Four-page sample packet with fictional test data. Its pages are labeled W5D4P1 through W5D4P4. Not a live case."
+logical_id = "04a3b08c-46e4-4ce1-8491-69e232c5c5c1"
+content_hash = "sha256:8a954f0e7a842dc04fc8ac627fff92047f5bbfc6f5cb65c0a165f87ed54f4c3a"
+size = 110047
+mtime_ms = 1795098775792
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/04a3b08c-46e4-4ce1-8491-69e232c5c5c1/1ba5230c-66fa-4cee-833e-ae187695854c"
+storage_version_token = "1795098883983851"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "Mb_7Es3N6CWDVuvHtzvnx"
+uri = "file://generated-artifacts/daily-log-layout/monthly-summary-test.pdf"
+type = "pdf"
+title = "Monthly print summary — fictional test"
+description = "One-page November 2026 sample summary using fictional test records. Not a live report."
+logical_id = "c3edd332-4059-4f79-b0bc-37674a7bb4d1"
+content_hash = "sha256:ad069618adce5d7ed23d2ec2302eb0172f43838892364d6a1790146fbde01600"
+size = 61084
+mtime_ms = 1795098779068
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/c3edd332-4059-4f79-b0bc-37674a7bb4d1/858c7648-140b-40a3-a963-fb335655d840"
+storage_version_token = "1795098884623913"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "yW8ciOjhUt5LeJDuBmod4"
+uri = "file://generated-artifacts/daily-log-layout/daily-training-folder-page-1.png"
+type = "image"
+title = "Daily print page 1 — W5D4P1"
+description = "Fictional sample of the daily performance log print layout and training-folder page label."
+logical_id = "c0f6bc65-f20f-4954-8570-8e98c0c82890"
+content_hash = "sha256:31927f5a685f30daab1289cb5bda53eb7b2056860e716ade52faac1ca94b4d76"
+size = 159232
+mtime_ms = 1795098779340
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/c0f6bc65-f20f-4954-8570-8e98c0c82890/7bda0eb6-b21d-4024-a656-91ea1d534a32"
+storage_version_token = "1795098885222967"
+content_type = "image/png"
+
+[[outputs]]
+id = "n-nslKwsRcJqoob8F1cnt"
+uri = "file://generated-artifacts/daily-log-layout/daily-training-folder-page-4.png"
+type = "image"
+title = "Daily print page 4 — W5D4P4"
+description = "Fictional sample of the Arrest Process form and its W/D/P label."
+logical_id = "61674f0a-8e60-4599-971b-cbb7bfe7dc03"
+content_hash = "sha256:26bd5b69152f646f40572b25b7cfeaaf4a2af7f285e0e2d53d88c98fe14d9c59"
+size = 83436
+mtime_ms = 1795098779636
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/61674f0a-8e60-4599-971b-cbb7bfe7dc03/eea1e70c-d4bf-47aa-9be0-e7117d460715"
+storage_version_token = "1795098885793910"
+content_type = "image/png"
+
+[[outputs]]
+id = "7q14MrqgVlp4o6yNWkk7r"
+uri = "file://generated-artifacts/phase-test/TEST-ONLY-Completed-Phase-I-Packet.pdf"
+type = "pdf"
+title = "TEST ONLY — Completed Phase I Packet"
+description = "Fictional 96-page test packet. Includes daily forms, weekly summaries and logs, monthly summaries with totals, and narrative continuation pages. No real officer or incident data."
+logical_id = "11fee904-0f26-43be-b624-5d7627a3ffbd"
+content_hash = "sha256:1af2cdb44ea027ff5ca30948897f31be665290f59e9ff6d03a52f29615a3e2c3"
+size = 2927005
+mtime_ms = 1795107723973
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/11fee904-0f26-43be-b624-5d7627a3ffbd/adf9ea5f-1a27-4e16-9905-c07b4cf67bc9"
+storage_version_token = "1795107782743787"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "towa8VNwZhoqjxZxd-nYz"
+uri = "file://generated-artifacts/phase-test/TEST-ONLY-Phase-I-Workbook.xlsx"
+type = "table"
+title = "Fictional Phase I workbook · 21 runs"
+description = "TEST ONLY. Exported from the portal; includes the fictional daily forms, manually entered activity values, run checklists and all six UA corrective-training entries."
+logical_id = "65377a10-8231-4e19-8dfd-eaa75b4090a9"
+content_hash = "sha256:be992228830a2a04ade58de840c33e62a452bc52353d882a63ea2710662c46c8"
+size = 1494266
+mtime_ms = 1795102647855
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/65377a10-8231-4e19-8dfd-eaa75b4090a9/b30b9ec3-91ad-435c-bc3c-b3f04a6fc342"
+storage_version_token = "1795102692421135"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "auNYKjruv42WIKjvbV_nj"
+uri = "file://generated-artifacts/phase-test/workbook/Columbus_FTO_Portal_Class_Aggregate_2026-11-19.xlsx"
+type = "table"
+title = "TEST ONLY — Phase I Class Workbook"
+description = "Fictional class aggregate workbook with daily, weekly, phase, and activity totals."
+logical_id = "39e15c3b-745b-44e1-818b-73a23a41baa2"
+content_hash = "sha256:eb868dbd446c37ae0123b589d029c607b239717d09c0f6e2aba42ba96641913e"
+size = 2772015
+mtime_ms = 1795107700480
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/39e15c3b-745b-44e1-818b-73a23a41baa2/c0a977c7-6753-4555-a417-8a183d9d9b94"
+storage_version_token = "1795107783514233"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "Q9GYUqMyQKZlfLPCHBn59"
+uri = "file://generated-artifacts/phase-test/workbook/Field_Training_Monthly_Summary_202610.xlsx"
+type = "table"
+title = "TEST ONLY — October monthly totals"
+description = "One-sheet fictional monthly workbook. SEG categories appear once with phase-week rating columns; official activity values use daily manual entries only."
+logical_id = "5f9970b7-1373-4e12-a3af-9e53de12fa10"
+content_hash = "sha256:98662e636eb3ac023e1f91a66ce7f766808fccbbd562e08cb23d7b34c327480f"
+size = 58971
+mtime_ms = 1795111312073
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/5f9970b7-1373-4e12-a3af-9e53de12fa10/a30abff2-e7b0-4e4b-b072-cbcf30a71b38"
+storage_version_token = "1795111386629348"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "pArNNSMnbV5r9MHbRAua0"
+uri = "file://generated-artifacts/phase-test/workbook/Field_Training_Monthly_Summary_202611.xlsx"
+type = "table"
+title = "TEST ONLY — November monthly totals"
+description = "One-sheet fictional monthly workbook. SEG categories appear once with phase-week rating columns; official activity values use daily manual entries only."
+logical_id = "b4c759e3-8945-4348-83a2-cc24b69539c1"
+content_hash = "sha256:c188492812063dbc0aa61581bc1b9c24bb690fe4e860369565d1e0e013ea37e1"
+size = 59889
+mtime_ms = 1795111309892
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/b4c759e3-8945-4348-83a2-cc24b69539c1/c8cb51ff-7d32-4db8-b002-3a3ef5848f9a"
+storage_version_token = "1795111387198146"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "rnbIjmV67AtsJO1VKJwA4"
+uri = "file://generated-artifacts/phase-test/workbook/Field_Training_Officer_Portal_Class_Aggregate_2026-11-19.xlsx"
+type = "table"
+title = "TEST ONLY — Field Training Officer Portal Class Workbook"
+description = "Fictional class aggregate workbook with the current Field Training Officer Portal export filename; daily, weekly, phase, and activity totals."
+logical_id = "b70e9347-fd73-4723-bee6-2a5b4927d9ab"
+content_hash = "sha256:eb868dbd446c37ae0123b589d029c607b239717d09c0f6e2aba42ba96641913e"
+size = 2772015
+mtime_ms = 1795107956198
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/b70e9347-fd73-4723-bee6-2a5b4927d9ab/8d6a9f20-6c55-4020-9833-9eaf49adc1b3"
+storage_version_token = "1795107975648810"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "fKzqmA-B34AZKa1IgSm3H"
+uri = "file://generated-artifacts/phase-test/TEST-ONLY-Updated-Phase-I-Packet.pdf"
+type = "pdf"
+title = "TEST ONLY — Updated Phase I packet"
+description = "Fictional, unsigned 97-page packet compiled from the current daily, weekly, corrective-training, acknowledgement, and monthly print exports. No real operational records."
+logical_id = "0566b8f8-b067-419a-8c4c-b469087f5834"
+content_hash = "sha256:b6fe22d99fb84fb7832210a35e68df6fb6da1482cd48e4c58dbb04f82956e734"
+size = 2943005
+mtime_ms = 1795111375941
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/0566b8f8-b067-419a-8c4c-b469087f5834/a223053b-72c3-4268-b8d2-fb1a9fb7edb1"
+storage_version_token = "1795111385803733"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "i2hhqk93SglVNlLcYEsOU"
+uri = "file://generated-artifacts/phase-test/monthly/October-2026-summary.pdf"
+type = "pdf"
+title = "TEST ONLY — October monthly print export"
+description = "Fictional two-page monthly summary PDF from the current portal print view."
+logical_id = "ee9c2b0b-c339-43d9-b12b-76eb9b796181"
+content_hash = "sha256:0ce91c53f1e4a9a09ea6a37b963ea59c70835ab2447c4b23f26fe580bbb6259d"
+size = 62027
+mtime_ms = 1795111312033
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/ee9c2b0b-c339-43d9-b12b-76eb9b796181/31045fd2-4fa2-4ad5-95c8-0ecb109d50d8"
+storage_version_token = "1795111387754447"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "snwkgIWhCY1iHUztnM9GU"
+uri = "file://generated-artifacts/phase-test/monthly/November-2026-summary.pdf"
+type = "pdf"
+title = "TEST ONLY — November monthly print export"
+description = "Fictional two-page monthly summary PDF from the current portal print view."
+logical_id = "e403b676-0c88-4fe5-9f57-81e24e191769"
+content_hash = "sha256:ceec6e60570a80120d5cc543f50a0cd947b6609680746ca54f413797a299ff7a"
+size = 62243
+mtime_ms = 1795111309721
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/e403b676-0c88-4fe5-9f57-81e24e191769/33ae8435-7ca2-4268-94a4-b59f94732c17"
+storage_version_token = "1795111388436772"
+content_type = "application/pdf"

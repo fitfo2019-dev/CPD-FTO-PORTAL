@@ -1,0 +1,62 @@
+{
+  "source": "Ohio Laws — Ohio Revised Code",
+  "sourceUrl": "https://codes.ohio.gov/ohio-revised-code",
+  "retrievedOn": "2026-11-19",
+  "scope": {
+    "criminalChapters": [
+      2901,
+      2903,
+      2905,
+      2907,
+      2909,
+      2911,
+      2913,
+      2915,
+      2917,
+      2919,
+      2921,
+      2923,
+      2925,
+      2927,
+      2929
+    ],
+    "motorVehicleTrafficAndParkingChapters": [
+      4501,
+      4503,
+      4504,
+      4505,
+      4506,
+      4507,
+      4508,
+      4509,
+      4510,
+      4511,
+      4513,
+      4515,
+      4516,
+      4517,
+      4519,
+      4521,
+      4549,
+      4551
+    ]
+  },
+  "sectionCount": 1625,
+  "files": [
+    "orc-criminal-01.json",
+    "orc-criminal-02.json",
+    "orc-criminal-03.json",
+    "orc-criminal-04.json",
+    "orc-criminal-05.json",
+    "orc-criminal-06.json",
+    "orc-traffic-01-1.json",
+    "orc-traffic-01-2.json",
+    "orc-traffic-02.json",
+    "orc-traffic-03.json",
+    "orc-traffic-04.json",
+    "orc-traffic-05.json",
+    "orc-traffic-06.json",
+    "orc-traffic-07.json"
+  ],
+  "textPolicy": "Statutory text is reproduced as published by Ohio Laws. Check the linked official section for changes after the retrieval date."
+}

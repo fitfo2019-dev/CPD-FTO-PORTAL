@@ -4,7 +4,15 @@ import type { Request, RequestHandler, Response } from "express";
 import type { Principal, Role } from "../security/authorization.js";
 import { hashUserIdentifier } from "../utils/cryptoUtils.js";
 const payloadSizes = new WeakMap<IncomingMessage, number>();
-const roles: readonly Role[] = ["RECRUIT", "FTO", "SERGEANT", "ADMIN"];
+const roles: readonly Role[] = [
+  "PO",
+  "FTO",
+  "FTO_SGT",
+  "FTO_COORDINATOR",
+  "FTO_COC",
+  "POLICENET",
+  "POLICENET_ADMIN_SGT",
+];
 
 export function recordPayloadSize(
   req: IncomingMessage,
