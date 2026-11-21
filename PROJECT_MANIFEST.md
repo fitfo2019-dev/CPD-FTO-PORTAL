@@ -17,11 +17,12 @@ The XML-to-JSON Government System gateway is a planned architectural boundary on
 - The shared TypeScript configuration enables `strict`, `noImplicitAny`, and `strictNullChecks`; workspace type checks pass without suppressions.
 - `pnpm-lock.yaml` is the sole lockfile. Workspace package resolution uses catalogs and overrides; install with `pnpm install --frozen-lockfile`.
 - The supported Node.js range is `^20.19.0 || >=22.12.0 <25`.
-- The shared workspace Zod catalog is aligned to Zod 4 (`^4.6.7`), including OpenAPI-generated `@workspace/api-zod` validators. Field Training forms use Zod 4 with `@hookform/resolvers` `7.0.7` and React Hook Form.
+- The entire workspace environment and its complete transitive dependency graph are 100% unified under the modern Zod 4 runtime engine. There are zero legacy Zod 3 footprints remaining in the active lockfile. The shared catalog is `^4.6.7`; Field Training forms also use `@hookform/resolvers` `7.0.7` and React Hook Form.
 - The API build emits ESM JavaScript and linked source maps to `artifacts/api-server/dist/`. Third-party runtime dependencies are external, not copied from `node_modules`; the standalone package manifest lists them.
 - The Vite artifacts have independent static build outputs. Their ports and base paths have local defaults and remain environment-configurable for workflows.
 - The Express server reads `PORT`, defaults to `3000`, and binds to `0.0.0.0`.
 - `TRUST_PROXY_HOPS` defaults to `1`, accepts integers from `1` through `16`, and is applied before security, request logging, and audit middleware. The verified agency ingress has two hops; use `TRUST_PROXY_HOPS=2` for that topology and re-verify if it changes.
+- Express resolves the client address as `req.ip` using the configured trusted-hop count; the audit middleware applies the HMAC utility before recording `client_ip_hash`.
 - `USE_REAL_API` is fail-secure and mock-by-default (`false`). Production startup fails if live mode is enabled without `REAL_API_URL` and `REAL_API_KEY`; upstream requests use only the server credential and fail closed without the authorization-grant adapter.
 - `AUDIT_ID_HMAC_KEY` is required for API startup and must be at least 32 bytes. The audit utility uses it for HMAC-SHA-256 pseudonyms of verified user IDs and client IPs; raw identifiers are not written to audit records.
 
@@ -148,6 +149,7 @@ The OpenAPI source of truth is `lib/api-spec/openapi.yaml`. Regenerate the clien
 ## Security and integration limits
 
 - Helmet applies a restrictive Content Security Policy and denies framing. The `X-Powered-By` response header is disabled.
+- CSP directives restrict default, script, and connection sources to the same origin, block objects, and deny framing with `frame-ancestors 'none'`.
 - CORS uses explicit origins rather than a wildcard.
 - The Clerk browser session is cookie-based. The browser's bearer headers are not passed to the secure-records upstream; the server uses only `REAL_API_KEY`.
 - The live route fails closed unless a verified Clerk session, a server-side department authorization grant, and required upstream configuration are present. The department grant is not currently populated.

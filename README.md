@@ -11,7 +11,7 @@ This pnpm workspace contains the Express API Server, the React/Vite Component Pr
 
 ## Validation and module format
 
-- The shared workspace Zod catalog is aligned to Zod 4 (`^4.6.7`), including the OpenAPI-generated `@workspace/api-zod` validators. Field Training forms use Zod 4 with `@hookform/resolvers` `7.0.7` and React Hook Form.
+- The entire workspace environment and its complete transitive dependency graph are 100% unified under the modern Zod 4 runtime engine. There are zero legacy Zod 3 footprints remaining in the active lockfile. The shared catalog is `^4.6.7`; Field Training forms also use `@hookform/resolvers` `7.0.7` and React Hook Form.
 - Workspace packages use ECMAScript modules. Local TypeScript and TSX imports use the emitted `.js` suffix (for example, `./model.js`); directory entrypoints specify `/index.js`. TypeScript resolves these source specifiers to `.ts`/`.tsx` files, while compiled Node code keeps valid ESM paths.
 - OpenAPI-generated validators and clients live under `lib/api-zod` and `lib/api-client-react`. After code generation, verify local generated imports retain explicit ESM extensions before building.
 
@@ -37,6 +37,8 @@ The workspace targets Node.js `^20.19.0 || >=22.12.0 <25`. Configure values thro
 | `DATABASE_URL` | Not used by current API routes | Connection string for the separate database helper if database-backed routes are implemented. |
 
 `TRUST_PROXY_HOPS` is validated and applied before security, request logging, and audit middleware. The confirmed agency ingress uses two trusted hops, so set `TRUST_PROXY_HOPS=2` for that deployment. Do not trust forwarded headers directly or reuse that value for a different proxy topology without verification.
+
+Express resolves the client address into `req.ip` using only the configured trusted proxy hops. The audit middleware hashes that value with `AUDIT_ID_HMAC_KEY` before writing the `client_ip_hash` field.
 
 ## Build and package
 
@@ -97,6 +99,7 @@ pnpm --filter @workspace/field-training run dev
 ## Operational boundaries
 
 - The Express server reads `PORT` from the environment, defaults to `3000`, and binds to `0.0.0.0`.
+- Helmet applies a restrictive Content Security Policy, including same-origin defaults, `object-src 'none'`, and `frame-ancestors 'none'`; `X-Powered-By` is disabled.
 - API request logs are structured JSON Lines on stdout. They are not a write-once archive; configure the agency's approved external log collection and retention separately.
 - The backend does not persist application data to local files. The Field Training Officer Portal stores encrypted offline drafts in browser IndexedDB using AES-GCM and a passphrase-derived key; it does not sync those drafts to the API.
 - The separate database helper uses `DATABASE_URL`, but current API routes do not import it.
