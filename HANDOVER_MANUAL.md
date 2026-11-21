@@ -11,15 +11,15 @@ This workspace is a security-oriented, data-validated prototype foundation for s
 - **Component Preview Sandbox:** an isolated React/Vite environment for visual testing and interface modeling.
 - **Backend API Enterprise Gateway:** an Express service that exposes same-origin JSON routes, validates and normalizes data, applies security middleware, and pseudonymizes request audit fields.
 
-These are two workspace environments, not a connected production application. The XML-to-JSON Government System gateway is a planned architectural boundary; no Government System connection or XML/binary normalization is active.
+These are two workspace environments, not a connected production application. The `callbox\pv3` application exists on the internal server, but its source and runtime are outside this workspace. The XML-to-JSON Government System gateway is a planned architectural boundary; no Government System connection or XML/binary normalization is active.
 
-The current implementation is not a live identity system, a database-backed product, or a certified compliance platform. Mock data and demonstration credentials must not be treated as production records or access controls.
+The implementation in this workspace is not a live identity system, a database-backed product, or a certified compliance platform. Mock data and demonstration credentials must not be treated as production records or access controls.
 
 ### Workflow 1: Secure Operator Sign-In
 
 The shared frontend client provides a development-only demonstration flow:
 
-1. `loginWithMockCredentials` sends username and password to `POST /api/auth/mock-login` through the centralized `API_BASE_URL`.
+1. `loginWithMockCredentials` sends username and password to `POST /api/auth/mock-login` through the centralized `API_BASE_URL`. The request is abortable and stops after 15 seconds with a retryable error.
 2. The endpoint validates the request shape and, in development, returns the standard success envelope containing the fixed value `mock-jwt-string`.
 3. The client stores the value in JavaScript memory only. It does not use `localStorage`; `clearMockToken()` clears it on logout.
 4. Subsequent requests made through `customFetch` can receive an `Authorization: Bearer <token>` header.

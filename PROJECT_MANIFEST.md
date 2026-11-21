@@ -4,13 +4,13 @@
 
 ## Current contents and boundaries
 
-This workspace contains an Express API Server and a React/Vite Component Preview Server. The isolated `AdminLogsDashboard` mockup calls a development-only audit-log route; there are no connected product frontend views or data-backed application screens yet.
+This workspace contains an Express API Server and a React/Vite Component Preview Server. The isolated `AdminLogsDashboard` mockup calls a development-only audit-log route; there are no connected product frontend views or data-backed application screens in this workspace. The `callbox\pv3` application exists on the internal server, but its source and runtime are outside this workspace.
 
 The XML-to-JSON gateway is a planned architectural boundary only: a future backend router may receive raw XML or binary input from the Government System, normalize it, and expose clean JSON to the Visual Interface. A JSON records adapter exists, but it is unconfigured; no upstream connection or XML/binary normalization is active.
 
 ## Workspace footprint and portability
 
-- Git currently tracks 119 files (verified 2026-11-21).
+- Git currently tracks 162 files (verified 2026-11-21).
 - The monorepo uses TypeScript project references and enables `noImplicitAny` and `strictNullChecks` across its API, component-preview, scripts, and shared-library checks.
 - `pnpm-lock.yaml` is the sole package lockfile (lockfile version 9). Workspace catalogs and overrides centralize package resolution; deployment installs should use `pnpm install --frozen-lockfile`.
 - The Express server uses `process.env.PORT || 3000` and binds to `0.0.0.0`.
@@ -21,12 +21,12 @@ The XML-to-JSON gateway is a planned architectural boundary only: a future backe
 
 - The React component-preview application wraps its main view in a recoverable Error Boundary. Its “Try again” action clears the failure and remounts the protected view.
 - Individual component previews show an accessible loading skeleton while their module imports resolve. Imports have a 15-second timeout; timeout and import failures display a retryable fallback with a “Try again” action that starts a new load attempt.
-- The isolated `AdminLogsDashboard` mockup fetches development-only audit samples with defensive normalization, request cancellation, a 15-second timeout, and a retry panel. This is not a connected product records view or a general API timeout layer.
+- The mock sign-in request and isolated `AdminLogsDashboard` request are abortable and bounded to 15 seconds. The dashboard also uses defensive normalization and a retry panel. These are not a connected product records view or a general API timeout layer.
 - These resilience features cover the component-preview harness and this one mockup. They do not provide connected data-backed product views.
 
 ## Pending implementation: product frontend views
 
-**Current Workspace Limitation:** The system features a component-preview harness and a hardened API server, but does not yet contain connected data-backed product views. The audit dashboard is an isolated mockup driven only by the development sample endpoint.
+**Current Workspace Limitation:** This workspace features a component-preview harness and a hardened API server, but does not contain the connected data-backed product views. The audit dashboard is an isolated mockup driven only by the development sample endpoint. The internal-server `callbox\pv3` application is outside this source tree.
 
 **CRITICAL FUTURE STEP:** When building out actual user-facing application screens, developers must explicitly connect the frontend views to the backend API using our centralized `API_BASE_URL`. Those views must use defensive parsing, 15-second request timeouts, loading states, and retryable server-error fallbacks. The mockup's timeout is a reference implementation, not a global client guarantee.
 
@@ -51,9 +51,10 @@ This workspace is a security-oriented, data-validated prototype foundation for s
 - `lib/api-zod/` — Generated Zod schemas and response validators.
 - `lib/db/` — PostgreSQL and Drizzle schema foundation; not connected to active application routes.
 - `database/migrations/` — Portable SQL schema and database constraints.
-- `docs/` — Security and project structure notes; some older descriptions need reconciliation with the current workspace.
-- `scripts/` — Workspace utility scripts, including the sample `hello` command.
+- `docs/` — retained security and project-structure notes; some descriptions refer to the internal-server `callbox\pv3` application. Its source/runtime is outside this workspace, so those documents do not prove that referenced code or routes exist here.
+- `scripts/` — Workspace utility scripts for standalone production packaging, including the sample `hello` command.
 - `attached_assets/` — User-provided source materials; do not remove as cleanup.
+- `replit.md` — current collaborator guidance that points to this manifest.
 
 ## Services and configuration
 

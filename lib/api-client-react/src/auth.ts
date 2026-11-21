@@ -4,6 +4,7 @@ import { customFetch, setMemoryAuthToken } from "./custom-fetch.js";
 let token: string | null = null;
 let authEpoch = 0;
 let pendingLogin: AbortController | null = null;
+const MOCK_LOGIN_TIMEOUT_MS = 15_000;
 
 export function getMockToken(): string | null {
   return token;
@@ -37,29 +38,45 @@ export async function loginWithMockCredentials(
   const abortFromCaller = () => controller.abort();
   if (signal?.aborted) controller.abort();
   else signal?.addEventListener("abort", abortFromCaller, { once: true });
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, MOCK_LOGIN_TIMEOUT_MS);
   token = null;
   setMemoryAuthToken(null);
   try {
-  const payload = await customFetch<ApiEnvelope<{ token: string }>>(
-    apiEndpoint("/auth/mock-login"),
-    {
-      method: "POST",
-      headers: { "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ username, password }),
-      signal: controller.signal,
-    },
-  );
+    const payload = await customFetch<ApiEnvelope<{ token: string }>>(
+      apiEndpoint("/auth/mock-login"),
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+        signal: controller.signal,
+      },
+    );
     if (attempt !== authEpoch) throw new Error("Sign-in was superseded.");
-  const newToken = payload.data[0]?.token;
-  if (payload.status !== "success" ||
+    const newToken = payload.data[0]?.token;
+    if (
+      payload.status !== "success" ||
       typeof newToken !== "string" ||
-      newToken.length === 0) {
-    throw new Error("The sign-in response was incomplete.");
+      newToken.length === 0
+    ) {
+      throw new Error("The sign-in response was incomplete.");
     }
     // Memory only: this token is a development mock, not a credential.
-  token = newToken;
+    token = newToken;
     setMemoryAuthToken(token);
+  } catch (error) {
+    if (timedOut) {
+      throw new Error("The sign-in request took too long. Please try again.");
+    }
+    throw error;
   } finally {
+    clearTimeout(timeoutId);
     signal?.removeEventListener("abort", abortFromCaller);
     if (pendingLogin === controller) pendingLogin = null;
   }
