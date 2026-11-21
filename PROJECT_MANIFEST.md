@@ -17,12 +17,12 @@ The XML-to-JSON Government System gateway is a planned architectural boundary on
 - The shared TypeScript configuration enables `strict`, `noImplicitAny`, and `strictNullChecks`; workspace type checks pass without suppressions.
 - `pnpm-lock.yaml` is the sole lockfile. Workspace package resolution uses catalogs and overrides; install with `pnpm install --frozen-lockfile`.
 - The supported Node.js range is `^20.19.0 || >=22.12.0 <25`.
-- Validation is intentionally split by boundary: the OpenAPI-generated shared API package `@workspace/api-zod` stays aligned to catalog Zod 3 (`3.25.76`), while Field Training forms use Zod 4 (`4.6.7`), `@hookform/resolvers` `7.0.7`, and React Hook Form. The shared API-schema engine has not migrated to Zod 4; do not describe the workspace as uniformly Zod 3 or uniformly Zod 4.
+- The shared workspace Zod catalog is aligned to Zod 4 (`^4.6.7`), including OpenAPI-generated `@workspace/api-zod` validators. Field Training forms use Zod 4 with `@hookform/resolvers` `7.0.7` and React Hook Form.
 - The API build emits ESM JavaScript and linked source maps to `artifacts/api-server/dist/`. Third-party runtime dependencies are external, not copied from `node_modules`; the standalone package manifest lists them.
 - The Vite artifacts have independent static build outputs. Their ports and base paths have local defaults and remain environment-configurable for workflows.
 - The Express server reads `PORT`, defaults to `3000`, and binds to `0.0.0.0`.
-- `TRUST_PROXY_HOPS` defaults to `1`, accepts integers from `1` through `16`, and is applied before security, request logging, and audit middleware. The confirmed agency ingress has two hops; use `TRUST_PROXY_HOPS=2` for that topology and re-verify if it changes.
-- `USE_REAL_API` is mock-by-default (`false`). Production startup fails if live mode is enabled without `REAL_API_URL` and `REAL_API_KEY`; upstream requests use only the server credential and fail closed without the authorization-grant adapter.
+- `TRUST_PROXY_HOPS` defaults to `1`, accepts integers from `1` through `16`, and is applied before security, request logging, and audit middleware. The verified agency ingress has two hops; use `TRUST_PROXY_HOPS=2` for that topology and re-verify if it changes.
+- `USE_REAL_API` is fail-secure and mock-by-default (`false`). Production startup fails if live mode is enabled without `REAL_API_URL` and `REAL_API_KEY`; upstream requests use only the server credential and fail closed without the authorization-grant adapter.
 - `AUDIT_ID_HMAC_KEY` is required for API startup and must be at least 32 bytes. The audit utility uses it for HMAC-SHA-256 pseudonyms of verified user IDs and client IPs; raw identifiers are not written to audit records.
 
 ## Completed resilience work
@@ -96,11 +96,20 @@ Inject `AUDIT_ID_HMAC_KEY`, `CLERK_PUBLISHABLE_KEY`, and `CLERK_SECRET_KEY` from
 NODE_ENV=production PORT=3000 TRUST_PROXY_HOPS=2 USE_REAL_API=false pnpm start
 ```
 
-Use `TRUST_PROXY_HOPS=2` only when the production route has exactly two trusted proxy hops; otherwise set the verified count. Express applies this count before Helmet, request logging, and audit middleware. The edge proxy must overwrite client-supplied forwarding headers and preserve `/api` when forwarding to Express. Clerk proxy requests use Express-resolved `req.hostname` and `req.ip`, discard incoming forwarding headers, and set sanitized upstream headers.
+The verified agency ingress has exactly two trusted proxy hops, so use `TRUST_PROXY_HOPS=2` for that route. If the infrastructure changes, set the verified count instead. Express applies this count before Helmet, request logging, and audit middleware. The edge proxy must overwrite client-supplied forwarding headers and preserve `/api` when forwarding to Express. Clerk proxy requests use Express-resolved `req.hostname` and `req.ip`, discard incoming forwarding headers, and set sanitized upstream headers.
 
 Serve `artifacts/field-training/dist/public` through the agency's static web server, with history fallback to `/index.html`. Forward `/api/*` to the Express service without stripping the prefix. `API_BASE_URL` remains the centralized same-origin `/api` path.
 
-For the standalone API-only distribution, run `pnpm run bundle:production`, transfer `dist-production.zip`, then install its production dependencies with the agency's package mirror/cache and run `npm start` from the extracted `dist-production/` directory. This archive does not contain the Field Training Officer Portal static build.
+For the standalone API-only distribution, run `pnpm run bundle:production` and transfer `dist-production.zip`. Inject the required secrets and runtime settings through the agency service manager, then run:
+
+```sh
+unzip dist-production.zip
+cd dist-production
+npm install --production
+npm start
+```
+
+This archive does not contain the Field Training Officer Portal static build.
 
 ## API contracts
 

@@ -11,7 +11,7 @@ This pnpm workspace contains the Express API Server, the React/Vite Component Pr
 
 ## Validation and module format
 
-- Field Training Officer Portal forms use Zod 4 (`zod` resolves to `4.6.7`) with `@hookform/resolvers` `7.0.7` and React Hook Form. The shared OpenAPI-generated `@workspace/api-zod` package still uses the workspace catalog's Zod 3 pin (`3.25.76`); the shared API-schema migration to Zod 4 is not complete.
+- The shared workspace Zod catalog is aligned to Zod 4 (`^4.6.7`), including the OpenAPI-generated `@workspace/api-zod` validators. Field Training forms use Zod 4 with `@hookform/resolvers` `7.0.7` and React Hook Form.
 - Workspace packages use ECMAScript modules. Local TypeScript and TSX imports use the emitted `.js` suffix (for example, `./model.js`); directory entrypoints specify `/index.js`. TypeScript resolves these source specifiers to `.ts`/`.tsx` files, while compiled Node code keeps valid ESM paths.
 - OpenAPI-generated validators and clients live under `lib/api-zod` and `lib/api-client-react`. After code generation, verify local generated imports retain explicit ESM extensions before building.
 
@@ -29,7 +29,7 @@ The workspace targets Node.js `^20.19.0 || >=22.12.0 <25`. Configure values thro
 | `CLERK_SECRET_KEY` | Required for the production Clerk proxy | Server-only Clerk credential. |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Required when building the Field Training Officer Portal | Public, build-time Clerk key for the browser application. |
 | `VITE_CLERK_PROXY_URL` | Set by the approved Clerk deployment for production proxying | Browser-side Clerk proxy URL; keep empty in development. |
-| `USE_REAL_API` | Optional; defaults to `false` | `false` serves synthetic records. `true` enables the live adapter. |
+| `USE_REAL_API` | Optional; defaults to `false` | Fail-secure mock-by-default switch. Production live mode requires `REAL_API_URL`, `REAL_API_KEY`, and an approved authorization grant. |
 | `REAL_API_URL` | Required when production live mode is enabled | HTTPS endpoint for the upstream records service. |
 | `REAL_API_KEY` | Required when production live mode is enabled | Server-only upstream credential; browser authorization headers are never forwarded to this service. |
 | `ALLOWED_ORIGINS` | Optional for same-origin hosting; required for a separate browser origin | Comma-separated exact HTTPS origins allowed by CORS. Wildcards are rejected. |
@@ -81,6 +81,8 @@ cd dist-production
 npm install --production
 npm start
 ```
+
+Inject the required API secrets and runtime settings through the agency service manager before `npm start`; the archive contains no `.env` file or credentials.
 
 For an offline server, install from a pre-populated npm cache or an agency-controlled package mirror. The archive does not contain `.env` files or credentials. Keep the service in the foreground under systemd, PM2, or the agency's service manager so stdout and stderr can be captured and rotated.
 
