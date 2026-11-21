@@ -1,5 +1,5 @@
-import { isValidAssignment } from './cpd-geography';
-import { SUBMITTED_PRIMARY_CHECKLISTS, SUBMITTED_SUPPLEMENTAL_CHECKLISTS } from './manual-form-checklists';
+import { isValidAssignment } from './cpd-geography.js';
+import { SUBMITTED_PRIMARY_CHECKLISTS, SUBMITTED_SUPPLEMENTAL_CHECKLISTS } from './manual-form-checklists.js';
 
 export const SEG_CATEGORIES = [
   { key:'dutyReadiness', label:'Report/Prepared for Duty', group:'Duty Readiness', definition:'Arrive on time in a neat, clean uniform; be groomed, equipped, and fit to assume duties. Participate in roll call, review Division material, and inspect the cruiser and equipment under Patrol SOP.', manualReference:'SEGs 1–2 · Appearance/Equipment; Roll Call/Cruiser Inspection' },

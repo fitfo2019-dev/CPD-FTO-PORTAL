@@ -7,8 +7,8 @@ import {
   SEG_CATEGORIES,
   type RatingEntry,
   type Report,
-} from './model';
-import { summarizeMonthlyReports } from './monthly-summary';
+} from './model.js';
+import { summarizeMonthlyReports } from './monthly-summary.js';
 
 const ratingEntry = (rating: RatingEntry['rating']): RatingEntry => ({
   rating,

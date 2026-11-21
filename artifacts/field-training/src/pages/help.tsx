@@ -5,20 +5,20 @@ import {
   ArrowDownRight, ArrowUpRight, BookMarked, BookOpen, Check, ClipboardCheck, FileText, ExternalLink,
   LibraryBig, Search, ShieldCheck, UserRound, X,
 } from 'lucide-react';
-import { PageHead } from '@/components/bits';
+import { PageHead } from '@/components/bits.js';
 import {
   FTO_HELP, MANUAL_SOURCE, UPLOADED_FORM_SOURCES,
-} from '@/lib/fto-help';
-import { DIVISION_DIRECTIVES, DIVISION_DIRECTIVE_SOURCE_URL } from '@/lib/division-directives';
+} from '@/lib/fto-help.js';
+import { DIVISION_DIRECTIVES, DIVISION_DIRECTIVE_SOURCE_URL } from '@/lib/division-directives.js';
 import {
   DIRECTIVE_PDF_INDEX_SOURCE, DIRECTIVE_PDF_INDEX_VERIFIED_ON, DIRECTIVE_PDF_LINKS,
-} from '@/lib/directive-pdf-index';
-import { LAW_LIBRARY_ENTRIES, LAW_LIBRARY_SOURCES } from '@/lib/law-library';
-import { sortCatalogRecords } from '@/lib/library-catalog';
-import { assignmentsForLawReview, lawReviewId } from '@/lib/law-review';
-import { loadOrcCorpus, type OfficialOrcSection } from '@/lib/orc-law-data';
-import { useWorkspace } from '@/state/workspace';
-import type { LawReviewRecord } from '@/lib/model';
+} from '@/lib/directive-pdf-index.js';
+import { LAW_LIBRARY_ENTRIES, LAW_LIBRARY_SOURCES } from '@/lib/law-library.js';
+import { sortCatalogRecords } from '@/lib/library-catalog.js';
+import { assignmentsForLawReview, lawReviewId } from '@/lib/law-review.js';
+import { loadOrcCorpus, type OfficialOrcSection } from '@/lib/orc-law-data.js';
+import { useWorkspace } from '@/state/workspace.js';
+import type { LawReviewRecord } from '@/lib/model.js';
 import manualIndexText from '@/assets/fto-manual-index.json?raw';
 
 type Group =

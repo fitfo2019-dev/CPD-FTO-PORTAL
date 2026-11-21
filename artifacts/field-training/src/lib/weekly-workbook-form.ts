@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
-import { DAILY_ACTIVITY_FIELDS, phaseAssignmentLabel, RATINGS, SEG_CATEGORIES, type Report } from './model';
-import { formatDateDMY, getSundaySaturdayWeek } from './training-calendar';
-import { activityTotals } from './run-activity';
+import { DAILY_ACTIVITY_FIELDS, phaseAssignmentLabel, RATINGS, SEG_CATEGORIES, type Report } from './model.js';
+import { formatDateDMY, getSundaySaturdayWeek } from './training-calendar.js';
+import { activityTotals } from './run-activity.js';
 
 // Three category columns and four activity columns follow the supplied worksheet photo.
 export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XLSX.WorkSheet {

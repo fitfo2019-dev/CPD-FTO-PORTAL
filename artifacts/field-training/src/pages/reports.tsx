@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { Search, PenLine, X } from 'lucide-react';
-import { useWorkspace } from '@/state/workspace';
-import { CATEGORIES, PHASES, phaseAssignmentLabel, phaseLabel, SHIFTS, SHIFT_LABEL, shiftCodeLabel, STATUS_LABEL, evaluationProgress, type Status } from '@/lib/model';
-import { PageHead, Panel, StatusPill } from '@/components/bits';
-import { SearchableSelect } from '@/components/searchable-select';
-import { formatDateDMY } from '@/lib/training-calendar';
-import { activityTotals } from '@/lib/run-activity';
+import { useWorkspace } from '@/state/workspace.js';
+import { CATEGORIES, PHASES, phaseAssignmentLabel, phaseLabel, SHIFTS, SHIFT_LABEL, shiftCodeLabel, STATUS_LABEL, evaluationProgress, type Status } from '@/lib/model.js';
+import { PageHead, Panel, StatusPill } from '@/components/bits.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { formatDateDMY } from '@/lib/training-calendar.js';
+import { activityTotals } from '@/lib/run-activity.js';
 
 export default function Reports() {
   const { ws } = useWorkspace();

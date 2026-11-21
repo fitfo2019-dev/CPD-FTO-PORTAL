@@ -1,9 +1,9 @@
 import {
   defaultRatings, defaultReportingForDutyRecord, emptyDailyActivitySummary, emptyRatings,
   type FtoRosterEntry, type Report, type Shift, type TrainingAssignment,
-} from './model';
-import { getPhaseScheduleInfo, getTrainingWeekNumber, parseDateDMY, formatDateDMY } from './training-calendar';
-import { cruiserDistrictForFtoAssignment, isValidAssignment } from './cpd-geography';
+} from './model.js';
+import { getPhaseScheduleInfo, getTrainingWeekNumber, parseDateDMY, formatDateDMY } from './training-calendar.js';
+import { cruiserDistrictForFtoAssignment, isValidAssignment } from './cpd-geography.js';
 
 export interface SubstituteDayInput {
   assignment: TrainingAssignment;

@@ -4,7 +4,7 @@ import {
   DIVISION_DIRECTIVES,
   DIVISION_DIRECTIVE_SOURCE_REVISION,
   formatSelectedDivisionDirectives,
-} from './division-directives';
+} from './division-directives.js';
 
 test('directive picker uses current official public directive titles and numbers', () => {
   assert.equal(DIVISION_DIRECTIVE_SOURCE_REVISION, '09/30/2026');

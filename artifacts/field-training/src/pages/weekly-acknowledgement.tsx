@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { Printer, Save, ShieldAlert } from 'lucide-react';
 import { useUser } from '@clerk/react';
-import { PageHead, Panel } from '@/components/bits';
-import { SearchableSelect } from '@/components/searchable-select';
-import { PrintableWeeklyAcknowledgement } from '@/components/printable-weekly-ack';
-import { useToast } from '@/hooks/use-toast';
-import { phaseAssignmentLabel, phaseLabel, uid, type Phase, type WeeklyPacketAcknowledgement } from '@/lib/model';
-import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar';
-import { useWorkspace } from '@/state/workspace';
+import { PageHead, Panel } from '@/components/bits.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { PrintableWeeklyAcknowledgement } from '@/components/printable-weekly-ack.js';
+import { useToast } from '@/hooks/use-toast.js';
+import { phaseAssignmentLabel, phaseLabel, uid, type Phase, type WeeklyPacketAcknowledgement } from '@/lib/model.js';
+import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
+import { useWorkspace } from '@/state/workspace.js';
 
 export default function WeeklyAcknowledgementPage() {
   const { ws, upsertWeeklyAcknowledgement } = useWorkspace();

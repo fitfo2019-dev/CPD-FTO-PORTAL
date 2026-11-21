@@ -1,4 +1,4 @@
-import type { PrimaryRunForm, SupplementalRunForm } from './model';
+import type { PrimaryRunForm, SupplementalRunForm } from './model.js';
 
 export type ManualChecklistItem = { label: string; help: string };
 export type ManualChecklistSection = { title: string; items: readonly ManualChecklistItem[] };

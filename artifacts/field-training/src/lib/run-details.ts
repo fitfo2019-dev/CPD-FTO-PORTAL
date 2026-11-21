@@ -1,4 +1,4 @@
-import { parseDateDMY, splitDateTimeEntryMDY } from './training-calendar';
+import { parseDateDMY, splitDateTimeEntryMDY } from './training-calendar.js';
 
 /** Parse a complete local timestamp; never infer an overnight date. */
 export function parseRunDateTime(value:string):string|undefined {

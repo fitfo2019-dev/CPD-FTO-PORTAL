@@ -16,19 +16,19 @@ import {
   type TrainingRun,
   type DirectiveReviewForm,
   type PrimaryRunForm,
-} from '@/lib/model';
-import { CLEARANCE_CODES, RADIO_CODES, SITUATION_FOUND_NA, formatRadioCode } from '@/lib/radio-codes';
+} from '@/lib/model.js';
+import { CLEARANCE_CODES, RADIO_CODES, SITUATION_FOUND_NA, formatRadioCode } from '@/lib/radio-codes.js';
 import {
   formatDateDMY,
   formatDateTimeMDY,
   formatTrainingFolderPageReference,
   type TrainingFolderDayReference,
-} from '@/lib/training-calendar';
-import { PrintableSubstationOrientation } from '@/components/printable-extended-forms';
-import type { SubstationOrientationRecord } from '@/lib/model';
-import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from '@/lib/narrative-continuation';
-import { DIVISION_DIRECTIVE_SOURCE_REVISION } from '@/lib/division-directives';
-import { reviewedTrainingMaterials } from '@/lib/training-materials';
+} from '@/lib/training-calendar.js';
+import { PrintableSubstationOrientation } from '@/components/printable-extended-forms.js';
+import type { SubstationOrientationRecord } from '@/lib/model.js';
+import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from '@/lib/narrative-continuation.js';
+import { DIVISION_DIRECTIVE_SOURCE_REVISION } from '@/lib/division-directives.js';
+import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
 
 export function PrintableDailyForms({ report,orientation,dayReference }: { report:Report;orientation?:SubstationOrientationRecord;dayReference?:TrainingFolderDayReference }) {
   let nextPage = 2+dailyLogContinuations(report).length;

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
-import { useWorkspace } from '@/state/workspace';
-import { PageHead, Panel } from '@/components/bits';
-import { cn } from '@/lib/utils';
-import { PHASES, phaseLabel, type Phase } from '@/lib/model';
-import { formatDateTimeMDY } from '@/lib/training-calendar';
+import { useWorkspace } from '@/state/workspace.js';
+import { PageHead, Panel } from '@/components/bits.js';
+import { cn } from '@/lib/utils.js';
+import { PHASES, phaseLabel, type Phase } from '@/lib/model.js';
+import { formatDateTimeMDY } from '@/lib/training-calendar.js';
 
 export default function Training() {
   const { ws, toggleTask } = useWorkspace();

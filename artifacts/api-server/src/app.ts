@@ -22,6 +22,14 @@ import {
 const app: Express = express();
 
 app.disable("x-powered-by");
+if (
+  process.env.NODE_ENV === "production" &&
+  !process.env.CLERK_PUBLISHABLE_KEY?.trim()
+) {
+  throw new Error(
+    "CLERK_PUBLISHABLE_KEY is required for production authentication.",
+  );
+}
 const rawProxyHops = process.env.TRUST_PROXY_HOPS;
 const trustProxyHops =
   rawProxyHops === undefined ? 1 : Number.parseInt(rawProxyHops, 10);
@@ -37,7 +45,7 @@ if (
 // The default supports the internal preview; production must set its exact count.
 app.set(
   "trust proxy",
-  parseInt(process.env.TRUST_PROXY_HOPS ?? "", 10) || 1,
+  trustProxyHops,
 );
 app.use(
   helmet({

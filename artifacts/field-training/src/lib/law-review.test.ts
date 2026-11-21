@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { assignmentsForLawReview, lawReviewId } from './law-review';
-import type { TrainingAssignment } from './model';
+import { assignmentsForLawReview, lawReviewId } from './law-review.js';
+import type { TrainingAssignment } from './model.js';
 
 const assignments: TrainingAssignment[] = [
   { id: 'a1', className: '135th', recruitName: 'PO One', recruitBadge: '1001', recruitEmail: 'one@dept.gov', ftoBadge: '2001', phase: 1, phaseStartDate: '2026-01-04' },

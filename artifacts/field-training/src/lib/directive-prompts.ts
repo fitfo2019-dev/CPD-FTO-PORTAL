@@ -1,4 +1,4 @@
-import type { ActivityKey, PrimaryRunForm } from './model';
+import type { ActivityKey, PrimaryRunForm } from './model.js';
 
 export interface DirectivePrompt {
   number: string;

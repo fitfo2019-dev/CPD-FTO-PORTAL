@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { defaultDirectiveReviewRecord } from './model';
-import { parseReferenceEntries, reviewedTrainingMaterials } from './training-materials';
+import { defaultDirectiveReviewRecord } from './model.js';
+import { parseReferenceEntries, reviewedTrainingMaterials } from './training-materials.js';
 
 test('multiple training references appear as separate, labeled review rows', () => {
   const record = {

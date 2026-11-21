@@ -1,4 +1,4 @@
-import type { Role, TrainingAssignment } from './model';
+import type { Role, TrainingAssignment } from './model.js';
 
 /**
  * Limits the local review UI to assignments associated with the current account.

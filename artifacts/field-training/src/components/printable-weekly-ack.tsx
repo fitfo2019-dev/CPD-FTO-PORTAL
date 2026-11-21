@@ -1,5 +1,5 @@
-import { phaseLabel, type WeeklyPacketAcknowledgement } from '@/lib/model';
-import { formatDateDMY } from '@/lib/training-calendar';
+import { phaseLabel, type WeeklyPacketAcknowledgement } from '@/lib/model.js';
+import { formatDateDMY } from '@/lib/training-calendar.js';
 
 export function PrintableWeeklyAcknowledgement({ acknowledgement }: { acknowledgement: WeeklyPacketAcknowledgement }) {
   return (

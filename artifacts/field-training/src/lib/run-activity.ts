@@ -1,4 +1,4 @@
-import { emptyDailyActivitySummary, type ActivityKey, type DailyActivitySummary, type Report, type TrainingRun } from './model';
+import { emptyDailyActivitySummary, type ActivityKey, type DailyActivitySummary, type Report, type TrainingRun } from './model.js';
 
 export function runActivityValidationError(run:Pick<TrainingRun,'runKind'|'dispatchedCode'|'clearanceCode'|'activityFlags'>):string|undefined {
   if(run.runKind==='traffic_stop'&&run.dispatchedCode==='6'&&['1V','3V'].includes(run.clearanceCode??'')&&run.activityFlags?.premierOneReports) {

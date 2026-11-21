@@ -9,10 +9,10 @@ import {
   ratingLabel,
   shiftDisplayLabel,
   type Report,
-} from '@/lib/model';
-import { formatDateDMY, formatTrainingFolderPageReference, getSundaySaturdayWeek, type TrainingFolderDayReference } from '@/lib/training-calendar';
-import { activityTotals } from '@/lib/run-activity';
-import { dailyLogContinuations } from '@/lib/narrative-continuation';
+} from '@/lib/model.js';
+import { formatDateDMY, formatTrainingFolderPageReference, getSundaySaturdayWeek, type TrainingFolderDayReference } from '@/lib/training-calendar.js';
+import { activityTotals } from '@/lib/run-activity.js';
+import { dailyLogContinuations } from '@/lib/narrative-continuation.js';
 
 const RATINGS = ['NO', 'A', 'RT', 'UA', 'NRT'] as const;
 

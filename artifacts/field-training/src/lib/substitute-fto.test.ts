@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createSubstituteDay } from './substitute-fto';
-import { nrtReference } from './nrt-reference';
-import { isEligibleCitationSummons } from './radio-codes';
-import { CATEGORIES, canViewClass, validateReport, type TrainingAssignment } from './model';
-import { CPD_GEOGRAPHY } from './cpd-geography';
+import { createSubstituteDay } from './substitute-fto.js';
+import { nrtReference } from './nrt-reference.js';
+import { isEligibleCitationSummons } from './radio-codes.js';
+import { CATEGORIES, canViewClass, validateReport, type TrainingAssignment } from './model.js';
+import { CPD_GEOGRAPHY } from './cpd-geography.js';
 
 const zone=CPD_GEOGRAPHY[0];
 const precinct=zone.precincts[0];

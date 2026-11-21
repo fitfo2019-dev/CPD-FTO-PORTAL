@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { sortCatalogRecords } from './library-catalog';
+import { sortCatalogRecords } from './library-catalog.js';
 
 const records = [
   { id: 'dir-z', group: 'Division Directives', title: 'Zoning', label: 'Directive 4.01' },

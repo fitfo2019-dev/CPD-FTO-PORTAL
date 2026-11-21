@@ -1,4 +1,4 @@
-import type { PrimaryRunForm } from './model';
+import type { PrimaryRunForm } from './model.js';
 
 // Labels transcribed from the user-provided Columbus Division of Police Patrol SOP 2.02,
 // revised 04/15/2026. This is a reference list, not a live dispatch integration.

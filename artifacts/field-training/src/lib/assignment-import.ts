@@ -1,9 +1,9 @@
 import {
   PHASES, SHIFTS, WEEKDAYS, type FtoRosterEntry, type Phase, type Shift,
   type TrainingAssignment, type Weekday,
-} from './model';
-import { parseDateDMY, requiredDaysOff } from './training-calendar';
-import { cruiserDistrictForFtoAssignment } from './cpd-geography';
+} from './model.js';
+import { parseDateDMY, requiredDaysOff } from './training-calendar.js';
+import { cruiserDistrictForFtoAssignment } from './cpd-geography.js';
 
 export type AssignmentDraft = Omit<TrainingAssignment, 'id'>;
 export interface ParsedRoster {

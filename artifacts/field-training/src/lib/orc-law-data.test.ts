@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { validateOrcCorpusData, type OrcCorpusManifest, type OfficialOrcSection } from './orc-law-data';
+import { validateOrcCorpusData, type OrcCorpusManifest, type OfficialOrcSection } from './orc-law-data.js';
 
 const dataDirectory = new URL('../../public/law-data/', import.meta.url);
 const manifest = JSON.parse(

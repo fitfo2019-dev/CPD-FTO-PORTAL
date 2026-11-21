@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { CheckCheck, Printer } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { PrintableSubstationOrientation } from '@/components/printable-extended-forms';
-import { useToast } from '@/hooks/use-toast';
-import { uid, type SubstationOrientationRecord } from '@/lib/model';
-import { SUBSTATION_ORIENTATION_SECTIONS, SUBSTATION_ORIENTATION_KEYS, defaultSubstationOrientationChecklist } from '@/lib/substation-orientation';
-import { SearchableSelect } from '@/components/searchable-select';
-import { CPD_SUBSTATIONS, CPD_SUBSTATION_DIRECTORY_URL, defaultSubstationForAssignment, getSubstation } from '@/lib/substations';
-import { formatDateDMY, formatDateTimeMDY, formatDateTimeEntryMDY, formatTrainingFolderPageReference, getNextReportDate, getTrainingFolderDayReference, parseDateDMY, splitDateTimeEntryMDY } from '@/lib/training-calendar';
-import { parseRunDateTime } from '@/lib/run-details';
-import { useWorkspace } from '@/state/workspace';
+import { PageHead, Panel } from '@/components/bits.js';
+import { PrintableSubstationOrientation } from '@/components/printable-extended-forms.js';
+import { useToast } from '@/hooks/use-toast.js';
+import { uid, type SubstationOrientationRecord } from '@/lib/model.js';
+import { SUBSTATION_ORIENTATION_SECTIONS, SUBSTATION_ORIENTATION_KEYS, defaultSubstationOrientationChecklist } from '@/lib/substation-orientation.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { CPD_SUBSTATIONS, CPD_SUBSTATION_DIRECTORY_URL, defaultSubstationForAssignment, getSubstation } from '@/lib/substations.js';
+import { formatDateDMY, formatDateTimeMDY, formatDateTimeEntryMDY, formatTrainingFolderPageReference, getNextReportDate, getTrainingFolderDayReference, parseDateDMY, splitDateTimeEntryMDY } from '@/lib/training-calendar.js';
+import { parseRunDateTime } from '@/lib/run-details.js';
+import { useWorkspace } from '@/state/workspace.js';
 
 export default function SubstationOrientationPage() {
   const {ws,vault,upsertSubstationOrientation}=useWorkspace();

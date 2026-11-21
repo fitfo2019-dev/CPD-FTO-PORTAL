@@ -1,4 +1,4 @@
-import { PHASE_LENGTH_WEEKS, PHASE_LIMBO_FULL_WEEKS, PHASE_LIMBO_WORKDAYS, PHASE_PROGRAM_WEEK_START, type Phase, type PhaseCaseFolder, type Report, type ReportShift, type Shift, type Weekday } from './model';
+import { PHASE_LENGTH_WEEKS, PHASE_LIMBO_FULL_WEEKS, PHASE_LIMBO_WORKDAYS, PHASE_PROGRAM_WEEK_START, type Phase, type PhaseCaseFolder, type Report, type ReportShift, type Shift, type Weekday } from './model.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

@@ -1,78 +1,110 @@
-**Future AI assistants: Read this manifest before modifying the codebase. Preserve the documented API contracts, naming rules, and scope boundaries.**
+**Future AI assistants: Read this manifest before modifying the codebase. Preserve the documented API contracts, naming rules, security boundaries, and scope limitations.**
 
 # Project Manifest
 
 ## Current contents and boundaries
 
-This workspace contains an Express API Server and a React/Vite Component Preview Server. The isolated `AdminLogsDashboard` mockup calls a development-only audit-log route; there are no connected product frontend views or data-backed application screens in this workspace. The `callbox\pv3` application exists on the internal server, but its source and runtime are outside this workspace.
+This workspace contains three artifacts: an Express API Server, a React/Vite Component Preview Sandbox, and the Field Training Officer Portal. `callbox\pv3` exists on the internal server, but its source and runtime are outside this workspace.
 
-The XML-to-JSON gateway is a planned architectural boundary only: a future backend router may receive raw XML or binary input from the Government System, normalize it, and expose clean JSON to the Visual Interface. A JSON records adapter exists, but it is unconfigured; no upstream connection or XML/binary normalization is active.
+The Field Training Officer Portal has sign-in and workflow views, but training records remain in an encrypted device-local vault. There is no connected training-record synchronization service, database-backed portal route, or configured department role-and-record-scope authorization policy. The isolated `AdminLogsDashboard` mockup uses development sample data; it is not a production audit console.
+
+The XML-to-JSON Government System gateway is a planned architectural boundary only. No XML or binary integration is active. The secure-records API has a mock pathway and a live adapter, but no approved upstream endpoint or access grant is configured in this workspace.
 
 ## Workspace footprint and portability
 
-- Git currently tracks 162 files (verified 2026-11-21).
-- The monorepo uses TypeScript project references and enables `noImplicitAny` and `strictNullChecks` across its API, component-preview, scripts, and shared-library checks.
-- `pnpm-lock.yaml` is the sole package lockfile (lockfile version 9). Workspace catalogs and overrides centralize package resolution; deployment installs should use `pnpm install --frozen-lockfile`.
-- The Express server uses `process.env.PORT || 3000` and binds to `0.0.0.0`.
-- `TRUST_PROXY_HOPS` defaults to `1`, is validated as an integer from `1` through `16`, and is applied before security, request logging, and audit middleware.
-- Startup fails closed for invalid port, proxy-hop, or `USE_REAL_API` settings. `AUDIT_ID_HMAC_KEY` must be present and at least 32 bytes; production live mode also requires `REAL_API_KEY` and `REAL_API_URL`.
+- Git tracks 375 files (verified 2026-11-21).
+- Workspace packages use ECMAScript modules. Local TypeScript and TSX imports use explicit `.js` extensions, including `/index.js` for directory entrypoints, so emitted code resolves under strict Node ESM.
+- The shared TypeScript configuration enables `strict`, `noImplicitAny`, and `strictNullChecks`; workspace type checks pass without suppressions.
+- `pnpm-lock.yaml` is the sole lockfile. Workspace package resolution uses catalogs and overrides; install with `pnpm install --frozen-lockfile`.
+- The supported Node.js range is `^20.19.0 || >=22.12.0 <25`.
+- Validation is intentionally split by boundary: the OpenAPI-generated shared API package `@workspace/api-zod` stays aligned to catalog Zod 3 (`3.25.76`), while Field Training forms use Zod 4 (`4.6.7`), `@hookform/resolvers` `7.0.7`, and React Hook Form. The shared API-schema engine has not migrated to Zod 4; do not describe the workspace as uniformly Zod 3 or uniformly Zod 4.
+- The API build emits ESM JavaScript and linked source maps to `artifacts/api-server/dist/`. Third-party runtime dependencies are external, not copied from `node_modules`; the standalone package manifest lists them.
+- The Vite artifacts have independent static build outputs. Their ports and base paths have local defaults and remain environment-configurable for workflows.
+- The Express server reads `PORT`, defaults to `3000`, and binds to `0.0.0.0`.
+- `TRUST_PROXY_HOPS` defaults to `1`, accepts integers from `1` through `16`, and is applied before security, request logging, and audit middleware. The confirmed agency ingress has two hops; use `TRUST_PROXY_HOPS=2` for that topology and re-verify if it changes.
+- `USE_REAL_API` is mock-by-default (`false`). Production startup fails if live mode is enabled without `REAL_API_URL` and `REAL_API_KEY`; upstream requests use only the server credential and fail closed without the authorization-grant adapter.
+- `AUDIT_ID_HMAC_KEY` is required for API startup and must be at least 32 bytes. The audit utility uses it for HMAC-SHA-256 pseudonyms of verified user IDs and client IPs; raw identifiers are not written to audit records.
 
 ## Completed resilience work
 
 - The React component-preview application wraps its main view in a recoverable Error Boundary. Its “Try again” action clears the failure and remounts the protected view.
-- Individual component previews show an accessible loading skeleton while their module imports resolve. Imports have a 15-second timeout; timeout and import failures display a retryable fallback with a “Try again” action that starts a new load attempt.
-- The mock sign-in request and isolated `AdminLogsDashboard` request are abortable and bounded to 15 seconds. The dashboard also uses defensive normalization and a retry panel. These are not a connected product records view or a general API timeout layer.
-- These resilience features cover the component-preview harness and this one mockup. They do not provide connected data-backed product views.
+- Individual component previews show an accessible loading skeleton while module imports resolve. Imports have a 15-second timeout; timeout and import failures display a retryable fallback.
+- The isolated `AdminLogsDashboard` request and mock sign-in request use abortable 15-second timeouts. These behaviors are not a global API-client guarantee.
+- These resilience features cover the component-preview harness and explicitly bounded requests; they do not make offline portal storage synchronize with the API.
 
-## Pending implementation: product frontend views
+## Pending implementation: connected portal services
 
-**Current Workspace Limitation:** This workspace features a component-preview harness and a hardened API server, but does not contain the connected data-backed product views. The audit dashboard is an isolated mockup driven only by the development sample endpoint. The internal-server `callbox\pv3` application is outside this source tree.
+**Current Workspace Limitation:** The Field Training Officer Portal contains user-facing workflow views and Clerk sign-in, but its drafts are stored only in encrypted device-local IndexedDB. It does not yet have a connected training-record API, server-side synchronization, or a department role/record-scope authorization adapter. The API's secure-records mock is separate from the portal views.
 
-**CRITICAL FUTURE STEP:** When building out actual user-facing application screens, developers must explicitly connect the frontend views to the backend API using our centralized `API_BASE_URL`. Those views must use defensive parsing, 15-second request timeouts, loading states, and retryable server-error fallbacks. The mockup's timeout is a reference implementation, not a global client guarantee.
+**CRITICAL FUTURE STEP:** When adding data-backed application screens, connect frontend views only through the centralized `API_BASE_URL`. Use defensive response parsing, loading skeletons, a 15-second network timeout, and retryable error fallbacks. Do not treat local drafts or the isolated audit-log mockup as a live server-backed workflow.
 
 ## Functional architecture and core user workflows
 
-This workspace is a security-oriented, data-validated prototype foundation for sensitive-records management and administrative compliance workflows. It is not a production identity system or a certified compliance platform.
+This is a security-oriented prototype foundation for sensitive-records management and administrative compliance workflows. Its current capabilities are not a production identity policy or a certified compliance platform.
 
-- **Component Preview Sandbox:** isolated React/Vite environment for visual testing and interface modeling.
-- **Backend API Enterprise Gateway:** Express API with JSON validation, same-origin API routing, security middleware, and pseudonymized request auditing. The XML-to-JSON Government System gateway remains planned, not connected.
-- **Secure Operator Sign-In:** `loginWithMockCredentials` posts to `POST /api/auth/mock-login` through the centralized API client. In development, the server returns the fixed `mock-jwt-string` demonstration value, which the client stores in memory and `customFetch` can attach as a Bearer header. Logout clears the in-memory token. This value is not a JWT or a real credential; there is no sign-in view or live identity provider, and the current secure-records route does not enforce the mock Bearer helper.
-- **Defensive Records Querying:** `GET /api/v1/secure-records` returns schema-normalized records in the standard JSON envelope. `USE_REAL_API` defaults to `false`; live mode uses server-only `REAL_API_URL` and `REAL_API_KEY` and never forwards a browser Authorization header. A connected product records table has not been built. Future screens must use `API_BASE_URL`, defensive optional-chaining/fallback parsing, and a 15-second `AbortController` timeout. The current `AdminLogsDashboard` timeout applies to `/api/v1/audit-logs`, not to a secure-records view.
-- **Forensic Audit Logging:** requests under `/api` pass through audit middleware. It emits JSON Lines to standard output with request context and HMAC-pseudonymized `client_ip_hash`; `user_id_hash` is included only for a verified principal. The mock token creates no verified identity. Raw IPs, request bodies, cookies, and Authorization headers are excluded. Standard output is not an immutable audit archive.
-- **UI Component Catalog:** the workspace contains 55 reusable, modular UI components. They provide the visual foundation for future application views; the components themselves do not implement authentication, authorization, or data security.
+- **Component Preview Sandbox:** Isolated React/Vite environment for visual testing and interface modeling, including a catalog of 55 reusable UI components.
+- **Field Training Officer Portal:** React/Vite workflow views with Clerk sign-in. Offline drafts are encrypted in IndexedDB with AES-GCM; the key is derived from a passphrase using PBKDF2 and held in memory while unlocked. The portal does not upload or synchronize these drafts.
+- **Backend API Enterprise Gateway:** Express API with Helmet, explicit CORS origins, request validation, Clerk middleware, pseudonymized request auditing, and same-origin routing. The XML-to-JSON Government System gateway remains planned.
+- **Secure Operator Sign-In:** The Field Training Officer Portal uses Clerk's browser session and same-origin cookie flow. The separate `POST /api/auth/mock-login` endpoint is development-only and returns a fixed demonstration token; it is not a JWT, not a real identity, and not the portal's sign-in mechanism.
+- **Defensive Records Querying:** `GET /api/v1/secure-records` returns validated synthetic records in the standard JSON envelope by default. Live mode is off unless `USE_REAL_API=true`; it requires a signed-in Clerk user, a server-side authorization grant, and `REAL_API_URL`/`REAL_API_KEY`. Upstream calls use only the server credential; browser authorization headers are not forwarded. The grant adapter is not implemented, so live access fails closed until an approved policy is connected.
+- **Forensic Audit Logging:** Requests under `/api` emit JSON Lines to stdout with request IDs, response outcomes, and keyed pseudonyms for available verified identities and client IPs. Raw request bodies, cookies, authorization headers, and raw client IPs are excluded from the general request audit event. Stdout is not an immutable archive.
+- **UI Component Catalog:** The workspace contains 55 reusable, modular UI components. They are a design foundation; the catalog does not provide backend authorization or data protection by itself.
 
 ## Folder map
 
-- `artifacts/api-server/` — Express API service, security headers, CORS configuration, request logging, and routes.
-- `artifacts/mockup-sandbox/` — React/Vite component preview sandbox and reusable UI component catalog.
-- `HANDOVER_MANUAL.md` — functional overview, workflow status, and handover boundaries.
-- `lib/api-spec/` — OpenAPI source contract and code generation configuration.
+- `artifacts/api-server/` — Express API service, Clerk proxy, security headers, CORS, request logging, validation, and routes.
+- `artifacts/mockup-sandbox/` — React/Vite component preview sandbox and UI component catalog.
+- `artifacts/field-training/` — Field Training Officer Portal and encrypted offline-storage wrapper.
+- `lib/api-spec/` — OpenAPI source contract.
 - `lib/api-client-react/` — Generated React Query API client, centralized API base configuration, request wrapper, and development-only mock auth state.
 - `lib/api-zod/` — Generated Zod schemas and response validators.
-- `lib/db/` — PostgreSQL and Drizzle schema foundation; not connected to active application routes.
+- `lib/db/` — PostgreSQL and Drizzle schema foundation; not connected to current API routes.
 - `database/migrations/` — Portable SQL schema and database constraints.
-- `docs/` — retained security and project-structure notes; some descriptions refer to the internal-server `callbox\pv3` application. Its source/runtime is outside this workspace, so those documents do not prove that referenced code or routes exist here.
-- `scripts/` — Workspace utility scripts for standalone production packaging, including the sample `hello` command.
+- `scripts/` — Workspace utility scripts, including standalone API packaging and the retained `hello.ts` command.
 - `attached_assets/` — User-provided source materials; do not remove as cleanup.
-- `replit.md` — current collaborator guidance that points to this manifest.
+- `HANDOVER_MANUAL.md` — Functional overview and handover boundaries.
+- `replit.md` — Collaborator guidance that points to this manifest.
 
 ## Services and configuration
 
-- API Server: Express, listening on the workflow-provided `PORT`.
-- Component Preview Server: Vite, using workflow-provided `PORT` and `BASE_PATH`.
-- API server runtime: Node.js `^20.19.0 || >=22.12.0 <25`; `pnpm run build:api` builds the service and shared libraries, and `pnpm start` runs it.
-- API listener: `PORT` environment value with a `3000` fallback, bound to `0.0.0.0`.
-- `API_BASE_URL` is centralized in `lib/api-client-react/src/api-config.ts` and is fixed to the same-origin `/api` route; frontend calls cannot override it with an external origin.
-- `AUDIT_ID_HMAC_KEY` is required by request audit logging and must remain in the server secret manager. Never print or log its value.
-- `USE_REAL_API` defaults to `false`; mock records are returned unless explicitly enabled.
-- `REAL_API_URL` must be an approved HTTPS origin before live records can be requested.
-- `REAL_API_KEY` is a server-only secret for the live upstream request. Production initialization fails explicitly if either live setting is missing while `USE_REAL_API=true`.
-- `TRUST_PROXY_HOPS` controls whether Express trusts `X-Forwarded-For`; the code defaults to `1` for the internal preview and the shared environment is set to `2` for the confirmed ingress. Valid values are `1` through `16`. Agency administrators must set the exact production proxy-chain length. Do not trust forwarded headers directly.
-- CORS uses the explicit, generic `ALLOWED_ORIGINS` list. It does not use a wildcard.
+- **API Server:** Express on the workflow-provided port; standalone output uses `PORT` or `3000` and binds to `0.0.0.0`.
+- **Component Preview Server:** Vite on the workflow-provided port and base path; local defaults allow command-line builds without workflow variables.
+- **Field Training Officer Portal:** Vite static build at `artifacts/field-training/dist/public`; requires `VITE_CLERK_PUBLISHABLE_KEY` at build time.
+- `API_BASE_URL` is centralized in `lib/api-client-react/src/api-config.ts` and uses same-origin `/api`; frontend code must not call the external records service directly.
+- `AUDIT_ID_HMAC_KEY` is required by the audit pseudonymization utility. Keep it in the server secret manager and never log its value.
+- `USE_REAL_API` defaults to `false`. If set to `true` in production, `REAL_API_URL` and `REAL_API_KEY` are required; startup fails if either is missing.
+- `TRUST_PROXY_HOPS` is validated and applied before middleware that reads the client IP. Production operators must set it to the exact verified proxy-chain length; do not infer it from untrusted headers.
+- Clerk proxying is production-only at `/api/__clerk`. It uses the configured trusted-proxy host and resolved client IP, strips incoming forwarded headers before forwarding, and requires server-side Clerk configuration in production.
+- `ALLOWED_ORIGINS` is a comma-separated exact-origin CORS allowlist; wildcard origins are rejected.
+- `DATABASE_URL` is consumed only by the separate database helper; current API routes are stateless.
+
+## Agency-managed production startup
+
+The monorepo build produces the API and the static artifacts. The root start command launches only the API; it does not serve the Field Training Officer Portal's static files.
+
+From the repository root, with `VITE_CLERK_PUBLISHABLE_KEY` and other required public build-time values supplied by the deployment environment:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm run build
+```
+
+Inject `AUDIT_ID_HMAC_KEY`, `CLERK_PUBLISHABLE_KEY`, and `CLERK_SECRET_KEY` from the agency's secret manager, then start the API:
+
+```sh
+NODE_ENV=production PORT=3000 TRUST_PROXY_HOPS=2 USE_REAL_API=false pnpm start
+```
+
+Use `TRUST_PROXY_HOPS=2` only when the production route has exactly two trusted proxy hops; otherwise set the verified count. Express applies this count before Helmet, request logging, and audit middleware. The edge proxy must overwrite client-supplied forwarding headers and preserve `/api` when forwarding to Express. Clerk proxy requests use Express-resolved `req.hostname` and `req.ip`, discard incoming forwarding headers, and set sanitized upstream headers.
+
+Serve `artifacts/field-training/dist/public` through the agency's static web server, with history fallback to `/index.html`. Forward `/api/*` to the Express service without stripping the prefix. `API_BASE_URL` remains the centralized same-origin `/api` path.
+
+For the standalone API-only distribution, run `pnpm run bundle:production`, transfer `dist-production.zip`, then install its production dependencies with the agency's package mirror/cache and run `npm start` from the extracted `dist-production/` directory. This archive does not contain the Field Training Officer Portal static build.
 
 ## API contracts
 
-Success responses use the envelope:
+Success responses use:
 
 ```json
 {
@@ -94,27 +126,25 @@ Error responses use:
 
 Current routes:
 
-- `GET /api/healthz` returns `{ "status": "success", "metadata": {}, "data": [{ "status": "ok" }] }`.
-- `POST /api/auth/mock-login` is development-only. It accepts a username and password and returns a fixed demonstration token; the token is not a JWT and does not represent a real identity.
-- `GET /api/v1/secure-records` returns validated mock records by default. The live branch uses `REAL_API_URL` and `REAL_API_KEY`, validates and normalizes upstream records, and never forwards a browser Authorization header.
-- `GET /api/v1/audit-logs` returns three deterministic, pseudonymized development samples and returns 404 in production.
-- Other API paths return the safe error envelope.
-- Backend routers and services are stateless: they do not write local database state, uploads, sessions, or persistent logs. Request audit events and Pino diagnostics stream to standard output. Mock records are in-memory constants. The separate database helper requires `DATABASE_URL` and is not connected to API routes.
-- The component preview dev plugin generates a local component registry only for the preview build; it does not store application data.
+- `GET /api/healthz` returns the schema-validated health envelope.
+- `POST /api/auth/mock-login` is development-only and returns a non-JWT demonstration value.
+- `GET /api/v1/secure-records` returns mock records unless the live switch is explicitly enabled. Both pathways normalize data through the shared Zod response schema; upstream failures return a safe error envelope.
+- `GET /api/v1/audit-logs` returns deterministic pseudonymized development samples and returns 404 in production.
+- Other API paths return a safe error envelope.
+- API routes do not write persistent application data or logs to local files. Audit and diagnostic logs stream to stdout. Mock records are in-memory constants.
+- The component-preview dev plugin generates a component registry for local previews only.
 
-The OpenAPI source of truth is `lib/api-spec/openapi.yaml`; generated client and validation outputs must be regenerated from it when the contract changes.
+The OpenAPI source of truth is `lib/api-spec/openapi.yaml`. Regenerate the client and validation outputs from that contract when response schemas change.
 
 ## Security and integration limits
 
 - Helmet applies a restrictive Content Security Policy and denies framing. The `X-Powered-By` response header is disabled.
 - CORS uses explicit origins rather than a wildcard.
-- Request audit events are JSON Lines written to standard output. Actor identifiers and client network addresses are pseudonymized with HMAC using `AUDIT_ID_HMAC_KEY`; request bodies, cookies, authorization headers, and raw client IPs are excluded.
-- A role or actor hash is included only when a verified principal is available. The current mock token has no user identity or role claims.
-- The live records branch uses only the independent server-level `REAL_API_KEY`; no browser credential is forwarded.
-- Forwarded client IPs are trusted only through the configured two-hop ingress chain.
-- Standard output is not a write-once or tamper-proof audit archive. No external immutable log collector or retention policy is configured.
-- No live identity provider, database-backed application routes, or connected product frontend views exist yet. The database schema and authorization/audit helpers are foundations, not active application features.
-- The separate database audit helper is not mounted to current routes. Its existing schema expects an IP address value and must be reviewed before it is connected to the application audit stream.
+- The Clerk browser session is cookie-based. The browser's bearer headers are not passed to the secure-records upstream; the server uses only `REAL_API_KEY`.
+- The live route fails closed unless a verified Clerk session, a server-side department authorization grant, and required upstream configuration are present. The department grant is not currently populated.
+- Offline portal drafts are encrypted at rest in IndexedDB. This does not provide server-side backup, device-management enforcement, agency authorization, or a CJIS compliance guarantee.
+- Audit events use HMAC pseudonyms for available identity and network identifiers. Standard output is not a write-once or tamper-proof audit archive; no external immutable log collector or retention policy is configured here.
+- No live Government System integration, XML/binary normalization, database-backed portal routes, or training-record synchronization is active.
 - Do not claim production readiness, regulatory compliance, or immutable audit retention from these foundations alone.
 
 ## Naming and rating rules
@@ -122,9 +152,12 @@ The OpenAPI source of truth is `lib/api-spec/openapi.yaml`; generated client and
 - Use only names supplied for the project; do not introduce alternate product terminology.
 - Do not use numerical performance ratings.
 
-## Development checks
+## Build and verification commands
 
-- `pnpm run typecheck` — workspace TypeScript checks.
-- `pnpm run build` — workspace type checks and package builds.
+- `pnpm install --frozen-lockfile` — install the workspace from its lockfile.
+- `pnpm typecheck` — strict TypeScript checks across shared libraries, artifacts, and scripts.
+- `pnpm run build` — type-check and build all workspace packages.
+- `pnpm run bundle:production` — rebuild and type-check the API, then create a clean `dist-production/` folder and `dist-production.zip`.
 - `pnpm --filter @workspace/api-server run dev` — API Server development workflow.
 - `pnpm --filter @workspace/mockup-sandbox run dev` — Component Preview Server workflow.
+- `pnpm --filter @workspace/field-training run dev` — Field Training Officer Portal workflow.

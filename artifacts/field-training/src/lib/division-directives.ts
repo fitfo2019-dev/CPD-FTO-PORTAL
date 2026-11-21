@@ -1,7 +1,7 @@
 import {
   DIRECTIVE_PDF_INDEX_SOURCE,
   DIRECTIVE_PDF_LINKS,
-} from './directive-pdf-index';
+} from './directive-pdf-index.js';
 
 /** Current individual directive titles and numbers linked by the official City page. */
 export const DIVISION_DIRECTIVE_SOURCE_REVISION = '09/30/2026';

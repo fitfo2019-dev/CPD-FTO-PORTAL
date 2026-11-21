@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { Download, Printer } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { PrintableMonthlySummary } from '@/components/printable-monthly-summary';
-import { SearchableSelect } from '@/components/searchable-select';
-import { DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, RATINGS, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS } from '@/lib/model';
-import { summarizeMonthlyReports } from '@/lib/monthly-summary';
-import { formatDateDMY } from '@/lib/training-calendar';
-import { useWorkspace } from '@/state/workspace';
+import { PageHead, Panel } from '@/components/bits.js';
+import { PrintableMonthlySummary } from '@/components/printable-monthly-summary.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, RATINGS, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS } from '@/lib/model.js';
+import { summarizeMonthlyReports } from '@/lib/monthly-summary.js';
+import { formatDateDMY } from '@/lib/training-calendar.js';
+import { useWorkspace } from '@/state/workspace.js';
 
 const ownerKey = (report: { className?: string; recruitBadge: string; recruitName: string }) =>
   JSON.stringify([report.className ?? '', report.recruitBadge, report.recruitName]);
@@ -59,7 +59,7 @@ export default function MonthlySummaryPage() {
     setExporting(true);
     setExportMessage('');
     try {
-      const { exportMonthlyWorkbook } = await import('@/lib/monthly-export');
+      const { exportMonthlyWorkbook } = await import('@/lib/monthly-export.js');
       exportMonthlyWorkbook(reports, monthKey);
       setExportMessage('Monthly Excel workbook downloaded.');
     } catch {

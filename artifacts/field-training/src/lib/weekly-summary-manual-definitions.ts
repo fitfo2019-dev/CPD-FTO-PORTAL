@@ -1,4 +1,4 @@
-import type { ActivityKey, Category } from './model';
+import type { ActivityKey, Category } from './model.js';
 
 export type ManualDefinition = {
   definition: string;

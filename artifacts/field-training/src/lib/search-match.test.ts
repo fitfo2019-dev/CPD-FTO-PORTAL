@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rankSearchChoices } from './search-match';
+import { rankSearchChoices } from './search-match.js';
 
 const choices = [
   { value:'9', label:'Substation 9', searchText:'3022 Winchester Pike Columbus Ohio 43232 614 645 4834' },

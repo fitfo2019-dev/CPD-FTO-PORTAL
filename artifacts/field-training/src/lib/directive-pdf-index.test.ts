@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DIVISION_DIRECTIVES } from './division-directives';
-import { DIRECTIVE_PDF_LINKS, DIRECTIVE_PDF_INDEX_SOURCE } from './directive-pdf-index';
+import { DIVISION_DIRECTIVES } from './division-directives.js';
+import { DIRECTIVE_PDF_LINKS, DIRECTIVE_PDF_INDEX_SOURCE } from './directive-pdf-index.js';
 
 test('official directive PDF links map to the portal directive index', () => {
   const directiveNumbers = new Set(DIVISION_DIRECTIVES.map((item) => item.number));

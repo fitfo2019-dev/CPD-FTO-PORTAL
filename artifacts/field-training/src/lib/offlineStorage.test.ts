@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { OfflineStorage } from './offlineStorage';
+import { OfflineStorage } from './offlineStorage.js';
 
 const encoder = new TextEncoder();
 const passphrase = encoder.encode('local-test-passphrase');

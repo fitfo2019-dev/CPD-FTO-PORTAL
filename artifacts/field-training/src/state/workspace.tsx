@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, type LocalChatDraft } from '@/lib/offlineStorage';
-import { createEmptyWorkspace } from '@/lib/empty-workspace';
-import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model';
-import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography';
-import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log';
-import { getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar';
+import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, type LocalChatDraft } from '@/lib/offlineStorage.js';
+import { createEmptyWorkspace } from '@/lib/empty-workspace.js';
+import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
+import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography.js';
+import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
+import { getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
 
 export type VaultState = 'none' | 'unlocked';
 type VaultIntent = 'save' | 'restore' | null;

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Lock, RotateCcw } from 'lucide-react';
-import { useWorkspace } from '@/state/workspace';
-import { PageHead, Panel } from '@/components/bits';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useWorkspace } from '@/state/workspace.js';
+import { PageHead, Panel } from '@/components/bits.js';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 
 export default function Settings() {
   const w = useWorkspace();

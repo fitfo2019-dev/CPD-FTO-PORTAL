@@ -4,7 +4,7 @@ import {
   defaultSubstationOrientationChecklist,
   SUBSTATION_ORIENTATION_KEYS,
   SUBSTATION_ORIENTATION_SECTIONS,
-} from './substation-orientation';
+} from './substation-orientation.js';
 
 test('orientation checklist keeps all manual items in clear, balanced categories', () => {
   const groupedKeys = SUBSTATION_ORIENTATION_SECTIONS.flatMap(section => section.items.map(([key]) => key));

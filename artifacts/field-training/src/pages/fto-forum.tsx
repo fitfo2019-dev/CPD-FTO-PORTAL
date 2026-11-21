@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { MessageSquare, Save, Trash2 } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { useToast } from '@/hooks/use-toast';
-import { useWorkspace } from '@/state/workspace';
-import type { LocalChatDraft } from '@/lib/offlineStorage';
+import { PageHead, Panel } from '@/components/bits.js';
+import { useToast } from '@/hooks/use-toast.js';
+import { useWorkspace } from '@/state/workspace.js';
+import type { LocalChatDraft } from '@/lib/offlineStorage.js';
 
 export default function FtoForumPage() {
   const {

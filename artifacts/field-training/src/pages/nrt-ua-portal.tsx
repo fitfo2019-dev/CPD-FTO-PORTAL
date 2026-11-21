@@ -1,10 +1,10 @@
 import { Link } from 'wouter';
 import { ClipboardList } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { CATEGORIES, CATEGORY_LABEL } from '@/lib/model';
-import { formatDateDMY } from '@/lib/training-calendar';
-import { nrtReference } from '@/lib/nrt-reference';
-import { useWorkspace } from '@/state/workspace';
+import { PageHead, Panel } from '@/components/bits.js';
+import { CATEGORIES, CATEGORY_LABEL } from '@/lib/model.js';
+import { formatDateDMY } from '@/lib/training-calendar.js';
+import { nrtReference } from '@/lib/nrt-reference.js';
+import { useWorkspace } from '@/state/workspace.js';
 
 export default function NrtUaPortalPage() {
   const { ws } = useWorkspace();

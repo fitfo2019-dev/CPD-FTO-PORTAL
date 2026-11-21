@@ -7,7 +7,7 @@ import {
   SEG_CATEGORIES,
   type Phase,
   type Report,
-} from './model';
+} from './model.js';
 
 const ratingStyle = {
   NO: { fill: { patternType: 'solid', fgColor: { rgb: 'FFE5E7EB' } }, font: { bold: true, color: { rgb: 'FF374151' } } },

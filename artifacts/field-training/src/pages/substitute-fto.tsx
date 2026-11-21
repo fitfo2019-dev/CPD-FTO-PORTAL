@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
 import { CalendarClock, CircleAlert, ClipboardList, X } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { useToast } from '@/hooks/use-toast';
-import { useWorkspace } from '@/state/workspace';
-import { uid, type CoverageRequest } from '@/lib/model';
-import { formatDateDMY, formatDateTimeEntryMDY, formatDateTimeMDY } from '@/lib/training-calendar';
-import { parseRunDateTime } from '@/lib/run-details';
+import { PageHead, Panel } from '@/components/bits.js';
+import { useToast } from '@/hooks/use-toast.js';
+import { useWorkspace } from '@/state/workspace.js';
+import { uid, type CoverageRequest } from '@/lib/model.js';
+import { formatDateDMY, formatDateTimeEntryMDY, formatDateTimeMDY } from '@/lib/training-calendar.js';
+import { parseRunDateTime } from '@/lib/run-details.js';
 
 const inputClass='min-h-11 w-full rounded border bg-card px-3 text-sm';
 

@@ -7,8 +7,8 @@ import {
   type DailyActivitySummary,
   type Report,
   type Rating,
-} from './model';
-import { activityTotals as manualActivityTotals } from './run-activity';
+} from './model.js';
+import { activityTotals as manualActivityTotals } from './run-activity.js';
 
 export type MonthlyRatingCounts = Record<Category, Record<Exclude<Rating, ''>, number>>;
 

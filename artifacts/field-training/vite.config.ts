@@ -1,46 +1,69 @@
-import path from 'path';
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
-import { fieldReadyPwa } from './pwa-plugin';
+import path from "node:path";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+import { fieldReadyPwa } from "./pwa-plugin.js";
 
-import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
+import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-const rawPort = process.env.PORT;
+function normalizeZodRollupAnnotations() {
+  return {
+    name: "normalize-zod-rollup-annotation-docs",
+    enforce: "pre" as const,
+    apply: "build" as const,
+    transform(code: string, id: string) {
+      if (!id.includes("/node_modules/zod/v4/core/")) return null;
 
-if (!rawPort) {
-  throw new Error(
-    'PORT environment variable is required but was not provided.',
-  );
+      let changed = false;
+      const normalized = code.replace(
+        /\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/g,
+        (comment) => {
+          if (
+            !comment.includes("@__PURE__") ||
+            /^\/\*\s*@__PURE__\s*\*\/$/.test(comment)
+          ) {
+            return comment;
+          }
+          changed = true;
+          return comment.replaceAll("@__PURE__", "PURE_____");
+        },
+      );
+
+      return changed ? { code: normalized, map: null } : null;
+    },
+  };
 }
 
+const rawPort = process.env.PORT ?? "18795";
 const port = Number(rawPort);
 
-if (Number.isNaN(port) || port <= 0) {
+if (!Number.isInteger(port) || port <= 0 || port > 65535) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH ?? "/";
 
-if (!basePath) {
-  throw new Error(
-    'BASE_PATH environment variable is required but was not provided.',
-  );
+if (!basePath.startsWith("/") || basePath.startsWith("//")) {
+  throw new Error("BASE_PATH must be an absolute path.");
 }
 
-export default defineConfig({
+export default defineConfig(async ({ command }) => {
+  const isDevServer = command === "serve";
+
+  return {
   base: basePath,
   plugins: [
     fieldReadyPwa(basePath),
+    normalizeZodRollupAnnotations(),
     react(),
     tailwindcss({ optimize: false }),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== 'production' &&
+    ...(isDevServer ? [runtimeErrorOverlay()] : []),
+    ...(isDevServer &&
     process.env.REPL_ID !== undefined
       ? [
           await import('@replit/vite-plugin-cartographer').then((m) =>
             m.cartographer({
-              root: path.resolve(import.meta.dirname, '..'),
+              root: path.resolve(import.meta.dirname, ".."),
             }),
           ),
           await import('@replit/vite-plugin-dev-banner').then((m) =>
@@ -51,25 +74,78 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(import.meta.dirname, 'src'),
-      '@assets': path.resolve(
+      "@": path.resolve(import.meta.dirname, "src"),
+      "@assets": path.resolve(
         import.meta.dirname,
-        '..',
-        '..',
-        'attached_assets',
+        "..",
+        "..",
+        "attached_assets",
       ),
     },
-    dedupe: ['react', 'react-dom'],
+    dedupe: ["react", "react-dom"],
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, 'dist/public'),
+    outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      onwarn(warning, defaultHandler) {
+        const sourceId = warning.id ?? warning.loc?.file ?? "";
+        const knownUnmappedSource =
+          sourceId.endsWith("/src/components/ui/tooltip.tsx") ||
+          sourceId.endsWith("/src/components/ui/label.tsx");
+
+        // Production sourcemaps are disabled; these two blank-line mapping
+        // notices have no source location to report. Preserve all other warnings.
+        if (
+          warning.code === "SOURCEMAP_ERROR" &&
+          warning.message.includes("Can't resolve original location of error.") &&
+          knownUnmappedSource
+        ) {
+          return;
+        }
+
+        defaultHandler(warning);
+      },
+      output: {
+        manualChunks(id) {
+          if (!id.includes("/node_modules/")) return;
+          if (
+            id.includes("/node_modules/@radix-ui/") ||
+            id.includes("/node_modules/@floating-ui/")
+          ) {
+            return "vendor-ui";
+          }
+          if (
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/") ||
+            id.includes("/node_modules/scheduler/")
+          ) {
+            return "vendor-react";
+          }
+          if (
+            id.includes("/node_modules/recharts/") ||
+            id.includes("/node_modules/d3-")
+          ) {
+            return "vendor-charts";
+          }
+          if (
+            id.includes("/node_modules/lucide-react/") ||
+            id.includes("/node_modules/react-icons/")
+          ) {
+            return "vendor-icons";
+          }
+          return "vendor";
+        },
+      },
+    },
   },
   server: {
     port,
     strictPort: true,
-    host: '0.0.0.0',
+    host: "0.0.0.0",
     allowedHosts: true,
     fs: {
       strict: true,
@@ -77,7 +153,8 @@ export default defineConfig({
   },
   preview: {
     port,
-    host: '0.0.0.0',
+    host: "0.0.0.0",
     allowedHosts: true,
   },
+  };
 });

@@ -31,7 +31,7 @@ import type {
   MockLoginEnvelope,
   MockLoginInput,
   SecureRecordsEnvelope
-} from './api.schemas.js';
+} from './api.schemas';
 
 import { customFetch } from '../custom-fetch.js';
 import type { ErrorType , BodyType } from '../custom-fetch.js';
@@ -260,7 +260,7 @@ export const getListSecureRecordsUrl = () => {
 }
 
 /**
- * Returns mock records by default or normalized upstream records when the live integration is enabled.
+ * Returns mock records by default or normalized upstream records when the live integration is enabled. Live requests require a Clerk-authenticated session and a server-side authorization grant; the upstream uses only the server-level REAL_API_KEY.
  * @summary List secure records
  */
 export const listSecureRecords = async ( options?: Parameters<typeof customFetch>[1]): Promise<SecureRecordsEnvelope> => {

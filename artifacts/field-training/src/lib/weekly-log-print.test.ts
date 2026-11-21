@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PrintableWeeklyPerformanceLog } from '../components/printable-extended-forms';
-import { CATEGORIES, type WeeklyPerformanceLog } from './model';
+import { PrintableWeeklyPerformanceLog } from '../components/printable-extended-forms.js';
+import { CATEGORIES, type WeeklyPerformanceLog } from './model.js';
 
 test('weekly log print preview uses paper columns, source references, and independent print-page numbers',()=>{
   const narrative='The PO completed a detailed corrective review and then repeated the procedure. '.repeat(48);

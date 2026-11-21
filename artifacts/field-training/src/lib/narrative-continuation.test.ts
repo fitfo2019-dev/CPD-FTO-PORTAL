@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from './narrative-continuation';
+import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from './narrative-continuation.js';
 
 test('long run narratives are moved to numbered continuation sheets without truncation',()=>{
   assert.equal(needsRunNarrativeContinuation('Short run note.'),false);

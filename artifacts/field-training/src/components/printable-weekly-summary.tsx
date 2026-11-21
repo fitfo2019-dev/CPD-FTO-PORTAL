@@ -5,9 +5,9 @@ import {
   RATING_LEGEND,
   SEG_CATEGORIES,
   type Report,
-} from "@/lib/model";
-import { formatDateDMY } from "@/lib/training-calendar";
-import { activityTotals } from "@/lib/run-activity";
+} from "@/lib/model.js";
+import { formatDateDMY } from "@/lib/training-calendar.js";
+import { activityTotals } from "@/lib/run-activity.js";
 
 const RATINGS = ["NO", "A", "RT", "UA", "NRT"] as const;
 

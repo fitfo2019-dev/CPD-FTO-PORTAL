@@ -1,12 +1,12 @@
 import { Link } from 'wouter';
 import type { ReactNode } from 'react';
 import { ArrowRight, ClipboardList, FolderOpen, UsersRound, CalendarClock, CalendarDays, FileCheck2, BookOpen } from 'lucide-react';
-import { useWorkspace } from '@/state/workspace';
-import { CATEGORIES, CATEGORY_LABEL, canViewClass, evaluationProgress, needsJustification, phaseAssignmentLabel, ROLE_LABEL } from '@/lib/model';
-import { formatDateDMY, localISODate } from '@/lib/training-calendar';
-import { PageHead, Panel, RatingChip, Stat, StatusPill } from '@/components/bits';
-import { NrtAdminReviewPanel } from '@/components/nrt-admin-review-panel';
-import { activityTotals } from '@/lib/run-activity';
+import { useWorkspace } from '@/state/workspace.js';
+import { CATEGORIES, CATEGORY_LABEL, canViewClass, evaluationProgress, needsJustification, phaseAssignmentLabel, ROLE_LABEL } from '@/lib/model.js';
+import { formatDateDMY, localISODate } from '@/lib/training-calendar.js';
+import { PageHead, Panel, RatingChip, Stat, StatusPill } from '@/components/bits.js';
+import { NrtAdminReviewPanel } from '@/components/nrt-admin-review-panel.js';
+import { activityTotals } from '@/lib/run-activity.js';
 
 export default function Dashboard() {
   const {ws}=useWorkspace();

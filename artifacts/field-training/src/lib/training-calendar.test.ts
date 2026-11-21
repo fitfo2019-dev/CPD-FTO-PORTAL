@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getPhaseEndDate } from './training-calendar';
+import { getPhaseEndDate } from './training-calendar.js';
 
 test('phase end dates use complete Sunday–Saturday training weeks',()=>{
   assert.equal(getPhaseEndDate(1,'2026-01-04'),'2026-01-31');

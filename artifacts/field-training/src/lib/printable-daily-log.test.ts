@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PrintableDailyForms } from '../components/printable-daily-forms';
-import { PrintableDailyLog } from '../components/printable-daily-log';
-import { seedReports } from './seed';
-import { dailyLogContinuations } from './narrative-continuation';
+import { PrintableDailyForms } from '../components/printable-daily-forms.js';
+import { PrintableDailyLog } from '../components/printable-daily-log.js';
+import { seedReports } from './seed.js';
+import { dailyLogContinuations } from './narrative-continuation.js';
 
 test('long daily notes get one sequential training-folder reference per future sheet',()=>{
   const report={...seedReports()[0],date:'2026-10-26',phase:1,phaseWeek:2,

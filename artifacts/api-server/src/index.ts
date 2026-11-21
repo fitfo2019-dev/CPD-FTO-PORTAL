@@ -4,12 +4,8 @@ import { logger } from "./lib/logger.js";
 
 if (process.env.NODE_ENV === "production" && USE_REAL_API) {
   const requiredLiveConfig = [
-    "GOV_API_SECURE_RECORDS_URL",
-    "GOV_API_ALLOWED_HOSTS",
-    "GOV_API_AUDIENCE",
-    "GOV_API_AUTHORIZED_PARTIES",
-    "CLERK_SECRET_KEY",
-    "AUDIT_ID_HMAC_KEY",
+    "REAL_API_URL",
+    "REAL_API_KEY",
   ];
   const missing = requiredLiveConfig.filter(
     (key) => !process.env[key]?.trim(),

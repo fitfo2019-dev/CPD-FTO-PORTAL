@@ -8,8 +8,8 @@ import {
   RUN_CHECKLIST_SECTIONS,
   RUN_SUPPLEMENT_CHECKLIST_ITEMS,
   RUN_SUPPLEMENT_CHECKLIST_SECTIONS,
-} from './model';
-import { SUBSTATION_ORIENTATION_KEYS, SUBSTATION_ORIENTATION_SECTIONS, defaultSubstationOrientationChecklist } from './substation-orientation';
+} from './model.js';
+import { SUBSTATION_ORIENTATION_KEYS, SUBSTATION_ORIENTATION_SECTIONS, defaultSubstationOrientationChecklist } from './substation-orientation.js';
 
 const submittedPrimaryCounts = {
   call_for_service: 52,

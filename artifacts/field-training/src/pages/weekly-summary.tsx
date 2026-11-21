@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { Printer } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { SearchableSelect } from '@/components/searchable-select';
-import { ManualDefinitionTooltip } from '@/components/manual-definition-tooltip';
-import { PrintableWeeklySummary } from '@/components/printable-weekly-summary';
-import { useWorkspace } from '@/state/workspace';
-import { CATEGORY_GROUPS, DAILY_ACTIVITY_FIELDS, PHASE_PROGRAM_WEEK_START, phaseAssignmentLabel, RATINGS, SEG_CATEGORIES, RATING_LEGEND, RUN_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, PRIMARY_RUN_FORMS, SUPPLEMENTAL_RUN_FORMS, requiredSupplementalForms } from '@/lib/model';
-import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar';
-import { activityTotals } from '@/lib/run-activity';
-import { ACTIVITY_MANUAL_DEFINITIONS, SEG_MANUAL_DEFINITIONS, WEEKLY_ACTIVITY_SUMMARY_DEFINITION, WEEKLY_RATING_SUMMARY_DEFINITION } from '@/lib/weekly-summary-manual-definitions';
+import { PageHead, Panel } from '@/components/bits.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { ManualDefinitionTooltip } from '@/components/manual-definition-tooltip.js';
+import { PrintableWeeklySummary } from '@/components/printable-weekly-summary.js';
+import { useWorkspace } from '@/state/workspace.js';
+import { CATEGORY_GROUPS, DAILY_ACTIVITY_FIELDS, PHASE_PROGRAM_WEEK_START, phaseAssignmentLabel, RATINGS, SEG_CATEGORIES, RATING_LEGEND, RUN_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, PRIMARY_RUN_FORMS, SUPPLEMENTAL_RUN_FORMS, requiredSupplementalForms } from '@/lib/model.js';
+import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
+import { activityTotals } from '@/lib/run-activity.js';
+import { ACTIVITY_MANUAL_DEFINITIONS, SEG_MANUAL_DEFINITIONS, WEEKLY_ACTIVITY_SUMMARY_DEFINITION, WEEKLY_RATING_SUMMARY_DEFINITION } from '@/lib/weekly-summary-manual-definitions.js';
 
 export default function WeeklySummaryPage() {
   const { ws } = useWorkspace();

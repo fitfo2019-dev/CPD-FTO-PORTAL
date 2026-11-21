@@ -1,6 +1,6 @@
 import React, { forwardRef, useId, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { rankSearchChoices } from '@/lib/search-match';
+import { rankSearchChoices } from '@/lib/search-match.js';
 
 type SelectOption = {
   value: string;

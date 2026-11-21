@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { Printer, Trash2 } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { PrintableWeeklyPerformanceLog } from '@/components/printable-extended-forms';
-import { SearchableSelect } from '@/components/searchable-select';
-import { useToast } from '@/hooks/use-toast';
-import { CATEGORIES, CATEGORY_LABEL, PHASE_PROGRAM_WEEK_START, RATINGS, RATING_LEGEND, uid, type Category, type WeeklyPerformanceLog, type WeeklyPerformanceLogEntry, type Report } from '@/lib/model';
-import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar';
-import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log';
-import { hasReviewedCorrectiveSource, parseTrainingFolderReferences } from '@/lib/weekly-log-layout';
-import { useWorkspace } from '@/state/workspace';
+import { PageHead, Panel } from '@/components/bits.js';
+import { PrintableWeeklyPerformanceLog } from '@/components/printable-extended-forms.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { useToast } from '@/hooks/use-toast.js';
+import { CATEGORIES, CATEGORY_LABEL, PHASE_PROGRAM_WEEK_START, RATINGS, RATING_LEGEND, uid, type Category, type WeeklyPerformanceLog, type WeeklyPerformanceLogEntry, type Report } from '@/lib/model.js';
+import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
+import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
+import { hasReviewedCorrectiveSource, parseTrainingFolderReferences } from '@/lib/weekly-log-layout.js';
+import { useWorkspace } from '@/state/workspace.js';
 
 const ownerKey=(report:Pick<Report,'className'|'recruitBadge'|'recruitName'>)=>
   `${report.className??''}:${report.recruitBadge}:${report.recruitName}`;

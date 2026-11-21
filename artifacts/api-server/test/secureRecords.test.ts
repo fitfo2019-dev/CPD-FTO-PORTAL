@@ -4,13 +4,11 @@ import express from "express";
 import { test } from "node:test";
 import secureRecordsRouter from "../src/routes/secureRecords.ts";
 import { GovApiIntegrationError, fetchGovSecureRecords } from "../src/services/govApiIntegration.ts";
+import { normalizeSecureRecords } from "../src/lib/secure-records.ts";
 
-const govConfig = {
-  GOV_API_SECURE_RECORDS_URL: "https://records.example.gov/api/v1/secure-records",
-  GOV_API_ALLOWED_HOSTS: "records.example.gov",
-  GOV_API_AUDIENCE: "approved-records-api",
-  GOV_API_AUTHORIZED_PARTIES: "https://portal.example.gov",
-  CLERK_SECRET_KEY: "test-only-clerk-secret",
+const realApiConfig = {
+  REAL_API_URL: "https://records.example.gov/api/v1/secure-records",
+  REAL_API_KEY: "server-only-test-key",
 };
 
 async function withApiServer<T>(run: (baseUrl: string) => Promise<T>): Promise<T> {
@@ -37,18 +35,15 @@ test("mock mode returns clearly labeled synthetic records and a request ID", asy
       const response = await fetch(`${baseUrl}/api/v1/secure-records`);
       const payload = await response.json() as {
         status: string;
-        mode: string;
-        requestId: string;
-        warning: string;
-        records: Array<{ recordId: string }>;
+        metadata: { total_records: number };
+        data: Array<{ id: string; status: string; updated_at: string }>;
       };
       assert.equal(response.status, 200);
-      assert.equal(payload.status, "ok");
-      assert.equal(payload.mode, "mock");
-      assert.match(payload.requestId, /^[0-9a-f-]{36}$/i);
-      assert.match(payload.warning, /synthetic/i);
-      assert.equal(payload.records.length, 3);
-      assert.ok(payload.records.every((record) => record.recordId.startsWith("MOCK-")));
+      assert.equal(payload.status, "success");
+      assert.equal(payload.metadata.total_records, 3);
+      assert.equal(payload.data.length, 3);
+      assert.ok(payload.data.every((record) => record.id.startsWith("MOCK-")));
+      assert.ok(payload.data.every((record) => /^\d{4}-\d{2}-\d{2}$/.test(record.updated_at)));
     });
   } finally {
     if (previousFlag === undefined) delete process.env.USE_REAL_API;
@@ -68,10 +63,10 @@ test("real mode never calls upstream without a verified signed-in user", async (
       const response = await fetch(`${baseUrl}/api/v1/secure-records`, {
         headers: { Authorization: "Bearer client-input-is-not-identity" },
       });
-      const payload = await response.json() as { status: string; error: { code: string } };
+      const payload = await response.json() as { status: string; error_code: string };
       assert.equal(response.status, 401);
       assert.equal(payload.status, "error");
-      assert.equal(payload.error.code, "AUTHENTICATION_REQUIRED");
+      assert.equal(payload.error_code, "AUTHENTICATION_REQUIRED");
     });
   } finally {
     if (previousFlag === undefined) delete process.env.USE_REAL_API;
@@ -89,11 +84,11 @@ test("mock mode fails closed when keyed audit logging is not configured", async 
   try {
     await withApiServer(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/v1/secure-records`);
-      const payload = await response.json() as { status: string; error: { code: string; requestId: string } };
+      const payload = await response.json() as { status: string; error_code: string; message: string };
       assert.equal(response.status, 503);
       assert.equal(payload.status, "error");
-      assert.equal(payload.error.code, "AUDIT_NOT_CONFIGURED");
-      assert.match(payload.error.requestId, /^[0-9a-f-]{36}$/i);
+      assert.equal(payload.error_code, "AUDIT_NOT_CONFIGURED");
+      assert.equal(payload.message, "Secure records access logging is unavailable.");
     });
   } finally {
     if (previousFlag === undefined) delete process.env.USE_REAL_API;
@@ -103,17 +98,12 @@ test("mock mode fails closed when keyed audit logging is not configured", async 
   }
 });
 
-test("live integration forwards only an audience-approved bearer to the allowlisted HTTPS API", async () => {
+test("live integration uses only the server-side REAL_API_KEY credential", async () => {
   let capturedAuthorization: string | undefined;
-  let verifiedTokenOptions: unknown;
   const records = await fetchGovSecureRecords(
-    {
-      authorizationHeader: "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJzYW1wbGUifQ.signature",
-      authenticatedUserId: "user-1",
-    },
-    govConfig,
+    realApiConfig,
     async (url, init) => {
-      assert.equal(url.href, govConfig.GOV_API_SECURE_RECORDS_URL);
+      assert.equal(url.href, realApiConfig.REAL_API_URL);
       assert.equal(init.redirect, "error");
       capturedAuthorization = new Headers(init.headers).get("authorization") ?? undefined;
       return {
@@ -123,21 +113,12 @@ test("live integration forwards only an audience-approved bearer to the allowlis
         text: async () => '[{"recordId":"R-1"}]',
       };
     },
-    async (_token, options) => {
-      verifiedTokenOptions = options;
-      return { sub: "user-1" };
-    },
   );
-  assert.equal(capturedAuthorization, "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJzYW1wbGUifQ.signature");
-  assert.deepEqual(verifiedTokenOptions, {
-    secretKey: "test-only-clerk-secret",
-    audience: "approved-records-api",
-    authorizedParties: ["https://portal.example.gov"],
-  });
+  assert.equal(capturedAuthorization, "Bearer server-only-test-key");
   assert.deepEqual(records, [{ recordId: "R-1" }]);
 });
 
-test("live integration rejects invalid tokens and unapproved hosts before network access", async () => {
+test("live integration rejects unconfigured or unsafe endpoints before network access", async () => {
   let called = false;
   const fetchImpl = async () => {
     called = true;
@@ -145,20 +126,17 @@ test("live integration rejects invalid tokens and unapproved hosts before networ
   };
   await assert.rejects(
     fetchGovSecureRecords(
-      { authorizationHeader: "Bearer token", authenticatedUserId: "user-1" },
-      govConfig,
+      { REAL_API_URL: realApiConfig.REAL_API_URL },
       fetchImpl,
-      async () => { throw new Error("token audience or signature is invalid"); },
     ),
-    (error: unknown) => error instanceof GovApiIntegrationError && error.code === "GOV_API_BEARER_INVALID",
+    (error: unknown) => error instanceof GovApiIntegrationError && error.code === "REAL_API_NOT_CONFIGURED",
   );
   await assert.rejects(
     fetchGovSecureRecords(
-      { authorizationHeader: "Bearer token", authenticatedUserId: "user-1" },
-      { ...govConfig, GOV_API_ALLOWED_HOSTS: "other.example.gov" },
+      { ...realApiConfig, REAL_API_URL: "http://records.example.gov/api/v1/secure-records" },
       fetchImpl,
     ),
-    (error: unknown) => error instanceof GovApiIntegrationError && error.code === "GOV_API_NOT_CONFIGURED",
+    (error: unknown) => error instanceof GovApiIntegrationError && error.code === "REAL_API_NOT_CONFIGURED",
   );
   assert.equal(called, false);
 });
@@ -166,31 +144,39 @@ test("live integration rejects invalid tokens and unapproved hosts before networ
 test("live integration returns a stable error for upstream failures", async () => {
   await assert.rejects(
     fetchGovSecureRecords(
-      { authorizationHeader: "Bearer token", authenticatedUserId: "user-1" },
-      govConfig,
+      realApiConfig,
       async () => ({
         ok: false,
         status: 503,
         headers: new Headers(),
         text: async () => "upstream details must not be returned",
       }),
-      async () => ({ sub: "user-1" }),
     ),
-    (error: unknown) => error instanceof GovApiIntegrationError && error.code === "GOV_API_UPSTREAM_ERROR",
+    (error: unknown) => error instanceof GovApiIntegrationError && error.code === "REAL_API_UPSTREAM_ERROR",
   );
 });
 
 test("live integration maps network timeouts to a stable timeout error", async () => {
   await assert.rejects(
     fetchGovSecureRecords(
-      { authorizationHeader: "Bearer token", authenticatedUserId: "user-1" },
-      govConfig,
+      realApiConfig,
       async (_url, init) => await new Promise((_resolve, reject) => {
         init.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
       }),
-      async () => ({ sub: "user-1" }),
       1,
     ),
-    (error: unknown) => error instanceof GovApiIntegrationError && error.code === "GOV_API_TIMEOUT",
+    (error: unknown) => error instanceof GovApiIntegrationError && error.code === "REAL_API_TIMEOUT",
   );
+});
+
+test("normalization emits the shared success envelope and rejects incomplete records", () => {
+  const response = normalizeSecureRecords([
+    { id: "R-1", status: "Pending", updated_at: "2026-11-20" },
+  ]);
+  assert.equal(response.status, "success");
+  assert.deepEqual(response.metadata, { total_records: 1 });
+  assert.deepEqual(response.data, [
+    { id: "R-1", status: "Pending", updated_at: "2026-11-20" },
+  ]);
+  assert.throws(() => normalizeSecureRecords([{ id: "R-2" }]));
 });

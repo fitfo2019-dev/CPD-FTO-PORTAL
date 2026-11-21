@@ -58,7 +58,7 @@ paths:
       operationId: listSecureRecords
       tags: [secure-records]
       summary: List secure records
-      description: Returns mock records by default or normalized upstream records when the live integration is enabled.
+      description: Returns mock records by default or normalized upstream records when the live integration is enabled. Live requests require a Clerk-authenticated session and a server-side authorization grant; the upstream uses only the server-level REAL_API_KEY.
       responses:
         "200":
           description: Secure records
@@ -67,7 +67,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/SecureRecordsEnvelope"
         "401":
-          description: A validated bearer token is required for the live integration
+          description: Sign-in is required for the live integration
           content:
             application/json:
               schema:

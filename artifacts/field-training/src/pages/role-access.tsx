@@ -1,6 +1,6 @@
 import { ArrowRight, LockKeyhole, ShieldAlert, Wrench, CheckCircle2 } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { useWorkspace } from '@/state/workspace';
+import { PageHead, Panel } from '@/components/bits.js';
+import { useWorkspace } from '@/state/workspace.js';
 
 export default function RoleAccessPage() {
   const { ws } = useWorkspace();

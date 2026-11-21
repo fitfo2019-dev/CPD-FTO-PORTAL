@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
-import { cn } from '@/lib/utils';
-import { STATUS_LABEL, ratingLabel, ratingShortLabel, type Rating, type Status } from '@/lib/model';
+import { cn } from '@/lib/utils.js';
+import { STATUS_LABEL, ratingLabel, ratingShortLabel, type Rating, type Status } from '@/lib/model.js';
 
 export function PageHead({ kicker, title, children }: { kicker: string; title: string; children?: ReactNode }) {
   return <div className="flex flex-wrap items-end gap-3 mb-5 rise"><div className="mr-auto min-w-0"><div className="label-caps">{kicker}</div><h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h1></div>{children}</div>;

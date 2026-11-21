@@ -1,9 +1,9 @@
 import React from 'react';
-import { phaseLabel, type Phase, type WeeklyPerformanceLog, type SubstationOrientationRecord } from '@/lib/model';
-import { formatDateDMY, formatDateTimeMDY } from '@/lib/training-calendar';
-import { SUBSTATION_ORIENTATION_SECTIONS } from '@/lib/substation-orientation';
-import { substationDisplay } from '@/lib/substations';
-import { categoryNumberLabel, paginateWeeklyLogEntries, type PrintableLogEntry } from '@/lib/weekly-log-layout';
+import { phaseLabel, type Phase, type WeeklyPerformanceLog, type SubstationOrientationRecord } from '@/lib/model.js';
+import { formatDateDMY, formatDateTimeMDY } from '@/lib/training-calendar.js';
+import { SUBSTATION_ORIENTATION_SECTIONS } from '@/lib/substation-orientation.js';
+import { substationDisplay } from '@/lib/substations.js';
+import { categoryNumberLabel, paginateWeeklyLogEntries, type PrintableLogEntry } from '@/lib/weekly-log-layout.js';
 
 export function PrintableSubstationOrientation({record,pageReference,continuationPageReference}:{record:SubstationOrientationRecord;pageReference?:string;continuationPageReference?:string}) {
   const phase=(record.phase??1) as Phase;

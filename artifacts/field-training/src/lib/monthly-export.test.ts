@@ -8,8 +8,8 @@ import {
   SEG_CATEGORIES,
   type RatingEntry,
   type Report,
-} from './model';
-import { buildMonthlyWorkbook } from './monthly-export';
+} from './model.js';
+import { buildMonthlyWorkbook } from './monthly-export.js';
 
 const ratingEntry = (rating: RatingEntry['rating']): RatingEntry => ({
   rating,

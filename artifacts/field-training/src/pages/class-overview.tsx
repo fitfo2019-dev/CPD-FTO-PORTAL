@@ -2,13 +2,13 @@ import { useMemo, useState } from 'react';
 import { useUser } from '@clerk/react';
 import { Link } from 'wouter';
 import { ArrowLeft, Download, Filter, Users } from 'lucide-react';
-import { useWorkspace } from '@/state/workspace';
-import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_FIELDS, RATING_LEGEND, evaluationProgress, canViewClass, type Report } from '@/lib/model';
-import { PageHead, Panel, StatusPill, RatingChip } from '@/components/bits';
-import { SearchableSelect } from '@/components/searchable-select';
-import { formatDateDMY } from '@/lib/training-calendar';
-import { activityTotals } from '@/lib/run-activity';
-import { ensureWeeklyUaLogs } from '@/lib/weekly-performance-log';
+import { useWorkspace } from '@/state/workspace.js';
+import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_FIELDS, RATING_LEGEND, evaluationProgress, canViewClass, type Report } from '@/lib/model.js';
+import { PageHead, Panel, StatusPill, RatingChip } from '@/components/bits.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { formatDateDMY } from '@/lib/training-calendar.js';
+import { activityTotals } from '@/lib/run-activity.js';
+import { ensureWeeklyUaLogs } from '@/lib/weekly-performance-log.js';
 
 type RatingCode = 'UA' | 'NRT';
 const officerKey = (report: Pick<Report, 'recruitBadge'|'recruitName'>) => `${report.recruitBadge}:${report.recruitName}`;
@@ -84,7 +84,7 @@ export default function ClassOverview() {
     setExporting(true);
     setExportError('');
     try {
-      const { exportClassWorkbook } = await import('@/lib/exportWorkbook');
+      const { exportClassWorkbook } = await import('@/lib/exportWorkbook.js');
       const included=(item:{className:string;recruitBadge:string;recruitName?:string})=>
         allowedOfficerKeys.has(classOfficerKey(item.className,item.recruitBadge))
         &&(!selectedClass||item.className===selectedClass)

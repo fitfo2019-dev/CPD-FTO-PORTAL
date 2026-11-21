@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CPD_SUBSTATIONS, defaultSubstationForAssignment, getSubstation, substationDisplay } from './substations';
+import { CPD_SUBSTATIONS, defaultSubstationForAssignment, getSubstation, substationDisplay } from './substations.js';
 
 test('official directory data includes twenty numbered substations with addresses and phone numbers', () => {
   assert.equal(CPD_SUBSTATIONS.length, 20);

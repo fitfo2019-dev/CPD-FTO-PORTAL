@@ -1,4 +1,4 @@
-import type { Workspace } from './model';
+import type { Workspace } from './model.js';
 
 /** A new device workspace starts empty and never inserts invented training records. */
 export function createEmptyWorkspace(): Workspace {

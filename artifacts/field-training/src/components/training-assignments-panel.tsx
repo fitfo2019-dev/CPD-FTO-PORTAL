@@ -1,13 +1,13 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
 import { Download, Mail, Upload } from 'lucide-react';
-import { Panel } from '@/components/bits';
-import { SearchableSelect } from '@/components/searchable-select';
-import { useToast } from '@/hooks/use-toast';
-import { useWorkspace } from '@/state/workspace';
-import { phaseAssignmentLabel, phaseLabel, uid, type PhaseCaseFolder, type Shift, type TrainingAssignment } from '@/lib/model';
-import { cruiserDistrictForFtoAssignment } from '@/lib/cpd-geography';
-import { formatDateDMY, requiredDaysOff } from '@/lib/training-calendar';
-import { parseRosterFile, ROSTER_CSV_TEMPLATE, type ParsedRoster } from '@/lib/assignment-import';
+import { Panel } from '@/components/bits.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { useToast } from '@/hooks/use-toast.js';
+import { useWorkspace } from '@/state/workspace.js';
+import { phaseAssignmentLabel, phaseLabel, uid, type PhaseCaseFolder, type Shift, type TrainingAssignment } from '@/lib/model.js';
+import { cruiserDistrictForFtoAssignment } from '@/lib/cpd-geography.js';
+import { formatDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
+import { parseRosterFile, ROSTER_CSV_TEMPLATE, type ParsedRoster } from '@/lib/assignment-import.js';
 
 export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignment: (assignment: TrainingAssignment) => void }) {
   const { ws, vault, importRoster, upsertAssignment } = useWorkspace();

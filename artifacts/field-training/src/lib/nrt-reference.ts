@@ -1,6 +1,6 @@
-import type { Report, TrainingAssignment, PhaseCaseFolder } from './model';
-import { PHASE_PROGRAM_WEEK_START } from './model';
-import { getSundaySaturdayWeek, getTrainingWeekNumber, getWeekdayIndex } from './training-calendar';
+import type { Report, TrainingAssignment, PhaseCaseFolder } from './model.js';
+import { PHASE_PROGRAM_WEEK_START } from './model.js';
+import { getSundaySaturdayWeek, getTrainingWeekNumber, getWeekdayIndex } from './training-calendar.js';
 
 /** Derive only week/day; P is a source page that the FTO must enter and verify. */
 export function nrtReference(report: Report, assignments: TrainingAssignment[], folder?: PhaseCaseFolder, sourcePage?: number): string {

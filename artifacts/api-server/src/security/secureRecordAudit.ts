@@ -1,11 +1,11 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { RequestHandler } from "express";
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js";
 
 export type SecureRecordsAuditContext = {
   requestId: string;
   timestamp: string;
-  hashedUserIdentity: string;
+  actor: { user_id_hash: string } | "ANONYMOUS";
   hashedClientIp: string;
 };
 
@@ -27,8 +27,8 @@ function hmacIdentity(key: string, domain: "user" | "ip", value: string): string
   return createHmac("sha256", key).update(`${domain}:${value}`).digest("hex");
 }
 
-function errorPayload(code: string, message: string, requestId: string) {
-  return { status: "error", error: { code, message, requestId } };
+function errorPayload(code: string, message: string) {
+  return { status: "error", error_code: code, message };
 }
 
 /**
@@ -54,19 +54,20 @@ export const secureRecordAuditMiddleware: RequestHandler = (req, res, next) => {
     res.status(503).json(errorPayload(
       "AUDIT_NOT_CONFIGURED",
       "Secure records access logging is unavailable.",
-      requestId,
     ));
     return;
   }
 
-  const actorId = res.locals.clerkUserId || "anonymous";
+  const userId = res.locals.clerkUserId;
   // Express uses the socket peer unless an operator explicitly configures
   // trusted proxy hops, in which case req.ip resolves the verified client hop.
   const clientIp = req.ip || req.socket.remoteAddress || "unknown";
   const audit: SecureRecordsAuditContext = {
     requestId,
     timestamp,
-    hashedUserIdentity: hmacIdentity(key, "user", actorId),
+    actor: userId
+      ? { user_id_hash: hmacIdentity(key, "user", userId) }
+      : "ANONYMOUS",
     hashedClientIp: hmacIdentity(key, "ip", clientIp),
   };
   res.locals.secureRecordsAudit = audit;

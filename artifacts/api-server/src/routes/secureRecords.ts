@@ -1,37 +1,31 @@
 import { getAuth } from "@clerk/express";
-import { randomUUID } from "node:crypto";
 import { Router, type IRouter, type RequestHandler } from "express";
 import { isRealApiEnabled } from "../lib/config.js";
-import { logger } from "../lib/logger";
-import { GovApiIntegrationError, fetchGovSecureRecords } from "../services/govApiIntegration";
-import { secureRecordAuditMiddleware } from "../security/secureRecordAudit";
+import { normalizeSecureRecords } from "../lib/secure-records.js";
+import { logger } from "../lib/logger.js";
+import {
+  GovApiIntegrationError,
+  fetchGovSecureRecords,
+} from "../services/govApiIntegration.js";
+import { secureRecordAuditMiddleware } from "../security/secureRecordAudit.js";
 
 const router: IRouter = Router();
 
 const MOCK_RECORDS = [
   {
-    recordId: "MOCK-2026-0001",
-    recordType: "Daily evaluation",
-    phase: 1,
+    id: "MOCK-2026-0001",
     status: "draft",
-    updatedAt: "2026-04-15T13:45:00.000Z",
-    summary: "Synthetic sample record for table and dashboard layout.",
+    updated_at: "2026-04-15",
   },
   {
-    recordId: "MOCK-2026-0002",
-    recordType: "Weekly packet",
-    phase: 2,
+    id: "MOCK-2026-0002",
     status: "submitted",
-    updatedAt: "2026-04-14T18:20:00.000Z",
-    summary: "Synthetic sample record; no real person or case is represented.",
+    updated_at: "2026-04-14",
   },
   {
-    recordId: "MOCK-2026-0003",
-    recordType: "Substation orientation",
-    phase: 1,
+    id: "MOCK-2026-0003",
     status: "in_progress",
-    updatedAt: "2026-04-12T15:05:00.000Z",
-    summary: "Synthetic sample record for frontend prototyping.",
+    updated_at: "2026-04-12",
   },
 ] as const;
 
@@ -52,12 +46,12 @@ function sendError(
   statusCode: number,
   code: string,
   message: string,
-  requestId: string,
 ) {
   res.locals.secureRecordsErrorCode = code;
   return res.status(statusCode).json({
     status: "error",
-    error: { code, message, requestId },
+    error_code: code,
+    message,
   });
 }
 
@@ -65,7 +59,7 @@ router.get(
   "/v1/secure-records",
   captureVerifiedClerkIdentity,
   secureRecordAuditMiddleware,
-  async (req, res) => {
+  async (_req, res) => {
     const audit = res.locals.secureRecordsAudit;
     if (!audit) {
       return sendError(
@@ -73,24 +67,22 @@ router.get(
         503,
         "AUDIT_NOT_CONFIGURED",
         "Secure records access logging is unavailable.",
-        randomUUID(),
       );
     }
 
     if (!isRealApiEnabled()) {
-      return res.json({
-        status: "ok",
-        mode: "mock",
-        requestId: audit.requestId,
-        warning: "Synthetic demonstration records only. This response is not operational data.",
-        records: MOCK_RECORDS,
-      });
+      return res.json(normalizeSecureRecords(MOCK_RECORDS));
     }
 
     try {
       const userId = res.locals.clerkUserId;
       if (!userId) {
-        return sendError(res, 401, "AUTHENTICATION_REQUIRED", "Sign-in is required.", audit.requestId);
+        return sendError(
+          res,
+          401,
+          "AUTHENTICATION_REQUIRED",
+          "Sign-in is required.",
+        );
       }
 
       // Clerk authentication alone is not department authorization. A future
@@ -103,24 +95,33 @@ router.get(
           503,
           "SECURE_RECORDS_AUTHORIZATION_NOT_CONFIGURED",
           "Department role and record-scope authorization is not configured.",
-          audit.requestId,
         );
       }
 
-      const authorizationHeader = req.get("authorization") ?? undefined;
-      const records = await fetchGovSecureRecords({
-        authorizationHeader,
-        authenticatedUserId: userId,
-      });
-      return res.json({
-        status: "ok",
-        mode: "real",
-        requestId: audit.requestId,
-        records,
-      });
+      // The browser session establishes the caller's identity. The upstream
+      // request uses only the server-level REAL_API_KEY credential.
+      const upstreamPayload = await fetchGovSecureRecords();
+      try {
+        return res.json(normalizeSecureRecords(upstreamPayload));
+      } catch {
+        throw new GovApiIntegrationError(
+          "REAL_API_INVALID_RESPONSE",
+          502,
+          "The secure records service returned invalid data.",
+        );
+      }
     } catch (error) {
       if (error instanceof GovApiIntegrationError) {
-        return sendError(res, error.statusCode, error.code, error.message, audit.requestId);
+        logger.warn(
+          { requestId: audit.requestId, errorCode: error.code },
+          "Secure records upstream request failed",
+        );
+        return sendError(
+          res,
+          error.statusCode,
+          "UPSTREAM_SERVICE_FAILURE",
+          "The secure records service is temporarily unavailable.",
+        );
       }
       logger.error({ requestId: audit.requestId }, "Secure records request failed unexpectedly");
       return sendError(
@@ -128,7 +129,6 @@ router.get(
         500,
         "SECURE_RECORDS_INTERNAL_ERROR",
         "The secure records request could not be completed.",
-        audit.requestId,
       );
     }
   },

@@ -1,4 +1,4 @@
-import { defaultRatings, emptyDailyActivitySummary, defaultReportingForDutyRecord, type Phase, type Report, type Task } from './model';
+import { defaultRatings, emptyDailyActivitySummary, defaultReportingForDutyRecord, type Phase, type Report, type Task } from './model.js';
 
 const emptyRatings = defaultRatings;
 const base = { recruitComments: '', recruitName: 'Sam Example', recruitBadge: '0001', ftoName: 'Officer John Doe', ftoBadge: '0000' };

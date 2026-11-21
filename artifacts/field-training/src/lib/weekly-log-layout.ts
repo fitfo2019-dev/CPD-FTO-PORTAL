@@ -1,4 +1,4 @@
-import { SEG_CATEGORIES, type Category, type WeeklyPerformanceLogEntry } from './model';
+import { SEG_CATEGORIES, type Category, type WeeklyPerformanceLogEntry } from './model.js';
 
 export const TRAINING_FOLDER_REFERENCE_PATTERN = /^W\d+D\d+P\d+$/i;
 const MAX_NARRATIVE_FRAGMENT_CHARS = 2400;

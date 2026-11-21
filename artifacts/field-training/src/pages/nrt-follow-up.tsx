@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { CATEGORIES, CATEGORY_LABEL, type Category, type RatingEntry } from '@/lib/model';
-import { formatDateDMY } from '@/lib/training-calendar';
-import { nrtReference } from '@/lib/nrt-reference';
-import { useWorkspace } from '@/state/workspace';
+import { PageHead, Panel } from '@/components/bits.js';
+import { CATEGORIES, CATEGORY_LABEL, type Category, type RatingEntry } from '@/lib/model.js';
+import { formatDateDMY } from '@/lib/training-calendar.js';
+import { nrtReference } from '@/lib/nrt-reference.js';
+import { useWorkspace } from '@/state/workspace.js';
 
 export default function NrtFollowUpPage() {
   const { id } = useParams<{ id:string }>();

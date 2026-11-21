@@ -6,7 +6,7 @@ import {
   LAW_LIBRARY_ENTRIES,
   LAW_LIBRARY_SOURCES,
   OHIO_REVISED_CODE_ENTRIES,
-} from './law-library';
+} from './law-library.js';
 
 test('ORC and Columbus ordinance entries are stored as separate source collections', () => {
   const stateChapter = OHIO_REVISED_CODE_ENTRIES.find(entry => entry.id === 'orc-chapter-2903');

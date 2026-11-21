@@ -1,6 +1,6 @@
-import { CATEGORIES, PHASE_PROGRAM_WEEK_START, type PhaseCaseFolder, type Report, type TrainingAssignment, type WeeklyPerformanceLog } from './model';
-import { nrtReference } from './nrt-reference';
-import { getSundaySaturdayWeek, getTrainingWeekNumber } from './training-calendar';
+import { CATEGORIES, PHASE_PROGRAM_WEEK_START, type PhaseCaseFolder, type Report, type TrainingAssignment, type WeeklyPerformanceLog } from './model.js';
+import { nrtReference } from './nrt-reference.js';
+import { getSundaySaturdayWeek, getTrainingWeekNumber } from './training-calendar.js';
 
 /** Add each reviewed UA articulation once; preserve all saved FTO edits and timing. */
 export function mergeReviewedUaEntries(

@@ -1,14 +1,14 @@
 import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { useClerk, useUser } from '@clerk/react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
 import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, Users, FolderOpen, ClipboardList, BookOpen } from 'lucide-react';
-import { useTheme, useWorkspace } from '@/state/workspace';
+import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
-import { ROLES, ROLE_LABEL, type Role } from '@/lib/model';
-import { VaultDialog } from './vault-dialog';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
+import { VaultDialog } from './vault-dialog.js';
+import { cn } from '@/lib/utils.js';
+import { useToast } from '@/hooks/use-toast.js';
 
 type NavItem = { href: string; label: string; icon: typeof LayoutGrid };
 

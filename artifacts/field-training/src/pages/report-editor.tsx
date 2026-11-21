@@ -1,25 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, Trash } from 'lucide-react';
-import { useWorkspace } from '@/state/workspace';
-import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultReportingForDutyRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model';
-import { PageHead, Panel, StatusPill } from '@/components/bits';
-import { SearchableSelect } from '@/components/searchable-select';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useWorkspace } from '@/state/workspace.js';
+import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultReportingForDutyRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
+import { PageHead, Panel, StatusPill } from '@/components/bits.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import {
   DIVISION_DIRECTIVES, DIVISION_DIRECTIVE_SOURCE_REVISION, DIVISION_DIRECTIVE_SOURCE_URL,
-} from '@/lib/division-directives';
-import { reviewedTrainingMaterials } from '@/lib/training-materials';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import { currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeEntryMDY, formatDateTimeMDY, getNextReportDate, getPhaseScheduleInfo, getSundaySaturdayWeek, getTrainingFolderDayReference, getWeekdayIndex, parseDateDMY, requiredDaysOff, shiftWeekDescription } from '@/lib/training-calendar';
-import { isValidAssignment } from '@/lib/cpd-geography';
-import { PrintableDailyLog } from '@/components/printable-daily-log';
-import { PrintableDailyForms } from '@/components/printable-daily-forms';
-import { activityDiscrepancies, activityTotals, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity';
-import { isRtRestricted } from '@/lib/model';
-import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatRadioCode, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes';
-import { parseRunDateTime } from '@/lib/run-details';
+} from '@/lib/division-directives.js';
+import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
+import { useToast } from '@/hooks/use-toast.js';
+import { cn } from '@/lib/utils.js';
+import { currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeEntryMDY, formatDateTimeMDY, getNextReportDate, getPhaseScheduleInfo, getSundaySaturdayWeek, getTrainingFolderDayReference, getWeekdayIndex, parseDateDMY, requiredDaysOff, shiftWeekDescription } from '@/lib/training-calendar.js';
+import { isValidAssignment } from '@/lib/cpd-geography.js';
+import { PrintableDailyLog } from '@/components/printable-daily-log.js';
+import { PrintableDailyForms } from '@/components/printable-daily-forms.js';
+import { activityDiscrepancies, activityTotals, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
+import { isRtRestricted } from '@/lib/model.js';
+import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatRadioCode, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes.js';
+import { parseRunDateTime } from '@/lib/run-details.js';
 
 function checklistHelp(form:string,meaning:string) {
   return `${form}: ${meaning} Keep checked only when the PO completed the described action acceptably. Clear it if the PO did not complete it acceptably, it did not apply, or the FTO performed the action; describe deficiencies and training in the narrative.`;

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { KeyRound, ShieldAlert, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useWorkspace } from '@/state/workspace';
-import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog.js';
+import { Button } from '@/components/ui/button.js';
+import { Input } from '@/components/ui/input.js';
+import { useWorkspace } from '@/state/workspace.js';
+import { useToast } from '@/hooks/use-toast.js';
 
 export function VaultDialog() {
   const { intent, closeVault, setupAndSave, unlockAndRestore } = useWorkspace();

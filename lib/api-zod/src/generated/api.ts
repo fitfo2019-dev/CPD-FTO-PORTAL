@@ -55,7 +55,7 @@ export const MockLoginResponse = zod.object({
 
 
 /**
- * Returns mock records by default or normalized upstream records when the live integration is enabled.
+ * Returns mock records by default or normalized upstream records when the live integration is enabled. Live requests require a Clerk-authenticated session and a server-side authorization grant; the upstream uses only the server-level REAL_API_KEY.
  * @summary List secure records
  */
 export const listSecureRecordsResponseMetadataTotalRecordsMin = 0;

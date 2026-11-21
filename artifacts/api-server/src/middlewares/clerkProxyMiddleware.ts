@@ -15,41 +15,54 @@
  * - Must be mounted BEFORE express.json() middleware
  *
  * Usage in app.ts:
- *   import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
+ *   import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware.js";
  *   app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
  */
 
-import type { IncomingHttpHeaders } from 'http';
-import type { RequestHandler } from 'express';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { ServerResponse, type IncomingMessage } from "node:http";
+import { isIP } from "node:net";
+import type { Request, RequestHandler } from "express";
+import { createProxyMiddleware } from "http-proxy-middleware";
 
 const CLERK_FAPI = 'https://frontend-api.clerk.dev';
 export const CLERK_PROXY_PATH = '/api/__clerk';
 
+function normalizeProxyHost(hostname: string | undefined): string | undefined {
+  const candidate = hostname?.trim();
+  if (!candidate || /[\u0000-\u0020/@?#\\]/u.test(candidate)) return undefined;
+
+  try {
+    const parsed = new URL(`https://${candidate}`);
+    if (
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== "/" ||
+      parsed.search ||
+      parsed.hash
+    ) {
+      return undefined;
+    }
+    return parsed.host;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
- * Returns the first effective public hostname for the given request,
- * preferring x-forwarded-host over the Host header so callers behind a
- * proxy see the original client-facing host.
- *
- * x-forwarded-host can take three shapes:
- *   - undefined (no proxy involved)
- *   - a single string (one proxy hop)
- *   - a comma-delimited string when an upstream appended rather than
- *     replaced the header (Node folds duplicate headers this way), or a
- *     string[] in some Express typings
- * In the multi-value case, the leftmost value is the original client-
- * facing host. Take that one in all forms. Exported so that app.ts
- * (clerkMiddleware callback) and this proxy middleware agree on which
- * hostname is canonical — otherwise multi-domain/custom-domain flows
- * break.
+ * Express resolves hostname using its validated trust-proxy configuration.
+ * Do not parse X-Forwarded-Host directly here: callers must use the same
+ * trusted-hop policy as the request logger and rate-limiting middleware.
  */
-export function getClerkProxyHost(req: {
-  headers: IncomingHttpHeaders;
-}): string | undefined {
-  const forwarded = req.headers['x-forwarded-host'];
-  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  const firstHop = raw?.split(',')[0]?.trim();
-  return firstHop || req.headers.host?.trim() || undefined;
+export function getClerkProxyHost(
+  req: Pick<Request, "hostname">,
+): string | undefined {
+  return normalizeProxyHost(req.hostname);
+}
+
+function expressRequestFromProxyRequest(
+  req: IncomingMessage,
+): Pick<Request, "hostname" | "ip"> {
+  return req as IncomingMessage & Pick<Request, "hostname" | "ip">;
 }
 
 export function clerkProxyMiddleware(): RequestHandler {
@@ -58,14 +71,16 @@ export function clerkProxyMiddleware(): RequestHandler {
     return (_req, _res, next) => next();
   }
 
-  const secretKey = process.env.CLERK_SECRET_KEY;
+  const secretKey = process.env.CLERK_SECRET_KEY?.trim();
   if (!secretKey) {
-    return (_req, _res, next) => next();
+    throw new Error("CLERK_SECRET_KEY is required for the production Clerk proxy.");
   }
 
-  return createProxyMiddleware({
+  const proxy = createProxyMiddleware({
     target: CLERK_FAPI,
     changeOrigin: true,
+    timeout: 10_000,
+    proxyTimeout: 10_000,
     // Take over the response so it can be re-sent with a Content-Length (see
     // proxyRes); the deployment edge rejects chunked proxied responses.
     selfHandleResponse: true,
@@ -73,20 +88,33 @@ export function clerkProxyMiddleware(): RequestHandler {
       path.replace(new RegExp(`^${CLERK_PROXY_PATH}`), ''),
     on: {
       proxyReq: (proxyReq, req) => {
-        const protocol = req.headers['x-forwarded-proto'] || 'https';
-        const host = getClerkProxyHost(req) || '';
-        const proxyUrl = `${protocol}://${host}${CLERK_PROXY_PATH}`;
+        const trustedRequest = expressRequestFromProxyRequest(req);
+        const host = getClerkProxyHost(trustedRequest);
+        if (!host) {
+          proxyReq.destroy(new Error("A valid trusted proxy host is required."));
+          return;
+        }
 
-        proxyReq.setHeader('Clerk-Proxy-Url', proxyUrl);
-        proxyReq.setHeader('Clerk-Secret-Key', secretKey);
-
-        const xff = req.headers['x-forwarded-for'];
-        const clientIp =
-          (Array.isArray(xff) ? xff[0] : xff)?.split(',')[0]?.trim() ||
-          req.socket?.remoteAddress ||
-          '';
-        if (clientIp) {
-          proxyReq.setHeader('X-Forwarded-For', clientIp);
+        // Discard client-supplied forwarding headers and replace the address
+        // with Express's client IP after applying the configured trusted hops.
+        for (const header of [
+          "forwarded",
+          "x-forwarded-for",
+          "x-forwarded-host",
+          "x-forwarded-port",
+          "x-forwarded-proto",
+          "clerk-secret-key",
+        ]) {
+          proxyReq.removeHeader(header);
+        }
+        proxyReq.setHeader(
+          "Clerk-Proxy-Url",
+          new URL(CLERK_PROXY_PATH, `https://${host}`).toString(),
+        );
+        proxyReq.setHeader("Clerk-Secret-Key", secretKey);
+        const clientIp = trustedRequest.ip;
+        if (clientIp && isIP(clientIp)) {
+          proxyReq.setHeader("X-Forwarded-For", clientIp);
         }
       },
       // Clerk's dynamic Frontend API responses (/v1/environment, /v1/client,
@@ -141,6 +169,37 @@ export function clerkProxyMiddleware(): RequestHandler {
           res.end();
         });
       },
+      error: (_error, _req, response) => {
+        if (!(response instanceof ServerResponse)) {
+          response.destroy();
+          return;
+        }
+        if (response.headersSent) {
+          response.destroy();
+          return;
+        }
+        response.writeHead(502, {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "no-store",
+        });
+        response.end(JSON.stringify({
+          status: "error",
+          error_code: "CLERK_PROXY_UNAVAILABLE",
+          message: "The sign-in service is temporarily unavailable.",
+        }));
+      },
     },
-  }) as RequestHandler;
+  });
+
+  return (req, res, next) => {
+    if (!getClerkProxyHost(req)) {
+      res.status(400).json({
+        status: "error",
+        error_code: "INVALID_PROXY_HOST",
+        message: "The sign-in request host could not be validated.",
+      });
+      return;
+    }
+    proxy(req, res, next);
+  };
 }

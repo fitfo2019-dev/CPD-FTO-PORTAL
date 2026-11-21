@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRosterRows } from './assignment-import';
-import { cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct } from './cpd-geography';
-import { formatDateMDY, parseDateMDY } from './training-calendar';
+import { parseRosterRows } from './assignment-import.js';
+import { cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct } from './cpd-geography.js';
+import { formatDateMDY, parseDateMDY } from './training-calendar.js';
 
 test('roster import aggregates FTOs and validates assignment rows',()=>{
   const parsed=parseRosterRows([

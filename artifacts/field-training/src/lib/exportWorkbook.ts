@@ -17,12 +17,12 @@ import {
   type WeeklyPacketAcknowledgement,
   type WeeklyPerformanceLog,
   type SubstationOrientationRecord,
-} from './model';
-import { substationOrientationXlsxRows, weeklyPerformanceLogXlsxRows } from './extended-form-rows';
-import { formatDateDMY, formatDateTimeMDY, getSundaySaturdayWeek } from './training-calendar';
-import { weeklyWorkbookForm } from './weekly-workbook-form';
-import { CLEARANCE_CODES, RADIO_CODES, formatRadioCode } from './radio-codes';
-import { activityTotals } from './run-activity';
+} from './model.js';
+import { substationOrientationXlsxRows, weeklyPerformanceLogXlsxRows } from './extended-form-rows.js';
+import { formatDateDMY, formatDateTimeMDY, getSundaySaturdayWeek } from './training-calendar.js';
+import { weeklyWorkbookForm } from './weekly-workbook-form.js';
+import { CLEARANCE_CODES, RADIO_CODES, formatRadioCode } from './radio-codes.js';
+import { activityTotals } from './run-activity.js';
 
 const safeText = (value: unknown): string | number => {
   if (typeof value === 'number') return value;

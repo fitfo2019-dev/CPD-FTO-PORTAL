@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { CalendarDays, Check, ClipboardList, Plus, UsersRound } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
-import { useToast } from '@/hooks/use-toast';
-import { useWorkspace } from '@/state/workspace';
-import { PHASES, PHASE_LENGTH_WEEKS, ROLE_LABEL, phaseLabel, uid, type FtoPhasePosting, type FtoPhaseSignup, type Phase } from '@/lib/model';
-import { formatDateDMY, formatDateEntryMDY, getPhaseEndDate, localISODate, parseDateDMY } from '@/lib/training-calendar';
+import { PageHead, Panel } from '@/components/bits.js';
+import { useToast } from '@/hooks/use-toast.js';
+import { useWorkspace } from '@/state/workspace.js';
+import { PHASES, PHASE_LENGTH_WEEKS, ROLE_LABEL, phaseLabel, uid, type FtoPhasePosting, type FtoPhaseSignup, type Phase } from '@/lib/model.js';
+import { formatDateDMY, formatDateEntryMDY, getPhaseEndDate, localISODate, parseDateDMY } from '@/lib/training-calendar.js';
 
 const inputClass='h-11 w-full rounded border bg-card px-3 text-sm';
 

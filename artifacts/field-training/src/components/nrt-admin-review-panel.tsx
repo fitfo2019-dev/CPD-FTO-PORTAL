@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { CheckCircle2, MessageSquareMore } from 'lucide-react';
-import { Panel } from '@/components/bits';
-import { SearchableSelect } from '@/components/searchable-select';
-import { CATEGORIES, CATEGORY_LABEL, type Category, type RatingEntry, type Report } from '@/lib/model';
-import { formatDateDMY } from '@/lib/training-calendar';
-import { nrtReference } from '@/lib/nrt-reference';
-import { useWorkspace } from '@/state/workspace';
+import { Panel } from '@/components/bits.js';
+import { SearchableSelect } from '@/components/searchable-select.js';
+import { CATEGORIES, CATEGORY_LABEL, type Category, type RatingEntry, type Report } from '@/lib/model.js';
+import { formatDateDMY } from '@/lib/training-calendar.js';
+import { nrtReference } from '@/lib/nrt-reference.js';
+import { useWorkspace } from '@/state/workspace.js';
 
 const ACTIONS = [
   { value:'accepted_meeting', label:'Accepted · schedule meeting' },

@@ -1,8 +1,8 @@
-import { CATEGORY_LABEL, type WeeklyPerformanceLog, type SubstationOrientationRecord } from './model';
-import { SUBSTATION_ORIENTATION_SECTIONS } from './substation-orientation';
-import { substationDisplay } from './substations';
-import { formatDateDMY, formatDateTimeMDY } from './training-calendar';
-import { categoryNumberLabel, weeklyLogNarrativeWithReference } from './weekly-log-layout';
+import { CATEGORY_LABEL, type WeeklyPerformanceLog, type SubstationOrientationRecord } from './model.js';
+import { SUBSTATION_ORIENTATION_SECTIONS } from './substation-orientation.js';
+import { substationDisplay } from './substations.js';
+import { formatDateDMY, formatDateTimeMDY } from './training-calendar.js';
+import { categoryNumberLabel, weeklyLogNarrativeWithReference } from './weekly-log-layout.js';
 
 export function weeklyPerformanceLogXlsxRows(logs:WeeklyPerformanceLog[]) {
   const rows:(string|number)[][]=[['Class','PO','PO badge','FTO','FTO badge','Phase','Week','Week start','Week end','Entry type','SEG number(s)','SEG category','Total time','Source references','Reference reviewed','Narrative part','Narrative','Source daily report IDs']];

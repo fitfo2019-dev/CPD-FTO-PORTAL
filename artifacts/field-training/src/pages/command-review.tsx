@@ -1,5 +1,5 @@
 import { ArrowRight, ClipboardCheck, ShieldAlert } from 'lucide-react';
-import { PageHead, Panel } from '@/components/bits';
+import { PageHead, Panel } from '@/components/bits.js';
 
 export default function CommandReviewPage() {
   return <div className="mx-auto max-w-4xl">

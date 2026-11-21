@@ -9,9 +9,9 @@ import {
   phaseAssignmentLabel,
   type DailyActivitySummary,
   type Report,
-} from '@/lib/model';
-import type { MonthlyRatingCounts } from '@/lib/monthly-summary';
-import { formatDateDMY } from '@/lib/training-calendar';
+} from '@/lib/model.js';
+import type { MonthlyRatingCounts } from '@/lib/monthly-summary.js';
+import { formatDateDMY } from '@/lib/training-calendar.js';
 
 const ratingLabel: Record<string, string> = Object.fromEntries(RATING_LEGEND.map(({ code, label }) => [code, label]));
 const ratingClass: Record<string, string> = {

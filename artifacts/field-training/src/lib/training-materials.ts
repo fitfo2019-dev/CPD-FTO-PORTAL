@@ -1,5 +1,5 @@
-import type { DirectiveReviewRecord } from './model';
-import { formatSelectedDivisionDirectives } from './division-directives';
+import type { DirectiveReviewRecord } from './model.js';
+import { formatSelectedDivisionDirectives } from './division-directives.js';
 
 export interface ReviewedTrainingMaterial {
   type: string;
