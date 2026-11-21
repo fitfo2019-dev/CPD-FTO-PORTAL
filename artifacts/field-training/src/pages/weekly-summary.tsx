@@ -9,6 +9,7 @@ import { useWorkspace } from '@/state/workspace.js';
 import { CATEGORY_GROUPS, DAILY_ACTIVITY_FIELDS, PHASE_PROGRAM_WEEK_START, phaseAssignmentLabel, RATINGS, SEG_CATEGORIES, RATING_LEGEND, RUN_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, PRIMARY_RUN_FORMS, SUPPLEMENTAL_RUN_FORMS, requiredSupplementalForms } from '@/lib/model.js';
 import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
 import { activityTotals } from '@/lib/run-activity.js';
+import { weeklyRatingCount } from '@/lib/weekly-rating-counts.js';
 import { ACTIVITY_MANUAL_DEFINITIONS, SEG_MANUAL_DEFINITIONS, WEEKLY_ACTIVITY_SUMMARY_DEFINITION, WEEKLY_RATING_SUMMARY_DEFINITION } from '@/lib/weekly-summary-manual-definitions.js';
 
 export default function WeeklySummaryPage() {
@@ -137,7 +138,7 @@ export default function WeeklySummaryPage() {
                       </th>
                       {RATINGS.map(rating => (
                         <td key={rating} className={`weekly-rating-count text-center mono ${rating === 'UA' || rating === 'NRT' ? 'is-flagged' : ''}`}>
-                          {reviewedReports.reduce((count, report) => count + (report.ratings[key]?.rating === rating ? 1 : 0), 0)}
+                          {weeklyRatingCount(reports,key,rating)}
                         </td>
                       ))}
                     </tr>
@@ -162,7 +163,7 @@ export default function WeeklySummaryPage() {
                     {RATINGS.map(rating => (
                       <div key={rating} className={`weekly-rating-mobile-count ${rating === 'UA' || rating === 'NRT' ? 'is-flagged' : ''}`}>
                         <span className="mono">{rating}</span>
-                        <b className="mono">{reviewedReports.reduce((count, report) => count + (report.ratings[key]?.rating === rating ? 1 : 0), 0)}</b>
+                        <b className="mono">{weeklyRatingCount(reports,key,rating)}</b>
                       </div>
                     ))}
                   </div>

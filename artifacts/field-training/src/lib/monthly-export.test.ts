@@ -12,6 +12,8 @@ import {
   type Report,
 } from './model.js';
 import { buildMonthlyWorkbook } from './monthly-export.js';
+import { validateReportsForExport } from './export-validation.js';
+import { buildClassWorkbook } from './exportWorkbook.js';
 
 const ratingEntry = (rating: RatingEntry['rating']): RatingEntry => ({
   rating,
@@ -46,7 +48,7 @@ function makeReport(id: string, overrides: Partial<Report> = {}): Report {
     narrative: '',
     remedial: '',
     recruitComments: '',
-    status: 'complete',
+    status: 'draft',
     signatures: {},
     createdAt: '2026-11-01T12:00:00.000Z',
     updatedAt: '2026-11-01T12:00:00.000Z',
@@ -54,7 +56,7 @@ function makeReport(id: string, overrides: Partial<Report> = {}): Report {
   };
 }
 
-test('monthly workbook lists each SEG and activity category once by program week', () => {
+test('monthly workbook has exactly four dual-grid weekly tabs without leaking incident details', () => {
   const weekOne = makeReport('week-one', {
     phaseWeek: 1,
     ratingsReviewedAt: '2026-11-01T18:00:00.000Z',
@@ -126,38 +128,64 @@ test('monthly workbook lists each SEG and activity category once by program week
     ratings: Object.fromEntries(CATEGORIES.map(category => [category, ratingEntry('UA')])) as Report['ratings'],
   });
   const workbook = buildMonthlyWorkbook([weekOne, weekTwo, unreviewed, outsideMonth], '2026-11');
-  assert.deepEqual(workbook.SheetNames, ['Monthly Totals', 'Run Support']);
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Monthly Totals'], { header: 1 }) as unknown[][];
+  assert.deepEqual(workbook.SheetNames, ['Week 1', 'Week 2', 'Week 3', 'Week 4']);
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Week 1'], { header: 1 }) as unknown[][];
   const formUsageRows = rows.filter(row => row[0] === 'Form Usage');
   assert.equal(formUsageRows.length, 1);
   assert.equal(formUsageRows[0][1], 0);
   assert.equal(formUsageRows[0][2], 1);
-  assert.equal(formUsageRows[0][9], 1);
-  assert.equal(formUsageRows[0][22], 1);
-  assert.equal(formUsageRows[0][24], 1);
+  const secondRows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 2'],{header:1}) as unknown[][];
+  assert.equal(secondRows.find(row=>row[0]==='Form Usage')?.[4],1);
   const formUsageRow = rows.findIndex(row => row[0] === 'Form Usage');
-  assert.equal(rows[formUsageRow][11], '');
-  const sheet = workbook.Sheets['Monthly Totals'];
-  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 2 })].s.fill.fgColor.rgb, 'FFDCFCE7');
-  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 9 })].s.fill.fgColor.rgb, 'FFFEE2E2');
+  const sheet = workbook.Sheets['Week 1'];
+  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 2 })].s.border.top.style, 'thin');
+  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 2 })].s.alignment.horizontal, 'center');
+  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 2 })].s.border.top.color.rgb, 'FF000000');
   const trafficStops = rows.find(row => row[0] === 'Traffic Stops');
-  assert.deepEqual(trafficStops, ['Traffic Stops', 2, 8, '', '', 10]);
+  assert.equal(trafficStops?.[1],2);
+  assert.equal(secondRows.find(row=>row[0]==='Traffic Stops')?.[1],8);
   assert.ok(!rows.some(row => row[0] === 'Daily Log Sources'));
-  assert.ok(rows.some(row => row[1] === 'Saved daily statistics only · no statistics are inferred from run forms'));
-
-  const runSupportRows = XLSX.utils.sheet_to_json(workbook.Sheets['Run Support'], { header: 1 }) as unknown[][];
-  assert.equal(runSupportRows.find(row => row[0] === 'Run records included')?.[1], 1);
-  assert.equal(runSupportRows.find(row => row[0] === 'Pat Downs')?.[1], 1);
-  assert.equal(runSupportRows.find(row => row[0] === 'Traffic Citations')?.[1], 0);
-  assert.equal(runSupportRows.find(row => row[0] === 'Arrest Made · run metadata')?.[1], 1);
-  const clearedChecklistItem = runSupportRows.find(row => row[0] === 'Building Search' && row[2] === RUN_CHECKLIST_ITEMS.building_search[0]);
-  assert.equal(clearedChecklistItem?.[4], 0);
-  assert.equal(clearedChecklistItem?.[6], 1);
-  const runSupportText = JSON.stringify(runSupportRows);
+  for(const name of workbook.SheetNames){
+    const values=XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][];
+    assert.equal(values.slice(7,37).filter(row=>SEG_CATEGORIES.some(category=>category.label===row[0])).length,30);
+    assert.ok(values.some(row=>row[0]==='WEEKLY ACTIVITY SUMMARY'));
+  }
+  const runSupportText = JSON.stringify(Object.values(workbook.Sheets));
   assert.equal(runSupportText.includes('PRIVATE-INCIDENT'), false);
   assert.equal(runSupportText.includes('PRIVATE-LOCATION'), false);
   assert.equal(runSupportText.includes('PRIVATE-NARRATIVE'), false);
-  assert.equal(runSupportText.includes("'=FORMULA-RUN"), true);
-  const runSupportSheet = workbook.Sheets['Run Support'];
-  assert.equal(Object.values(runSupportSheet).some(cell => typeof cell === 'object' && cell !== null && 'f' in cell), false);
+  for(const sheet of Object.values(workbook.Sheets))assert.equal(Object.values(sheet).some(cell=>typeof cell==='object'&&cell!==null&&'f'in cell),false);
+});
+
+test('four-tab export rejects a fifth source week instead of dropping it',()=>{
+  assert.throws(()=>buildMonthlyWorkbook([
+    makeReport('first',{date:'2026-11-01'}),makeReport('fifth',{date:'2026-11-29'}),
+  ],'2026-11'),/more than four weekly tabs/);
+});
+
+test('export boundary validates the exact approved categories and count types without type assertions', () => {
+  const report = makeReport('validation');
+  assert.equal(CATEGORIES.length, 30);
+  assert.equal(Object.keys(validateReportsForExport([report])[0].ratings).length, 30);
+  assert.throws(() => validateReportsForExport([{ ...report, ratings: { ...report.ratings, obsoleteCategory: ratingEntry('A') } }]));
+  assert.throws(() => validateReportsForExport([{ ...report, activity: { ...report.activity, trafficStops: -1 } }]));
+  assert.throws(() => validateReportsForExport([{ ...report, activity: { ...report.activity, trafficStops: '2' } }]));
+  assert.throws(() => validateReportsForExport([{ ...report, ratings: {} }]));
+});
+
+test('weekly form styles survive class workbook assembly and formula-like text stays literal', () => {
+  const report = makeReport('=TEST-ID', { recruitName: '=TEST-NAME', ratingsReviewedAt: '2026-11-01T18:00:00Z' });
+  const workbook = buildClassWorkbook([report]);
+  const name = workbook.SheetNames.find(sheet => sheet.startsWith('Weekly Summary '));
+  assert.ok(name);
+  const sheet = workbook.Sheets[name];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+  const sectionRow = rows.findIndex(row => row[0] === 'DUTY READINESS');
+  assert.ok(sectionRow >= 0);
+  const count = sheet[XLSX.utils.encode_cell({ r: sectionRow + 1, c: 2 })];
+  assert.equal(count.s.border.top.style, 'thin');
+  assert.equal(count.s.alignment.horizontal, 'center');
+  assert.ok(rows.some(row => row[0] === 'WEEKLY ACTIVITY SUMMARY · FACTUAL COUNTS'));
+  assert.ok(JSON.stringify(rows).includes("'=TEST-NAME"));
+  assert.ok(JSON.stringify(rows).includes("'=TEST-ID"));
 });

@@ -21,6 +21,12 @@ The Weekly Packet Acknowledgement sample on page 48 has PO comments/signature, F
 
 The manual's workflow distinguishes the once-per-day Daily Performance Summary from one primary checklist for each applicable run. Reporting for Duty (U-10.191) is also completed each day. Run primary forms include Call for Service, Self-Initiated Run/Training, Domestic Incident, Traffic Crash Investigation, Traffic Stop, High Risk Traffic Stop, and Building Search. Arrest Process and OVI Process are conditional supplements; Traffic Data Collection is additionally required for self-initiated motor-vehicle or bicycle stops. Use the printed form names in the UI rather than calling these documents “DORs.”
 
+The user's newer operational pipeline request requires an Arrest Process child
+sheet whenever Arrest Made is selected, even if transport is not selected. Keep
+this requested attachment rule distinct from the older manual's transported-arrest
+criteria. An attached sheet does not prove a completed form or justify an
+automatic activity count.
+
 The user clarifies that daily summaries carry the statistics, while the weekly performance log consolidates UA articulations and corrective retraining. The uploaded 2014 weekly log continuation includes category, total time, narrative, and a W5D4P4 reference. Default new corrective-training time to 15 minutes but let the FTO change it; preserve the actual source narrative and time in PDF and Excel exports.
 
 **Why:** The user clarified the different daily and weekly paperwork purposes and specified the editable 15-minute retraining default.

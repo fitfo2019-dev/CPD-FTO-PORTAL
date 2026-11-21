@@ -377,7 +377,7 @@ test('traffic data collection stays on its primary form instead of generating an
   assert.deepEqual(requiredSupplementalForms({...sample,trafficMode:'pedestrian'}),['arrest_process','ovi_process']);
   assert.deepEqual(requiredSupplementalForms({...sample,trafficMode:'other'}),['arrest_process','ovi_process']);
   assert.ok(requiredSupplementalForms({...sample,transportedAfterArrest:false,arrestProcessRequired:true}).includes('arrest_process'));
-  assert.ok(!requiredSupplementalForms({...sample,transportedAfterArrest:false,arrestProcessRequired:false}).includes('arrest_process'));
+  assert.ok(requiredSupplementalForms({...sample,transportedAfterArrest:false,arrestProcessRequired:false}).includes('arrest_process'));
 });
 
 test('only explicitly selected related activity counts on completed and reviewed runs',()=>{
@@ -462,7 +462,7 @@ test('Excel round trip includes all current SEGs, weekly forms, phase totals, co
   assert.ok(weeklySheet);
   assert.ok(rows(weeklySheet!).flat().includes('Task Management'));
   assert.ok(rows(weeklySheet!).flat().includes('Vehicle Extractions'));
-  assert.ok(rows(weeklySheet!).flat().includes('Probationary Officer Weekly Performance Summary · U-10.173'));
+  assert.ok(rows(weeklySheet!).flat().includes('PROBATIONARY OFFICER WEEKLY PERFORMANCE SUMMARY · U-10.173'));
   const runRows=rows('Run Forms');
   const headers=runRows[0];
   assert.equal(runRows.length,5);

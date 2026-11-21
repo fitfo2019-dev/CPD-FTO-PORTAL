@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, Trash } from 'lucide-react';
-import { useWorkspace } from '@/state/workspace.js';
+import { useOperationalStateMachine, useWorkspace } from '@/state/workspace.js';
 import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultReportingForDutyRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
 import { PageHead, Panel, StatusPill } from '@/components/bits.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
@@ -12,22 +12,24 @@ import {
 import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { cn } from '@/lib/utils.js';
-import { currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeEntryMDY, formatDateTimeMDY, getNextReportDate, getPhaseScheduleInfo, getSundaySaturdayWeek, getTrainingFolderDayReference, getWeekdayIndex, parseDateDMY, requiredDaysOff, shiftWeekDescription } from '@/lib/training-calendar.js';
+import { currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeEntryMDY, formatDateTimeMDY, getNextReportDate, getPhaseScheduleInfo, getSundaySaturdayWeek, getWeekdayIndex, parseDateDMY, requiredDaysOff, shiftWeekDescription } from '@/lib/training-calendar.js';
 import { isValidAssignment } from '@/lib/cpd-geography.js';
 import { PrintableDailyLog } from '@/components/printable-daily-log.js';
 import { PrintableDailyForms } from '@/components/printable-daily-forms.js';
-import { activityDiscrepancies, activityTotals, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
+import { activityDiscrepancies, activityTotals, buildClearanceDocuments, clearanceDerivedActivityCounts, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
 import { checklistForMetadata, toggleChecklistSection } from '@/lib/run-checklist-state.js';
 import { buildRunNarrativeDraft } from '@/lib/run-narrative-draft.js';
 import { isRtRestricted } from '@/lib/model.js';
 import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatRadioCode, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes.js';
 import { parseRunDateTime } from '@/lib/run-details.js';
+import { useDeficiencyEditor } from '@/hooks/use-deficiency-editor.js';
+import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
 
 function checklistHelp(form:string,meaning:string) {
-  return `${form}: ${meaning} Keep checked only when the PO completed the described action acceptably. Clear it if the PO did not complete it acceptably, it did not apply, or the FTO performed the action; describe deficiencies and training in the narrative.`;
+  return `${form}: ${meaning} Keep checked only when the PO completed the described action acceptably. Clearing an applicable task creates a UA deficiency. Use the Not applicable control for an inapplicable form or group; document observed facts and any training actually completed.`;
 }
 function dutyChecklistHelp(section:string,item:string) {
-  return `Reporting for Duty · ${section}: indicates the PO ${item.toLowerCase()}. Keep checked only when true and completed acceptably; clear it when it did not apply or was not completed, and explain relevant exceptions in the notes.`;
+  return `Reporting for Duty · ${section}: indicates the PO ${item.toLowerCase()}. Clearing an applicable task creates a UA deficiency. Use the section's Not applicable control when the section does not apply.`;
 }
 function runTypeCodeHelp(kind:PrimaryRunForm) {
   if(kind==='traffic_stop')return 'Traffic Stop is fixed to 10-6 · Traffic Violator/Complaint.';
@@ -39,16 +41,16 @@ function runTypeCodeHelp(kind:PrimaryRunForm) {
   return 'Choose the actual dispatched code; calls for service can use different 10-codes.';
 }
 
-function blank(folder: PhaseCaseFolder, date: string): Report {
+function blank(folder: PhaseCaseFolder, date: string, prior?: Report): Report {
   const now = new Date().toISOString();
   const schedule=getPhaseScheduleInfo(folder.phase,date,folder.phaseStartDate,folder.daysOff);
-  return { id: uid(), date, shift:folder.shift, phase:folder.phase, zone:folder.zone, precinct:folder.precinct, cruiserDistrict:folder.cruiserDistrict, ftoAssignment:folder.ftoAssignment, className:folder.className ?? '', recruitName:folder.recruitName, recruitBadge:folder.recruitBadge, ftoName:folder.ftoName, ftoBadge:folder.ftoBadge, activity:emptyDailyActivitySummary(),activityCountsIncludeRuns:false, runs:[], reportingForDuty:defaultReportingForDutyRecord(),
-    ratings: schedule.limboDay ? emptyRatings() : defaultRatings(), phaseWeek:schedule.phaseWeek, limboDay:schedule.limboDay, narrative:'', remedial:'', recruitComments:'', status:'draft', signatures:{}, createdAt: now, updatedAt: now };
+  return { id: uid(), date, shift:folder.shift, phase:folder.phase, zone:folder.zone, precinct:folder.precinct, cruiserDistrict:folder.cruiserDistrict, ftoAssignment:folder.ftoAssignment, className:folder.className ?? '', recruitName:folder.recruitName, recruitBadge:folder.recruitBadge, ftoName:folder.ftoName, ftoBadge:folder.ftoBadge, activity:emptyDailyActivitySummary(),activityCountsIncludeRuns:false, runs:[], reportingForDuty:{...defaultReportingForDutyRecord(),cruiserId:prior?.reportingForDuty.cruiserId},
+    deficiencyAutomationEnabled:true, ratings: schedule.limboDay ? emptyRatings() : defaultRatings(), phaseWeek:schedule.phaseWeek, limboDay:schedule.limboDay, narrative:'', remedial:'', recruitComments:'', status:'draft', signatures:{}, createdAt: now, updatedAt: now };
 }
 export default function ReportEditor() {
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
-  const { ws, upsertReport, deleteReport, setEditorDirty } = useWorkspace();
+  const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket } = useWorkspace();
   const [, nav] = useLocation();
   const { toast } = useToast();
   useEffect(() => {
@@ -56,7 +58,8 @@ export default function ReportEditor() {
     return () => document.body.classList.remove('print-daily-route');
   }, []);
   const existing = isNew ? undefined : ws.reports.find(r => r.id === params.id);
-  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? blank(ws.caseFolder,getNextReportDate(ws.caseFolder,ws.reports)) : undefined);
+  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? blank(ws.caseFolder,getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0]) : undefined);
+  const operationalPacket = useOperationalStateMachine(r);
   const [initialReport] = useState(()=>JSON.stringify(r ?? null));
   const [dateText, setDateText] = useState(() => r ? formatDateDMY(r.date) : '');
   const [showErr, setShowErr] = useState(false);
@@ -64,6 +67,7 @@ export default function ReportEditor() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [editingRunId, setEditingRunId] = useState<string | null>(null);
+  const [runDraftId, setRunDraftId] = useState(uid);
   const [runKind, setRunKind] = useState<PrimaryRunForm>('call_for_service');
   const [runDateTimeText, setRunDateTimeText] = useState(() => r ? formatDateDMY(r.date) : '');
   const [incidentNumber, setIncidentNumber] = useState('');
@@ -75,18 +79,34 @@ export default function ReportEditor() {
   const [dispatchedCode, setDispatchedCode] = useState('');
   const [situationFoundCode, setSituationFoundCode] = useState(SITUATION_FOUND_NA);
   const [clearanceCode, setClearanceCode] = useState<NonNullable<TrainingRun['clearanceCode']>>('');
+  const [chargeText, setChargeText] = useState('');
   const [arrestMade, setArrestMade] = useState(false);
   const [transported, setTransported] = useState(false);
   const [arrestProcessRequired, setArrestProcessRequired] = useState(false);
   const [oviProcessed, setOviProcessed] = useState(false);
   const [narrativeAdditionRequired, setNarrativeAdditionRequired] = useState(false);
   const [runNarrative, setRunNarrative] = useState('');
-  const [runChecklist, setRunChecklist] = useState<Record<string, boolean>>(()=>newRunChecklist('call_for_service'));
+  const [runChecklist, setRunChecklistState] = useState<Record<string, boolean>>(()=>newRunChecklist('call_for_service'));
+  const setRunChecklist: typeof setRunChecklistState = update => {
+    setRunChecklistState(update);
+    setR(current => current && ({ ...current, deficiencyAutomationEnabled: true, ratingsReviewedAt: undefined }));
+  };
   const [directiveReviews,setDirectiveReviews]=useState<Partial<Record<DirectiveReviewForm,DirectiveReviewRecord>>>({});
   const [runReviewOpen, setRunReviewOpen] = useState(false);
   const [runChecklistReviewed, setRunChecklistReviewed] = useState(false);
   const generatedNarrativeRef = useRef('');
   const runReviewConfirmedRef = useRef(false);
+  const candidateRun = useMemo<TrainingRun | undefined>(() => {
+    if (!r || (!editingRunId && !Object.entries(runChecklist).some(([key, value]) => !value && /^(task-|supp-)/.test(key)))) return undefined;
+    return {
+      id: editingRunId ?? runDraftId, occurredAt: parseRunDateTime(runDateTimeText) ?? `${r.date}T23:59:00`,
+      runKind, isDispatched: runDispatched, trafficMode, arrestMade,
+      transportedAfterArrest: arrestMade && transported, arrestProcessRequired,
+      oviProcessed, narrativeAdditionRequired, checklist: runChecklist, narrative: runNarrative,
+      formStatus: runNarrative.trim() ? 'complete' : 'in_progress',
+    };
+  }, [r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, arrestProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runNarrative]);
+  const deficiencyEditor = useDeficiencyEditor(r, setR, getOperationalPacket, candidateRun, r?.status === 'draft' && ws.role === 'fto');
   const parsedDate = parseDateDMY(dateText);
   const dateWeekday = parsedDate ? getWeekdayIndex(parsedDate) : undefined;
   const selectedDayOff = !!(isNew && ws.caseFolder && dateWeekday !== undefined && ws.caseFolder.daysOff?.includes(dateWeekday));
@@ -120,11 +140,14 @@ export default function ReportEditor() {
   }, [r?.date, editingRunId]);
   const errs = useMemo(() => r ? [
     ...validateReport(r),
+    ...(operationalPacket?.blockingIssues ?? []),
+    ...(!r.limboDay && deficiencyEditor.groups.some(group=>!group.narrative.trim()) ? ['Complete the FTO articulation for each checklist deficiency category'] : []),
+    ...(r.deficiencyAutomationEnabled && !r.reportingForDuty.shotgunTraining ? ['Record Shotgun Training as Y or N'] : []),
     ...(!r.reportingForDuty?.reviewedAt ? ['Reporting for Duty checklist must be reviewed and confirmed'] : []),
      ...(r.runs??[]).filter(run=>run.formStatus!=='complete'||!run.checklistReviewedAt).map(run=>`${PRIMARY_RUN_FORMS.find(form=>form.key===run.runKind)?.label??'Run'} must be completed and reviewed before submission`),
     ...(parsedDate ? [] : ['Shift date must be a valid date in MM/DD/YYYY format']),
     ...(selectedDayOff ? ['Shift date falls on a day off selected in the phase case folder'] : []),
-  ] : [], [r, parsedDate, selectedDayOff]);
+  ] : [], [r, parsedDate, selectedDayOff, operationalPacket, deficiencyEditor.groups]);
   const pii = useMemo(() => r ? Array.from(new Set(scanPII([r.narrative, r.remedial, r.recruitComments, r.reportingForDuty?.notes, r.zone, r.precinct, r.cruiserDistrict, r.ftoAssignment, ...CATEGORIES.map(c=>r.ratings[c].justification), ...(r.runs ?? []).map(run=>run.narrative)].join('\n')))) : [], [r]);
 
   if (!r) return <div className="py-20 text-center"><div className="mono text-5xl font-bold text-muted-foreground">{isNew ? <Lock className="mx-auto h-10 w-10" /> : '404'}</div><p className="mt-2">{isNew ? ws.caseFolder ? 'Complete the shift schedule and valid Zone → Precinct → FTO Assignment in phase setup before starting this shift.' : 'Complete phase setup before starting a shift.' : 'Report not found.'}</p><Link href={isNew ? '/phase-setup' : '/reports'} className="underline font-semibold mt-3 inline-block">{isNew ? 'Open phase setup' : 'Back to saved records'}</Link></div>;
@@ -132,7 +155,7 @@ export default function ReportEditor() {
   const locked = r.status === 'locked';
   const editable = r.status === 'draft' && ws.role === 'fto';
   const commentsEditable = r.status === 'fto_signed' && ws.role === 'po';
-  const set = <K extends keyof Report>(k: K, v: Report[K]) => setR(x => x && ({ ...x, ratingsReviewedAt: undefined, [k]: v }));
+  const set = <K extends keyof Report>(k: K, v: Report[K]) => setR(x => x && ({ ...x, deficiencyAutomationEnabled:k==='reportingForDuty'?true:x.deficiencyAutomationEnabled, ratingsReviewedAt: undefined, [k]: v }));
   const applyShiftDate = (value: string) => {
     const parsed = parseDateDMY(value);
     if (!parsed) return;
@@ -152,7 +175,13 @@ export default function ReportEditor() {
       set('date', parsed);
     }
   };
-  const setRating = (c: typeof CATEGORIES[number], patch: Partial<Report['ratings'][typeof c]>) => setR(x => x && ({ ...x, ratingsReviewedAt: undefined, ratings: { ...x.ratings, [c]: { ...x.ratings[c], ...patch } } }));
+  const setRating = (c: typeof CATEGORIES[number], patch: Partial<Report['ratings'][typeof c]>) => {
+    if(patch.rating && !['UA','NRT'].includes(patch.rating) && deficiencyEditor.groups.some(group=>group.category===c)) {
+      toast({title:'Checklist deficiency requires UA',description:'Resolve or reroute the source deficiency before selecting a different rating.',variant:'destructive'});
+      return;
+    }
+    setR(x => x && ({ ...x, ratingsReviewedAt: undefined, ratings: { ...x.ratings, [c]: { ...x.ratings[c], ...patch } } }));
+  };
   const updateDutyGroup = (section:string,notApplicable:boolean) => {
     if(!r)return;
     const group=DAILY_DUTY_CHECKLIST.find(item=>item.section===section);
@@ -217,6 +246,7 @@ export default function ReportEditor() {
     }
     const activityError=runActivityValidationError({runKind,dispatchedCode,clearanceCode,activityFlags});
     if(activityError){setRunError(activityError);return;}
+    if(clearanceCode==='3V'&&!arrestMade){setRunError('3V means Arrest Made. Select Arrest made or correct the clearance code before saving.');return;}
     if (!runChecklistReviewed) {
       setRunReviewOpen(true);
       return;
@@ -230,7 +260,12 @@ export default function ReportEditor() {
     ];
     const directiveReviewsToSave=Object.fromEntries(activeDirectiveForms.filter(form=>directiveReviews[form]).map(form=>[form,directiveReviews[form]])) as Partial<Record<DirectiveReviewForm,DirectiveReviewRecord>>;
     const nextRun: TrainingRun = {
-      id: previous?.id ?? uid(),
+      clearanceRulesVersion: previous ? previous.clearanceRulesVersion : 1,
+      charges: chargeText.split('\n').map(text=>text.trim()).filter(Boolean).map((description,index)=>({
+        id: previous?.charges?.[index]?.description===description ? previous.charges[index].id : `${previous?.id??runDraftId}:charge:${index}`,
+        description,
+      })),
+      id: previous?.id ?? runDraftId,
       incidentNumber: incidentNumber.trim() || undefined,
       location: runLocation.trim() || undefined,
       occurredAt: localRunDateTime,
@@ -240,6 +275,7 @@ export default function ReportEditor() {
       formStatus: !!runNarrative.trim() ? 'complete' : 'in_progress',
       checklist: { ...runChecklist }, directiveReviews:directiveReviewsToSave, checklistReviewedAt:new Date().toISOString(), narrative: runNarrative,
     };
+    nextRun.generatedDocuments=buildClearanceDocuments(nextRun);
     setR(current=>current && ({...current,ratingsReviewedAt:undefined,runs: previous ? current.runs.map(item => item.id === previous.id ? nextRun : item) : [...current.runs, nextRun]}));
     resetRunForm();
   };
@@ -254,6 +290,17 @@ export default function ReportEditor() {
     setRunReviewOpen(false);
   };
   const resetRunForm = () => {
+    deficiencyEditor.resetIncident();
+    const pendingId=editingRunId??runDraftId;
+    setR(current=>{
+      if(!current||current.runs.some(run=>run.id===pendingId))return current;
+      return {...current,
+        deficiencyNarratives:Object.fromEntries(Object.entries(current.deficiencyNarratives??{}).filter(([key])=>!key.startsWith(`${pendingId}:`))),
+        deficiencyOverrides:Object.fromEntries(Object.entries(current.deficiencyOverrides??{}).filter(([key])=>!key.includes(`:run:${pendingId}:`))),
+      };
+    });
+    setRunDraftId(uid());
+    setChargeText('');
     setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunDispatched(true); setRunError(''); runReviewConfirmedRef.current = false;
     setIncidentNumber(''); setRunLocation(''); generatedNarrativeRef.current = '';
     setTrafficMode('none'); setArrestMade(false); setTransported(false); setArrestProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
@@ -261,6 +308,8 @@ export default function ReportEditor() {
     setRunNarrative(''); setRunChecklist(newRunChecklist('call_for_service')); setDirectiveReviews({}); setRunReviewOpen(false); setRunChecklistReviewed(false);
   };
   const editRun = (run: TrainingRun) => {
+    deficiencyEditor.resetIncident();
+    setChargeText((run.charges??[]).map(charge=>charge.description).join('\n'));
     setEditingRunId(run.id); setRunKind(run.runKind);
     runReviewConfirmedRef.current = false;
     setIncidentNumber(run.incidentNumber ?? ''); setRunLocation(run.location ?? ''); generatedNarrativeRef.current = '';
@@ -278,6 +327,7 @@ export default function ReportEditor() {
   const selectedForm = PRIMARY_RUN_FORMS.find(item => item.key === runKind)!;
   function save(reviewed = false,nextWorkingDay = false): boolean {
     if (!r) return false;
+    if(reviewed&&errs.length){setShowErr(true);return false;}
     if (!parsedDate || selectedDayOff) { setShowErr(true); return false; }
     if (runFormDirty) { toast({title:'Add or update the run first',description:'The open run form is not yet part of this daily log.',variant:'destructive'}); return false; }
     const next = { ...r, date: parsedDate, ratingsReviewedAt: reviewed ? new Date().toISOString() : r.ratingsReviewedAt, updatedAt: new Date().toISOString() };
@@ -298,15 +348,8 @@ export default function ReportEditor() {
   const radioCodePrefix='inline-flex h-10 w-12 shrink-0 items-center justify-center whitespace-nowrap rounded-l border border-r-0 bg-muted px-3 text-base font-bold leading-none';
   const radioCodeInput='h-10 min-w-0 flex-1 rounded-r border bg-card px-3 font-mono text-base uppercase disabled:opacity-70';
   const week = getSundaySaturdayWeek(r.date);
-  const currentFolder=ws.caseFolder;
-  const orientationFolder=ws.phaseFolders.find(folder=>folder.className===r.className&&folder.recruitBadge===r.recruitBadge&&folder.phase===r.phase)
-    ??(currentFolder&&currentFolder.className===r.className&&currentFolder.recruitBadge===r.recruitBadge&&currentFolder.phase===r.phase?currentFolder:undefined);
-  const orientation=ws.substationOrientations.find(item=>item.className===r.className&&item.recruitBadge===r.recruitBadge&&(item.phase??1)===r.phase);
-  const orientationDate=orientationFolder?getNextReportDate(orientationFolder,[]):orientation?.phaseStartDate;
-  const orientationForReport=orientation&&r.date===orientationDate?orientation:undefined;
-  const trainingDayReference=orientationFolder
-    ?getTrainingFolderDayReference(r.phase,r.date,orientationFolder.phaseStartDate,orientationFolder.daysOff)
-    :undefined;
+  const orientationForReport=operationalPacket?.orientation;
+  const trainingDayReference=operationalPacket?.dayReference;
   const runDerivedActivity=runDerivedActivityCounts(r?.runs??[]);
   const trafficSolveSuggestion=runKind==='traffic_stop'&&dispatchedCode==='6'&&citationSummonsRecorded;
   const totalActivity=activityTotals(r??{activity:emptyDailyActivitySummary()});
@@ -317,10 +360,11 @@ export default function ReportEditor() {
 
   return (
     <div className="report-editor-page max-w-5xl">
+      <DeficiencyDialog group={deficiencyEditor.active} onNarrative={deficiencyEditor.setNarrative} onOverride={deficiencyEditor.override} onClose={deficiencyEditor.close}/>
       <Link href="/reports" className="text-sm font-semibold inline-flex items-center gap-1 mb-2 hover:underline" data-testid="link-back"><ArrowLeft className="h-4 w-4" />Saved records</Link>
       <PageHead kicker="Shift workspace · Daily Performance Log · U-10.174" title={r.recruitName ? `PO ${r.recruitName} #${r.recruitBadge}` : 'Probationary Officer shift'}>
         <StatusPill s={r.status} />
-        <button type="button" data-testid="button-print-daily-log" onClick={() => window.print()} className="h-10 px-3 rounded border bg-card text-sm font-bold inline-flex items-center gap-1.5"><Printer className="h-4 w-4" />Print all forms / PDF</button>
+        <button type="button" data-testid="button-print-daily-log" onClick={() => { if(operationalPacket?.blockingIssues.length){toast({title:'Complete the phase-start packet',description:operationalPacket.blockingIssues.join(' '),variant:'destructive'});return;} window.print(); }} className="h-10 px-3 rounded border bg-card text-sm font-bold inline-flex items-center gap-1.5"><Printer className="h-4 w-4" />Print all forms / PDF</button>
         {r.phase===1&&<Link href="/substation-orientation" className="inline-flex h-10 items-center rounded border bg-card px-3 text-sm font-bold">Substation Orientation</Link>}
         {(editable || commentsEditable) && <button data-testid="button-save-draft" onClick={()=>save()} className="h-10 px-4 rounded bg-primary text-primary-foreground font-bold text-sm active:scale-[.98] transition">{commentsEditable ? 'Save comments' : 'Save draft'}{isDirty && ' *'}</button>}
         {editable && <button data-testid="button-save-next-workday" onClick={()=>save(false,true)} className="h-10 rounded border bg-card px-3 text-sm font-semibold">Save and next workday</button>}
@@ -374,9 +418,14 @@ export default function ReportEditor() {
 
         <Panel id="duty-form" title="Reporting for Duty Form" className="mb-4 scroll-mt-28">
          <div className="border-b px-4 py-3 text-sm text-muted-foreground">
-            New daily logs start with duty-check boxes selected to speed entry. Review every item and clear any that do not apply or were not completed. Each section’s <b>Not applicable</b> box starts unchecked; checking it clears that section. Confirm the review before submission.
+            New daily logs start with duty-check boxes selected to speed entry. Review every item; clearing an applicable task creates a UA deficiency. Each section’s <b>Not applicable</b> box starts unchecked; use it for an inapplicable section. Confirm the review before submission.
          </div>
          <div className="grid gap-4 p-4">
+           <fieldset disabled={!editable} className="grid gap-4 sm:grid-cols-2">
+             <F l="Cruiser ID"><input value={r.reportingForDuty.cruiserId??''} maxLength={80} className={inp} onChange={event=>set('reportingForDuty',{...r.reportingForDuty,cruiserId:event.target.value,reviewedAt:undefined})} data-testid="input-cruiser-id"/></F>
+             <F l="Shotgun Training"><select className={inp} value={r.reportingForDuty.shotgunTraining??''} onChange={event=>{const value=event.target.value;if(value==='Y'||value==='N')set('reportingForDuty',{...r.reportingForDuty,shotgunTraining:value,reviewedAt:undefined});}} data-testid="select-shotgun-training"><option value="" disabled>Select Y / N</option><option value="Y">Y</option><option value="N">N</option></select></F>
+           </fieldset>
+           {deficiencyEditor.groups.length>0&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.map(group=><button type="button" key={group.id} disabled={!editable} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded border bg-muted/20 p-3">
               <span className="text-sm font-semibold">Reporting for Duty form checkboxes</span>
               <button type="button" disabled={!editable} onClick={toggleDutyChecklist} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-duty-checklist">{dutyAllChecked?'Deselect all':'Select all'}</button>
@@ -436,13 +485,14 @@ export default function ReportEditor() {
                    <span className="text-xs text-muted-foreground">{situationFoundCode===SITUATION_FOUND_NA?'Defaults to N/A; change it when a situation-found 10-code applies.':situationFoundCode ? RADIO_CODES[situationFoundCode] ?? 'Unlisted code — confirm against approved code table' : 'Enter the applicable code or N/A.'}</span>
                </F>
                <datalist id="radio-code-list">{Object.entries(RADIO_CODES).map(([code,label])=><option key={code} value={code}>{label}</option>)}</datalist>
-                   <F l="Clearance code"><SearchableSelect className={inp} value={clearanceCode} onChange={e=>setClearanceCode(e.target.value as typeof clearanceCode)} data-testid="select-clearance-code"><option value="">Not recorded</option>{CLEARANCE_CODES.map(item=><option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}</SearchableSelect></F>
+                   <F l="Clearance code"><SearchableSelect className={inp} value={clearanceCode} onChange={e=>{const code=e.target.value as typeof clearanceCode;setClearanceCode(code);if(code==='3V')setArrestState(true);}} data-testid="select-clearance-code"><option value="">Not recorded</option>{CLEARANCE_CODES.map(item=><option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}</SearchableSelect></F>
                    {clearanceCode==='3V'&&<p className="rounded border border-accent/40 bg-accent/5 p-2 text-xs sm:col-span-2">3V ordinarily means an arrest was made. Record the arrest facts and select U-10.100 Reports only if the report was completed. If no arrest occurred, correct the clearance code and related statistics before saving.</p>}
           {(clearanceCode==='1V')&&<p className="rounded border bg-primary/5 p-2 text-xs sm:col-span-2">{runKind==='traffic_stop'?'For a 10-6 Traffic Stop, select Solve Citation/Summons* below when applicable. Do not select PremierOne Reports or Axon Reports. This is guidance only; no statistic is prefilled.':runKind==='traffic_crash'?'Select Accident Reports below only when a crash report was completed; a crash report is not a PremierOne Report. No statistic is prefilled.':'Select PremierOne Reports below only when that report was completed. No statistic is prefilled from the clearance code.'}</p>}
                   {runKind==='traffic_stop'&&clearanceCode==='3V'&&<p className="rounded border bg-primary/5 p-2 text-xs sm:col-span-2">For a 10-6 Traffic Stop, select Solve Citation/Summons* below when applicable. Do not select PremierOne Reports or Axon Reports. No statistic is prefilled.</p>}
             </fieldset>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={arrestMade} onChange={e=>setArrestState(e.target.checked)} data-testid="checkbox-arrest-made" />Arrest made</label>
+              {clearanceCode==='3V'&&<F l="Criminal charges · one per line"><textarea disabled={!editable} rows={3} className={inp} value={chargeText} onChange={event=>setChargeText(event.target.value)} data-testid="input-criminal-charges"/></F>}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable || !arrestMade} checked={transported} onChange={e=>{const value=e.target.checked;setTransported(value);setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,value,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);}} data-testid="checkbox-transported" />Transported after arrest</label>
               {arrestMade&&!transported&&<label title="Use for payout arrests or when the arrestee is remanded to another jurisdiction; transported arrests add the form automatically." className="flex items-start gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={arrestProcessRequired} onChange={e=>{const value=e.target.checked;setArrestProcessRequired(value);setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,prev,value));setRunChecklistReviewed(false);}} data-testid="checkbox-arrest-process-required" />Arrest Process required · payout / transfer</label>}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={oviProcessed} onChange={e=>{const value=e.target.checked;setOviProcessed(value);setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,transported,value,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);}} data-testid="checkbox-ovi-processed" />OVI processing occurred</label>
@@ -618,8 +668,8 @@ export default function ReportEditor() {
 
       <Panel id="activity-summary" title="Daily Activity Summary" className="mb-4 scroll-mt-28">
         <div className="border-b px-4 py-3 text-sm text-muted-foreground">
-          Enter every official daily statistic manually here. Checkboxes on run records are supporting evidence only; they never change a statistic or its total.
-          <div className="mt-2 text-foreground">Traffic Citations and Solve Citation/Summons* are separate metrics. For a 10-6 Traffic Stop with 1V or 3V, select Solve Citation/Summons* on that run when applicable—not PremierOne or Axon. No statistic is inferred from the run code.</div>
+          Totals combine manual entries with clearance-derived counts from newly created, reviewed run records. Run activity checkboxes remain supporting evidence only.
+          <div className="mt-2 text-foreground">1V uses the explicitly selected Traffic Citations metric, otherwise Solve Citation/Summons* for traffic stops, otherwise PremierOne Reports. These distinct metrics are not counted twice. 3V adds the approved arrest-report, prisoner, case-report, affidavit, and individual-charge counts. Existing legacy runs are not recounted automatically.</div>
           {activityMismatchFields.length>0&&<div role="note" className="mt-2 rounded border border-accent bg-accent/10 p-2.5 text-foreground" data-testid="status-activity-discrepancy"><b>Review the daily statistics against run records</b><p className="mt-1 text-xs text-muted-foreground">The portal did not change either value.</p><ul className="mt-1 grid gap-1 text-xs sm:grid-cols-2">{activityMismatchFields.map(({key,label})=><li key={key}><b>{label}:</b> daily statistic {totalActivity[key]} · run checkboxes {runDerivedActivity[key]}</li>)}</ul></div>}
         </div>
         <fieldset disabled={!editable} className="grid grid-cols-1 border-l border-t sm:grid-cols-2 xl:grid-cols-4">
@@ -640,7 +690,7 @@ export default function ReportEditor() {
                       inputMode="numeric"
                       className={inp + ' mono text-right'}
                       value={totalActivity[key]}
-                      onChange={event => setR(current=>current&&({...current,ratingsReviewedAt:undefined,activityCountsIncludeRuns:false,activity:{...current.activity,[key]:Math.max(0,Math.floor(Number(event.target.value)||0))}}))}
+                      onChange={event => setR(current=>current&&({...current,ratingsReviewedAt:undefined,activityCountsIncludeRuns:false,activity:{...current.activity,[key]:Math.max(0,Math.floor(Number(event.target.value)||0)-clearanceDerivedActivityCounts(current.runs)[key])}}))}
                       data-testid={'activity-' + key}
                     />
                     {runDerivedActivity[key]>0&&<p className="col-span-2 text-[10px] leading-4 text-muted-foreground">Supporting run records contain {runDerivedActivity[key]} selected item(s); this does not change the manual daily statistic.</p>}
@@ -697,8 +747,8 @@ export default function ReportEditor() {
         </AlertDialogContent>
       </AlertDialog>
       <div className="print-daily-package">
-        <PrintableDailyLog report={r} dayReference={trainingDayReference} />
-        <PrintableDailyForms report={r} orientation={orientationForReport} dayReference={trainingDayReference}/>
+        <PrintableDailyForms report={r} orientation={orientationForReport} dayReference={trainingDayReference} packet={operationalPacket}/>
+        <PrintableDailyLog report={r} dayReference={trainingDayReference} packet={operationalPacket}/>
       </div>
     </div>
   );

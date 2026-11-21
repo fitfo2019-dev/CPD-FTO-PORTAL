@@ -112,6 +112,32 @@ npm start
 
 This archive does not contain the Field Training Officer Portal static build.
 
+### Operational page-index alignment
+
+The portal's workspace provider exposes a shift-local operational packet
+projection shared with printing and class workbook indexes. Reporting for Duty
+is Page 1; first-workday orientation starts at Page 2 and occupies the existing
+two sheets. Chronological runs, required supplements and continuations precede
+the daily summary and its continuations. There is no fixed application page cap.
+Missing phase-start orientation prevents packet review and print-all completion.
+Saved source-reference text is retained but its review confirmation is cleared
+after the duty-first migration or subsequent source/schedule changes.
+
+Cleared applicable tasks on new or explicitly edited duty/run checklists now
+route to named SEG categories and project UA, with one editable articulation per
+incident/category and an FTO override selector. This is user-directed prototype
+automation, not a certified manual crosswalk. Historical manual numbers are not
+current worksheet ordinals. All 30 named categories remain intact. Not Applicable
+and Limbo restrictions still apply, and training time is never inferred.
+
+Monthly exports contain exactly four consecutive Sunday–Saturday weekly tabs,
+each with a 30-category grid above Weekly Activity Summary totals. More than
+four source weeks produces an explicit error instead of omitted data. New,
+reviewed run records use versioned clearance multipliers; legacy records retain
+manual accounting. Cruiser ID and the Y/N Shotgun Training flag are saved in the
+existing encrypted workspace. `3V` charge payloads are local drafts, not filed
+or completed legal forms. See `HANDOVER_MANUAL.md`, section 12.
+
 ## API contracts
 
 Success responses use:

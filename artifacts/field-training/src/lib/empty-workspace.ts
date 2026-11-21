@@ -4,6 +4,7 @@ import type { Workspace } from './model.js';
 export function createEmptyWorkspace(): Workspace {
   return {
     version: 0,
+    packetIndexVersion: 1,
     role: 'fto',
     reports: [],
     tasks: [],

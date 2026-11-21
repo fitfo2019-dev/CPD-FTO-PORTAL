@@ -8,6 +8,7 @@ import {
 } from "@/lib/model.js";
 import { formatDateDMY } from "@/lib/training-calendar.js";
 import { activityTotals } from "@/lib/run-activity.js";
+import { weeklyRatingCount } from "@/lib/weekly-rating-counts.js";
 
 const RATINGS = ["NO", "A", "RT", "UA", "NRT"] as const;
 
@@ -97,10 +98,7 @@ export function PrintableWeeklySummary({
                       rating === "UA" || rating === "NRT" ? " print-summary-flag" : ""
                     }`}
                   >
-                    {ratingReports.reduce(
-                      (count, report) => count + (report.ratings[key]?.rating === rating ? 1 : 0),
-                      0,
-                    )}
+                    {weeklyRatingCount(reports, key, rating)}
                   </td>
                 ))}
               </tr>

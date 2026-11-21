@@ -3,7 +3,20 @@ name: Manual activity statistics
 description: User rules for entering, reviewing, and aggregating activity metrics.
 ---
 
-The user requires daily, weekly, phase, class, run, and goal-progress statistics to remain manually enterable and editable. Do not infer or silently prefill statistic values from run types, clearance codes, arrests, supplements, narratives, or imported data. Run activity checkboxes are explicit FTO selections; count them only after the run is complete and reviewed, and keep daily numeric totals editable.
+Statistics retain editable manual amounts. The user's newer instructions
+authorize clearance-driven multipliers for new, completed and reviewed runs:
+1V selects a case-report or applicable citation metric, 2V adds no report/citation,
+and 3V adds arrest-report, prisoner-slated, case-report, affidavit, and per-charge
+complaint counts. This supersedes the earlier blanket prohibition on code-driven
+counts for those new runs, not for legacy saved accounting. Run activity flags
+remain separate explicit selections.
+
+**Why:** The user supplied explicit 1V/2V/3V multiplier instructions after the
+manual-only rule. Existing saved totals may already include their older runs.
+
+**How to apply:** Keep legacy runs from being silently recounted. Separate
+manual amounts from derived contributions, prevent double increments on resave,
+and do not present a generated payload as a completed or filed legal document.
 
 Keep the portal's current 30 SEG categories; the user chose not to expand them to the 38-category list visible in the submitted daily workbook. The workbook still guides the printable layout and activity fields.
 
@@ -15,7 +28,10 @@ For a 10-6 Traffic Stop with 1V, do not count PremierOne/Axon; the FTO may selec
 
 **Why:** The user explicitly required manual statistic entry and auditability, then asked for all metrics as run-level checkboxes and clarified the 10-6/1V mapping.
 
-**How to apply:** Make suggestions visible and non-binding. Preserve all checked run statistics as explicit user input, and never treat a code or form as proof that a statistic occurred.
+**How to apply:** Preserve explicit run flags and keep the distinct Traffic
+Citations and Solve Citation/Summons columns separate; do not increment both for
+one default citation event. Code-derived counts are user-directed prototype
+automation, not independent proof of an operational event or legal filing.
 
 Completion checklists on Reporting for Duty, primary run forms, required supplements, and Substation Orientation start checked for fast review. Not-applicable options start unchecked. Prefilled checklist selections are not confirmation; the FTO must review, clear inapplicable/incomplete items, and explicitly confirm the review. Activity-stat checkboxes remain unchecked because they represent events and counts, not expected actions.
 
@@ -34,3 +50,13 @@ The monthly summary is a read-only rollup: count ratings only from reviewed, non
 **Why:** The user requested a monthly export with all rating categories and monthly statistics, while keeping source daily logs distinct.
 
 **How to apply:** Offer a monthly PDF/print view and Excel workbook with source daily-log details, clear inclusion rules, and color-coded rating counts. Keep the aggregation limited to the selected PO/month.
+
+The user requires exactly four weekly Excel tabs with SEG and activity grids on
+each. A month can span more than four Sunday–Saturday weeks, and no overflow
+grouping rule has been approved.
+
+**Why:** Silently dropping a fifth week or combining it with a different week
+would misstate the source records.
+
+**How to apply:** Fail explicitly rather than losing dates until a split or
+overflow policy is approved. Do not change training-phase durations to fit tabs.

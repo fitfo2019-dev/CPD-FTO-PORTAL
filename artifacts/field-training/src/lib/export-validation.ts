@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import {
   CATEGORIES,
+  DAILY_ACTIVITY_FIELDS,
   PRIMARY_RUN_FORMS,
   RATINGS,
+  SUPPLEMENTAL_RUN_FORMS,
   type Report,
   type SubstationOrientationRecord,
   type WeeklyPacketAcknowledgement,
@@ -40,25 +42,34 @@ const ratingEntrySchema = z.object({
   nrtOfficeRespondedAt: z.string().optional(),
 }).passthrough();
 
-const ratingsSchema = z.record(z.string(), ratingEntrySchema).superRefine((ratings, context) => {
-  for (const category of CATEGORIES) {
-    if (!ratings[category]) {
-      context.addIssue({
-        code: 'custom',
-        path: [category],
-        message: 'A rating entry is required for every performance category.',
-      });
-    }
-  }
+const categorySchema = z.enum(CATEGORIES);
+const activityKeySchema = z.enum(DAILY_ACTIVITY_FIELDS.map(field => field.key));
+const ratingsSchema = z.record(categorySchema, ratingEntrySchema);
+const directiveReviewSchema = z.object({
+  divisionDirectives: z.boolean(),
+  selectedDirectives: z.array(z.string()),
+  directiveDetails: z.string(),
+  ohioRevisedCode: z.boolean(),
+  selectedOrcReferences: z.array(z.string()).optional(),
+  columbusCityCode: z.boolean(),
+  selectedColumbusCodeReferences: z.array(z.string()).optional(),
+  other: z.boolean(),
+  otherDetails: z.string(),
 });
 
 const trainingRunSchema = z.object({
+  clearanceRulesVersion: z.literal(1).optional(),
+  charges: z.array(z.object({id:z.string().min(1),description:z.string().min(1)})).optional(),
+  generatedDocuments: z.array(z.object({
+    id:z.string(),kind:z.enum(['U-10.100','Probable Cause Affidavit','Criminal Complaint Form']),
+    chargeId:z.string().optional(),description:z.string().optional(),
+  })).optional(),
   id: z.string(),
   incidentNumber: z.string().optional(),
   location: z.string().optional(),
   endedAt: z.string().optional(),
   occurredAt: z.string(),
-  runKind: z.string().refine(value => PRIMARY_RUN_FORMS.some(form => form.key === value)),
+  runKind: z.enum(PRIMARY_RUN_FORMS.map(form => form.key)),
   isDispatched: z.boolean(),
   trafficMode: z.enum(['none', 'motor_vehicle', 'pedestrian', 'bicycle', 'other']),
   dispatchedCode: z.string().optional(),
@@ -67,17 +78,22 @@ const trainingRunSchema = z.object({
   arrestMade: z.boolean(),
   transportedAfterArrest: z.boolean(),
   arrestProcessRequired: z.boolean().optional(),
-  activityFlags: booleanRecordSchema.optional(),
+  activityFlags: z.partialRecord(activityKeySchema, z.boolean()).optional(),
   oviProcessed: z.boolean(),
   narrativeAdditionRequired: z.boolean(),
   formStatus: z.enum(['not_started', 'in_progress', 'complete']),
   checklist: booleanRecordSchema,
-  directiveReviews: z.record(z.string(), z.unknown()).optional(),
+  directiveReviews: z.partialRecord(
+    z.enum([...PRIMARY_RUN_FORMS.map(form => form.key), ...SUPPLEMENTAL_RUN_FORMS.map(form => form.key)]),
+    directiveReviewSchema,
+  ).optional(),
   checklistReviewedAt: z.string().optional(),
   narrative: z.string(),
 }).passthrough();
 
 const dutyRecordSchema = z.object({
+  cruiserId: z.string().max(80).optional(),
+  shotgunTraining: z.enum(['Y','N']).optional(),
   dutyStatus: z.enum(['on_duty', 'training', 'sick', 'off_duty', 'other']),
   checklist: booleanRecordSchema,
   notApplicable: booleanRecordSchema.optional(),
@@ -86,6 +102,15 @@ const dutyRecordSchema = z.object({
 }).passthrough();
 
 const reportSchema = z.object({
+  deficiencyAutomationEnabled:z.boolean().optional(),
+  deficiencyOverrides:z.record(z.string(),categorySchema).optional(),
+  deficiencyNarratives:z.record(z.string(),z.string()).optional(),
+  deficiencyPriorRatings:z.partialRecord(categorySchema,ratingEntrySchema).optional(),
+  deficiencyGeneratedText:z.partialRecord(categorySchema,z.string()).optional(),
+  checklistDeficiencies:z.array(z.object({
+    id:z.string(),runId:z.string().optional(),category:categorySchema,narrative:z.string(),
+    tasks:z.array(z.object({id:z.string(),label:z.string(),reference:z.string().optional()})),
+  })).optional(),
   id: z.string(),
   date: z.string(),
   shift: reportShiftSchema,
@@ -108,14 +133,17 @@ const reportSchema = z.object({
     regularFtoBadge: z.string(),
     phaseStartDate: z.string(),
   }).optional(),
-  activity: z.record(z.string(), z.number().int().nonnegative()),
+  activity: z.record(activityKeySchema, z.number().int().nonnegative()),
   activityCountsIncludeRuns: z.boolean().optional(),
   legacyActivity: z.record(z.string(), z.unknown()).optional(),
   runs: z.array(trainingRunSchema),
   reportingForDuty: dutyRecordSchema,
   ratings: ratingsSchema,
   ratingsReviewedAt: z.string().optional(),
-  legacyEvaluation: z.record(z.string(), z.unknown()).optional(),
+  legacyEvaluation: z.object({
+    source: z.string(),
+    ratings: z.record(z.string(), z.object({ rating: z.string(), justification: z.string() })),
+  }).optional(),
   legacyGeography: z.object({
     previousPrecinctText: z.string().optional(),
     previousAreaText: z.string().optional(),
@@ -175,13 +203,16 @@ const weeklyLogSchema = z.object({
   entries: z.array(z.object({
     id: z.string(),
     kind: z.enum(['strength', 'corrective']),
-    category: z.string().refine(value => CATEGORIES.includes(value as (typeof CATEGORIES)[number])),
+    category: categorySchema,
     totalTime: z.string(),
     narrative: z.string(),
     sourceReportIds: z.array(z.string()),
     sourceReferences: z.array(z.string()).optional(),
     sourceReferenceReviewed: z.boolean().optional(),
     autoGeneratedFromUa: z.boolean().optional(),
+    autoSourceNarrative:z.string().optional(),
+    autoSourceGroup:z.string().optional(),
+    sourceEvidenceActive:z.boolean().optional(),
   }).passthrough()),
   updatedAt: z.string(),
 }).passthrough();
@@ -213,7 +244,7 @@ function parseOrThrow<T>(schema: z.ZodType<T>, value: unknown): T {
 }
 
 export function validateReportsForExport(value: unknown): Report[] {
-  return parseOrThrow(z.array(reportSchema), value) as Report[];
+  return parseOrThrow(z.array(reportSchema), value);
 }
 
 export function validateClassWorkbookInputs(value: unknown): {
@@ -228,10 +259,5 @@ export function validateClassWorkbookInputs(value: unknown): {
     weeklyLogs: z.array(weeklyLogSchema),
     orientations: z.array(orientationSchema),
   }), value);
-  return parsed as unknown as {
-    reports: Report[];
-    acknowledgements: WeeklyPacketAcknowledgement[];
-    weeklyLogs: WeeklyPerformanceLog[];
-    orientations: SubstationOrientationRecord[];
-  };
+  return parsed;
 }

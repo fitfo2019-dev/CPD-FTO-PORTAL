@@ -1366,6 +1366,8 @@ main button.seg-rating-choice {
   body:has(.print-weekly) { page: fieldready-weekly; }
   .print-run-page { page-break-after: always; break-after: page; font-size: 7pt; }
   .print-run-page:last-child { page-break-after: auto; break-after: auto; }
+  .print-daily-package > .print-run-packet { page-break-after: always; break-after: page; }
+  .print-daily-package > .print-form:last-child { page-break-after: auto; break-after: auto; }
    .print-narrative-continuation { min-height: 0; }
    .print-narrative-continuation p { min-height: 6in; line-height: 1.45; }
   .print-narrative-only .print-run-packet .print-run-page:not(.print-narrative-page) { display: none !important; }

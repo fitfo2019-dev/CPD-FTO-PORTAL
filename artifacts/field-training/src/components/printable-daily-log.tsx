@@ -10,22 +10,25 @@ import {
   shiftDisplayLabel,
   type Report,
 } from '@/lib/model.js';
-import { formatDateDMY, formatTrainingFolderPageReference, getSundaySaturdayWeek, type TrainingFolderDayReference } from '@/lib/training-calendar.js';
+import { formatDateDMY, getSundaySaturdayWeek, type TrainingFolderDayReference } from '@/lib/training-calendar.js';
 import { activityTotals } from '@/lib/run-activity.js';
 import { dailyLogContinuations } from '@/lib/narrative-continuation.js';
+import { buildOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 
 const RATINGS = ['NO', 'A', 'RT', 'UA', 'NRT'] as const;
 
-export function PrintableDailyLog({ report, dayReference }: { report: Report; dayReference?: TrainingFolderDayReference }) {
+export function PrintableDailyLog({ report, dayReference, packet:providedPacket }: { report: Report; dayReference?: TrainingFolderDayReference; packet?:OperationalPacket }) {
   const week = getSundaySaturdayWeek(report.date);
   const weekLabel = week ? `${formatDateDMY(week.start)}–${formatDateDMY(week.end)}` : '—';
-  const pageReference = formatTrainingFolderPageReference(dayReference, 1);
+  const packet = providedPacket ?? buildOperationalPacket(report, { dayReference });
+  const pageReference = packet.pages.find(page => page.kind === 'daily_summary')?.reference;
+  const continuationPages = packet.pages.filter(page => page.kind === 'daily_continuation');
   const activityFields = new Map(DAILY_ACTIVITY_FIELDS.map(field => [field.key, field]));
   const activityCounts = activityTotals(report);
   const continuations=dailyLogContinuations(report);
   const noteValue=(label:string,value:string)=>{
     const index=continuations.findIndex(page=>page.label===label);
-    return index<0?value:`See narrative continuation ${formatTrainingFolderPageReference(dayReference,index+2)??''}.`;
+    return index<0?value:`See narrative continuation ${continuationPages[index]?.reference??''}.`;
   };
   const ratingRows = SEG_RATING_COLUMNS.map(column => column.flatMap(group => [
     { type: 'group' as const, group },
@@ -163,7 +166,7 @@ export function PrintableDailyLog({ report, dayReference }: { report: Report; da
       </footer>
     </section>
     {continuations.map((page,index)=>{
-      const reference=formatTrainingFolderPageReference(dayReference,index+2);
+      const reference=continuationPages[index]?.reference;
       return <article key={index} className="print-form print-daily-narrative-continuation">
         <header className="print-form-header"><div><p>Daily Performance Log · U-10.174 · Narrative continuation</p><h1>{page.label}</h1></div><b data-training-folder-page={reference}>{reference}</b></header>
         <p>{report.recruitName} · {report.recruitBadge} · {formatDateDMY(report.date)} · FTO {report.ftoName} · {report.ftoBadge}</p>

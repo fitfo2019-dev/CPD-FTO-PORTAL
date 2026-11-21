@@ -256,6 +256,164 @@ After the FTO explicitly confirms checklist review, the run form can seed an edi
 
 ### Monthly Excel aggregation
 
-The monthly summary’s `useMonthlyExcelAggregator` selects the chosen PO’s saved daily records by `YYYY-MM` and feeds the same bounded list to the monthly view and workbook export. Rating totals count only reviewed, non-Limbo daily ratings; activity totals use manually entered daily values. The existing **Monthly Totals** worksheet derives weekly and monthly matrix counts from those daily records instead of adding separate weekly totals and double-counting them. A separate **Run Support** worksheet counts explicit activity flags and checklist states only on completed, reviewed runs. Each Boolean activity flag contributes at most one selected run occurrence, not a quantity such as multiple citations during one run. The sheet identifies selected, Not Applicable, and other/unchecked counts without treating unchecked items as failures; raw incident/location values and run narratives are not copied into it. Text values pass through the formula-injection guard before export.
+The monthly summary selects the chosen PO’s saved daily records by `YYYY-MM`. Its Excel output now contains exactly **Week 1**, **Week 2**, **Week 3**, and **Week 4** tabs, covering consecutive Sunday–Saturday windows starting with the earliest selected record's week. Each tab contains the 30-category SEG counts above the complete Weekly Activity Summary, with centered counts, uppercase bold section headers, and thin black grid borders. Unused tabs remain present with zero counts. A selected month needing more than four weekly windows is rejected explicitly; no record is silently discarded or moved into the wrong week. Raw incident/location values, charge descriptions, and narratives are excluded from this aggregate workbook.
 
-Run checklist selections do not map to the `NO`, `A`, `RT`, `UA`, or `NRT` rating columns. A run checkbox may represent an item that was not applicable or performed by the FTO, and the checklist is not an approved SEG rating scale. No automatic run-to-rating mapping is installed; weekly and monthly ratings remain sourced from reviewed daily rating records.
+Applicable unchecked tasks on newly created or explicitly edited duty/run checklists now project UA into named categories. The user approved named-category meanings rather than historical manual numbers as worksheet ordinals. This is user-directed local prototype behavior, not independent certification of a manual-mandated algorithm. Explicit Not Applicable sections and Limbo-day rating restrictions remain respected. Weekly evidence is counted once per incident/category and a weekly deficiency suppresses that category's A ceiling. Only reviewed, non-Limbo records contribute rating counts.
+
+### Spreadsheet export validation and formatting
+
+Local spreadsheet exports validate their input records with Zod before workbook
+construction. The validation uses the existing 30-category definition and rejects
+unknown rating categories, missing category entries, malformed nested run data,
+and non-integer or negative activity counts. This is a local export boundary, not
+an API integration or a substitute for FTO review.
+
+The weekly form retains its three evaluation partitions and four activity
+partitions during class workbook assembly. Workbook formatting uses bold uppercase
+section headings, bordered rating cells, centered integer counts, and left-aligned
+labels. The four-tab monthly grid replaces the earlier Monthly Totals/Run Support
+pair; detailed run evidence remains in the class workbook. Formula-like user
+text remains literal spreadsheet text.
+
+The supplied UA default and named-category interpretation are now active in the
+local checklist workflow. The four-tab exporter fails explicitly when a month
+cannot fit four consecutive weeks. It never changes phase lengths or omits
+records to fit the workbook. Articulations do not assert that training occurred;
+new source-linked weekly entries leave actual training time blank.
+
+## 11. SHIFT-LOCAL OPERATIONAL PAGE COORDINATOR
+
+The workspace provider exposes `useOperationalStateMachine` for the active daily
+record. Its projection is rebuilt from the current report and matching phase
+schedule rather than incrementing a shared global counter. Changing to the next
+shift therefore starts a new packet at Page 1; it does not delete saved shifts,
+rewrite encrypted tables, or bypass the existing vault lock/logout lifecycle.
+There is no application-defined packet page cap. Device memory and JavaScript
+runtime limits still apply; this is not a claim of literally infinite storage.
+
+The shared order is:
+
+1. Reporting for Duty, always Page 1.
+2. Substation Orientation on the first scheduled workday of each phase only,
+   starting at Page 2. The current orientation form occupies two sheets.
+3. Runs in chronological start-time order. Each run has its primary sheet,
+   followed by its required Arrest Process and/or OVI Process sheets and every
+   generated narrative continuation.
+4. The daily performance summary, followed by its comment/retraining
+   continuation sheets.
+
+Selecting Arrest Made now requires the Arrest Process supplement even when the
+transport toggle is clear. OVI Process remains conditional on OVI Processed.
+The existing form-rendering and metadata inheritance use the same parent daily
+record and run, avoiding independent copies of incident headers. Removing a
+conditional supplement rebuilds the projection without leaving duplicate nodes.
+No statistic or completed-training statement is inferred from attaching a form.
+
+Print documents and class workbook **Daily Page Index** and **Checklist
+Exceptions** sheets consume the same page sequence. `W#D#P#` identifies the
+scheduled training week/day and the particular source form, not whichever page
+was added last. If the phase schedule is unavailable, exports say that the
+coordinate is unavailable instead of inventing a day number. Incomplete
+phase-start orientation blocks local packet review and the print-all action.
+The screen's existing form layouts are retained; the print packet's order and
+the page break before the final daily summary have changed intentionally.
+
+Cleared applicable checklist tasks generate source-linked exception evidence.
+Explicit Not Applicable groups are excluded. Evidence distinguishes reviewed
+from unreviewed checklists. Named-category UA routing and weekly ceilings are
+now active for opted-in local checklists as described below; no coaching or
+completed training is inferred.
+
+### Existing source references and edits
+
+Historical source-reference text, authored narratives, and actual training time
+are preserved. Restoring a workspace from before the duty-first reference scheme
+clears its source-reference review confirmations, not its content. Save locally
+to persist that review-state migration. Later source-record edits, phase schedule
+changes, or orientation changes also invalidate affected reference reviews.
+Reconfirm coordinates against the regenerated packet before using them as
+reviewed evidence. Existing paper packets retain their original historical page
+numbering; the application does not silently rewrite those citations.
+
+### Build and delivery scope
+
+Run `pnpm typecheck`, then
+`pnpm --filter @workspace/field-training run build`, followed by
+`pnpm run bundle:production`. The existing bundler produces the API-only
+`dist-production.zip` with this manual. Serve the portal's separate
+`artifacts/field-training/dist/public` output through the agency static web server
+with SPA history fallback, preserving `/api/*` forwarding to Express. A separate
+portal static ZIP may be created from that directory; `npm start` in the API
+distribution does not host the portal.
+
+## 12. NAMED SEG ROUTING, ARTICULATIONS, AND CLEARANCE DRAFTS
+
+The workspace retains exactly 30 named evaluation categories under Zod 4.6.7.
+Historical manual references 31–38 are citations within that consolidated model,
+not extra worksheet rows. Never delete approved categories because of those
+reference numbers.
+
+The workspace exposes a frozen source-task directory keyed by form and exact
+checkbox key. Duty tasks default to Report/Prepared for Duty. Call-for-Service
+and Domestic Incident safety blocks default to Threat Assessment. Building
+Search entry/search/tactics and room-entry blocks default to Building Search;
+approach tasks use Run Approach. Legal, search, arrest-restraint, transport,
+communication, geography, and report-writing tasks use the corresponding named
+categories. Defaults are inspectable in `seg-deficiencies.ts`; they are semantic
+defaults approved as an approach, not a certified manual crosswalk.
+
+An applicable cleared task immediately projects UA while editing. The dialog
+groups all source tasks in one incident/category and displays their current
+W#D#P# coordinates outside the editable narrative. The FTO can select any of the
+30 named categories as an override. Rerouting moves the current source tasks,
+merges distinct articulations without truncation, and restores the old category's
+prior rating when no deficiencies remain there. Human-entered rating text is
+preserved. NRT is not downgraded to UA. Rechecking tasks restores the captured
+baseline rather than inventing a rating. Temporary dialog tracking resets when
+the incident editor closes.
+
+The articulation textarea has no application character cap; browser memory is
+still finite. Completing daily rating review requires articulation for every
+active deficiency. Source-linked weekly rows are unique per incident/category,
+leave actual training time blank, and require reference review before formal
+use. Limbo days retain the no-ratings rule. Historical checklists are not
+silently converted: automation activates on new records or an explicit duty/run
+checklist edit.
+
+The duty editor stores a mutable **Cruiser ID**, distinct from precinct,
+district, or FTO Assignment. A new shift defaults it from the most recent saved
+record in the same class/recruit/phase. **Shotgun Training** accepts only `Y` or
+`N`; it is not automatically carried into a later shift and does not replace the
+detailed shotgun checklist. Names, badges, phase, assignment, and shift schedule
+continue to come from the phase folder.
+
+### Versioned clearance-derived activity
+
+New run records carry `clearanceRulesVersion: 1`. Legacy runs retain their manual
+accounting even when edited; they are not recounted retroactively. Only completed,
+checklist-reviewed versioned runs contribute automatic counts. Displayed totals
+are manual extras plus derived counts; editing a total adjusts its manual portion
+without counting the run again. Run activity flags remain supporting evidence.
+
+- `1V`: uses an explicitly selected Traffic Citations metric if present;
+  otherwise a Traffic Stop or selected Solve Citation/Summons metric contributes
+  one Solve Citation/Summons; other runs contribute one PremierOne Report.
+  Distinct citation columns are not automatically incremented together.
+- `2V`: no automatic report or citation count.
+- `3V`: one U-10.100, one Prisoners Slated, one PremierOne Report, one Probable
+  Cause Affidavit, and one Criminal Complaint per explicitly entered charge.
+- `4V`: no extra report/citation multiplier was supplied, so none is invented.
+- Primary-run occurrence totals count each completed, reviewed source run once.
+
+For `3V`, the editor accepts one charge per line and derives stable, distinct
+draft payloads: U-10.100, Probable Cause Affidavit, and one Criminal Complaint
+Form payload per charge. Changing the code or charges rebuilds that list instead
+of appending duplicates. The class workbook includes **Generated Document
+Payloads** for inspection. These are local data drafts—not completed, signed,
+filed, or legally validated documents—and add no physical pages without an
+approved printable template.
+
+Weekly views, print forms, workbook forms, and monthly exports share the
+category-ceiling calculation. Export strings are guarded against formula
+prefixes, including leading whitespace/control characters. Authentication,
+proxy routing, CSP, vault cryptography, and disk retention are unchanged.

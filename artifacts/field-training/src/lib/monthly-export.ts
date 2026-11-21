@@ -1,318 +1,84 @@
 import XLSX from 'xlsx-js-style';
-import {
-  DAILY_ACTIVITY_FIELDS,
-  PHASE_LENGTH_WEEKS,
-  PHASE_PROGRAM_WEEK_START,
-  RATINGS,
-  SEG_CATEGORIES,
-  SEG_RATING_COLUMNS,
-  SEG_RATING_GROUP_LABELS,
-  PRIMARY_RUN_FORMS,
-  RUN_CHECKLIST_SECTIONS,
-  RUN_SUPPLEMENT_CHECKLIST_SECTIONS,
-  SUPPLEMENTAL_RUN_FORMS,
-  requiredSupplementalForms,
-  type Phase,
-  type Report,
-} from './model.js';
-import { filterReportsForMonth, summarizeMonthlyRunRecords } from './monthly-summary.js';
+import { DAILY_ACTIVITY_FIELDS, PRIMARY_RUN_FORMS, RATINGS, SEG_CATEGORIES, type Report } from './model.js';
+import { filterReportsForMonth } from './monthly-summary.js';
 import { validateReportsForExport } from './export-validation.js';
+import { activityTotals } from './run-activity.js';
+import { getSundaySaturdayWeek } from './training-calendar.js';
+import { weeklyRatingCount } from './weekly-rating-counts.js';
+import { spreadsheetText } from './spreadsheet-text.js';
 
-const ratingStyle = {
-  NO: { fill: { patternType: 'solid', fgColor: { rgb: 'FFE5E7EB' } }, font: { bold: true, color: { rgb: 'FF374151' } } },
-  A: { fill: { patternType: 'solid', fgColor: { rgb: 'FFDCFCE7' } }, font: { bold: true, color: { rgb: 'FF166534' } } },
-  RT: { fill: { patternType: 'solid', fgColor: { rgb: 'FFFEF3C7' } }, font: { bold: true, color: { rgb: 'FF92400E' } } },
-  UA: { fill: { patternType: 'solid', fgColor: { rgb: 'FFFEE2E2' } }, font: { bold: true, color: { rgb: 'FF991B1B' } } },
-  NRT: { fill: { patternType: 'solid', fgColor: { rgb: 'FFFEE2E2' } }, font: { bold: true, color: { rgb: 'FF991B1B' } } },
-} as const;
+const border = Object.fromEntries(['top','bottom','left','right'].map(edge=>[edge,{style:'thin',color:{rgb:'FF000000'}}]));
+const ratingFill={NO:'FFE5E7EB',A:'FFDCFCE7',RT:'FFFEF3C7',UA:'FFFEE2E2',NRT:'FFFEE2E2'} as const;
 
-const headingStyle = {
-  fill: { patternType: 'solid', fgColor: { rgb: 'FFDCE5EF' } },
-  font: { bold: true, color: { rgb: 'FF172B45' } },
-};
-const tableHeaderStyle = {
-  fill: { patternType: 'solid', fgColor: { rgb: 'FFF1F4F7' } },
-  font: { bold: true, color: { rgb: 'FF172B45' } },
-  alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-  border: {
-    top: { style: 'thin', color: { rgb: 'FF555555' } },
-    bottom: { style: 'thin', color: { rgb: 'FF555555' } },
-    left: { style: 'thin', color: { rgb: 'FF555555' } },
-    right: { style: 'thin', color: { rgb: 'FF555555' } },
-  },
-};
-const gridBorder = {
-  top: { style: 'thin', color: { rgb: 'FF555555' } },
-  bottom: { style: 'thin', color: { rgb: 'FF555555' } },
-  left: { style: 'thin', color: { rgb: 'FF555555' } },
-  right: { style: 'thin', color: { rgb: 'FF555555' } },
-};
-const ratingAlignment = { horizontal: 'center', vertical: 'center' };
-
-const safeText = (value: unknown) => {
-  const text = String(value ?? '');
-  return /^[=+\-@]/.test(text) ? `'${text}` : text;
-};
-
-function formatMonth(monthKey: string) {
-  const date = new Date(`${monthKey}-15T12:00:00`);
-  return Number.isNaN(date.getTime())
-    ? monthKey
-    : new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(date);
-}
-
-function programWeek(report: Report): number | undefined {
-  if (Number.isInteger(report.ftoWeek) && report.ftoWeek! >= 1 && report.ftoWeek! <= 15) return report.ftoWeek;
-  if (!Number.isInteger(report.phaseWeek) || report.phaseWeek! < 1) return undefined;
-  return PHASE_PROGRAM_WEEK_START[report.phase] + report.phaseWeek! - 1;
-}
-
-function phaseProgramWeeks(reports: Report[]): number[] {
-  const phases = [...new Set(reports.map(report => report.phase))];
-  const scheduledWeeks = phases.flatMap(phase => Array.from(
-    { length: PHASE_LENGTH_WEEKS[phase as Phase] },
-    (_, index) => PHASE_PROGRAM_WEEK_START[phase as Phase] + index,
-  ));
-  const recordedWeeks = reports.map(programWeek).filter((week): week is number => typeof week === 'number' && Number.isInteger(week) && week >= 1 && week <= 15);
-  return [...new Set([...scheduledWeeks, ...recordedWeeks])].sort((a, b) => a - b);
-}
-
-function reviewedRatingCount(reports: Report[], category: typeof SEG_CATEGORIES[number]['key'], rating: typeof RATINGS[number]): number | '' {
-  const reviewed = reports.filter(report => !!report.ratingsReviewedAt && !report.limboDay);
-  if (!reviewed.length) return '';
-  return reviewed.reduce((total, report) => total + (report.ratings[category]?.rating === rating ? 1 : 0), 0);
-}
-
-function manualActivityTotal(reports: Report[], key: typeof DAILY_ACTIVITY_FIELDS[number]['key']): number | '' {
-  const values = reports
-    .map(report => report.activity?.[key])
-    .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
-  return values.length ? values.reduce((total, value) => total + value, 0) : '';
-}
-
+/** Exactly four consecutive Sunday–Saturday tabs; fail explicitly instead of dropping a fifth week. */
 export function buildMonthlyWorkbook(reports: Report[], monthKey: string) {
-  const validatedReports = validateReportsForExport(reports);
-  const sorted = filterReportsForMonth(validatedReports, monthKey);
-  if (!sorted.length) throw new Error('There are no saved daily logs in this month to export.');
-  const first = sorted[0];
-  const weeks = phaseProgramWeeks(sorted);
-  const weekLabels = weeks.map(week => `WEEK ${week}`);
-  const weekReports = new Map(weeks.map(week => [
-    week,
-    sorted.filter(report => programWeek(report) === week),
-  ]));
-  const reviewedReports = sorted.filter(report => !!report.ratingsReviewedAt && !report.limboDay);
-  const phases = [...new Set(sorted.map(report => `Phase ${report.phase}`))].join(', ');
-  const rows: (string | number)[][] = [
-    [`MONTHLY STATISTICS · ${formatMonth(monthKey).toLocaleUpperCase('en-US')}`],
-    ['Probationary Officer', safeText(first.recruitName), 'Badge', safeText(first.recruitBadge), 'Class', safeText(first.className || 'Unassigned class')],
-    ['Phase(s)', phases, 'Daily logs', sorted.length],
-    ['Reviewed daily ratings', reviewedReports.length],
-    ['Source', 'Saved daily statistics only · no statistics are inferred from run forms'],
-    [],
-  ];
-
-  const ratingTitleRow = rows.length;
-  rows.push(['SEG RATING COUNTS · REVIEWED DAILY LOGS ONLY']);
-  const ratingHeaderRow = rows.length;
-  rows.push([
-    'PERFORMANCE CATEGORY',
-    ...weekLabels.flatMap(label => [label, '', '', '', '']),
-    'MONTHLY TOTAL', '', '', '', '',
-  ]);
-  const ratingSubHeaderRow = rows.length;
-  rows.push(['', ...weeks.flatMap(() => RATINGS), ...RATINGS]);
-  const ratingRows: { row: number; category: typeof SEG_CATEGORIES[number]['key'] }[] = [];
-  const ratingGroupRows: number[] = [];
-  for (const group of SEG_RATING_COLUMNS.flatMap(column => column)) {
-    ratingGroupRows.push(rows.length);
-    rows.push([safeText(SEG_RATING_GROUP_LABELS[group] ?? group).toLocaleUpperCase('en-US')]);
-    for (const category of SEG_CATEGORIES.filter(item => item.group === group)) {
-      ratingRows.push({ row: rows.length, category: category.key });
-      rows.push([
-        safeText(category.label),
-        ...weeks.flatMap(week => RATINGS.map(rating => reviewedRatingCount(weekReports.get(week) ?? [], category.key, rating))),
-        ...RATINGS.map(rating => reviewedRatingCount(sorted, category.key, rating)),
-      ]);
-    }
+  const selected = filterReportsForMonth(validateReportsForExport(reports), monthKey);
+  if (!selected.length) throw new Error('There are no saved daily logs in this month to export.');
+  const first = selected[0];
+  if (selected.some(report => report.recruitBadge !== first.recruitBadge || (report.className ?? '') !== (first.className ?? ''))) {
+    throw new Error('Select one probationary officer and training class for the four-week workbook.');
   }
-
-  rows.push([]);
-  const activityTitleRow = rows.length;
-  rows.push(['DAILY ACTIVITY STATISTICS · SAVED DAILY VALUES']);
-  const activityHeaderRow = rows.length;
-  rows.push(['ACTIVITY CATEGORY', ...weekLabels, 'MONTHLY TOTAL']);
-  const activityRows: number[] = [];
-  for (const field of DAILY_ACTIVITY_FIELDS) {
-    activityRows.push(rows.length);
-    const weeklyValues = weeks.map(week => manualActivityTotal(weekReports.get(week) ?? [], field.key));
-    const numericValues = weeklyValues.filter((value): value is number => typeof value === 'number');
-    rows.push([
-      field.label,
-      ...weeklyValues,
-      numericValues.length ? numericValues.reduce((total, value) => total + value, 0) : '',
-    ]);
-  }
-  rows.push([]);
-  rows.push(['HOW TO READ THIS SHEET', 'Each category appears once. Week columns use program weeks 1–15; monthly totals add the displayed weeks.']);
-  rows.push(['DATA STATUS', 'Local workspace export only. This workbook is not server-confirmed or uploaded.']);
-
-  const workbook = XLSX.utils.book_new();
-  const sheet = XLSX.utils.aoa_to_sheet(rows);
-  const ratingMonthlyStart = 1 + weeks.length * RATINGS.length;
-  const ratingLastColumn = ratingMonthlyStart + RATINGS.length - 1;
-  const ratingLastDataRow = ratingRows.at(-1)?.row ?? ratingSubHeaderRow;
-  const activityLastColumn = weekLabels.length + 1;
-  const sheetColumnEnd = Math.max(ratingLastColumn, activityLastColumn, 5);
-  sheet['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: sheetColumnEnd } },
-    { s: { r: 4, c: 1 }, e: { r: 4, c: sheetColumnEnd } },
-    { s: { r: ratingTitleRow, c: 0 }, e: { r: ratingTitleRow, c: ratingLastColumn } },
-    { s: { r: ratingHeaderRow, c: 0 }, e: { r: ratingSubHeaderRow, c: 0 } },
-    { s: { r: activityTitleRow, c: 0 }, e: { r: activityTitleRow, c: activityLastColumn } },
-    { s: { r: rows.length - 2, c: 1 }, e: { r: rows.length - 2, c: sheetColumnEnd } },
-    { s: { r: rows.length - 1, c: 1 }, e: { r: rows.length - 1, c: sheetColumnEnd } },
-    ...ratingGroupRows.map(row => ({ s: { r: row, c: 0 }, e: { r: row, c: ratingLastColumn } })),
-    ...weeks.map((_, index) => ({
-      s: { r: ratingHeaderRow, c: 1 + index * RATINGS.length },
-      e: { r: ratingHeaderRow, c: (index + 1) * RATINGS.length },
-    })),
-    { s: { r: ratingHeaderRow, c: ratingMonthlyStart }, e: { r: ratingHeaderRow, c: ratingLastColumn } },
-  ];
-  sheet['!cols'] = [{ wch: 34 }, ...Array.from({ length: sheetColumnEnd }, () => ({ wch: 10 }))];
-  sheet['!freeze'] = { xSplit: 1, ySplit: ratingSubHeaderRow + 1, topLeftCell: `B${ratingSubHeaderRow + 2}`, activePane: 'bottomRight', state: 'frozen' };
-  sheet['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: ratingSubHeaderRow, c: 0 }, e: { r: ratingLastDataRow, c: ratingLastColumn } }) };
-
-  const styleCell = (row: number, column: number, style: Record<string, unknown>) => {
-    const cell = sheet[XLSX.utils.encode_cell({ r: row, c: column })];
-    if (cell) cell.s = style;
-  };
-  styleCell(0, 0, {
-    font: { bold: true, sz: 16, color: { rgb: 'FF172B45' } },
-    alignment: { horizontal: 'left', vertical: 'center' },
-    border: { bottom: { style: 'medium', color: { rgb: 'FF142D4F' } } },
+  const start = getSundaySaturdayWeek(first.date)?.start;
+  if (!start) throw new Error('A daily log has an invalid training date.');
+  const weekStarts = Array.from({length:4},(_,index)=>{
+    const date=new Date(`${start}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate()+index*7);
+    return date.toISOString().slice(0,10);
   });
-  for (let column = 0; column <= ratingLastColumn; column++) {
-    styleCell(ratingTitleRow, column, headingStyle);
-    styleCell(ratingHeaderRow, column, tableHeaderStyle);
-    styleCell(ratingSubHeaderRow, column, tableHeaderStyle);
+  if (selected.some(report => !weekStarts.includes(getSundaySaturdayWeek(report.date)?.start ?? ''))) {
+    throw new Error('This month spans more than four weekly tabs. No records were omitted. A five-week or split-workbook policy must be approved before export.');
   }
-  for (const row of ratingGroupRows) {
-    for (let column = 0; column <= ratingLastColumn; column++) {
-      styleCell(row, column, {
-        fill: { patternType: 'solid', fgColor: { rgb: 'FFDCE5EF' } },
-        font: { bold: true, color: { rgb: 'FF172B45' } },
-        alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
-        border: gridBorder,
-      });
-    }
-  }
-  for (let column = 0; column <= activityLastColumn; column++) {
-    styleCell(activityTitleRow, column, headingStyle);
-    styleCell(activityHeaderRow, column, tableHeaderStyle);
-  }
-  for (const { row, category } of ratingRows) {
-    styleCell(row, 0, {
-      font: { bold: true, color: { rgb: 'FF172B45' } },
-      alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
-      border: gridBorder,
-    });
-    for (let index = 0; index < weeks.length; index++) {
-      const weekData = weekReports.get(weeks[index]) ?? [];
-      RATINGS.forEach((rating, ratingIndex) => {
-        const value = reviewedRatingCount(weekData, category, rating);
-        if (typeof value === 'number') styleCell(row, 1 + index * RATINGS.length + ratingIndex, {
-          ...ratingStyle[rating],
-          alignment: ratingAlignment,
-          border: gridBorder,
-          numFmt: '0',
-        });
-      });
-    }
-    RATINGS.forEach((rating, ratingIndex) => {
-      const value = reviewedRatingCount(sorted, category, rating);
-      if (typeof value === 'number') styleCell(row, ratingMonthlyStart + ratingIndex, {
-        ...ratingStyle[rating],
-        alignment: ratingAlignment,
-        border: gridBorder,
-        numFmt: '0',
-      });
-    });
-  }
-  for (const row of activityRows) {
-    styleCell(row, 0, { alignment: { horizontal: 'left', vertical: 'center', wrapText: true }, border: gridBorder });
-    for (let column = 1; column <= activityLastColumn; column++) {
-      styleCell(row, column, { font: { bold: column === activityLastColumn }, alignment: ratingAlignment, border: gridBorder, numFmt: '0' });
-    }
-  }
-  XLSX.utils.book_append_sheet(workbook, sheet, 'Monthly Totals');
-
-  const runRecords = summarizeMonthlyRunRecords(sorted);
-  const runSupportRows: (string | number)[][] = [
-    [`Run Support · ${formatMonth(monthKey)}`],
-    ['Run records included', runRecords.reviewedRunCount],
-    ['Scope', 'Completed run forms with checklist review only · local records'],
-    ['Interpretation', 'Run selections are supporting counts, not daily activity totals or SEG ratings. Unchecked items are not classified as deficiencies.'],
-    [],
-    ['Explicit run activity selections'],
-    ['Activity', 'Reviewed run records with selection'],
-    ...DAILY_ACTIVITY_FIELDS.map(field => [safeText(field.label), runRecords.activityFlagCounts[field.key]]),
-    ['Arrest Made · run metadata', runRecords.arrestMadeRunCount],
-    ['Transported after arrest · run metadata', runRecords.transportedAfterArrestRunCount],
-    ['OVI processed · run metadata', runRecords.oviProcessedRunCount],
-    [],
-    ['Run checklist item totals'],
-    ['Run form', 'Section', 'Checklist item', 'Reviewed runs', 'Selected', 'Not applicable', 'Not selected / other', 'Source daily log IDs', 'Source run IDs'],
-    ...runRecords.checklistItems.map(item => [
-      safeText(item.form),
-      safeText(item.section),
-      safeText(item.item),
-      item.runCount,
-      item.selectedCount,
-      item.notApplicableCount,
-      item.otherCount,
-      safeText(item.sourceReportIds.join('; ')),
-      safeText(item.sourceRunIds.join('; ')),
-    ]),
-  ];
-  const runSupportSheet = XLSX.utils.aoa_to_sheet(runSupportRows);
-  runSupportSheet['!cols'] = [
-    { wch: 32 }, { wch: 30 }, { wch: 54 }, ...Array.from({ length: 6 }, () => ({ wch: 18 })),
-  ];
-  const runSupportRange = XLSX.utils.decode_range(runSupportSheet['!ref'] ?? 'A1');
-  runSupportSheet['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: runSupportRange.e.c } },
-    { s: { r: 5, c: 0 }, e: { r: 5, c: runSupportRange.e.c } },
-    { s: { r: 41, c: 0 }, e: { r: 41, c: runSupportRange.e.c } },
-  ];
-  for (let row = runSupportRange.s.r; row <= runSupportRange.e.r; row++) {
-    for (let column = runSupportRange.s.c; column <= runSupportRange.e.c; column++) {
-      const cell = runSupportSheet[XLSX.utils.encode_cell({ r: row, c: column })];
-      if (!cell) continue;
-      const isNumeric = typeof cell.v === 'number' && Number.isFinite(cell.v);
-      if ((row === 0 || row === 5 || row === 6 || row === 41 || row === 42) && typeof cell.v === 'string') {
-        cell.v = cell.v.toLocaleUpperCase('en-US');
-      }
-      cell.s = {
-        border: gridBorder,
-        alignment: { horizontal: isNumeric ? 'center' : 'left', vertical: 'center', wrapText: true },
-        ...(isNumeric ? { numFmt: '0' } : {}),
-        ...([6, 42].includes(row) ? tableHeaderStyle : {}),
-        ...([5, 41].includes(row) ? headingStyle : {}),
-        ...(row === 0 ? {
-          fill: { patternType: 'solid', fgColor: { rgb: 'FFDCE5EF' } },
-          font: { bold: true, sz: 14, color: { rgb: 'FF142D4F' } },
-        } : {}),
+  const workbook=XLSX.utils.book_new();
+  for (const [index,weekStart] of weekStarts.entries()) {
+    const week=selected.filter(report=>getSundaySaturdayWeek(report.date)?.start===weekStart);
+    const rows:(string|number)[][]=[
+      [`MONTHLY EXCEL SPREADSHEET · WEEK ${index+1}`],
+      ['MONTH',monthKey,'WEEK OF',weekStart],
+      ['PROBATIONARY OFFICER',first.recruitName,'BADGE',first.recruitBadge,'CLASS',first.className??''],
+      ['FTO',...new Set(week.map(report=>report.ftoName))],
+      ['SOURCE DAILY LOGS',week.map(report=>report.id).join(', ')],
+      ['SEG EVALUATION COUNTS · REVIEWED NON-LIMBO RECORDS'],
+      ['PERFORMANCE CATEGORY',...RATINGS],
+      ...SEG_CATEGORIES.map(category=>[
+        category.label,...RATINGS.map(rating=>weeklyRatingCount(week,category.key,rating)),
+      ]),
+      [],
+      ['WEEKLY ACTIVITY SUMMARY'],
+      ['ACTIVITY CATEGORY','TOTAL'],
+      ...DAILY_ACTIVITY_FIELDS.map(field=>[
+        field.label,week.reduce((sum,report)=>sum+activityTotals(report)[field.key],0),
+      ]),
+      [],
+      ['PRIMARY RUN TYPE','TOTAL'],
+      ...PRIMARY_RUN_FORMS.map(form=>[
+        form.label,week.reduce((sum,report)=>sum+report.runs.filter(run=>run.runKind===form.key&&run.formStatus==='complete'&&run.checklistReviewedAt).length,0),
+      ]),
+    ];
+    const sheet=XLSX.utils.aoa_to_sheet(rows.map(row=>row.map(value=>typeof value==='string'?spreadsheetText(value):value)));
+    const sectionRows=new Set([0,5,38,40+DAILY_ACTIVITY_FIELDS.length]);
+    const headerRows=new Set([6,39,41+DAILY_ACTIVITY_FIELDS.length]);
+    const range=XLSX.utils.decode_range(sheet['!ref']!);
+    for(let row=range.s.r;row<=range.e.r;row++)for(let column=0;column<=5;column++){
+      const address=XLSX.utils.encode_cell({r:row,c:column});
+      const cell=sheet[address]??(sheet[address]={t:'s',v:''});
+      cell.s={
+        border, font:{name:'Arial',sz:10,bold:sectionRows.has(row)||headerRows.has(row)},
+        alignment:{horizontal:row>=6&&column>0?'center':'left',vertical:'center',wrapText:true},
+        ...(row>=7&&row<37&&column>0?{fill:{patternType:'solid',fgColor:{rgb:ratingFill[RATINGS[column-1]]}}}:{}),
+        ...(typeof cell.v==='number'?{numFmt:'0'}:{}),
       };
     }
+    sheet['!cols']=[{wch:43},...Array.from({length:5},()=>({wch:14}))];
+    sheet['!merges']=[{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:5,c:0},e:{r:5,c:5}},{s:{r:38,c:0},e:{r:38,c:5}}];
+    sheet['!rows']=rows.map((_,row)=>({hpt:sectionRows.has(row)?25:20}));
+    XLSX.utils.book_append_sheet(workbook,sheet,`Week ${index+1}`);
   }
-  XLSX.utils.book_append_sheet(workbook, runSupportSheet, 'Run Support');
   return workbook;
 }
 
 export function exportMonthlyWorkbook(reports: Report[], monthKey: string) {
-  const workbook = buildMonthlyWorkbook(reports, monthKey);
-  const name = `Field_Training_Monthly_Summary_${monthKey.replaceAll('-', '')}.xlsx`;
-  XLSX.writeFile(workbook, name);
+  const workbook=buildMonthlyWorkbook(reports,monthKey);
+  const name=`Field_Training_Monthly_Summary_${monthKey.replaceAll('-','')}.xlsx`;
+  XLSX.writeFile(workbook,name);
   return name;
 }

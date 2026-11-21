@@ -1,14 +1,16 @@
-import * as XLSX from 'xlsx-js-style';
+import XLSX from 'xlsx-js-style';
 import { DAILY_ACTIVITY_FIELDS, phaseAssignmentLabel, RATINGS, SEG_CATEGORIES, type Report } from './model.js';
 import { formatDateDMY, getSundaySaturdayWeek } from './training-calendar.js';
 import { activityTotals } from './run-activity.js';
+import { weeklyRatingCount } from './weekly-rating-counts.js';
+import { spreadsheetText } from './spreadsheet-text.js';
 
 // Three category columns and four activity columns follow the supplied worksheet photo.
 export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XLSX.WorkSheet {
   const first = reports[0];
   if (!first) throw new Error('At least one daily log is required to build the weekly summary.');
   const week = getSundaySaturdayWeek(first.date);
-  const safe = (value: string) => /^[=+\-@]/.test(value) ? `'${value}` : value;
+  const safe = spreadsheetText;
   const rows: (string | number)[][] = [
     ['Probationary Officer Weekly Performance Summary · U-10.173'],
     ['DEVICE-LOCAL RECORD · Not submitted or digitally signed'],
@@ -32,7 +34,7 @@ export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XL
         group = category.group;
         result.push([group, ...RATINGS]);
       }
-      result.push([category.label, ...RATINGS.map(rating=>ratingReports.filter(report=>report.ratings[category.key]?.rating===rating).length)]);
+      result.push([category.label, ...RATINGS.map(rating=>weeklyRatingCount(reports,category.key,rating))]);
     }
     return result;
   });
@@ -73,7 +75,7 @@ export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XL
     const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })];
     if (cell) cell.s = style;
   };
-  const sectionGroups = new Set(SEG_CATEGORIES.map(category => category.group));
+  const sectionGroups: ReadonlySet<string> = new Set(SEG_CATEGORIES.map(category => category.group));
   const blockStarts = [0, 7, 14];
   apply(0, 0, {
     font: { bold: true, sz: 14, color: { rgb: 'FF142D4F' } },

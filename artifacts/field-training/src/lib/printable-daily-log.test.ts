@@ -6,22 +6,26 @@ import { PrintableDailyForms } from '../components/printable-daily-forms.js';
 import { PrintableDailyLog } from '../components/printable-daily-log.js';
 import { seedReports } from './seed.js';
 import { dailyLogContinuations } from './narrative-continuation.js';
+import { buildOperationalPacket } from './operational-state-machine.js';
 
 test('long daily notes get one sequential training-folder reference per future sheet',()=>{
   const report={...seedReports()[0],date:'2026-10-26',phase:1,phaseWeek:2,
     narrative:`FTO narrative: ${'a'.repeat(10000)} end 👮🏽‍♀️`,
     remedial:`Corrective training: ${'b'.repeat(7000)} end.`};
   const dayReference={week:2,day:1};
+  const packet=buildOperationalPacket(report,{dayReference});
   const continuations=dailyLogContinuations(report);
-  const logMarkup=renderToStaticMarkup(createElement(PrintableDailyLog,{report,dayReference}));
+  const logMarkup=renderToStaticMarkup(createElement(PrintableDailyLog,{report,dayReference,packet}));
   const printedReferences=[...logMarkup.matchAll(/data-training-folder-page="(W\d+D\d+P\d+)"/g)].map(match=>match[1]);
   assert.deepEqual(printedReferences,[
-    'W2D1P1',
-    ...continuations.map((_,index)=>`W2D1P${index+2}`),
+    ...packet.pages.filter(page=>page.kind==='daily_summary'||page.kind==='daily_continuation').map(page=>page.reference),
   ]);
-  assert.match(logMarkup,/See narrative continuation W2D1P2/);
+  assert.equal(continuations.length,packet.pages.filter(page=>page.kind==='daily_continuation').length);
+  assert.ok(logMarkup.includes(`See narrative continuation ${packet.pages.find(page=>page.kind==='daily_continuation')?.reference}`));
   assert.match(logMarkup,/👮🏽‍♀️/);
 
-  const followOnMarkup=renderToStaticMarkup(createElement(PrintableDailyForms,{report,dayReference}));
-  assert.match(followOnMarkup,new RegExp(`W2D1P${continuations.length+2}`));
+  const followOnMarkup=renderToStaticMarkup(createElement(PrintableDailyForms,{report,dayReference,packet}));
+  assert.match(followOnMarkup,/data-training-folder-page="W2D1P1"/);
+  const allReferences=[...`${followOnMarkup}${logMarkup}`.matchAll(/data-training-folder-page="(W\d+D\d+P\d+)"/g)].map(match=>match[1]);
+  assert.deepEqual(allReferences,packet.pages.map(page=>page.reference));
 });

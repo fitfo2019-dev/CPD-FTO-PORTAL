@@ -6,6 +6,8 @@ import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-
 import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
 import { buildTimelineInterpolation, type TimelineInterpolation } from '@/lib/timeline-interpolation.js';
 import { getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
+import { invalidateOperationalReferences, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
+import { reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
 
 export type VaultState = 'none' | 'unlocked';
 type VaultIntent = 'save' | 'restore' | null;
@@ -21,6 +23,8 @@ interface Ctx {
   intent: VaultIntent; openVault(i: Exclude<VaultIntent, null>): void; closeVault(): void;
   setupAndSave(pass: string): Promise<void>; unlockAndRestore(pass: string): Promise<void>; saveNow(): Promise<void>; lockNow(reason?: string): void; dismissLockedNotice(): void;
   resetWorkspace(): void;
+  getOperationalPacket(report: Report): OperationalPacket;
+  segTaskDirectory: typeof SEG_TASK_DIRECTORY;
 }
 const C = createContext<Ctx | null>(null);
 const IDLE_MS = 15 * 60 * 1000;
@@ -42,22 +46,26 @@ function normalizeReportingForDuty(value: unknown) {
     checklist: Object.fromEntries(Object.entries(sourceChecklist).filter(([, checked]) => typeof checked === 'boolean')),
     notApplicable: Object.fromEntries(DAILY_DUTY_CHECKLIST.map(group=>[group.section,isRecord(value.notApplicable)&&value.notApplicable[group.section]===true])),
     notes: typeof value.notes === 'string' ? value.notes : '',
+    cruiserId: typeof value.cruiserId === 'string' ? value.cruiserId : undefined,
+    shotgunTraining: value.shotgunTraining === 'Y' || value.shotgunTraining === 'N' ? value.shotgunTraining : undefined,
     reviewedAt: typeof value.reviewedAt === 'string' ? value.reviewedAt : undefined,
   };
 }
 
-function upsertReportAndWeeklyUaLog(workspace:Workspace, report:Report):Workspace {
+function upsertReportAndWeeklyUaLog(workspace:Workspace, inputReport:Report):Workspace {
+  const report=reconcileDeficiencyRatings(inputReport,resolveOperationalPacket(inputReport,[...workspace.phaseFolders,...(workspace.caseFolder?[workspace.caseFolder]:[])],workspace.substationOrientations));
   const reports=workspace.reports.some(item=>item.id===report.id)
     ?workspace.reports.map(item=>item.id===report.id?report:item)
     :[report,...workspace.reports];
   const week=getSundaySaturdayWeek(report.date);
-  if(!week||!report.ratingsReviewedAt||report.limboDay||!CATEGORIES.some(category=>report.ratings[category]?.rating==='UA')) {
+  if(!week||!report.ratingsReviewedAt||report.limboDay) {
     return {...workspace,reports};
   }
   const className=report.className??'';
   const existing=(workspace.weeklyPerformanceLogs??[]).find(log=>
     log.weekStart===week.start&&log.recruitBadge===report.recruitBadge&&log.className===className&&log.phase===report.phase,
   );
+  if(!existing&&!CATEGORIES.some(category=>report.ratings[category]?.rating==='UA'))return {...workspace,reports};
   const phaseFolder=workspace.phaseFolders.find(folder=>
     folder.recruitBadge===report.recruitBadge&&folder.className===className&&folder.phase===report.phase,
   );
@@ -229,7 +237,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, [online, vault, dirty, persist]);
 
-  const mutate = useCallback((fn: (w: Workspace) => Workspace) => { rev.current++; setWs(w => fn(w)); setDirty(true); }, []);
+  const mutate = useCallback((fn: (w: Workspace) => Workspace) => { rev.current++; setWs(w => reconcileOperationalReferences(w, fn(w))); setDirty(true); }, []);
 
   // autosave when vault unlocked
   const saveTimer = useRef<number | undefined>(undefined);
@@ -333,9 +341,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           return { ...ack, signatures: { ...signatures, ...(sergeant ? { legacySergeant: sergeant } : {}) } };
         })
       : [];
-    const weeklyPerformanceLogs=Array.isArray(savedWorkspace.weeklyPerformanceLogs)
+    const savedWeeklyPerformanceLogs=Array.isArray(savedWorkspace.weeklyPerformanceLogs)
       ?savedWorkspace.weeklyPerformanceLogs.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.weekStart==='string'&&typeof item.recruitBadge==='string'&&Array.isArray(item.entries))
       :[];
+    const weeklyPerformanceLogs=savedWorkspace.packetIndexVersion===1
+      ?savedWeeklyPerformanceLogs:invalidateOperationalReferences(savedWeeklyPerformanceLogs);
     const substationOrientations=Array.isArray(savedWorkspace.substationOrientations)
       ?savedWorkspace.substationOrientations.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&isRecord(item.checklist))
       :[];
@@ -354,7 +364,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const ftoDirectory = Array.isArray(savedWorkspace.ftoDirectory) ? savedWorkspace.ftoDirectory.filter(item=>isRecord(item)&&typeof item.badge==='string'&&typeof item.name==='string') : [];
     const assignments = Array.isArray(savedWorkspace.assignments) ? savedWorkspace.assignments.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&[1,2,3,4].includes(Number(item.phase))) : [];
     const tasks=Array.isArray(savedWorkspace.tasks)?savedWorkspace.tasks.filter(item=>isRecord(item)&&[1,2,3,4].includes(Number(item.phase))):[];
-    setWs({ ...workspaceWithoutChatHistory, role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords }); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(false); setLockedNotice(false); setLockedWithUnsaved(false);
+    setWs({ ...workspaceWithoutChatHistory, packetIndexVersion:1, role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords }); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(weeklyPerformanceLogs!==savedWeeklyPerformanceLogs); setLockedNotice(false); setLockedWithUnsaved(false);
     setStoragePersistent(await requestPersistentStorage());
     await refreshPending();
   }, [refreshPending]);
@@ -370,6 +380,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Ctx>(() => ({
     ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent,
+    segTaskDirectory: SEG_TASK_DIRECTORY,
+    getOperationalPacket: report => resolveOperationalPacket(
+      report,
+      [...ws.phaseFolders, ...(ws.caseFolder ? [ws.caseFolder] : [])],
+      ws.substationOrientations,
+    ),
     setRole: (role) => setWs(w => ({ ...w, role: normalizePreviewRole(role) })),
     setCaseFolder: (caseFolder) => mutate(w => {
       const folders=w.phaseFolders??[];
@@ -412,6 +428,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 export function useWorkspace() { const c = useContext(C); if (!c) throw new Error('WorkspaceProvider missing'); return c; }
+export function useOperationalStateMachine(report: Report | undefined): OperationalPacket | undefined {
+  const { getOperationalPacket } = useWorkspace();
+  return useMemo(() => report ? getOperationalPacket(report) : undefined, [report, getOperationalPacket]);
+}
 export function useTimelineInterpolation(weekStart?: string, recruitBadge?: string, className?: string): TimelineInterpolation {
   const { ws } = useWorkspace();
   return useMemo(

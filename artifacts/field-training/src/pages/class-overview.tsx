@@ -95,7 +95,7 @@ export default function ClassOverview() {
       const acknowledgements=ws.weeklyAcknowledgements.filter(item=>
         (ws.role!=='fto'||allowedOfficerBadges.has(item.recruitBadge.trim().toLocaleLowerCase()))
         &&(!selectedOfficer||officerKey(item)===selectedOfficer));
-      exportClassWorkbook(selectedReports,acknowledgements,weeklyLogs,orientations);
+      exportClassWorkbook(selectedReports,acknowledgements,weeklyLogs,orientations,[...ws.phaseFolders,...(ws.caseFolder?[ws.caseFolder]:[])]);
     } catch {
       setExportError('The workbook could not be created. Your saved reports were not changed.');
     } finally {

@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx-js-style';
+import XLSX from 'xlsx-js-style';
 import {
   CATEGORY_LABEL,
   CATEGORIES,
@@ -17,6 +17,7 @@ import {
   type WeeklyPacketAcknowledgement,
   type WeeklyPerformanceLog,
   type SubstationOrientationRecord,
+  type PhaseCaseFolder,
 } from './model.js';
 import { substationOrientationXlsxRows, weeklyPerformanceLogXlsxRows } from './extended-form-rows.js';
 import { formatDateDMY, formatDateTimeMDY, getSundaySaturdayWeek } from './training-calendar.js';
@@ -24,11 +25,15 @@ import { weeklyWorkbookForm } from './weekly-workbook-form.js';
 import { CLEARANCE_CODES, RADIO_CODES, formatRadioCode } from './radio-codes.js';
 import { activityTotals } from './run-activity.js';
 import { validateClassWorkbookInputs } from './export-validation.js';
+import { resolveOperationalPacket } from './operational-state-machine.js';
+import { spreadsheetText } from './spreadsheet-text.js';
+import { weeklyRatingCount } from './weekly-rating-counts.js';
+import { collectDeficiencies } from './seg-deficiencies.js';
+import { buildClearanceDocuments } from './run-activity.js';
 
 const safeText = (value: unknown): string | number => {
   if (typeof value === 'number') return value;
-  const text = String(value ?? '');
-  return /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return spreadsheetText(value);
 };
 
 const sheet = (rows: (string | number)[][]) => XLSX.utils.aoa_to_sheet(rows);
@@ -55,6 +60,8 @@ function autosize(workbook: XLSX.WorkBook) {
   for (const name of workbook.SheetNames) {
     const current = workbook.Sheets[name];
     const range = XLSX.utils.decode_range(current['!ref'] ?? 'A1');
+    // These forms already own their partitioned grid styles, widths, and headings.
+    if (name.startsWith('Weekly Summary ')) continue;
     for (let row = range.s.r; row <= range.e.r; row++) {
       for (let column = range.s.c; column <= range.e.c; column++) {
         const address = XLSX.utils.encode_cell({ r: row, c: column });
@@ -62,7 +69,6 @@ function autosize(workbook: XLSX.WorkBook) {
         if (!cell) continue;
         const value = cell.v;
         const isNumeric = typeof value === 'number' && Number.isFinite(value);
-        if (row === 0 && typeof value === 'string') cell.v = value.toLocaleUpperCase('en-US');
         cell.s = {
           border: gridBorder,
           alignment: {
@@ -142,7 +148,7 @@ function autosize(workbook: XLSX.WorkBook) {
   }
 }
 
-export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPacketAcknowledgement[] = [], weeklyLogs:WeeklyPerformanceLog[] = [], orientations:SubstationOrientationRecord[] = []) {
+export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPacketAcknowledgement[] = [], weeklyLogs:WeeklyPerformanceLog[] = [], orientations:SubstationOrientationRecord[] = [], folders:readonly PhaseCaseFolder[] = []) {
   const validated = validateClassWorkbookInputs({ reports, acknowledgements, weeklyLogs, orientations });
   reports = validated.reports;
   acknowledgements = validated.acknowledgements;
@@ -363,7 +369,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
     const first = weekReports[0];
     const week = getSundaySaturdayWeek(first.date);
     if (!week) continue;
-      const counts = ratingCounts(weekReports.filter(report=>!!report.ratingsReviewedAt&&!report.limboDay));
+      const counts = Object.fromEntries(RATINGS.map(rating=>[rating,CATEGORIES.reduce((sum,category)=>sum+weeklyRatingCount(weekReports,category,rating),0)])) as Record<typeof RATINGS[number],number>;
     const totals = DAILY_ACTIVITY_FIELDS.map(({ key: activityKey }) =>
         weekReports.reduce((sum, report) => sum + Number(activityTotals(report)[activityKey] ?? 0), 0));
     weeklyRows.push([
@@ -445,6 +451,38 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
     ['Daily Narratives', narrativeRows],
     ['UA NRT Follow-up', followUpRows],
     ['Legend and Scope', legendRows],
+    ['Daily Page Index', [
+      ['Daily log ID', 'Shift date', 'Page', 'Training-folder reference', 'Form', 'Run ID', 'Packet review'],
+      ...reports.flatMap(report => {
+        const packet = resolveOperationalPacket(report, folders, orientations);
+        return packet.pages.map(page => [
+          report.id, report.date, page.page, page.reference ?? 'Unavailable: phase schedule required', page.title, page.runId ?? '',
+          packet.blockingIssues.join(' ') || 'Review source records before use',
+        ]);
+      }),
+    ]],
+    ['Checklist Exceptions', [
+      ['Daily log ID', 'Shift date', 'Training-folder reference', 'Page', 'Run ID', 'Section', 'Task', 'Checklist reviewed', 'Attribution status', 'FTO articulation'],
+      ...reports.flatMap(report => {
+        const packet=resolveOperationalPacket(report,folders,orientations);
+        const groups=collectDeficiencies(report,packet);
+        return packet.exceptions.map(item => {
+          const group=groups.find(group=>group.tasks.some(task=>task.id===item.id));
+          return [
+        report.id, report.date, item.reference ?? 'Unavailable: phase schedule required', item.page, item.runId ?? '',
+        item.section, item.task, item.reviewed ? 'Yes' : 'No',
+        group?`UA source: ${CATEGORY_LABEL[group.category]}`:'SEG mapping and FTO rating decision required',
+        group?.narrative??'',
+      ];});
+      }),
+    ]],
+    ['Generated Document Payloads', [
+      ['Daily log ID','Run ID','Draft payload ID','Form','Charge ID','Charge description','Scope'],
+      ...reports.flatMap(report=>report.runs.flatMap(run=>buildClearanceDocuments(run).map(document=>[
+        report.id,run.id,document.id,document.kind,document.chargeId??'',document.description??'',
+        'Local draft payload only; not a completed or filed legal form',
+      ]))),
+    ]],
   ];
   for (const [name, rows] of sheets) {
     XLSX.utils.book_append_sheet(wb, sheet(rows.map(row => row.map(safeText))), name);
@@ -467,8 +505,8 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
   return wb;
 }
 
-export function exportClassWorkbook(reports: Report[], acknowledgements:WeeklyPacketAcknowledgement[] = [], weeklyLogs:WeeklyPerformanceLog[] = [], orientations:SubstationOrientationRecord[] = []) {
-  const wb=buildClassWorkbook(reports,acknowledgements,weeklyLogs,orientations);
+export function exportClassWorkbook(reports: Report[], acknowledgements:WeeklyPacketAcknowledgement[] = [], weeklyLogs:WeeklyPerformanceLog[] = [], orientations:SubstationOrientationRecord[] = [], folders:readonly PhaseCaseFolder[] = []) {
+  const wb=buildClassWorkbook(reports,acknowledgements,weeklyLogs,orientations,folders);
   const generatedAt=new Date();
   const filename = `Field_Training_Officer_Portal_Class_Aggregate_${generatedAt.toISOString().slice(0, 10)}.xlsx`;
   XLSX.writeFile(wb, filename);

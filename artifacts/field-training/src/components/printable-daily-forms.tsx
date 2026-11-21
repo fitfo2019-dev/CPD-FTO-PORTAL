@@ -21,37 +21,42 @@ import { CLEARANCE_CODES, RADIO_CODES, SITUATION_FOUND_NA, formatRadioCode } fro
 import {
   formatDateDMY,
   formatDateTimeMDY,
-  formatTrainingFolderPageReference,
   type TrainingFolderDayReference,
 } from '@/lib/training-calendar.js';
 import { PrintableSubstationOrientation } from '@/components/printable-extended-forms.js';
 import type { SubstationOrientationRecord } from '@/lib/model.js';
-import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from '@/lib/narrative-continuation.js';
+import { splitNarrativeContinuation } from '@/lib/narrative-continuation.js';
+import { buildOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { DIVISION_DIRECTIVE_SOURCE_REVISION } from '@/lib/division-directives.js';
 import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
 
-export function PrintableDailyForms({ report,orientation,dayReference }: { report:Report;orientation?:SubstationOrientationRecord;dayReference?:TrainingFolderDayReference }) {
-  let nextPage = 2+dailyLogContinuations(report).length;
-  const pageReference = (page:number) => formatTrainingFolderPageReference(dayReference,page);
-  const orientationReference = orientation ? pageReference(nextPage++) : undefined;
-  const orientationContinuationReference = orientation ? pageReference(nextPage++) : undefined;
-  const dutyReference = pageReference(nextPage++);
+export function PrintableDailyForms({ report,orientation,dayReference,packet:providedPacket }: { report:Report;orientation?:SubstationOrientationRecord;dayReference?:TrainingFolderDayReference;packet?:OperationalPacket }) {
+  const packet = providedPacket ?? buildOperationalPacket(report, { orientation, dayReference });
+  const orientationReference = packet.pages.find(page => page.kind === 'orientation')?.reference;
+  const orientationContinuationReference = packet.pages.find(page => page.kind === 'orientation_continuation')?.reference;
+  const dutyReference = packet.pages[0]?.reference;
+  const runsById = new Map(report.runs.map(run => [run.id, run]));
+  const orderedRuns = packet.pages.filter(page => page.kind === 'run').map(page => {
+    const run = page.runId ? runsById.get(page.runId) : undefined;
+    if (!run) throw new Error('The daily packet no longer matches its run records.');
+    return run;
+  });
   const runReferences = new Map<string,{primary:string|undefined;supplements:Map<string,string|undefined>;narratives:(string|undefined)[]}>();
-  for (const run of report.runs) {
-    const primary = pageReference(nextPage++);
-    const supplements = new Map<string,string|undefined>();
-    for (const form of requiredSupplementalForms(run).filter(form=>form!=='narrative_addition')) {
-      supplements.set(form,pageReference(nextPage++));
+  for (const page of packet.pages) {
+    if (!page.runId) continue;
+    let references = runReferences.get(page.runId);
+    if (!references) {
+      references = { primary: undefined, supplements: new Map(), narratives: [] };
+      runReferences.set(page.runId, references);
     }
-    const narratives = needsRunNarrativeContinuation(run.narrative,run.narrativeAdditionRequired)
-      ? splitNarrativeContinuation(run.narrative||'').map(()=>pageReference(nextPage++))
-      : [];
-    runReferences.set(run.id,{primary,supplements,narratives});
+    if (page.kind === 'run') references.primary = page.reference;
+    if (page.kind === 'supplement' && page.supplement) references.supplements.set(page.supplement, page.reference);
+    if (page.kind === 'run_continuation') references.narratives.push(page.reference);
   }
   return <section className="print-run-packet" aria-hidden="true" data-testid="print-daily-forms">
-    {orientation&&<PrintableSubstationOrientation record={orientation} pageReference={orientationReference} continuationPageReference={orientationContinuationReference}/>}
     <DutyPage report={report} pageReference={dutyReference}/>
-    {report.runs.map(run=>{
+    {orientation&&<PrintableSubstationOrientation record={orientation} pageReference={orientationReference} continuationPageReference={orientationContinuationReference}/>}
+    {orderedRuns.map(run=>{
       const references=runReferences.get(run.id);
       return <Fragment key={run.id}>
         <RunPage report={report} run={run} pageReference={references?.primary} narrativeReferences={references?.narratives??[]}/>
@@ -88,7 +93,7 @@ function DutyPage({report,pageReference}:{report:Report;pageReference?:string}) 
       <h2>{group.section} {record?.notApplicable?.[group.section]?'· NOT APPLICABLE':''}</h2>
       <ul>{group.items.map(item=><li key={item.key}><b>{record?.checklist?.[item.key]!==false?'☒':'☐'}</b>{item.label}</li>)}</ul>
     </section>)}
-    <p className="print-run-notes"><b>Duty status:</b> {record?.dutyStatus||'—'} · <b>Notes:</b> {record?.notes||'—'}</p>
+    <p className="print-run-notes"><b>Duty status:</b> {record?.dutyStatus||'—'}{record?.cruiserId&&<> · <b>Cruiser ID:</b> {record.cruiserId}</>}{record?.shotgunTraining&&<> · <b>Shotgun Training:</b> {record.shotgunTraining}</>} · <b>Notes:</b> {record?.notes||'—'}</p>
     <footer className="print-run-footer">Duty checklist review: {record?.reviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.</footer>
   </article>;
 }

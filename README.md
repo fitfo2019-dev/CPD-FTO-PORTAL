@@ -55,6 +55,23 @@ pnpm run bundle:production
 
 The standalone archive contains the compiled API entry and a production-only `package.json`. Third-party runtime packages remain external and are listed in that manifest; workspace modules are bundled into the API output. No workspace `node_modules` directory is copied. The portal's static build is separate from the API package.
 
+### Daily packet coordination
+
+The portal now derives shift-local page references from one shared coordinator:
+Reporting for Duty first, phase-start orientation when required, chronological
+runs with conditional supplements and continuations, then the daily summary and
+its continuations. Each shift starts at Page 1 without a fixed application page
+cap. Print references and the class workbook's Daily Page Index and Checklist
+Exceptions sheets use that same sequence. Old source-reference review
+confirmations require reconfirmation after the duty-first migration; historical
+text and training time are preserved. See `HANDOVER_MANUAL.md`, section 11, for
+the exact page scope. Section 12 documents the named-category UA rules, FTO
+override dialog, consolidated source-linked articulations, and four-tab
+dual-grid monthly exporter. More than four source weeks is rejected without
+dropping dates. New reviewed runs use versioned clearance multipliers; legacy
+manual totals are not silently migrated. Legal-document payloads remain local
+drafts, not completed or filed forms.
+
 ### Agency-managed monorepo startup
 
 Build the workspace from its root, with `VITE_CLERK_PUBLISHABLE_KEY` and any other build-time public settings supplied by the deployment environment:
