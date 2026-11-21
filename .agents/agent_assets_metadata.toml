@@ -280,3 +280,17 @@ mtime_ms = 1795111309721
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/e403b676-0c88-4fe5-9f57-81e24e191769/33ae8435-7ca2-4268-94a4-b59f94732c17"
 storage_version_token = "1795111388436772"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "3GnDo3r_yR-6La_OUep4q"
+uri = "file://HANDOVER_MANUAL.md"
+type = "text"
+title = "Final Handover Manual"
+description = "Auditor-oriented system baseline, safe deployment commands, and verified reverse-proxy configuration."
+logical_id = "3f1a3550-2818-471a-93d8-2223d6a6296f"
+content_hash = "sha256:c9cb1e5e9167f1c1f3069df4e392839418454ae6e2d5b93bf47ada8712e328d0"
+size = 26532
+mtime_ms = 1795272573852
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/3f1a3550-2818-471a-93d8-2223d6a6296f/44078e4a-42d9-4c73-a729-3a79d6df63cf"
+storage_version_token = "1795272595170293"
+content_type = "text/markdown"

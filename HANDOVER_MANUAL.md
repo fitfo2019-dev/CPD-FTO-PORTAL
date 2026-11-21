@@ -70,3 +70,155 @@ The Component Preview Sandbox contains **55 reusable, modular UI components**. T
 - `pnpm --filter @workspace/api-server run dev` — starts the API Server workflow.
 - `pnpm --filter @workspace/mockup-sandbox run dev` — starts the Component Preview Server workflow.
 - `pnpm --filter @workspace/field-training run dev` — starts the Field Training Officer Portal workflow.
+
+The requested feature registry below is retained verbatim. Its labels are descriptive, not a production-security or compliance guarantee; the verified implementation notes following it define the current behavior where the registry wording is broader.
+
+# 📑 USER-FACING PORTAL COMPLIANCE & FUNCTIONAL FEATURE REGISTRY
+
+## 🎨 1. CORE PRESENTATION & USER EXPERIENCE SYSTEMS
+* PORTAL LAYOUT FRAMEWORK: An isolated, responsive workspace shell featuring an persistent navigation utility panel, real-time security warning banners, and adaptive sub-portal tabs.
+* ROLE PREVIEW SELECTOR: A client-side visual simulation overlay that allows users and administrators to instantly preview presentation modes and localized dashboard aesthetics across predefined security groupings.
+* NEXTTHEMES INTERFACE ENGINE: A full-application dark, light, and system theme toggle integrated with flash-free structural rendering.
+* ADAPTIVE GRID & RESPONSIVE UI: A fluid layout built with utility-first layouts, responsive typography, and hardware-accelerated interface states that render identically on any screen.
+
+## 📋 2. FIELD TRAINING & PERFORMANCE EVALUATION CORE
+* PHASE SETUP MANAGEMENT MODULE: A digital intake command center where coordinators track and set operational phase boundaries, milestone criteria, and localized testing variables via strict entry forms.
+* LETTER-ONLY EVALUATION SYSTEM: A specialized grading interface strictly restricted to non-numerical evaluation metrics (NO, A, RT, UA, and NRT), completely stripping out numerical curves, calculations, averages, or raw point weight scales.
+* PERFORMANCE ACKNOWLEDGEMENT CENTER: A dedicated review page enabling users to view, lock, and sign weekly performance acknowledgements. Built with native react-query lifecycle checks to block stale data exposure.
+* TRAINING ASSIGNMENTS CONTROL PANEL: A consolidated administrative terminal handling active duty assignments, personnel lists, training pipelines, and secure station routing structures.
+
+## 🗃️ 3. LOCAL WORKSPACE EXTRACTION, STORAGE & OFFLINE VAULT
+* MEMORY-BOUND CRYPTOGRAPHIC STORAGE: A secure local data layer that handles unsubmitted records, local drafts, and offline queues in an encrypted IndexedDB vault using AES-GCM. The derived decryption key is stored strictly in volatile memory and evaporates instantly upon sign-out, leaving local data securely locked as cryptographic noise on disk.
+* RECOVERABLE LOCAL SKELETONS: Graceful fallback states, loading animations, and component retry boundaries that allow users to read local data caches smoothly during network dropouts or upstream connection failures.
+* OFFLINE ACTION QUEUE MANAGER: A background queue that captures pending forms and operational updates, parking them securely until an authorized live gateway connection re-opens.
+
+## 📥 4. DATA INGESTION & REPORT EXPORT ENGINES
+* OUTBOUND WORKBOOK GENERATION (XLSX): Multi-sheet document builders that compile complex rosters, performance records, and schedules into structural files via xlsx and xlsx-js-style.
+* FORMULA INJECTION DEFENSE: A background cell serialization wrapper that checks strings for leading formula tokens (=, +, -, @) and prefixes them with an apostrophe literal (') to neutralize unauthorized code execution in external spreadsheet apps.
+* TRANSITIVE DOCUMENT PARSER (DOCX/CSV): A high-fidelity text-import panel processing user-supplied assignments. It parses DOCX attachments locally using a detached Mammoth compiler, strictly limiting incoming files to a 2 MB boundary to block denial-of-service memory spikes.
+
+## 🛡️ 5. ZERO-TRUST PERIMETER LOCKDOWN & AUDITING
+* CLERK AUTHENTICATION GUARD: A strict routing gate that blocks unauthenticated visitors from rendering or viewing any internal metrics or dashboard views, forcing unauthorized traffic straight to the sign-in prompt.
+* MULTI-TENANT STATE CLEANSER: An automatic account-switching interceptor that links the WorkspaceProvider state container directly to the active Clerk User ID, triggering a full cache purge and component remount upon account switching to prevent user data cross-contamination.
+
+## Verified implementation status and scope
+
+- **Presentation and roles:** The portal shell has responsive navigation, status notices, a local day/night toggle, and a role-preview selector. The selector changes a client-side preview role; it is not an authorization policy. The portal does not currently provide a system theme mode, a NextThemes application provider, or a guarantee of hardware-accelerated rendering.
+- **Field-training workflows:** Phase setup, assignments, reports, and weekly acknowledgements are local workspace workflows. The letter rating choices are NO, A, RT, UA, and NRT; numeric dates, phase/week values, and counts remain ordinary data. Weekly acknowledgements can be drafted and saved locally or printed, but in-site signature recording is disabled, signatures are not verified, and drafts are not submitted to a server.
+- **Encrypted offline storage:** IndexedDB records and drafts are encrypted with AES-GCM using a passphrase-derived key. Locking or signing out clears decrypted state and the in-memory key while preserving the encrypted device data. This is not a device-compliance certification or a server backup.
+- **Offline queue and recovery:** The storage layer can keep encrypted pending changes, but no live sync transport is connected. Queue entries are not automatically uploaded when connectivity returns. The 15-second import timeout and retry states apply to the component-preview harness and selected requests; they are not a general network fallback for Field Training views.
+- **Workbook and file input:** The portal generates XLSX workbooks. Formula-safe text conversion is used on user-provided text in the export paths; this is not an XLSX upload/parser feature. The roster import accepts CSV and DOCX, not XLSX. DOCX is parsed locally with Mammoth and extracted as text from a detached document; the 2 MB compressed-file limit reduces input size but is not a guarantee against every parser or decompression denial-of-service case.
+- **Authentication and isolation:** Clerk sign-in is required before portal views mount. Workspace state is cleared and remounted on account changes, and the React Query cache is cleared. Clerk session presence alone does not establish agency employment, department role, record scope, or server authorization.
+- **Packaging note:** `pnpm run bundle:production` creates an API-only archive and does not include this manual by default. For this handover, copy `HANDOVER_MANUAL.md` into `dist-production/` and add it to `dist-production.zip` after the official bundler completes. A later bundler run replaces that output, so repeat the documentation inclusion step if the archive must carry the manual.
+
+The following Section 6 registry is retained verbatim as requested. It describes intended capabilities, not a compliance certification; the verified status notes directly below it define current behavior where the wording is broader.
+
+## 🎛️ 6. ADDITIONAL COMPLIANCE, PLATFORM RESILIENCE & INTERFACE UTILITIES
+* ENVIRONMENT-DRIVEN SPLIT-PATHWAY ADAPTER (USE_REAL_API): An infrastructure gate that ensures the portal defaults safely to mock data arrays inside the workspace environment if production secrets are missing. It instantly pivots the gateway routing to the live secure server the moment production variables are injected.
+* PROCESS-LEVEL EXCEPTION INTERCEPTOR: A low-level Node runtime wrapper registering explicit hooks on 'uncaughtException' and 'unhandledRejection'. It intercepts unexpected runtime crashes, formats them into a single synchronous JSON line to stdout, redacts absolute file paths and error messages, and cleanly executes process.exit(1) to prevent unstable system states.
+* PINO LOGGER DATA STRIPPER: A high-performance server-side logging configuration hardcoded with dynamic path strings to automatically erase and redact raw HTTP authorization headers, Bearer tokens, and session cookies before strings hit the terminal or SIEM pipeline.
+* CUSTOM FORM WRAPPER TYPE SIGNATURES (ZOD 4 COMPLIANCE): Underlying form schemas mapped strictly against 'z.ZodTypeAny' generic constraints rather than legacy Zod 3 variants, ensuring ultra-light compile-time footprints and type safety across all 55 component files.
+* BROWSER ERROR BOUNDARY SCREEN & AUTOMATED RETRY: A client-side structural fallback wrapper that intercepts unexpected interface or component code failures. It halts total page crashes, renders an explicit loading/retry button state, and routes exception data safely to the developer tools console while filtering out entered user text data.
+* TWO-HOP TRUSTED PROXY INGRESS CONTROLLER: A hardcoded Express network binding ('app.set("trust proxy", 2)') tailored exactly to Columbus ZTN specs that isolates proxy hops behind the upstream firewall, neutralizing public X-Forwarded-* spoofing vectors.
+* ROSTER IMPORT PANEL (MAMMOTH UTILITY): A local text compilation interface embedded in the training assignments workspace that uses an entirely client-side, detached instance of Mammoth to extract raw text strings from '.docx' or '.csv' roster files under a hard 2 MB memory ceiling.
+* EXACT-ORIGIN PRODUCTION CORS PERIMETER: An API-level authorization matrix that disables loose wildcard accesses, restricting cross-origin resource sharing strictly to explicit, allowlisted agency HTTPS domains while entirely stripping away server identity signature headers.
+* STRUCTURAL JSON RESILIENCE ENVELOPES: A standardized backend-to-frontend payload contract ensuring that all data responses conform to an explicit block structure (status, tracking metadata, and data arrays), guaranteeing clean frontend error-handling loops if an API connection degrades.
+
+### Verified status for Section 6
+
+- **Split-pathway adapter:** `USE_REAL_API` defaults to `false`, so the secure-records API uses mock records. Enabling live mode requires the explicit flag, required server credentials, and a configured department authorization grant; missing live configuration in production fails startup rather than falling back to mock data. Secret injection alone does not switch a running process—operators must set the flag and restart. The Field Training portal is not connected to this endpoint.
+- **Process exceptions:** The API bootstrap registers `uncaughtException` and `unhandledRejection` handlers. They emit a synchronous JSONL Pino record to stdout, omit the raw error message, redact absolute paths from stack frames, and exit with status 1. Startup and listener failures use the same safe path.
+- **Pino redaction:** The ordinary logger redacts the configured authorization, cookie, and set-cookie object fields; the HTTP request serializer limits logged request fields. This is field-based redaction, not a filter for every arbitrary string, and no SIEM collector is configured here.
+- **Zod types:** Zod 4 is used by the shared generated API schemas and form validation. It is not a type wrapper applied to all 55 preview components, and no compile-footprint benchmark is claimed.
+- **Error boundaries:** The Component Preview Sandbox boundary catches render errors, shows a retry action, and does not print exception details. The Field Training boundary logs exception details and component stacks to the browser console and displays the error message in development; neither boundary catches every event-handler or asynchronous failure. Do not claim that all user-entered text is filtered from all browser diagnostics.
+- **Proxy ingress:** Express reads `TRUST_PROXY_HOPS` dynamically, defaults to `1`, and validates values from `1` through `16`. The documented Columbus ingress uses `2`; it is not hardcoded. Accurate `req.ip` resolution depends on the edge proxy overwriting untrusted forwarding headers.
+- **Roster imports:** The upload control accepts CSV and DOCX. CSV is parsed by the local CSV parser; Mammoth is used for DOCX conversion, with extracted cell text read from a detached document. The 2 MB limit applies to the uploaded file size, not a guaranteed maximum decompressed-memory footprint.
+- **CORS and server headers:** Production CORS accepts only normalized, explicitly configured HTTPS origins; localhost is allowed only in development. Wildcards are not accepted. CORS is not an authorization policy, and `X-Powered-By` is disabled separately by Express.
+- **Response envelopes:** The application API routes use standardized success envelopes and safe error envelopes. This does not make every proxied Clerk response an application envelope or guarantee that every frontend consumer handles all failures correctly.
+
+# 🏛️ FINAL SYSTEM COMPLIANCE SUMMARY & DEPLOYMENT BLUEPRINT
+
+**Audit scope:** This is a source-and-build inventory for the current workspace, not an agency approval, security certification, or claim that the system is ready to process operational records.
+
+## 1. VERIFIED SYSTEMS BASELINE & AUDITOR GROUND TRUTH
+
+* DETERMINISTIC DEPENDENCY LOCK (ZOD 4.6.7): `pnpm list -r zod` reports Zod 4.6.7 for `@workspace/field-training` and `@workspace/api-zod`. The current `pnpm-lock.yaml` contains the `zod@4.6.7` package entry and no `zod@3` package entry.
+* SANITIZED PROCESS-LEVEL FAIL-CLOSED LOGGING: The API bootstrap registers `uncaughtException` and `unhandledRejection` listeners. The crash logger writes a synchronous JSONL record to stdout, omits raw exception messages, redacts absolute stack paths, then exits with status 1. This output can be collected by a SIEM, but no Splunk, Elastic, or other collector is configured in this workspace.
+* STRICT BOUNDARY ENCAPSULATION: The browser router waits for Clerk's loaded, signed-in user state before mounting private workspace views. This is a client-side render gate, not a server-verified gate for the frontend bundle: page modules are statically imported and can be present in downloaded JavaScript. API authentication is enforced separately by server middleware. The secure-records live path also requires a department authorization grant; that grant is not configured, so live access currently fails closed.
+* VISUAL AND FUNCTIONAL SCOPE: The recent hardening did not change page styling or layout. It did intentionally change unauthenticated routing and sign-out/account-switch behavior; therefore it is not accurate to say that all user-facing behavior remained unchanged.
+
+## 2. VERIFIED ARCHIVE FOOTPRINT
+
+* TARGET DELIVERY FILENAME: `dist-production.zip`.
+* COMPRESSED ARCHIVE FOOTPRINT: `63,593 bytes`, measured for the archive containing `package.json`, `index.js`, and this manual. The earlier 52,683-byte measurement was for the API-only archive before the manual was added.
+* COMPILATION STATUS: The latest `pnpm run bundle:production` run type-checked shared libraries and the API, built the API, and passed ZIP integrity validation. The full workspace typecheck and Field Training build also passed after the security changes; this handover edit changes documentation only.
+* CLEANROOM STATE: The generated API archive was recreated and the ZIP passed `unzip -t`. TypeScript build info files can be regenerated by the build; a recent inventory found four `.tsbuildinfo` files. `.cache/replit` is retained as platform toolchain metadata, not deleted as a project build cache. Do not describe the current workspace as having no caches.
+
+## 3. STANDARD HANDOVER SHELL SCRIPT FOR THE IT OPERATOR
+
+The standalone package is an API-only ESM service. It does not contain or serve the Field Training Officer Portal's static frontend. Install runtime dependencies from the agency-approved package mirror or a pre-populated npm cache when the server has no internet access.
+
+```bash
+# 1. Unpack the delivery package
+unzip dist-production.zip -d /opt/hardened-gateway
+cd /opt/hardened-gateway
+
+# 2. Confirm the supported Node.js range
+node --version
+# Supported: ^20.19.0 || >=22.12.0 <25
+
+# 3. Install production dependencies from the approved source
+npm install --production
+
+# 4. Set non-secret runtime configuration
+export NODE_ENV=production
+export PORT=8080
+export TRUST_PROXY_HOPS=2
+export USE_REAL_API=false
+
+# 5. Inject required values via the agency secret manager/service manager:
+# AUDIT_ID_HMAC_KEY (minimum 32 bytes)
+# CLERK_PUBLISHABLE_KEY
+# CLERK_SECRET_KEY (for the Clerk proxy)
+
+# 6. Start the API
+npm start
+```
+
+`HOST` is not read from the environment; the API binds to `0.0.0.0` directly. `TRUST_PROXY_HOPS=2` applies only to the documented two-hop ingress and must be re-verified if that topology changes. `USE_REAL_API=false` serves mock records for isolated validation only; it is not an operational records service. Do not set `USE_REAL_API=true` for agency operations until an approved upstream endpoint, server credential, and department authorization-grant adapter are configured. `REAL_API_KEY` is a server-side upstream credential, not the HMAC key. Never put real secrets or invented example URLs in this manual.
+
+## 🎛️ 7. REVERSE-PROXY HOPS & INGRESS NETWORKING MANAGEMENT
+
+### A. THE TRUSTED INGRESS BOUNDARY OVERVIEW
+
+Express's `trust proxy` setting controls which forwarding hops may be used to resolve `req.ip` and host information for audit processing. The API reads `TRUST_PROXY_HOPS` as an integer; it defaults to `1` and currently accepts values from `1` through `16`. The documented agency ingress uses two trusted hops. The edge proxy must overwrite client-supplied forwarding headers, and operators must confirm the actual network path before setting the count.
+
+* WARNING: Too few trusted hops can leave audit records showing a proxy address instead of the originating client address. Too many trusted hops can cause Express to rely on attacker-controlled forwarding entries if clients can reach the application through a shorter or untrusted path. Do not expose the application through alternate paths that bypass the configured proxy chain.
+
+### B. CHANGING THE PROXY HOP CONFIGURATION
+
+Set `TRUST_PROXY_HOPS` in the service manager or process environment. No source recompilation is required, but the API process must be restarted for the value to take effect.
+
+* TO SET FOR A SINGLE-HOP TOPOLOGY (only when verified):
+  ```sh
+  export TRUST_PROXY_HOPS=1
+  ```
+
+* TO SET FOR THE DOCUMENTED TWO-HOP AGENCY INGRESS:
+  ```sh
+  export TRUST_PROXY_HOPS=2
+  ```
+
+* CIDR NETWORK LISTS ARE NOT ACCEPTED by the current configuration. A value such as `10.0.0.0/8, 172.16.0.0/12` fails validation; supporting trusted proxy ranges would require an application configuration change and separate review.
+
+### C. CONFIGURING LOCAL SYSTEM DEMO MODES
+
+The current API does not support zero trusted hops: `TRUST_PROXY_HOPS=0` fails startup validation. If the variable is omitted, it defaults to `1`; omission does not disable proxy trust. For a local or direct-access deployment, administrators must assess the network path before using the current default. A zero-hop mode would require an application configuration change.
+
+### D. NETWORKING ENVIRONMENT VARIABLE MATRIX
+
+| Variable Identifier | Supported Value | Operational Impact |
+| :--- | :--- | :--- |
+| `TRUST_PROXY_HOPS` | Integer from `1` through `16`; default `1`. The documented agency topology uses `2`. CIDR lists and `0` are rejected. | Sets Express's numeric trusted-proxy hop count used to resolve request IP and host values. |
+| `HOST` | Not read by the application. | The API binds to `0.0.0.0` directly; setting `HOST` has no effect. |
+| `PORT` | Integer from `1` through `65535`; default `3000`. | Sets the API listening port. |
