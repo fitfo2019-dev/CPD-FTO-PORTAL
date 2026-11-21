@@ -77,6 +77,22 @@ test('NA and Limbo do not create automatic UA ratings; legacy work is not silent
   assert.notEqual(reconcileDeficiencyRatings(limbo,packet(limbo)).ratings.buildingSearch.rating,'UA');
 });
 
+test('Officer Safety UA remains locked for the day after its checklist task is rechecked',()=>{
+  const source={...base(),runs:[failingRun()]};
+  const first=reconcileDeficiencyRatings(source,packet(source));
+  assert.ok(first.deficiencySafetyLocks?.includes('buildingSearch'));
+  assert.equal(first.ratings.buildingSearch.rating,'UA');
+  const corrected={...first,runs:[run()]};
+  const final=reconcileDeficiencyRatings(corrected,packet(corrected));
+  assert.ok(final.deficiencySafetyLocks?.includes('buildingSearch'));
+  assert.equal(final.ratings.buildingSearch.rating,'UA');
+  const reviewed={...final,ratingsReviewedAt:'2026-11-09T17:00:00Z'};
+  assert.equal(weeklyRatingCount([reviewed],'buildingSearch','UA'),1);
+  assert.equal(weeklyRatingCount([reviewed],'buildingSearch','A'),0);
+  const limbo=reconcileDeficiencyRatings({...final,limboDay:true,ratings:structuredClone(base().ratings)},packet({...final,limboDay:true}));
+  assert.deepEqual(limbo.deficiencySafetyLocks,[]);
+});
+
 test('distinct incidents remain distinct weekly evidence, with no fabricated training time',()=>{
   const source={...base(),runs:[failingRun('first'),failingRun('second')]};
   const report={...reconcileDeficiencyRatings(source,packet(source)),ratingsReviewedAt:'2026-11-09T17:00:00Z'};

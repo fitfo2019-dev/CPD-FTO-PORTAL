@@ -176,6 +176,10 @@ export default function ReportEditor() {
     }
   };
   const setRating = (c: typeof CATEGORIES[number], patch: Partial<Report['ratings'][typeof c]>) => {
+    if(patch.rating&&r?.deficiencySafetyLocks?.includes(c)&&patch.rating!=='UA') {
+      toast({title:'Officer Safety UA is locked for this day',description:'This rating cannot be cleared or changed on the current daily report.',variant:'destructive'});
+      return;
+    }
     if(patch.rating && !['UA','NRT'].includes(patch.rating) && deficiencyEditor.groups.some(group=>group.category===c)) {
       toast({title:'Checklist deficiency requires UA',description:'Resolve or reroute the source deficiency before selecting a different rating.',variant:'destructive'});
       return;

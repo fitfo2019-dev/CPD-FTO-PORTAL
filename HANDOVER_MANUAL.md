@@ -256,7 +256,7 @@ After the FTO explicitly confirms checklist review, the run form can seed an edi
 
 ### Monthly Excel aggregation
 
-The monthly summary selects the chosen PO’s saved daily records by `YYYY-MM`. Its Excel output now contains exactly **Week 1**, **Week 2**, **Week 3**, and **Week 4** tabs, covering consecutive Sunday–Saturday windows starting with the earliest selected record's week. Each tab contains the 30-category SEG counts above the complete Weekly Activity Summary, with centered counts, uppercase bold section headers, and thin black grid borders. Unused tabs remain present with zero counts. A selected month needing more than four weekly windows is rejected explicitly; no record is silently discarded or moved into the wrong week. Raw incident/location values, charge descriptions, and narratives are excluded from this aggregate workbook.
+The monthly summary selects the chosen PO’s saved daily records by `YYYY-MM`. Its Excel output now contains exactly **Week 1**, **Week 2**, **Week 3**, and **Week 4** tabs, each formatted after the supplied U-10.174 reference: landscape, fit to one page, officer/phase/date header, three side-by-side SEG panels, a four-part Daily Activity Summary grid, optional FTO-comments area, and rating legend. The approved 30-category set appears above the complete activity matrix with centered counts, bold section headings, and thin black borders. Unused tabs remain present with zero counts. A selected month needing more than four weekly windows is rejected explicitly; no record is silently discarded or moved into the wrong week. Raw incident/location values, charge descriptions, and narratives are excluded from this aggregate workbook.
 
 Applicable unchecked tasks on newly created or explicitly edited duty/run checklists now project UA into named categories. The user approved named-category meanings rather than historical manual numbers as worksheet ordinals. This is user-directed local prototype behavior, not independent certification of a manual-mandated algorithm. Explicit Not Applicable sections and Limbo-day rating restrictions remain respected. Weekly evidence is counted once per incident/category and a weekly deficiency suppresses that category's A ceiling. Only reviewed, non-Limbo records contribute rating counts.
 
@@ -386,6 +386,23 @@ record in the same class/recruit/phase. **Shotgun Training** accepts only `Y` or
 `N`; it is not automatically carried into a later shift and does not replace the
 detailed shotgun checklist. Names, badges, phase, assignment, and shift schedule
 continue to come from the phase folder.
+
+### Phase and Limbo bounds
+
+The calendar is bounded to 15 program weeks: Phase I is weeks 1–4, Phase II
+weeks 5–8, Phase III weeks 9–12, and Phase IV weeks 13–15. Limbo covers all
+scheduled working days in Phase I week 1, the first two scheduled working days
+of Phase II, and the first scheduled working day of Phases III and IV. Limbo
+reports retain checklists and daily activity records but do not accept SEG
+ratings or rating review. Reports beyond a phase's configured week length fail
+validation. The portal does not yet auto-create the next phase assignment or
+provide a Week 15 release/termination recommendation workflow.
+
+An Officer Safety deficiency also latches UA for its named daily category even
+if its checklist item is rechecked later in the same report. This applies to
+Threat Assessment, Initiating Arrests, Handling Prisoners, Vehicle Stops, Run
+Approach, Building Search, and Pat Down/Searches. The rating remains visible and
+cannot be cleared on that day; a Limbo report never receives the latch.
 
 ### Versioned clearance-derived activity
 

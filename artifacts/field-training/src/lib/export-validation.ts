@@ -107,6 +107,7 @@ const reportSchema = z.object({
   deficiencyNarratives:z.record(z.string(),z.string()).optional(),
   deficiencyPriorRatings:z.partialRecord(categorySchema,ratingEntrySchema).optional(),
   deficiencyGeneratedText:z.partialRecord(categorySchema,z.string()).optional(),
+  deficiencySafetyLocks:z.array(categorySchema).optional(),
   checklistDeficiencies:z.array(z.object({
     id:z.string(),runId:z.string().optional(),category:categorySchema,narrative:z.string(),
     tasks:z.array(z.object({id:z.string(),label:z.string(),reference:z.string().optional()})),

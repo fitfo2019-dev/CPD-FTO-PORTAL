@@ -67,7 +67,9 @@ confirmations require reconfirmation after the duty-first migration; historical
 text and training time are preserved. See `HANDOVER_MANUAL.md`, section 11, for
 the exact page scope. Section 12 documents the named-category UA rules, FTO
 override dialog, consolidated source-linked articulations, and four-tab
-dual-grid monthly exporter. More than four source weeks is rejected without
+four-tab monthly exporter, styled after the supplied U-10.174 reference with
+three category panels, four activity blocks, metadata, comments, and legend.
+It preserves the 30-category data model. More than four source weeks is rejected without
 dropping dates. New reviewed runs use versioned clearance multipliers; legacy
 manual totals are not silently migrated. Legal-document payloads remain local
 drafts, not completed or filed forms.

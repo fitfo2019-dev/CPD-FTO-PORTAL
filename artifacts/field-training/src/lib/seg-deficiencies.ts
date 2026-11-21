@@ -64,6 +64,10 @@ function buildDirectory(): Readonly<Record<string, Category>> {
 }
 export const SEG_TASK_DIRECTORY = buildDirectory();
 export const deficiencyGroupId = (runId: string | undefined, category: Category) => `${runId ?? 'duty'}:${category}`;
+export const OFFICER_SAFETY_LOCK_CATEGORIES:readonly Category[]=[
+  'threatAssessment','initiatingArrests','handlingPrisoners','vehicleStops',
+  'runApproach','buildingSearch','patDownSearches',
+];
 
 export function collectDeficiencies(report: Report, packet: OperationalPacket): ChecklistDeficiencyGroup[] {
   if (!report.deficiencyAutomationEnabled) return [];
@@ -96,17 +100,21 @@ export function reconcileDeficiencyRatings(report: Report, packet: OperationalPa
   const ratings = { ...report.ratings };
   const prior = { ...report.deficiencyPriorRatings };
   const generated = { ...report.deficiencyGeneratedText };
+  const safetyLocks=new Set(report.limboDay?[]:report.deficiencySafetyLocks??[]);
+  if(!report.limboDay)for(const group of groups)if(OFFICER_SAFETY_LOCK_CATEGORIES.includes(group.category))safetyLocks.add(group.category);
   for (const category of CATEGORIES) {
     const active = report.limboDay ? [] : groups.filter(group => group.category === category);
+    const safetyLocked=safetyLocks.has(category);
     const current = report.ratings[category];
-    if (active.length) {
+    if (active.length||safetyLocked) {
       prior[category] ??= { ...current };
       const text = active.map(group => {
         const refs = [...new Set(group.tasks.map(task => task.reference).filter(Boolean))].join(', ') || 'Source coordinate awaiting phase schedule';
         return `${refs} — ${group.narrative.trim() || `Unchecked tasks pending FTO articulation: ${group.tasks.map(task => task.label).join('; ')}`}`;
       }).join('\n\n');
+      const lockedText=active.length?text:generated[category]??`Officer Safety checklist failure recorded. UA remains locked for this daily report.`;
       const managedText = !current.justification || current.justification === generated[category] || current.justification === prior[category]?.justification;
-      ratings[category] = { ...current, rating: current.rating === 'NRT' ? 'NRT' : 'UA', justification: managedText ? [prior[category]?.justification, text].filter(Boolean).join('\n\n') : current.justification };
+      ratings[category] = { ...current, rating: safetyLocked?'UA':current.rating === 'NRT' ? 'NRT' : 'UA', justification: managedText ? [prior[category]?.justification, lockedText].filter(Boolean).join('\n\n') : current.justification };
       if (managedText) generated[category] = ratings[category].justification;
     } else if (prior[category]) {
       ratings[category] = { ...current, rating: report.limboDay ? '' : prior[category].rating,
@@ -115,9 +123,10 @@ export function reconcileDeficiencyRatings(report: Report, packet: OperationalPa
       delete generated[category];
     }
   }
-  const result = { ...report, ratings, deficiencyPriorRatings: prior, deficiencyGeneratedText: generated, checklistDeficiencies: groups };
-  return JSON.stringify([report.ratings, report.deficiencyPriorRatings ?? {}, report.deficiencyGeneratedText ?? {}, report.checklistDeficiencies ?? []]) ===
-    JSON.stringify([ratings, prior, generated, groups]) ? report : result;
+  const lockList=[...safetyLocks];
+  const result = { ...report, ratings, deficiencyPriorRatings: prior, deficiencyGeneratedText: generated, checklistDeficiencies: groups,deficiencySafetyLocks:lockList };
+  return JSON.stringify([report.ratings, report.deficiencyPriorRatings ?? {}, report.deficiencyGeneratedText ?? {}, report.checklistDeficiencies ?? [],report.deficiencySafetyLocks??[]]) ===
+    JSON.stringify([ratings, prior, generated, groups,lockList]) ? report : result;
 }
 
 export function overrideDeficiency(report: Report, group: ChecklistDeficiencyGroup, category: Category): Report {

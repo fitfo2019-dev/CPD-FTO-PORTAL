@@ -137,6 +137,10 @@ reviewed run records use versioned clearance multipliers; legacy records retain
 manual accounting. Cruiser ID and the Y/N Shotgun Training flag are saved in the
 existing encrypted workspace. `3V` charge payloads are local drafts, not filed
 or completed legal forms. See `HANDOVER_MANUAL.md`, section 12.
+The 15-week calendar uses phase lengths 4/4/4/3 and Limbo timing of one full
+Phase I week, two Phase II workdays, then one Phase III/IV workday. Limbo allows
+checklists and activity capture but no SEG ratings. Week 15 release/termination
+recommendation and automatic phase-assignment creation are not implemented.
 
 ## API contracts
 

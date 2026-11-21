@@ -784,6 +784,7 @@ export interface Report {
   checklistDeficiencies?: ChecklistDeficiencyGroup[];
   deficiencyPriorRatings?: Partial<Record<Category, RatingEntry>>;
   deficiencyGeneratedText?: Partial<Record<Category, string>>;
+  deficiencySafetyLocks?: Category[];
   ftoAssignment?: string;
   className?: string;
   phaseWeek?: number;
