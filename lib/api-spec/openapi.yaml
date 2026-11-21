@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: secure-records
+    description: Secure records operations
+  - name: audit-logs
+    description: Development-only audit log samples
 paths:
   /healthz:
     get:
@@ -23,7 +27,88 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                $ref: "#/components/schemas/HealthEnvelope"
+  /auth/mock-login:
+    post:
+      operationId: mockLogin
+      tags: [auth]
+      summary: Development-only mock login
+      description: Returns a non-JWT demonstration token in non-production environments only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MockLoginInput"
+      responses:
+        "200":
+          description: Mock login accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MockLoginEnvelope"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/secure-records:
+    get:
+      operationId: listSecureRecords
+      tags: [secure-records]
+      summary: List secure records
+      description: Returns mock records by default or normalized upstream records when the live integration is enabled.
+      responses:
+        "200":
+          description: Secure records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecureRecordsEnvelope"
+        "401":
+          description: A validated bearer token is required for the live integration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: The upstream service failed or returned invalid data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: The live integration is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "504":
+          description: The upstream request timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [audit-logs]
+      summary: List development audit log samples
+      description: Returns deterministic, pseudonymized sample audit events in development only.
+      responses:
+        "200":
+          description: Development audit log samples
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogsEnvelope"
+        "404":
+          description: This endpoint is disabled in production environments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +118,180 @@ components:
           type: string
       required:
         - status
-
+    HealthEnvelope:
+      type: object
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata: { type: object, additionalProperties: true }
+        data:
+          type: array
+          maxItems: 1
+          items: { $ref: "#/components/schemas/HealthStatus" }
+    MockLoginInput:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 64 }
+        password: { type: string, minLength: 8, maxLength: 256 }
+    MockLoginEnvelope:
+      type: object
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata: { type: object, additionalProperties: true }
+        data:
+          type: array
+          maxItems: 1
+          items:
+            type: object
+            required: [token]
+            properties:
+              token: { type: string }
+    SecureRecord:
+      type: object
+      additionalProperties: false
+      required: [id, status, updated_at]
+      properties:
+        id:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 64,
+            pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          }
+        status: { type: string, minLength: 1, maxLength: 64 }
+        updated_at: { type: string, format: date }
+    SecureRecordsMetadata:
+      type: object
+      additionalProperties: false
+      required: [total_records]
+      properties:
+        total_records: { type: integer, minimum: 0 }
+    SecureRecordsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata: { $ref: "#/components/schemas/SecureRecordsMetadata" }
+        data:
+          type: array
+          maxItems: 1000
+          items: { $ref: "#/components/schemas/SecureRecord" }
+    AuditLogActor:
+      type: object
+      additionalProperties: false
+      required: [user_id_hash, assigned_role]
+      properties:
+        user_id_hash:
+          type: string
+          minLength: 64
+          maxLength: 64
+          pattern: "^[a-f0-9]{64}$"
+        assigned_role:
+          type: string
+          enum: [RECRUIT, FTO, SERGEANT, ADMIN]
+    AuditLogActorValue:
+      oneOf:
+        - type: string
+          enum: [ANONYMOUS, UNAUTHENTICATED]
+        - $ref: "#/components/schemas/AuditLogActor"
+    AuditLogNetwork:
+      type: object
+      additionalProperties: false
+      required: [client_ip_hash, user_agent]
+      properties:
+        client_ip_hash:
+          type: string
+          minLength: 64
+          maxLength: 64
+          pattern: "^[a-f0-9]{64}$"
+        user_agent:
+          type: string
+          maxLength: 80
+    AuditLogEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - http_method
+        - endpoint
+        - payload_bytes
+        - status_code
+        - success
+        - disposition
+      properties:
+        http_method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+        endpoint:
+          type: string
+          minLength: 1
+          maxLength: 200
+        payload_bytes:
+          type: integer
+          minimum: 0
+        status_code:
+          type: integer
+          minimum: 100
+          maximum: 599
+        success:
+          type: boolean
+        disposition:
+          type: string
+          enum: [SUCCESS, FAILURE]
+        error_message:
+          type: string
+          maxLength: 200
+    AuditLogRecord:
+      type: object
+      additionalProperties: false
+      required: [timestamp, request_id, actor, network, event]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        actor:
+          $ref: "#/components/schemas/AuditLogActorValue"
+        network:
+          $ref: "#/components/schemas/AuditLogNetwork"
+        event:
+          $ref: "#/components/schemas/AuditLogEvent"
+    AuditLogsMetadata:
+      type: object
+      additionalProperties: false
+      required: [total_records, environment]
+      properties:
+        total_records:
+          type: integer
+          minimum: 0
+        environment:
+          type: string
+          enum: [MOCK_DEVELOPMENT]
+    AuditLogsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        metadata:
+          $ref: "#/components/schemas/AuditLogsMetadata"
+        data:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AuditLogRecord"
+    ApiError:
+      type: object
+      required: [status, error_code, message]
+      properties:
+        status: { type: string, enum: [error] }
+        error_code: { type: string }
+        message: { type: string }

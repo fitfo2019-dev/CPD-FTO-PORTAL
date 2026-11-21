@@ -33,7 +33,7 @@ See `docs/PROJECT_STRUCTURE.md`. Portable SQL is in `database/migrations/001_fie
 
 ## Product
 
-Dashboard, DOR builder, training competencies, sequential demonstration signatures, local passphrase vault, night-shift mode, and production PWA shell.
+Dashboard, report builder, training competencies, sequential demonstration signatures, local passphrase vault, night-shift mode, and production PWA shell.
 
 ## User preferences
 

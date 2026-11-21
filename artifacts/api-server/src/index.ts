@@ -1,25 +1,39 @@
-import app from "./app";
-import { logger } from "./lib/logger";
+import app from "./app.js";
+import { USE_REAL_API } from "./lib/config.js";
+import { logger } from "./lib/logger.js";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
+if (
+  process.env.NODE_ENV === "production" &&
+  USE_REAL_API &&
+  !process.env.REAL_API_KEY?.trim()
+) {
   throw new Error(
-    "PORT environment variable is required but was not provided.",
+    "CRITICAL CONFIGURATION ERROR: REAL_API_KEY must be provided when live mode is active in production.",
   );
 }
 
-const port = Number(rawPort);
+if (
+  process.env.NODE_ENV === "production" &&
+  USE_REAL_API &&
+  !process.env.REAL_API_URL?.trim()
+) {
+  throw new Error(
+    "REAL_API_URL must be configured before enabling the live integration in production.",
+  );
+}
 
-if (Number.isNaN(port) || port <= 0) {
+const rawPort = process.env.PORT || 3000;
+const PORT = Number(rawPort);
+
+if (!Number.isInteger(PORT) || PORT <= 0 || PORT > 65535) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+app.listen(PORT, "0.0.0.0", (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
-  logger.info({ port }, "Server listening");
+  logger.info({ port: PORT }, "Server listening");
 });

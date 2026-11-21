@@ -21,7 +21,7 @@ It is NOT a production-ready system or a CJIS compliance attestation.
   as namespaces or record IDs.
 - Atomic record + queue writes, explicit errors, acknowledgement validation,
   queue retention on transport failures and version conflicts.
-- PostgreSQL migration with roles, assignments, DORs, evaluations, signatures,
+- PostgreSQL migration with roles, assignments, reports, evaluations, signatures,
   competencies, idempotent-sync receipts, and append-only audit constraints.
 - Server authorization policy and append-only audit repository building blocks.
 
@@ -30,7 +30,7 @@ It is NOT a production-ready system or a CJIS compliance attestation.
 - Live identity: OIDC, SAML, Argon2id/TOTP development login, MFA enrollment and
   recovery, secure session cookies, revocation, CSRF protection, and rate limits.
   The protocol interface and credential schema are not functioning providers.
-- Live database-backed DOR routes, server-enforced assignment queries, audited
+- Live database-backed report routes, server-enforced assignment queries, audited
   reads/writes/exports/logins, validated cryptographic signature attestations.
   The middleware and audit repository are not mounted to live report routes.
 - Network sync endpoint, authentication/revocation checks on replay, conflict
@@ -69,6 +69,7 @@ or a last-write-wins overwrite policy. Resolution must preserve both versions
 and obtain user confirmation before rebasing or discarding a queued change.
 
 The future server transaction must:
+
 1. Resolve identity from a server-side, MFA-verified session.
 2. Check active recruit assignment / squad scope for every record and action.
 3. Deduplicate operationId per actor and request digest.

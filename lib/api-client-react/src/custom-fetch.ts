@@ -7,6 +7,7 @@ export type ErrorType<T = unknown> = ApiError<T>;
 export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
+import { API_BASE_URL, apiEndpoint } from "./api-config.js";
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
@@ -15,18 +16,17 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 // Module-level configuration
 // ---------------------------------------------------------------------------
 
-let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _memoryToken: string | null = null;
+let _authEpoch = 0;
 
-/**
- * Set a base URL that is prepended to every relative request URL
- * (i.e. paths that start with `/`).
- *
- * Useful for Expo bundles that need to call a remote API server.
- * Pass `null` to clear the base URL.
- */
+/** Kept for compatibility; only the internal same-origin API base is allowed. */
 export function setBaseUrl(url: string | null): void {
-  _baseUrl = url ? url.replace(/\/+$/, "") : null;
+  if (url !== null && url.replace(/\/+$/, "") !== API_BASE_URL) {
+    throw new TypeError(
+      "External API base URLs are not allowed in this client.",
+    );
+  }
 }
 
 /**
@@ -42,13 +42,23 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+  _authEpoch++;
+}
+
+/** Keep mock credentials in the JavaScript runtime only (never localStorage). */
+export function setMemoryAuthToken(token: string | null): void {
+  _memoryToken = token;
+  _authEpoch++;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
 
-function resolveMethod(input: RequestInfo | URL, explicitMethod?: string): string {
+function resolveMethod(
+  input: RequestInfo | URL,
+  explicitMethod?: string,
+): string {
   if (explicitMethod) return explicitMethod.toUpperCase();
   if (isRequest(input)) return input.method.toUpperCase();
   return "GET";
@@ -61,15 +71,24 @@ function isUrl(input: RequestInfo | URL): input is URL {
 }
 
 function applyBaseUrl(input: RequestInfo | URL): RequestInfo | URL {
-  if (!_baseUrl) return input;
-  const url = resolveUrl(input);
-  // Only prepend to relative paths (starting with /)
-  if (!url.startsWith("/")) return input;
-
-  const absolute = `${_baseUrl}${url}`;
-  if (typeof input === "string") return absolute;
-  if (isUrl(input)) return new URL(absolute);
-  return new Request(absolute, input as Request);
+  const rawUrl = resolveUrl(input);
+  const currentOrigin =
+    typeof globalThis.location === "undefined"
+      ? "http://api.local"
+      : globalThis.location.origin;
+  let url: URL;
+  try {
+    url = new URL(rawUrl, currentOrigin);
+  } catch {
+    throw new TypeError("customFetch requires an internal /api URL.");
+  }
+  if (
+    url.origin !== currentOrigin ||
+    (url.pathname !== "/api" && !url.pathname.startsWith("/api/"))
+  ) {
+    throw new TypeError("customFetch only supports same-origin /api routes.");
+  }
+  return input;
 }
 
 function resolveUrl(input: RequestInfo | URL): string {
@@ -97,17 +116,19 @@ function getMediaType(headers: Headers): string | null {
 }
 
 function isJsonMediaType(mediaType: string | null): boolean {
-  return mediaType === "application/json" || Boolean(mediaType?.endsWith("+json"));
+  return (
+    mediaType === "application/json" || Boolean(mediaType?.endsWith("+json"))
+  );
 }
 
 function isTextMediaType(mediaType: string | null): boolean {
   return Boolean(
     mediaType &&
-      (mediaType.startsWith("text/") ||
-        mediaType === "application/xml" ||
-        mediaType === "text/xml" ||
-        mediaType.endsWith("+xml") ||
-        mediaType === "application/x-www-form-urlencoded"),
+    (mediaType.startsWith("text/") ||
+      mediaType === "application/xml" ||
+      mediaType === "text/xml" ||
+      mediaType.endsWith("+xml") ||
+      mediaType === "application/x-www-form-urlencoded"),
   );
 }
 
@@ -133,6 +154,88 @@ function looksLikeJson(text: string): boolean {
   const trimmed = text.trimStart();
   return trimmed.startsWith("{") || trimmed.startsWith("[");
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validateApiSuccessEnvelope(
+  value: unknown,
+  requestInfo: { method: string; url: string },
+): unknown {
+  if (
+    !isRecord(value) ||
+    value.status !== "success" ||
+    !isRecord(value.metadata) ||
+    !Array.isArray(value.data) ||
+    !value.data.every(isRecord)
+  ) {
+    throw new Error(
+      `Invalid API response from ${requestInfo.method} ${requestInfo.url}: expected a success envelope.`,
+    );
+  }
+
+  const metadata = value.metadata;
+  for (const key of ["total_records", "page", "limit"] as const) {
+    if (
+      key in metadata &&
+      (typeof metadata[key] !== "number" ||
+        !Number.isFinite(metadata[key]) ||
+        metadata[key] < 0)
+    ) {
+      throw new Error(
+        `Invalid API response metadata: ${key} must be a non-negative number.`,
+      );
+    }
+  }
+
+  const pathname = new URL(requestInfo.url, "http://api.local").pathname;
+  if (
+    pathname.endsWith("/healthz") &&
+    !value.data.every((row) => isRecord(row) && typeof row.status === "string")
+  ) {
+    throw new Error("Invalid health response data.");
+  }
+  if (
+    pathname.endsWith("/auth/mock-login") &&
+    !value.data.every(
+      (row) =>
+        isRecord(row) && typeof row.token === "string" && row.token.length > 0,
+    )
+  ) {
+    throw new Error("Invalid mock sign-in response data.");
+  }
+
+  return value;
+}
+
+function validateApiErrorEnvelope(value: unknown): ApiFailurePayload {
+  if (
+    isRecord(value) &&
+    value.status === "error" &&
+    typeof value.error_code === "string" &&
+    value.error_code.length > 0 &&
+    typeof value.message === "string" &&
+    value.message.length <= 300
+  ) {
+    return {
+      status: "error",
+      error_code: value.error_code,
+      message: value.message,
+    };
+  }
+  return {
+    status: "error",
+    error_code: "INVALID_ERROR_RESPONSE",
+    message: "The server returned an invalid error response.",
+  };
+}
+
+type ApiFailurePayload = {
+  status: "error";
+  error_code: string;
+  message: string;
+};
 
 function getStringField(value: unknown, key: string): string | undefined {
   if (!value || typeof value !== "object") return undefined;
@@ -251,7 +354,10 @@ async function parseJsonBody(
   }
 }
 
-async function parseErrorBody(response: Response, method: string): Promise<unknown> {
+async function parseErrorBody(
+  response: Response,
+  method: string,
+): Promise<unknown> {
   if (hasNoBody(response, method)) {
     return null;
   }
@@ -260,7 +366,9 @@ async function parseErrorBody(response: Response, method: string): Promise<unkno
 
   // Fall back to text when blob() is unavailable (e.g. some React Native builds).
   if (mediaType && !isJsonMediaType(mediaType) && !isTextMediaType(mediaType)) {
-    return typeof response.blob === "function" ? response.blob() : response.text();
+    return typeof response.blob === "function"
+      ? response.blob()
+      : response.text();
   }
 
   const raw = await response.text();
@@ -315,7 +423,7 @@ async function parseSuccessBody(
       if (typeof response.blob !== "function") {
         throw new TypeError(
           "Blob responses are not supported in this runtime. " +
-            "Use responseType \"json\" or \"text\" instead.",
+            'Use responseType "json" or "text" instead.',
         );
       }
       return response.blob();
@@ -335,7 +443,10 @@ export async function customFetch<T = unknown>(
     throw new TypeError(`customFetch: ${method} requests cannot have a body.`);
   }
 
-  const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+  const headers = mergeHeaders(
+    isRequest(input) ? input.headers : undefined,
+    headersInit,
+  );
 
   if (
     typeof init.body === "string" &&
@@ -351,21 +462,39 @@ export async function customFetch<T = unknown>(
 
   // Attach bearer token when an auth getter is configured and no
   // Authorization header has been explicitly provided.
-  if (_authTokenGetter && !headers.has("authorization")) {
-    const token = await _authTokenGetter();
-    if (token) {
+  if ((_authTokenGetter || _memoryToken) && !headers.has("authorization")) {
+    const authEpoch = _authEpoch;
+    const tokenGetter = _authTokenGetter;
+    const token = tokenGetter ? await tokenGetter() : _memoryToken;
+    // If the caller logged out or switched users while an async token getter
+    // was resolving, do not attach the stale credential to this request.
+    if (token && authEpoch === _authEpoch) {
       headers.set("authorization", `Bearer ${token}`);
     }
   }
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const response = await fetch(input, {
+    ...init,
+    method,
+    headers,
+    redirect: "error",
+  });
 
   if (!response.ok) {
-    const errorData = await parseErrorBody(response, method);
+    const parsedError = await parseErrorBody(response, method);
+    const errorData = validateApiErrorEnvelope(parsedError);
     throw new ApiError(response, errorData, requestInfo);
   }
 
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  const parsed = await parseSuccessBody(response, responseType, requestInfo);
+  if (parsed === null) {
+    if (method === "HEAD" || NO_BODY_STATUS.has(response.status))
+      return parsed as T;
+    throw new Error(
+      "The server returned an empty response where JSON data was expected.",
+    );
+  }
+  return validateApiSuccessEnvelope(parsed, requestInfo) as T;
 }

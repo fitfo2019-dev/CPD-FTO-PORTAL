@@ -1,7 +1,7 @@
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils.js"
 
 const THEMES = { light: "", dark: ".dark" } as const
 
@@ -41,7 +41,7 @@ const ChartContainer = React.forwardRef<
   }
 >(({ id, className, children, config, ...props }, ref) => {
   const uniqueId = React.useId()
-  const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
+  const chartId = `chart-${(id || uniqueId).replace(/[^a-zA-Z0-9_-]/g, "")}`
 
   return (
     <ChartContext.Provider value={{ config }}>
@@ -65,36 +65,39 @@ const ChartContainer = React.forwardRef<
 ChartContainer.displayName = "Chart"
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(
-    ([, config]) => config.theme || config.color
-  )
+  React.useEffect(() => {
+    const colorConfig = Object.entries(config).filter(
+      ([key, item]) =>
+        /^[a-zA-Z0-9_-]+$/.test(key) && Boolean(item.theme || item.color)
+    )
+    if (!colorConfig.length) return
 
-  if (!colorConfig.length) {
-    return null
-  }
+    const rules = Object.entries(THEMES)
+      .map(([theme, prefix]) => {
+        const declarations = colorConfig.flatMap(([key, item]) => {
+          const color =
+            item.theme?.[theme as keyof typeof item.theme] || item.color
+          return typeof color === "string" && CSS.supports("color", color)
+            ? [`  --color-${key}: ${color};`]
+            : []
+        })
+        return declarations.length
+          ? `${prefix} [data-chart="${id}"] {\n${declarations.join("\n")}\n}`
+          : ""
+      })
+      .filter(Boolean)
+      .join("\n")
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
-  })
-  .join("\n")}
-}
-`
-          )
-          .join("\n"),
-      }}
-    />
-  )
+    if (!rules) return
+    const style = document.createElement("style")
+    style.dataset.chartStyle = id
+    // textContent creates a text node; it never parses config as HTML.
+    style.textContent = rules
+    document.head.appendChild(style)
+    return () => style.remove()
+  }, [id, config])
+
+  return null
 }
 
 const ChartTooltip = RechartsPrimitive.Tooltip

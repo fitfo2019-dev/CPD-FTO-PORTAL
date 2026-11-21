@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType } from "react";
 
-import { modules as discoveredModules } from "./.generated/mockup-components";
+import { modules as discoveredModules } from "./.generated/mockup-components.js";
 
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 
@@ -28,6 +28,7 @@ function PreviewRenderer({
 }) {
   const [Component, setComponent] = useState<ComponentType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,21 +40,31 @@ function PreviewRenderer({
       const key = `./components/mockups/${componentPath}.tsx`;
       const loader = modules[key];
       if (!loader) {
-        setError(`No component found at ${componentPath}.tsx`);
+        setError("This preview could not be found.");
         return;
       }
 
       try {
-        const mod = await loader();
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
+            () => reject(new Error("Preview load timed out.")),
+            15_000,
+          );
+        });
+        let mod: Record<string, unknown>;
+        try {
+          mod = await Promise.race([loader(), timeout]);
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
         if (cancelled) {
           return;
         }
         const name = componentPath.split("/").pop()!;
         const comp = _resolveComponent(mod, name);
         if (!comp) {
-          setError(
-            `No exported React component found in ${componentPath}.tsx\n\nMake sure the file has at least one exported function component.`,
-          );
+          setError("This preview is not available right now.");
           return;
         }
         setComponent(() => comp);
@@ -62,8 +73,7 @@ function PreviewRenderer({
           return;
         }
 
-        const message = e instanceof Error ? e.message : String(e);
-        setError(`Failed to load preview.\n${message}`);
+        setError("The preview could not be loaded. Check your connection and try again.");
       }
     }
 
@@ -72,17 +82,38 @@ function PreviewRenderer({
     return () => {
       cancelled = true;
     };
-  }, [componentPath, modules]);
+  }, [componentPath, modules, attempt]);
 
   if (error) {
     return (
-      <pre style={{ color: "red", padding: "2rem", fontFamily: "system-ui" }}>
-        {error}
-      </pre>
+      <main className="min-h-screen bg-gray-50 px-5 py-10 text-gray-900">
+        <section role="alert" className="mx-auto mt-16 max-w-lg rounded-xl border border-gray-200 bg-white p-7 shadow-sm">
+          <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">Preview unavailable</div>
+          <h1 className="text-2xl font-semibold">We couldn’t open this view</h1>
+          <p className="mt-2 text-sm leading-6 text-gray-600">{error}</p>
+          <button
+            type="button"
+            onClick={() => { setError(null); setComponent(null); setAttempt((value) => value + 1); }}
+            className="mt-5 rounded-md bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+          >
+            Try again
+          </button>
+        </section>
+      </main>
     );
   }
 
-  if (!Component) return null;
+  if (!Component) {
+    return (
+      <main className="min-h-screen bg-gray-50 p-6" aria-busy="true" aria-label="Loading preview">
+        <div className="mx-auto max-w-3xl animate-pulse space-y-4">
+          <div className="h-8 w-2/5 rounded bg-gray-200" />
+          <div className="h-4 w-3/5 rounded bg-gray-200" />
+          <div className="mt-8 h-64 rounded-xl border border-gray-200 bg-white" />
+        </div>
+      </main>
+    );
+  }
 
   return <Component />;
 }

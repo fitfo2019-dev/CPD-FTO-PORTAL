@@ -20,7 +20,7 @@ docs/
   SECURITY.md                 Implemented boundaries and production prerequisites
   PROJECT_STRUCTURE.md        This source map
 lib/
-  api-spec/                   API contract (health endpoint; DOR API not live yet)
+  api-spec/                   API contract (health endpoint; protected report routes not live yet)
   api-client-react/           Generated API hooks
   api-zod/                    Generated validation
   db/                         PostgreSQL / Drizzle infrastructure

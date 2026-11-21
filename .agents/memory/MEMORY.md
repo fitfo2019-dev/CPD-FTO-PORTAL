@@ -1,0 +1,1 @@
+- [Portable runtime boundary](runtime-portability.md) — deployable source avoids Replit-only packages and runtime strings, uses ESM, and includes explicit local import extensions.

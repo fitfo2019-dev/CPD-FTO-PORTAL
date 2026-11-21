@@ -5,6 +5,8 @@ dist
 tmp
 out-tsc
 *.tsbuildinfo
+/dist-production/
+/dist-production.zip
 .expo
 .expo-shared
 .next

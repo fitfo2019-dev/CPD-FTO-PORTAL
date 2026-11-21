@@ -1,13 +1,13 @@
 import { defineConfig, InputTransformerFn } from "orval";
-import path from "path";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(__dirname, "..", "..");
-const apiClientReactSrc = path.resolve(root, "lib", "api-client-react", "src");
-const apiZodSrc = path.resolve(root, "lib", "api-zod", "src");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const apiClientReactSrc = resolve(root, "lib", "api-client-react", "src");
+const apiZodSrc = resolve(root, "lib", "api-zod", "src");
 
 // Our exports make assumptions about the title of the API being "Api" (i.e. generated output is `api.ts`).
 const titleTransformer: InputTransformerFn = (config) => {
-  config.info ??= {};
   config.info.title = "Api";
 
   return config;
@@ -28,13 +28,15 @@ export default defineConfig({
       mode: "split",
       baseUrl: "/api",
       clean: true,
-      prettier: true,
       override: {
+        query: {
+          version: 5,
+        },
         fetch: {
           includeHttpResponseReturnType: false,
         },
         mutator: {
-          path: path.resolve(apiClientReactSrc, "custom-fetch.ts"),
+          path: resolve(apiClientReactSrc, "custom-fetch.ts"),
           name: "customFetch",
         },
       },
@@ -54,7 +56,6 @@ export default defineConfig({
       schemas: { path: "generated/types", type: "typescript" },
       mode: "split",
       clean: true,
-      prettier: true,
       override: {
         zod: {
           // Orval resolves `auto` from lib/api-spec/package.json, which has no
@@ -62,10 +63,10 @@ export default defineConfig({
           // the catalog installs zod 3. Pin to match the catalog.
           version: 3,
           coerce: {
-            query: ['boolean', 'number', 'string'],
-            param: ['boolean', 'number', 'string'],
-            body: ['bigint', 'date'],
-            response: ['bigint', 'date'],
+            query: ["boolean", "number", "string"],
+            param: ["boolean", "number", "string"],
+            body: ["bigint", "date"],
+            response: ["bigint", "date"],
           },
         },
         useDates: true,
