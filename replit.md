@@ -2,7 +2,7 @@
 
 Offline-capable Field Training Officer Portal with an empty initial workspace and encrypted device-local drafts. No protected report service is connected; the application is not approved for operational or CJIS-restricted data.
 
-Read `PROJECT_MANIFEST.md` and `.replit-context.md` before changing the codebase. Treat `.replit-context.md` as the user's persistent specification for SEG scope, page flow, clearance multipliers, checklist behavior, and four-tab exports. It is an instruction document, not a parser-enforced lock; verify implementation claims against code before describing them as existing behavior.
+Read `PROJECT_MANIFEST.md` and `.replit-context.md` before changing the codebase. Ground-truth contract path: `.replit-context.md`. All subsequent software validation and file-compilation subroutines must read and follow that file for SEG scope, page flow, clearance multipliers, checklist behavior, and four-tab exports. It is persistent project guidance, not a parser-enforced or immutable lock; verify implementation claims against code before describing them as existing behavior.
 
 ## Current workspace
 
