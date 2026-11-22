@@ -102,13 +102,21 @@ const clerkAppearance = {
 
 function SignInPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8">
+    <div className={`flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8 ${import.meta.env.DEV ? 'flex-col gap-4' : ''}`}>
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
         appearance={clerkAppearance}
       />
+      {import.meta.env.DEV && (
+        <a
+          href={`${basePath}/ui-preview`}
+          className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+        >
+          Open UI test preview · fictional data only
+        </a>
+      )}
     </div>
   );
 }
@@ -229,6 +237,24 @@ function DemoWorkspace() {
   );
 }
 
+function DevelopmentUiPreview() {
+  return (
+    <WouterRouter base="/ui-preview">
+      <WorkspaceProvider storageNamespace="fieldready-ui-preview">
+        <div className="min-h-screen">
+          <div
+            className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-950"
+            role="status"
+          >
+            DEVELOPMENT UI PREVIEW · Fictional test data only · Separate local vault · Not an operational workspace
+          </div>
+          <Shell><WorkspaceRoutes /></Shell>
+        </div>
+      </WorkspaceProvider>
+    </WouterRouter>
+  );
+}
+
 function AuthenticatedWorkspace() {
   const { isLoaded, isSignedIn, user } = useUser();
 
@@ -257,6 +283,9 @@ function ClerkRoutes() {
       <Switch>
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
+        {import.meta.env.DEV && (
+          <Route path="/ui-preview/*?" component={DevelopmentUiPreview} />
+        )}
         <Route component={AuthenticatedWorkspace} />
       </Switch>
     </ClerkProvider>

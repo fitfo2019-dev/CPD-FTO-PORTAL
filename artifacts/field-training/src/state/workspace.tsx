@@ -188,9 +188,15 @@ function sameCaseFolder(a:PhaseCaseFolder,b:PhaseCaseFolder) {
     &&a.phase===b.phase;
 }
 
-export function WorkspaceProvider({ children }: { children: ReactNode }) {
+export function WorkspaceProvider({
+  children,
+  storageNamespace = 'fieldready-demo',
+}: {
+  children: ReactNode;
+  storageNamespace?: string;
+}) {
   const storage = useRef<OfflineStorage>(null as unknown as OfflineStorage);
-  if (!storage.current) storage.current = new OfflineStorage('fieldready-demo');
+  if (!storage.current) storage.current = new OfflineStorage(storageNamespace);
   const [ws, setWs] = useState<Workspace>(createEmptyWorkspace);
   const [epoch, setEpoch] = useState(0);
   const [vault, setVault] = useState<VaultState>('none');
