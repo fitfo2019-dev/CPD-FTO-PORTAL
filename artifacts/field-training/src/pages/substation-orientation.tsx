@@ -13,7 +13,7 @@ import { parseRunDateTime } from '@/lib/run-details.js';
 import { useWorkspace } from '@/state/workspace.js';
 
 export default function SubstationOrientationPage() {
-  const {ws,vault,upsertSubstationOrientation}=useWorkspace();
+  const {ws,vault,upsertSubstationOrientation,previewOnly}=useWorkspace();
   const [,navigate]=useLocation();
   const {toast}=useToast();
   useEffect(()=>{
@@ -62,7 +62,14 @@ export default function SubstationOrientationPage() {
     }
      const saved={...record,dateTime,phase:folder.phase,phaseStartDate:firstDay,updatedAt:new Date().toISOString()};
     upsertSubstationOrientation(saved);setRecord(saved);
-     toast({title:'Phase orientation saved on this device',description:vault==='unlocked'?'Encrypted local autosave is in progress. The shift form is opening next.':'It is only in memory until you open the local vault and save this device workspace.'});
+      toast({
+        title:previewOnly?'Orientation saved in test preview':'Phase orientation saved on this device',
+        description:previewOnly
+          ? 'This temporary test entry will clear when the preview refreshes. The shift form is opening next.'
+          : vault==='unlocked'
+            ? 'Encrypted local autosave is in progress. The shift form is opening next.'
+            : 'It is only in memory until you open the local vault and save this device workspace.',
+      });
      navigate('/reports/new');
   };
   const checklistReviewed=!!record.checklistReviewedAt;
@@ -71,7 +78,7 @@ export default function SubstationOrientationPage() {
       <button type="button" onClick={()=>window.print()} className="inline-flex min-h-11 items-center gap-2 rounded border border-primary/25 bg-card px-3 text-sm font-semibold shadow-sm transition-colors hover:bg-muted" data-testid="button-print-orientation"><Printer className="h-4 w-4"/>Print / PDF</button>
     </PageHead>
     <div className="orientation-guidance mb-4 rounded border p-3 text-sm">
-       Complete this before the first shift of each phase. The form is dated for the phase’s first scheduled workday. Every checklist item starts checked for quick review; clear anything not completed during the walkthrough, then confirm the review before saving. Values stay in this device’s local workspace.
+        Complete this before the first shift of each phase. The form is dated for the phase’s first scheduled workday. Every checklist item starts checked for quick review; clear anything not completed during the walkthrough, then confirm the review before saving. {previewOnly?'Test values remain in memory and clear when the preview refreshes.':'Values stay in this device’s local workspace.'}
     </div>
     {!canEdit&&<div className="mb-4 rounded border bg-muted/30 p-3 text-sm">FTO Coordinator view is read-only. The assigned FTO completes and saves this orientation.</div>}
     <Panel title="PO, FTO, substation, and date" className="orientation-panel">

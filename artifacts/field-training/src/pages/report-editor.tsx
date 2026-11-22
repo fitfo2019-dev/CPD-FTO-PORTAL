@@ -50,7 +50,7 @@ function blank(folder: PhaseCaseFolder, date: string, prior?: Report): Report {
 export default function ReportEditor() {
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
-  const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket } = useWorkspace();
+  const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket, previewOnly } = useWorkspace();
   const [, nav] = useLocation();
   const { toast } = useToast();
   useEffect(() => {
@@ -336,7 +336,12 @@ export default function ReportEditor() {
     if (runFormDirty) { toast({title:'Add or update the run first',description:'The open run form is not yet part of this daily log.',variant:'destructive'}); return false; }
     const next = { ...r, date: parsedDate, ratingsReviewedAt: reviewed ? new Date().toISOString() : r.ratingsReviewedAt, updatedAt: new Date().toISOString() };
     upsertReport(next); setR(next);
-    toast({ title: 'Draft updated in workspace', description: 'Use "Save locally" to encrypt it on this device.' });
+    toast({
+      title: 'Draft updated in workspace',
+      description: previewOnly
+        ? 'This temporary test draft remains in memory and clears when the preview refreshes.'
+        : 'Use "Save locally" to encrypt it on this device.',
+    });
     if (nextWorkingDay) nav('/reports/new');
     else if (isNew) nav('/reports/' + next.id, { replace: true });
     return true;

@@ -8,7 +8,7 @@ import type { LocalChatDraft } from '@/lib/offlineStorage.js';
 export default function FtoForumPage() {
   const {
     ws, epoch, vault, online, loadLocalChatDrafts, saveLocalChatDraft,
-    deleteLocalChatDraft, saveNow,
+    deleteLocalChatDraft, saveNow, previewOnly,
   } = useWorkspace();
   const { toast } = useToast();
   const [body, setBody] = useState('');
@@ -59,7 +59,12 @@ export default function FtoForumPage() {
       await saveLocalChatDraft(item);
       setDrafts(current => [item, ...current]);
       setBody('');
-      toast({ title: 'Saved on this device', description: 'This message is encrypted, unsent, and not in the upload queue.' });
+      toast({
+        title: previewOnly ? 'Saved in test preview' : 'Saved on this device',
+        description: previewOnly
+          ? 'This fictional draft stays in memory and clears when the page refreshes.'
+          : 'This message is encrypted, unsent, and not in the upload queue.',
+      });
     } catch {
       setError('Could not save this draft to the encrypted local vault. The text remains in the editor.');
     } finally {
@@ -68,7 +73,9 @@ export default function FtoForumPage() {
   }
 
   async function deleteDraft(item: LocalChatDraft) {
-    if (!window.confirm('Delete this unsent message from this device? This cannot be undone.')) return;
+    if (!window.confirm(previewOnly
+      ? 'Delete this temporary test draft?'
+      : 'Delete this unsent message from this device? This cannot be undone.')) return;
     setBusy(true);
     setError('');
     try {
@@ -86,13 +93,13 @@ export default function FtoForumPage() {
     <PageHead kicker="Staff communication" title="FTO Forum">
       <span className="inline-flex min-h-10 items-center gap-2 rounded border bg-card px-3 text-xs font-semibold"><MessageSquare className="h-4 w-4"/>FTOs and FTO Coordinator</span>
     </PageHead>
-    <Panel title="Unsent message drafts · this device only" data-testid="panel-fto-forum">
+    <Panel title={previewOnly ? 'Unsent test drafts · memory only' : 'Unsent message drafts · this device only'} data-testid="panel-fto-forum">
       <div className="border-b bg-warn/5 px-4 py-3 text-sm">
         <b>{online ? 'Chat is not connected.' : 'You are offline.'}</b> These are unsent drafts; they are not delivered to other FTOs or the FTO Coordinator. You can delete them at any time.
       </div>
       <div className="p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>{vault === 'unlocked' ? 'Local vault unlocked' : 'Unlock the local vault to save or view drafts'}</span>
+          <span>{previewOnly ? 'Temporary test memory' : vault === 'unlocked' ? 'Local vault unlocked' : 'Unlock the local vault to save or view drafts'}</span>
           <span>{drafts.length} saved unsent {drafts.length === 1 ? 'draft' : 'drafts'}</span>
         </div>
         <label className="block text-sm font-semibold">Message draft
@@ -113,7 +120,7 @@ export default function FtoForumPage() {
                 </div>
                 <p className="mt-2 whitespace-pre-wrap break-words text-sm">{item.body}</p>
                 <div className="mt-3 flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">UNSENT · LOCAL ONLY</span>
+                   <span className="text-xs font-semibold text-muted-foreground">{previewOnly?'TEST ONLY · CLEARS ON REFRESH':'UNSENT · LOCAL ONLY'}</span>
                   <button type="button" onClick={() => void deleteDraft(item)} disabled={busy} className="inline-flex min-h-10 items-center gap-2 rounded border border-destructive/40 px-3 text-sm font-semibold text-destructive disabled:opacity-50" data-testid={`button-delete-fto-forum-draft-${item.id}`}><Trash2 className="h-4 w-4"/>Delete draft</button>
                 </div>
               </article>)}

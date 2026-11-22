@@ -120,7 +120,9 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div data-app-shell className="min-h-[100dvh] flex flex-col bg-background" onClickCapture={guardInternalLink}>
       <div role="note" data-testid="banner-operational-status" className="sticky top-0 z-40 border-t-[3px] border-accent bg-[#f1f3f5] px-3 py-2 text-center text-xs sm:text-sm font-semibold text-[#202934]">
-        <span className="mr-2 inline-block h-2 w-2 rounded-full bg-accent align-middle" />Patrol View and report submission are unavailable. Do not enter operational incident identifiers. Records saved here are local drafts, not submitted or server-confirmed.
+        <span className="mr-2 inline-block h-2 w-2 rounded-full bg-accent align-middle" />{w.previewOnly
+          ? 'Fictional UI test only. Do not enter operational identifiers. Changes are temporary and clear on refresh.'
+          : 'Patrol View and report submission are unavailable. Do not enter operational incident identifiers. Records saved here are local drafts, not submitted or server-confirmed.'}
       </div>
       <header className="bg-sidebar text-sidebar-foreground shadow-sm">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
@@ -176,7 +178,9 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-2 px-4 py-2.5 sm:px-6">
           <div data-testid="status-connection" aria-live="polite" className={cn('flex items-center gap-2 rounded-sm border px-3 py-1.5 text-xs font-semibold', w.online ? 'border-border bg-background' : 'border-accent bg-accent/10')}>
             {w.online ? <Wifi className="h-3.5 w-3.5 text-primary" /> : <WifiOff className="h-3.5 w-3.5 text-accent" />}
-            {w.vault === 'unlocked'
+            {w.previewOnly
+              ? <>UI test workspace · changes stay in memory until refresh</>
+              : w.vault === 'unlocked'
               ? unsaved
                 ? <>{w.online ? 'Online' : 'Offline'} · changes not yet saved · <span className="mono">{w.pending}</span> local records not uploaded</>
                 : <>{w.online ? 'Online' : 'Offline'} · saved on this device · <span className="mono">{w.pending}</span> local records not uploaded</>
@@ -185,7 +189,11 @@ export function Shell({ children }: { children: ReactNode }) {
                 : <>{w.online ? 'Online' : 'Offline'} · report service not connected</>}
           </div>
           <div className="hidden text-xs text-muted-foreground lg:block" data-testid="status-vault">
-            {w.vault === 'unlocked' ? (unsaved ? 'Vault open · unsaved changes' : 'Vault open · saved on this device') : (unsaved ? 'Unsaved changes · not stored on this device' : 'Not saved · local changes in memory')}
+            {w.previewOnly
+              ? 'Fictional test assignment · refresh clears test changes'
+              : w.vault === 'unlocked'
+                ? (unsaved ? 'Vault open · unsaved changes' : 'Vault open · saved on this device')
+                : (unsaved ? 'Unsaved changes · not stored on this device' : 'Not saved · local changes in memory')}
           </div>
           <div className="ml-auto flex w-full min-w-0 items-center gap-1.5 md:w-auto">
             {isLoaded && isSignedIn ? (
@@ -201,12 +209,26 @@ export function Shell({ children }: { children: ReactNode }) {
                 {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
               </select>
             </label>
-            {w.vault === 'unlocked' ? (
-              <button data-testid="button-lock" onClick={requestLock} className="flex h-9 items-center gap-1.5 rounded-sm border px-3 text-sm font-semibold transition-colors hover:bg-muted"><Lock className="h-4 w-4" /><span className="hidden sm:inline">Lock</span></button>
+            {w.previewOnly ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Reset the fictional UI test workspace? All in-memory test entries will be cleared.')) w.resetWorkspace();
+                }}
+                className="flex h-9 items-center gap-1.5 rounded-sm border px-3 text-sm font-semibold transition-colors hover:bg-muted"
+              >
+                Reset test data
+              </button>
             ) : (
-              <button data-testid="button-unlock" onClick={requestRestore} className="flex h-9 items-center gap-1.5 rounded-sm border px-3 text-sm font-semibold transition-colors hover:bg-muted"><Unlock className="h-4 w-4" /><span className="hidden sm:inline">Unlock saved work</span></button>
+              <>
+                {w.vault === 'unlocked' ? (
+                  <button data-testid="button-lock" onClick={requestLock} className="flex h-9 items-center gap-1.5 rounded-sm border px-3 text-sm font-semibold transition-colors hover:bg-muted"><Lock className="h-4 w-4" /><span className="hidden sm:inline">Lock</span></button>
+                ) : (
+                  <button data-testid="button-unlock" onClick={requestRestore} className="flex h-9 items-center gap-1.5 rounded-sm border px-3 text-sm font-semibold transition-colors hover:bg-muted"><Unlock className="h-4 w-4" /><span className="hidden sm:inline">Unlock saved work</span></button>
+                )}
+                <button data-testid="button-save" onClick={onSave} className="flex h-9 items-center gap-1.5 rounded-sm bg-primary px-3 text-sm font-semibold text-primary-foreground transition-transform active:scale-[.97]"><Save className="h-4 w-4" /><span className="hidden sm:inline">Save locally</span></button>
+              </>
             )}
-            <button data-testid="button-save" onClick={onSave} className="flex h-9 items-center gap-1.5 rounded-sm bg-primary px-3 text-sm font-semibold text-primary-foreground transition-transform active:scale-[.97]"><Save className="h-4 w-4" /><span className="hidden sm:inline">Save locally</span></button>
             <button data-testid="button-theme" onClick={toggle} aria-label={night ? 'Switch to daylight' : 'Switch to night shift'} className="flex h-9 items-center gap-1.5 rounded-sm border px-3 text-sm font-semibold transition-colors hover:bg-muted">{night ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}<span className="hidden sm:inline">{night ? 'Daylight' : 'Night shift'}</span></button>
           </div>
         </div>

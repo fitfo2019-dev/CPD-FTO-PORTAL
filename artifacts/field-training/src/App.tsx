@@ -240,13 +240,13 @@ function DemoWorkspace() {
 function DevelopmentUiPreview() {
   return (
     <WouterRouter base="/ui-preview">
-      <WorkspaceProvider storageNamespace="fieldready-ui-preview">
+      <WorkspaceProvider storageNamespace="fieldready-ui-preview" previewOnly>
         <div className="min-h-screen">
           <div
             className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-950"
             role="status"
           >
-            DEVELOPMENT UI PREVIEW · Fictional test data only · Separate local vault · Not an operational workspace
+            DEVELOPMENT UI PREVIEW · Fictional assignment loaded · Changes stay in memory until refresh · Not operational
           </div>
           <Shell><WorkspaceRoutes /></Shell>
         </div>

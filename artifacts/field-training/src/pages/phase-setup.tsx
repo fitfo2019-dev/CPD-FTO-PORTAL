@@ -66,7 +66,7 @@ function valuesFromAssignment(assignment:TrainingAssignment,ftos:{badge:string;n
 }
 
 export default function PhaseSetupPage() {
-  const {ws,vault,setCaseFolder}=useWorkspace();
+  const {ws,vault,setCaseFolder,previewOnly}=useWorkspace();
   const {toast}=useToast();
   const canEdit=ws.role==='fto'||ws.role==='fto_coordinator';
   const canManageAssignment=ws.role==='fto_coordinator';
@@ -128,7 +128,14 @@ export default function PhaseSetupPage() {
       openedAt:new Date().toISOString(),
     };
     setCaseFolder(folder);
-    toast({title:'Phase setup added to workspace',description:vault==='unlocked'?'Encrypted local autosave is in progress. New shifts will use these values; existing records keep their saved snapshots.':'It is only in memory until you open the local vault and save this device workspace.'});
+    toast({
+      title:'Phase setup added to workspace',
+      description:previewOnly
+        ? 'This is temporary test data and will clear when the preview refreshes.'
+        : vault==='unlocked'
+          ? 'Encrypted local autosave is in progress. New shifts will use these values; existing records keep their saved snapshots.'
+          : 'It is only in memory until you open the local vault and save this device workspace.',
+    });
   }
 
   if(!canEdit) return <Panel title="Phase setup access"><p className="p-4 text-sm">Phase setup is available to FTOs and the FTO Coordinator.</p></Panel>;

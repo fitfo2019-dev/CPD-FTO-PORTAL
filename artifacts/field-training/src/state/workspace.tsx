@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, type LocalChatDraft } from '@/lib/offlineStorage.js';
-import { createEmptyWorkspace } from '@/lib/empty-workspace.js';
+import { createEmptyWorkspace, createUiPreviewWorkspace } from '@/lib/empty-workspace.js';
 import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
 import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography.js';
 import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
@@ -13,7 +13,7 @@ export type VaultState = 'none' | 'unlocked';
 type VaultIntent = 'save' | 'restore' | null;
 
 interface Ctx {
-  ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null;
+  ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean;
   setRole(r: Role): void; upsertReport(r: Report): void; upsertWeeklyAcknowledgement(ack: WeeklyPacketAcknowledgement): void; deleteReport(id: string): void; toggleTask(id: string, by: string): void; setCaseFolder(folder: PhaseCaseFolder): void;
   upsertWeeklyPerformanceLog(log:WeeklyPerformanceLog):void; upsertSubstationOrientation(record:SubstationOrientationRecord):void;
   upsertFtoPhasePosting(posting:FtoPhasePosting):void; upsertFtoPhaseSignup(signup:FtoPhaseSignup):void; upsertCoverageRequest(request:CoverageRequest):void;
@@ -191,18 +191,21 @@ function sameCaseFolder(a:PhaseCaseFolder,b:PhaseCaseFolder) {
 export function WorkspaceProvider({
   children,
   storageNamespace = 'fieldready-demo',
+  previewOnly = false,
 }: {
   children: ReactNode;
   storageNamespace?: string;
+  previewOnly?: boolean;
 }) {
   const storage = useRef<OfflineStorage>(null as unknown as OfflineStorage);
   if (!storage.current) storage.current = new OfflineStorage(storageNamespace);
-  const [ws, setWs] = useState<Workspace>(createEmptyWorkspace);
+  const [ws, setWs] = useState<Workspace>(() => previewOnly ? createUiPreviewWorkspace() : createEmptyWorkspace());
   const [epoch, setEpoch] = useState(0);
-  const [vault, setVault] = useState<VaultState>('none');
-  const [restored, setRestored] = useState(false);
+  const [vault, setVault] = useState<VaultState>(previewOnly ? 'unlocked' : 'none');
+  const [restored, setRestored] = useState(previewOnly);
   const [pending, setPending] = useState(0);
   const [dirty, setDirty] = useState(false);
+  const [previewChatDrafts, setPreviewChatDrafts] = useState<LocalChatDraft[]>([]);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [storagePersistent, setStoragePersistent] = useState<boolean | null>(null);
   const [intent, setIntent] = useState<VaultIntent>(null);
@@ -225,13 +228,14 @@ export function WorkspaceProvider({
   const refreshPending = useCallback(async () => { try { if (storage.current.isUnlocked) setPending(await storage.current.pendingCount()); } catch { /* ignore */ } }, []);
 
   const persist = useCallback(async (w: Workspace) => {
+    if (previewOnly) return;
     const at = rev.current;
     try { await storage.current.save<Workspace>('workspace', w); }
     catch (e) { setSaveError(e instanceof Error ? e.message : 'Local save failed'); throw e; }
     setSaveError(null);
     if (rev.current === at) setDirty(false);
     await refreshPending();
-  }, [refreshPending]);
+  }, [previewOnly, refreshPending]);
 
   // A recovered connection retries a failed encrypted local write. It does not
   // upload anything; no authenticated server transport is configured here.
@@ -255,24 +259,40 @@ export function WorkspaceProvider({
   }, [ws, vault, dirty, persist]);
 
   const lockNow = useCallback((reason?: string) => {
+    if (previewOnly) {
+      storage.current.lock();
+      setLockedWithUnsaved(false);
+      setVault('unlocked');
+      setRestored(true);
+      setPending(0);
+      setDirty(false);
+      setEditorDirty(false);
+      setSaveError(null);
+      setPreviewChatDrafts([]);
+      setWs(createUiPreviewWorkspace());
+      setEpoch(e => e + 1);
+      setLockedNotice(false);
+      return;
+    }
     setLockedWithUnsaved(!!reason && (dirtyRef.current || editorDirtyRef.current || !!saveErrorRef.current));
     storage.current.lock();
     setVault('none'); setRestored(false); setPending(0); setDirty(false); setEditorDirty(false); setSaveError(null);
     setWs(createEmptyWorkspace()); setEpoch(e => e + 1);
     if (reason) setLockedNotice(true);
-  }, []);
+  }, [previewOnly]);
 
   // inactivity
   useEffect(() => {
-    if (vault !== 'unlocked') return;
+    if (previewOnly || vault !== 'unlocked') return;
     let t = window.setTimeout(() => lockNow('idle'), IDLE_MS);
     const reset = () => { window.clearTimeout(t); t = window.setTimeout(() => lockNow('idle'), IDLE_MS); };
     const ev = ['pointerdown','keydown','scroll','touchstart'];
     ev.forEach(e => window.addEventListener(e, reset, { passive: true }));
     return () => { window.clearTimeout(t); ev.forEach(e => window.removeEventListener(e, reset)); };
-  }, [vault, lockNow]);
+  }, [vault, lockNow, previewOnly]);
 
   const setupAndSave = useCallback(async (pass: string) => {
+    if (previewOnly) throw new Error('The UI test preview is memory-only and cannot create a saved vault.');
     const s = storage.current;
     await s.unlock(enc(pass));
     let existing: Workspace | undefined;
@@ -284,9 +304,10 @@ export function WorkspaceProvider({
     setWs(w); setVault('unlocked'); setRestored(true);
     setStoragePersistent(await requestPersistentStorage());
     setLockedWithUnsaved(false); setLockedNotice(false);
-  }, [persist]);
+  }, [persist, previewOnly]);
 
   const unlockAndRestore = useCallback(async (pass: string) => {
+    if (previewOnly) throw new Error('The UI test preview is memory-only and cannot open a saved vault.');
     const s = storage.current;
     await s.unlock(enc(pass));
     let data: Workspace | undefined;
@@ -373,19 +394,34 @@ export function WorkspaceProvider({
     setWs({ ...workspaceWithoutChatHistory, packetIndexVersion:1, role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords }); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(weeklyPerformanceLogs!==savedWeeklyPerformanceLogs); setLockedNotice(false); setLockedWithUnsaved(false);
     setStoragePersistent(await requestPersistentStorage());
     await refreshPending();
-  }, [refreshPending]);
+  }, [previewOnly, refreshPending]);
 
   const saveNow = useCallback(async () => {
+    if (previewOnly) return;
     if (vault !== 'unlocked') { setIntent('save'); return; }
     await persist(wsRef.current);
-  }, [vault, persist]);
+  }, [previewOnly, vault, persist]);
 
-  const loadLocalChatDrafts = useCallback(() => storage.current.getLocalOnlyDrafts<LocalChatDraft>(), []);
-  const saveLocalChatDraft = useCallback((draft: LocalChatDraft) => storage.current.saveLocalOnlyDraft(`chat-draft:${draft.id}`, draft), []);
-  const deleteLocalChatDraft = useCallback((id: string) => storage.current.deleteLocalOnlyDraft(`chat-draft:${id}`), []);
+  const loadLocalChatDrafts = useCallback(() => previewOnly
+    ? Promise.resolve(previewChatDrafts)
+    : storage.current.getLocalOnlyDrafts<LocalChatDraft>(), [previewOnly, previewChatDrafts]);
+  const saveLocalChatDraft = useCallback((draft: LocalChatDraft) => {
+    if (previewOnly) {
+      setPreviewChatDrafts(current => [draft, ...current.filter(item => item.id !== draft.id)]);
+      return Promise.resolve();
+    }
+    return storage.current.saveLocalOnlyDraft(`chat-draft:${draft.id}`, draft);
+  }, [previewOnly]);
+  const deleteLocalChatDraft = useCallback((id: string) => {
+    if (previewOnly) {
+      setPreviewChatDrafts(current => current.filter(item => item.id !== id));
+      return Promise.resolve();
+    }
+    return storage.current.deleteLocalOnlyDraft(`chat-draft:${id}`);
+  }, [previewOnly]);
 
   const value = useMemo<Ctx>(() => ({
-    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent,
+    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, previewOnly,
     segTaskDirectory: SEG_TASK_DIRECTORY,
     getOperationalPacket: report => resolveOperationalPacket(
       report,
@@ -426,10 +462,10 @@ export function WorkspaceProvider({
       deleteLawReviewRecord:(id)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).filter(item=>item.id!==id)})),
     deleteReport: (id) => mutate(w => ({ ...w, reports: w.reports.filter(r => r.id !== id) })),
     toggleTask: (id, by) => mutate(w => ({ ...w, tasks: w.tasks.map((t: Task) => t.id !== id ? t : t.done ? { ...t, done: false, by: undefined, at: undefined } : { ...t, done: true, by, at: new Date().toISOString() }) })),
-    openVault: (i) => setIntent(i), closeVault: () => setIntent(null),
+     openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
     setupAndSave, unlockAndRestore, saveNow, lockNow, dismissLockedNotice: () => setLockedNotice(false),
-    resetWorkspace: () => { rev.current++; setWs(createEmptyWorkspace()); setDirty(true); setEditorDirty(false); setEpoch(e => e + 1); },
-  }), [ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, setupAndSave, unlockAndRestore, saveNow, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft]);
+     resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace() : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setEpoch(e => e + 1); },
+   }), [ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, setupAndSave, unlockAndRestore, saveNow, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }
