@@ -32,6 +32,7 @@ import RoleAccessPage from '@/pages/role-access.js';
 import { isTechnicalRole } from '@/lib/model.js';
 import { getNextReportDate } from '@/lib/training-calendar.js';
 import FtoClassesPage from '@/pages/fto-classes.js';
+import { PortalRouteSwitch, UiPreviewRouter } from '@/lib/portal-routing.js';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -109,14 +110,12 @@ function SignInPage() {
         signUpUrl={`${basePath}/sign-up`}
         appearance={clerkAppearance}
       />
-      {import.meta.env.DEV && (
-        <a
-          href={`${basePath}/ui-preview`}
-          className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
-        >
-          Open UI test preview · fictional data only
-        </a>
-      )}
+      <a
+        href={`${basePath}/ui-preview`}
+        className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+      >
+        Open disposable UI preview · fictional data only
+      </a>
     </div>
   );
 }
@@ -243,19 +242,19 @@ function DemoWorkspace() {
 
 function DevelopmentUiPreview() {
   return (
-    <WouterRouter base="/ui-preview">
+    <UiPreviewRouter>
       <WorkspaceProvider storageNamespace="fieldready-ui-preview" previewOnly>
         <div className="min-h-screen">
           <div
             className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-950"
             role="status"
           >
-            DEVELOPMENT UI PREVIEW · Fictional assignment loaded · Changes stay in memory until refresh · Not operational
+            DISPOSABLE UI PREVIEW · Fictional assignment loaded · Changes stay in memory until refresh · No portal or record access
           </div>
           <Shell><WorkspaceRoutes /></Shell>
         </div>
       </WorkspaceProvider>
-    </WouterRouter>
+    </UiPreviewRouter>
   );
 }
 
@@ -284,14 +283,12 @@ function ClerkRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
-      <Switch>
-        <Route path="/sign-in/*?" component={SignInPage} />
-        <Route path="/sign-up/*?" component={SignUpPage} />
-        {import.meta.env.DEV && (
-          <Route path="/ui-preview/*?" component={DevelopmentUiPreview} />
-        )}
-        <Route component={AuthenticatedWorkspace} />
-      </Switch>
+      <PortalRouteSwitch
+        signIn={<SignInPage />}
+        signUp={<SignUpPage />}
+        uiPreview={<DevelopmentUiPreview />}
+        protectedPortal={<AuthenticatedWorkspace />}
+      />
     </ClerkProvider>
   );
 }
