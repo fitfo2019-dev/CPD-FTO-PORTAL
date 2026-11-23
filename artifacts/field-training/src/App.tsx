@@ -35,6 +35,7 @@ import FtoClassesPage from '@/pages/fto-classes.js';
 import { PortalRouteSwitch, UiPreviewRouter } from '@/lib/portal-routing.js';
 import ApprovalPreviews from '@/pages/approval-previews.js';
 import AgencyPacketsPage from '@/pages/agency-packets.js';
+import { createFtoTestPacketWorkspace } from '@/lib/test-packet.js';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -115,6 +116,12 @@ function SignInPage() {
             className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
             Open UI test preview · fictional data only
+          </a>
+          <a
+            href={`${basePath}/fto-test-packet-preview/`}
+            className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Open FTO test packet · fictional data only
           </a>
           <a
             href={`${basePath}/approval-preview`}
@@ -282,6 +289,28 @@ function DevelopmentUiPreview() {
   );
 }
 
+function DevelopmentFtoTestPacketPreview() {
+  return (
+    <WouterRouter base="/fto-test-packet-preview">
+      <WorkspaceProvider
+        storageNamespace="fieldready-fto-test-packet-preview"
+        previewOnly
+        previewWorkspace={createFtoTestPacketWorkspace}
+        previewLabel="FTO test packet"
+      >
+        <div className="min-h-screen">
+          <div className="border-b-2 border-amber-500 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950" role="status" data-testid="banner-fto-test-packet">
+            <strong>FICTIONAL FTO TEST PACKET · TEST ONLY</strong>
+            <span className="mx-2 hidden sm:inline">|</span>
+            <span>Sample records only. No signatures, official approvals, release, or agency sync. Changes stay in memory; refresh or reset restores this packet.</span>
+          </div>
+          <Shell><WorkspaceRoutes /></Shell>
+        </div>
+      </WorkspaceProvider>
+    </WouterRouter>
+  );
+}
+
 function AuthenticatedWorkspace() {
   const { isLoaded, isSignedIn, user } = useUser();
 
@@ -314,6 +343,11 @@ function ClerkRoutes() {
         signIn={<SignInPage />}
         signUp={<SignUpPage />}
         uiPreview={<DevelopmentUiPreview />}
+        developmentRoutes={import.meta.env.DEV ? (
+          <Route path="/fto-test-packet-preview/*?">
+            <DevelopmentFtoTestPacketPreview />
+          </Route>
+        ) : null}
         protectedPortal={<AuthenticatedWorkspace />}
       />
     </ClerkProvider>

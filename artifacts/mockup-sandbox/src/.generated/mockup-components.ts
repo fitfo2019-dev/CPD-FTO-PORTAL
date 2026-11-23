@@ -7,12 +7,11 @@ export const modules: ModuleMap = {
   "./components/mockups/ResourceLibraryPreview.tsx": () => import("../components/mockups/ResourceLibraryPreview.tsx"),
   "./components/mockups/RoleWorkspacePreview.tsx": () => import("../components/mockups/RoleWorkspacePreview.tsx"),
   "./components/mockups/SavedSessionConflictAlert.tsx": () => import("../components/mockups/SavedSessionConflictAlert.tsx"),
-  "./components/mockups/TabOverwriteRecoveryPreview.tsx": () => import("../components/mockups/TabOverwriteRecoveryPreview.tsx"),
   "./components/mockups/fto-focused-workflow/Current.tsx": () => import("../components/mockups/fto-focused-workflow/Current.tsx"),
   "./components/mockups/fto-focused-workflow/FocusedWorkflow.tsx": () => import("../components/mockups/fto-focused-workflow/FocusedWorkflow.tsx"),
   "./components/mockups/investigator/WarningTriage.tsx": () => import("../components/mockups/investigator/WarningTriage.tsx"),
-  "./components/mockups/operations/AuditPulse.tsx": () => import("../components/mockups/operations/AuditPulse.tsx"),
   "./components/mockups/orientation-editable/EditableOrientation.tsx": () => import("../components/mockups/orientation-editable/EditableOrientation.tsx"),
+  "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx"),
   "./components/mockups/packet-upload/PacketUploadPreview.tsx": () => import("../components/mockups/packet-upload/PacketUploadPreview.tsx"),
-  "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx")
+  "./components/mockups/operations/AuditPulse.tsx": () => import("../components/mockups/operations/AuditPulse.tsx")
 };

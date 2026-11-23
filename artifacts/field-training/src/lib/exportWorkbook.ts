@@ -19,7 +19,7 @@ import {
   type SubstationOrientationRecord,
   type PhaseCaseFolder,
 } from './model.js';
-import { substationOrientationXlsxRows, weeklyPerformanceLogXlsxRows } from './extended-form-rows.js';
+import { splitExcelText, substationOrientationXlsxRows, weeklyPerformanceLogXlsxRows } from './extended-form-rows.js';
 import { formatDateDMY, formatDateTimeMDY, getSundaySaturdayWeek } from './training-calendar.js';
 import { weeklyWorkbookForm } from './weekly-workbook-form.js';
 import { CLEARANCE_CODES, RADIO_CODES, formatRadioCode } from './radio-codes.js';
@@ -220,13 +220,14 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
   ]];
   const runRows: (string | number)[][] = [[
     'Probationary Officer', 'Badge', 'Date', 'Shift', 'FTO Assignment', 'Run time', 'Primary form', 'Additional forms', 'Form status',
-    'Dispatched', 'Arrest made', 'Transported after arrest', 'Transport destination type', 'Transport destination', 'OVI processed', 'Traffic violator', 'Run narrative',
+    'Dispatched', 'Arrest made', 'Transported after arrest', 'Transport destination type', 'Transport destination', 'OVI processed', 'Traffic violator', 'Run narrative', 'Narrative part',
     'Incident number', 'Unit / cruiser', 'Street address', 'City', 'State', 'ZIP code', 'Incident zone', 'Incident cruiser district', 'Dispatched at', 'Run ended',
     'Run type 10-code', 'Run type description — public reference', 'Situation found 10-code', 'Situation description — public reference',
     'Clearance code', 'Clearance description — public reference', 'Solve Citation/Summons*', 'Related activity/forms', 'Source log ID', 'Run ID', 'Class',
   ]];
   const narrativeRows: (string | number)[][] = [[
-    'Probationary Officer', 'Badge', 'Date', 'Phase', 'Shift', 'FTO Assignment', 'Daily narrative', 'Remedial training', 'PO comments',
+    'Probationary Officer', 'Badge', 'Date', 'Phase', 'Shift', 'FTO Assignment', 'Daily narrative', 'Narrative part',
+    'Remedial training', 'Remedial part', 'PO comments', 'PO comments part',
   ]];
   const runChecklistRows: (string | number)[][] = [[
     'Probationary Officer', 'Badge', 'Date', 'Shift', 'FTO Assignment', 'Run time', 'Primary form', 'Checklist segment', 'Checklist item', 'Completed', 'Not applicable to category', 'Form status', 'Checklist reviewed at', 'Source log ID', 'Run ID',
@@ -288,11 +289,19 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
          weekStart, safeText(report.shift), safeText(assignmentValue(report)), safeText(label), Number(dailyActivity[key] ?? 0),
       ]);
     }
-    narrativeRows.push([
-      safeText(report.recruitName), safeText(report.recruitBadge), formatDateDMY(report.date),
-       `Phase ${report.phase}`, safeText(report.shift), safeText(assignmentValue(report)), safeText(report.narrative),
-      safeText(report.remedial), safeText(report.recruitComments),
-    ]);
+    const dailyNarrativeParts = splitExcelText(report.narrative);
+    const remedialParts = splitExcelText(report.remedial);
+    const recruitCommentParts = splitExcelText(report.recruitComments);
+    const narrativePartCount = Math.max(dailyNarrativeParts.length, remedialParts.length, recruitCommentParts.length);
+    for (let part = 0; part < narrativePartCount; part++) {
+      narrativeRows.push([
+        safeText(report.recruitName), safeText(report.recruitBadge), formatDateDMY(report.date),
+        `Phase ${report.phase}`, safeText(report.shift), safeText(assignmentValue(report)),
+        safeText(dailyNarrativeParts[part] ?? ''), `${part + 1} of ${dailyNarrativeParts.length}`,
+        safeText(remedialParts[part] ?? ''), `${part + 1} of ${remedialParts.length}`,
+        safeText(recruitCommentParts[part] ?? ''), `${part + 1} of ${recruitCommentParts.length}`,
+      ]);
+    }
     for (const group of DAILY_DUTY_CHECKLIST) {
       for (const item of group.items) {
         dutyRows.push([
@@ -312,13 +321,14 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
         const form = SUPPLEMENTAL_RUN_FORMS.find(item => item.key === key);
         return form ? [form] : [];
       });
-      runRows.push([
+      const runNarrativeParts = splitExcelText(run.narrative);
+      runNarrativeParts.forEach((narrativePart, partIndex) => runRows.push([
          safeText(report.recruitName), safeText(report.recruitBadge), formatDateDMY(report.date),
          safeText(report.shift), safeText(assignmentValue(report)), safeText(formatDateTimeMDY(run.occurredAt)), safeText(primary?.label ?? 'Unassigned primary form'),
         supplements.map(form => form.formNumber ? `${form.label} (${form.formNumber})` : form.label).join('; '),
         safeText(run.formStatus), run.isDispatched ? 'Yes' : 'No', run.arrestMade ? 'Yes' : 'No',
           run.transportedAfterArrest ? 'Yes' : 'No', safeText(run.transportDestinationType ?? ''), safeText(run.transportDestination ?? ''), run.oviProcessed ? 'Yes' : 'No', safeText(run.trafficMode),
-        safeText(run.narrative),
+         safeText(narrativePart), `${partIndex + 1} of ${runNarrativeParts.length}`,
         safeText(run.incidentNumber??''),safeText(run.unitNumber??''),safeText(run.location??''),safeText(run.locationCity??''),
         safeText(run.locationState??''),safeText(run.locationZip??''),safeText(run.incidentZone??''),safeText(run.incidentCruiserDistrict??''),
         safeText(run.dispatchedAt?formatDateTimeMDY(run.dispatchedAt):''),safeText(run.endedAt?formatDateTimeMDY(run.endedAt):''),
@@ -328,7 +338,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
          run.activityFlags?.solveCitationSummons ? 'Yes' : '',
         DAILY_ACTIVITY_FIELDS.filter(item=>run.activityFlags?.[item.key]).map(item=>item.label).join('; '),
         safeText(report.id), safeText(run.id), safeText(report.className),
-      ]);
+       ]));
       const reviewedComplete=run.formStatus==='complete' && !!run.checklistReviewedAt;
       let primaryIndex=0;
       const primaryChecklist=RUN_CHECKLIST_SECTIONS[run.runKind].flatMap(section=>section.items.map(item=>({

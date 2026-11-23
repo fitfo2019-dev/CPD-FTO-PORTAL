@@ -38,7 +38,7 @@ type PendingRecoveryRequest = {
 };
 
 interface Ctx {
-  ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean; otherSessions: WorkspaceSessionStatus[]; overwrittenElsewhere: boolean; recoverySnapshots: RecoverySnapshotInfo[]; recoverySyncReviewRequired: boolean;
+  ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean; previewLabel: string; otherSessions: WorkspaceSessionStatus[]; overwrittenElsewhere: boolean; recoverySnapshots: RecoverySnapshotInfo[]; recoverySyncReviewRequired: boolean;
   setRole(r: Role): void; upsertReport(r: Report): void; upsertWeeklyAcknowledgement(ack: WeeklyPacketAcknowledgement): void; deleteReport(id: string): void; toggleTask(id: string, by: string): void; setCaseFolder(folder: PhaseCaseFolder): void;
   submitPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; syncSharedPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; resolvePhaseExtensionRequest(id:string,approve:boolean):Promise<void>;
   upsertWeeklyPerformanceLog(log:WeeklyPerformanceLog):void; upsertSubstationOrientation(record:SubstationOrientationRecord):void;
@@ -244,14 +244,20 @@ export function WorkspaceProvider({
   children,
   storageNamespace = 'fieldready-demo',
   previewOnly = false,
+  previewWorkspace,
+  previewLabel = 'UI test workspace',
 }: {
   children?: ReactNode;
   storageNamespace?: string;
   previewOnly?: boolean;
+  previewWorkspace?: () => Workspace;
+  previewLabel?: string;
 }) {
   const storage = useRef<OfflineStorage>(null as unknown as OfflineStorage);
   if (!storage.current) storage.current = new OfflineStorage(storageNamespace);
-  const [ws, setWs] = useState<Workspace>(() => previewOnly ? createUiPreviewWorkspace() : createEmptyWorkspace());
+  const previewWorkspaceFactory = useRef(previewWorkspace ?? createUiPreviewWorkspace);
+  const hasCustomPreviewWorkspace = !!previewWorkspace;
+  const [ws, setWs] = useState<Workspace>(() => previewOnly ? previewWorkspaceFactory.current() : createEmptyWorkspace());
   const [epoch, setEpoch] = useState(0);
   const [vault, setVault] = useState<VaultState>(previewOnly ? 'unlocked' : 'none');
   const [restored, setRestored] = useState(previewOnly);
@@ -547,7 +553,7 @@ export function WorkspaceProvider({
       setEditorDirty(false);
       setSaveError(null);
       setPreviewChatDrafts([]);
-      setWs(createUiPreviewWorkspace(wsRef.current.role));
+      setWs(hasCustomPreviewWorkspace ? previewWorkspaceFactory.current() : createUiPreviewWorkspace(wsRef.current.role));
       setEpoch(e => e + 1);
       setLockedNotice(false);
       return;
@@ -560,7 +566,7 @@ export function WorkspaceProvider({
     setRecoverySyncReviewRequired(false); recoverySyncReviewRef.current = false;
     setWs(createEmptyWorkspace()); setEpoch(e => e + 1);
     if (reason) setLockedNotice(true);
-  }, [previewOnly]);
+  }, [previewOnly, hasCustomPreviewWorkspace]);
 
   // inactivity
   useEffect(() => {
@@ -784,7 +790,7 @@ export function WorkspaceProvider({
   }, [previewOnly]);
 
   const value = useMemo<Ctx>(() => ({
-    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, previewOnly, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired,
+    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, previewOnly, previewLabel, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired,
     segTaskDirectory: SEG_TASK_DIRECTORY,
     getOperationalPacket: report => resolveOperationalPacket(
       report,
@@ -795,7 +801,7 @@ export function WorkspaceProvider({
       if (!previewOnly) return;
       const nextRole = normalizePreviewRole(role);
       rev.current++;
-      setWs(createUiPreviewWorkspace(nextRole));
+      setWs(current => hasCustomPreviewWorkspace ? { ...current, role: nextRole } : createUiPreviewWorkspace(nextRole));
       setDirty(false);
       setEditorDirty(false);
       setSaveError(null);
@@ -809,6 +815,7 @@ export function WorkspaceProvider({
       return applyApprovedPhaseExtensions({...w,caseFolder,phaseFolders});
     }),
     submitPhaseExtensionRequest:async(request)=>{
+      if(previewOnly)throw new Error('Shared requests are disabled in this fictional test workspace.');
       if(wsRef.current.role!=='fto'||vault!=='unlocked')throw new Error('Unlock the local vault as the FTO before submitting a request.');
       await mutateAndPersist(w=>{
         const existing=w.phaseExtensionRequests.find(item=>sameExtensionTarget(item,request));
@@ -820,6 +827,7 @@ export function WorkspaceProvider({
       });
     },
     syncSharedPhaseExtensionRequest:async(request)=>{
+      if(previewOnly)return;
       if(wsRef.current.role!=='fto'||vault!=='unlocked')return;
       await mutateAndPersist(w=>{
         const existing=w.phaseExtensionRequests.find(item=>item.id===request.id);
@@ -836,6 +844,7 @@ export function WorkspaceProvider({
       });
     },
     resolvePhaseExtensionRequest:async(id,approve)=>{
+      if(previewOnly)throw new Error('Shared request reviews are disabled in this fictional test workspace.');
       if(wsRef.current.role!=='fto_coordinator'||vault!=='unlocked')throw new Error('Unlock the local vault as the FTO Coordinator to review requests.');
       await mutateAndPersist(w=>approve?approvePhaseExtension(w,id):denyPhaseExtension(w,id));
     },
@@ -873,8 +882,8 @@ export function WorkspaceProvider({
     openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
     setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, packetSyncState, packetSyncError, lockNow, dismissLockedNotice: () => setLockedNotice(false),
     dismissOverwrittenElsewhere: () => setOverwrittenElsewhere(false),
-    resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace(wsRef.current.role) : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setOverwrittenElsewhere(false); setEpoch(e => e + 1); },
-  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
+    resetWorkspace: () => { rev.current++; setWs(previewOnly ? (hasCustomPreviewWorkspace ? previewWorkspaceFactory.current() : createUiPreviewWorkspace(wsRef.current.role)) : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setOverwrittenElsewhere(false); setEpoch(e => e + 1); },
+  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly, previewLabel, hasCustomPreviewWorkspace]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

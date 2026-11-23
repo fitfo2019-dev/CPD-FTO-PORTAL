@@ -1,3 +1,4 @@
+import React from 'react';
 import { phaseLabel, type Phase, type WeeklyPerformanceLog, type SubstationOrientationRecord } from '@/lib/model.js';
 import { formatDateDMY, formatDateTimeMDY } from '@/lib/training-calendar.js';
 import { SUBSTATION_ORIENTATION_GROUPED_SECTIONS } from '@/lib/substation-orientation.js';

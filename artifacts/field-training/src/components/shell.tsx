@@ -173,7 +173,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div data-app-shell className="min-h-[100dvh] flex flex-col bg-background" onClickCapture={guardInternalLink}>
       <div role="note" data-testid="banner-operational-status" className="sticky top-0 z-40 border-t-[3px] border-accent bg-[#f1f3f5] px-3 py-2 text-center text-xs sm:text-sm font-semibold text-[#202934]">
         <span className="mr-2 inline-block h-2 w-2 rounded-full bg-accent align-middle" />{w.previewOnly
-          ? 'Fictional UI test only. Do not enter operational identifiers. Changes are temporary and clear on refresh.'
+          ? `Fictional ${w.previewLabel} only. Do not enter operational identifiers. Changes are temporary and clear on refresh.`
           : 'Patrol View and report submission are unavailable. Do not enter operational incident identifiers. Records saved here are local drafts, not submitted or server-confirmed.'}
       </div>
       <header className="bg-sidebar text-sidebar-foreground shadow-sm">
@@ -231,7 +231,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div data-testid="status-connection" aria-live="polite" className={cn('flex items-center gap-2 rounded-sm border px-3 py-1.5 text-xs font-semibold', w.online ? 'border-border bg-background' : 'border-accent bg-accent/10')}>
             {w.online ? <Wifi className="h-3.5 w-3.5 text-primary" /> : <WifiOff className="h-3.5 w-3.5 text-accent" />}
             {w.previewOnly
-              ? <>Fictional {ROLE_LABEL[w.ws.role]} preview · changes stay in memory until refresh</>
+              ? <>{w.previewLabel} · changes stay in memory until refresh</>
               : w.vault === 'unlocked'
               ? unsaved
                 ? <>{w.online ? 'Online' : 'Offline'} · changes not yet saved · <span className="mono">{w.pending}</span> local records not uploaded</>
@@ -242,7 +242,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
           <div className="hidden text-xs text-muted-foreground lg:block" data-testid="status-vault">
             {w.previewOnly
-              ? `Fictional ${ROLE_LABEL[w.ws.role]} sample · role changes and refresh clear test changes`
+              ? `Fictional ${w.previewLabel} · refresh clears test changes`
               : w.vault === 'unlocked'
                 ? (unsaved ? 'Vault open · unsaved changes' : 'Vault open · saved on this device')
                 : (unsaved ? 'Unsaved changes · not stored on this device' : 'Not saved · local changes in memory')}
@@ -265,11 +265,11 @@ export function Shell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm('Reset the fictional UI test workspace? All in-memory test entries will be cleared.')) w.resetWorkspace();
+                  if (window.confirm(`Reset the fictional ${w.previewLabel.toLowerCase()}? All in-memory test entries will be cleared.`)) w.resetWorkspace();
                 }}
                 className="flex h-9 items-center gap-1.5 rounded-sm border px-3 text-sm font-semibold transition-colors hover:bg-muted"
               >
-                Reset test data
+                Reset {w.previewLabel === 'UI test workspace' ? 'test data' : w.previewLabel}
               </button>
             ) : (
               <>

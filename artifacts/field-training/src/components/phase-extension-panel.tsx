@@ -44,7 +44,7 @@ export function PhaseExtensionReviewView({requests,onReview,reviewingId,loading,
 }
 
 export function PhaseExtensionPanel() {
-  const {ws,vault,previewOnly,submitPhaseExtensionRequest,syncSharedPhaseExtensionRequest}=useWorkspace();
+  const {ws,vault,previewOnly,previewLabel,submitPhaseExtensionRequest,syncSharedPhaseExtensionRequest}=useWorkspace();
   const {getToken,isLoaded,isSignedIn}=useAuth();
   const {toast}=useToast();
   const [extensionType,setExtensionType]=React.useState<PhaseExtensionRequest['extensionType']>('training_weeks');
@@ -108,6 +108,10 @@ export function PhaseExtensionPanel() {
       setReviewingId(undefined);
     }
   }
+
+  if(previewOnly&&previewLabel==='FTO test packet') return <Panel title="Phase extensions are disabled in this test packet" className="mb-4">
+    <p className="p-4 text-sm">The fictional packet cannot send or receive requests or decisions from the shared agency service.</p>
+  </Panel>;
 
   if(previewOnly&&ws.role==='fto_coordinator') {
     return <PhaseExtensionReviewView
