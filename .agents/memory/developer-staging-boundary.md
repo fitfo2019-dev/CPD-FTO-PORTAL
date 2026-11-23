@@ -29,3 +29,14 @@ artifact's page with the portal shell, even when server routing is correct.
 **How to apply:** Give explicit preview links and an auth-free entry point.
 Restrict offline shell navigation to portal-owned routes; exclude approval
 previews and other artifacts. Never solve preview access by opening real records.
+
+Integrated Admin Audit Log, Warning Triage and other technical/debug tools belong
+under a Developer tab requiring the existing sign-in credentials and verified
+technical permissions. The ordinary Law Library remains under Resources.
+Standalone fictional-data canvas/design-system previews remain accessible for review.
+
+**Why:** The user requested a sign-in-protected Developer tab and explicitly
+selected "Developer tools only" rather than protecting standalone design previews.
+
+**How to apply:** Do not use the preview role picker as authorization, add a
+shared developer password, or apply the Developer restriction to ordinary resources.

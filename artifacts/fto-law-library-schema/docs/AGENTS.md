@@ -37,9 +37,8 @@ in place. See `docs/consuming-web.md` for actual exports.
 - `src/generated/tokens.tsx` — GENERATED hex token object, the package's `.` and
   `./tokens` entry. Mobile (Expo) and other platforms import this.
 - `public/favicon.svg` — GENERATED app icon from `tokens.json` + the title.
-- `src/components/ui/` — the initial shadcn scaffold, exported as
-  `./components/*`. Generated systems keep and theme it; Figma imports prune and
-  restyle it; code imports replace it with the source component library.
+- `src/components/ui/` — the five source-derived Law Library families, exported
+  together through `./components/library`. No stock shadcn families remain.
 - `src/lib/` (`cn`) and `src/hooks/` — exported as `./lib/*` and `./hooks/*`.
 - `src/App.tsx` — the entry point for the living style guide.
 - `src/preview/DesignSystemBrowser.tsx` — the persistent grouped navigation,
@@ -98,10 +97,8 @@ update its story and registry entry in the same change and note meaningful
 additions or customizations in "What's here" above. Register new component pages
 with dynamic imports; do not eagerly import stories into the registry.
 
-Native components live under `src/components/native/`. Match an existing web
-component family's public API wherever React Native supports it, and document
-platform-required differences in "What's here". Native components are not
-imported into the web-only Vite preview.
+No native components are shipped by this extraction. Native consumers may read
+the portable tokens; they must not import DOM component exports.
 
 Keep `DESIGN_SYSTEM.title` and `DESIGN_SYSTEM.description` accurate. Update
 `NAV_GROUPS` whenever the system gains or loses a foundation, content guideline,

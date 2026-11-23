@@ -66,7 +66,7 @@ export function ColorsPage() {
   const supporting = Object.keys(tokens.color.light).filter(key => !core.some(role => role === key)) as Array<keyof typeof tokens.color.light>;
   return <><PageTitle eyebrow="FOUNDATIONS / COLORS" title="An indigo signature." description="Core roles come from the selected mockup. Dark mode and unsupported semantic/chart roles are derived extensions."/>
     <div className="ds-swatch-grid">{[...core, ...supporting].map(role => <article className="ds-swatch" key={role}>
-      <div style={{ background:`var(--color-${role.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`)})` }}/>
+      <div style={{ background:`hsl(var(--${role.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`).replace(/(\D)(\d+)$/, "$1-$2")}))` }}/>
       <strong>{role}</strong><code>{tokens.color.light[role]}</code></article>)}</div>
     <p className="ds-muted">Hex labels describe the source light palette; swatches follow the active theme. The source’s muted small text needs contrast review before operational adoption. No accessibility certification is implied.</p></>;
 }
