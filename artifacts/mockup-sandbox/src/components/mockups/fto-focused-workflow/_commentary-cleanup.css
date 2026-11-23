@@ -1,0 +1,4 @@
+/* Sandbox-only copy proposal; the live portal is not styled by this file. */
+.copy-cleanup-preview #duty-form > div:nth-child(2) {
+  display: none;
+}

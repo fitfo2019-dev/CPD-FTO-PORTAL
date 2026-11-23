@@ -8,6 +8,7 @@ export const modules: ModuleMap = {
   "./components/mockups/RoleWorkspacePreview.tsx": () => import("../components/mockups/RoleWorkspacePreview.tsx"),
   "./components/mockups/SavedSessionConflictAlert.tsx": () => import("../components/mockups/SavedSessionConflictAlert.tsx"),
   "./components/mockups/TabOverwriteRecoveryPreview.tsx": () => import("../components/mockups/TabOverwriteRecoveryPreview.tsx"),
+  "./components/mockups/fto-focused-workflow/CommentaryCleanupPreview.tsx": () => import("../components/mockups/fto-focused-workflow/CommentaryCleanupPreview.tsx"),
   "./components/mockups/fto-focused-workflow/Current.tsx": () => import("../components/mockups/fto-focused-workflow/Current.tsx"),
   "./components/mockups/fto-focused-workflow/FocusedWorkflow.tsx": () => import("../components/mockups/fto-focused-workflow/FocusedWorkflow.tsx"),
   "./components/mockups/investigator/WarningTriage.tsx": () => import("../components/mockups/investigator/WarningTriage.tsx"),
