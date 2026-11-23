@@ -9,6 +9,235 @@ import * as zod from 'zod';
 
 
 /**
+ * Development-only isolated staging. Never uploads device drafts or serves operational records.
+ * @summary List authorized synthetic training records
+ */
+export const listStagingTrainingRecordsResponseMetadataTotalRecordsMin = 0;
+export const listStagingTrainingRecordsResponseMetadataTotalRecordsMax = 100;
+
+export const listStagingTrainingRecordsResponseDataItemPhaseMax = 4;
+
+export const listStagingTrainingRecordsResponseDataItemNarrativeMax = 4000;
+
+
+
+export const listStagingTrainingRecordsResponseDataMax = 100;
+
+
+
+export const ListStagingTrainingRecordsResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(listStagingTrainingRecordsResponseMetadataTotalRecordsMin).max(listStagingTrainingRecordsResponseMetadataTotalRecordsMax),
+  "environment": zod.enum(['SYNTHETIC_STAGING'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string(),
+  "phase": zod.number().int().min(1).max(listStagingTrainingRecordsResponseDataItemPhaseMax),
+  "narrative": zod.string().max(listStagingTrainingRecordsResponseDataItemNarrativeMax),
+  "status": zod.enum(['draft', 'submitted']),
+  "version": zod.number().int().min(1),
+  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "synthetic": zod.literal(true)
+})).max(listStagingTrainingRecordsResponseDataMax)
+})
+
+
+/**
+ * @summary Create a synthetic record within an active FTO assignment
+ */
+export const createStagingTrainingRecordBodyRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createStagingTrainingRecordBodyNarrativeMax = 4000;
+
+
+
+export const CreateStagingTrainingRecordBody = zod.object({
+  "operation_id": zod.string().uuid(),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string().regex(createStagingTrainingRecordBodyRecordDateRegExp),
+  "narrative": zod.string().max(createStagingTrainingRecordBodyNarrativeMax),
+  "status": zod.enum(['draft', 'submitted']),
+  "synthetic": zod.literal(true)
+})
+
+export const createStagingTrainingRecordResponseMetadataTotalRecordsMin = 0;
+export const createStagingTrainingRecordResponseMetadataTotalRecordsMax = 100;
+
+export const createStagingTrainingRecordResponseDataItemPhaseMax = 4;
+
+export const createStagingTrainingRecordResponseDataItemNarrativeMax = 4000;
+
+
+
+export const createStagingTrainingRecordResponseDataMax = 100;
+
+
+
+export const CreateStagingTrainingRecordResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(createStagingTrainingRecordResponseMetadataTotalRecordsMin).max(createStagingTrainingRecordResponseMetadataTotalRecordsMax),
+  "environment": zod.enum(['SYNTHETIC_STAGING'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string(),
+  "phase": zod.number().int().min(1).max(createStagingTrainingRecordResponseDataItemPhaseMax),
+  "narrative": zod.string().max(createStagingTrainingRecordResponseDataItemNarrativeMax),
+  "status": zod.enum(['draft', 'submitted']),
+  "version": zod.number().int().min(1),
+  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "synthetic": zod.literal(true)
+})).max(createStagingTrainingRecordResponseDataMax)
+})
+
+
+/**
+ * @summary Read one authorized synthetic record
+ */
+export const GetStagingTrainingRecordParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const getStagingTrainingRecordResponseMetadataTotalRecordsMin = 0;
+export const getStagingTrainingRecordResponseMetadataTotalRecordsMax = 100;
+
+export const getStagingTrainingRecordResponseDataItemPhaseMax = 4;
+
+export const getStagingTrainingRecordResponseDataItemNarrativeMax = 4000;
+
+
+
+export const getStagingTrainingRecordResponseDataMax = 100;
+
+
+
+export const GetStagingTrainingRecordResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(getStagingTrainingRecordResponseMetadataTotalRecordsMin).max(getStagingTrainingRecordResponseMetadataTotalRecordsMax),
+  "environment": zod.enum(['SYNTHETIC_STAGING'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string(),
+  "phase": zod.number().int().min(1).max(getStagingTrainingRecordResponseDataItemPhaseMax),
+  "narrative": zod.string().max(getStagingTrainingRecordResponseDataItemNarrativeMax),
+  "status": zod.enum(['draft', 'submitted']),
+  "version": zod.number().int().min(1),
+  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "synthetic": zod.literal(true)
+})).max(getStagingTrainingRecordResponseDataMax)
+})
+
+
+/**
+ * @summary Version-checked FTO synthetic record update
+ */
+export const UpdateStagingTrainingRecordParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+export const updateStagingTrainingRecordBodyNarrativeMax = 4000;
+
+
+
+export const UpdateStagingTrainingRecordBody = zod.object({
+  "operation_id": zod.string().uuid(),
+  "base_version": zod.number().int().min(1),
+  "narrative": zod.string().max(updateStagingTrainingRecordBodyNarrativeMax),
+  "status": zod.enum(['draft', 'submitted']),
+  "synthetic": zod.literal(true)
+})
+
+export const updateStagingTrainingRecordResponseMetadataTotalRecordsMin = 0;
+export const updateStagingTrainingRecordResponseMetadataTotalRecordsMax = 100;
+
+export const updateStagingTrainingRecordResponseDataItemPhaseMax = 4;
+
+export const updateStagingTrainingRecordResponseDataItemNarrativeMax = 4000;
+
+
+
+export const updateStagingTrainingRecordResponseDataMax = 100;
+
+
+
+export const UpdateStagingTrainingRecordResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(updateStagingTrainingRecordResponseMetadataTotalRecordsMin).max(updateStagingTrainingRecordResponseMetadataTotalRecordsMax),
+  "environment": zod.enum(['SYNTHETIC_STAGING'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string(),
+  "phase": zod.number().int().min(1).max(updateStagingTrainingRecordResponseDataItemPhaseMax),
+  "narrative": zod.string().max(updateStagingTrainingRecordResponseDataItemNarrativeMax),
+  "status": zod.enum(['draft', 'submitted']),
+  "version": zod.number().int().min(1),
+  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "synthetic": zod.literal(true)
+})).max(updateStagingTrainingRecordResponseDataMax)
+})
+
+
+/**
+ * @summary PO acknowledges their own submitted synthetic record version
+ */
+export const AcknowledgeStagingTrainingRecordParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const AcknowledgeStagingTrainingRecordBody = zod.object({
+  "operation_id": zod.string().uuid(),
+  "base_version": zod.number().int().min(1),
+  "acknowledged": zod.literal(true)
+})
+
+export const acknowledgeStagingTrainingRecordResponseMetadataTotalRecordsMin = 0;
+export const acknowledgeStagingTrainingRecordResponseMetadataTotalRecordsMax = 100;
+
+export const acknowledgeStagingTrainingRecordResponseDataItemPhaseMax = 4;
+
+export const acknowledgeStagingTrainingRecordResponseDataItemNarrativeMax = 4000;
+
+
+
+export const acknowledgeStagingTrainingRecordResponseDataMax = 100;
+
+
+
+export const AcknowledgeStagingTrainingRecordResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(acknowledgeStagingTrainingRecordResponseMetadataTotalRecordsMin).max(acknowledgeStagingTrainingRecordResponseMetadataTotalRecordsMax),
+  "environment": zod.enum(['SYNTHETIC_STAGING'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string(),
+  "phase": zod.number().int().min(1).max(acknowledgeStagingTrainingRecordResponseDataItemPhaseMax),
+  "narrative": zod.string().max(acknowledgeStagingTrainingRecordResponseDataItemNarrativeMax),
+  "status": zod.enum(['draft', 'submitted']),
+  "version": zod.number().int().min(1),
+  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "synthetic": zod.literal(true)
+})).max(acknowledgeStagingTrainingRecordResponseDataMax)
+})
+
+
+/**
  * Returns server health status
  * @summary Health check
  */

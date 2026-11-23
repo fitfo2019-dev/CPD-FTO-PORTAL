@@ -5,6 +5,110 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type StagingTrainingInputStatus = typeof StagingTrainingInputStatus[keyof typeof StagingTrainingInputStatus];
+
+
+export const StagingTrainingInputStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
+export interface StagingTrainingInput {
+  operation_id: string;
+  assignment_id: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  record_date: string;
+  /** @maxLength 4000 */
+  narrative: string;
+  status: StagingTrainingInputStatus;
+  synthetic: true;
+}
+
+export type StagingTrainingUpdateStatus = typeof StagingTrainingUpdateStatus[keyof typeof StagingTrainingUpdateStatus];
+
+
+export const StagingTrainingUpdateStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
+export interface StagingTrainingUpdate {
+  operation_id: string;
+  /** @minimum 1 */
+  base_version: number;
+  /** @maxLength 4000 */
+  narrative: string;
+  status: StagingTrainingUpdateStatus;
+  synthetic: true;
+}
+
+export interface StagingAcknowledgementInput {
+  operation_id: string;
+  /** @minimum 1 */
+  base_version: number;
+  acknowledged: true;
+}
+
+export type StagingTrainingRecordStatus = typeof StagingTrainingRecordStatus[keyof typeof StagingTrainingRecordStatus];
+
+
+export const StagingTrainingRecordStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
+export interface StagingTrainingRecord {
+  id: string;
+  assignment_id: string;
+  record_date: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  /** @maxLength 4000 */
+  narrative: string;
+  status: StagingTrainingRecordStatus;
+  /** @minimum 1 */
+  version: number;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  acknowledged_version: number | null;
+  synthetic: true;
+}
+
+export type StagingTrainingEnvelopeStatus = typeof StagingTrainingEnvelopeStatus[keyof typeof StagingTrainingEnvelopeStatus];
+
+
+export const StagingTrainingEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type StagingTrainingEnvelopeMetadataEnvironment = typeof StagingTrainingEnvelopeMetadataEnvironment[keyof typeof StagingTrainingEnvelopeMetadataEnvironment];
+
+
+export const StagingTrainingEnvelopeMetadataEnvironment = {
+  SYNTHETIC_STAGING: 'SYNTHETIC_STAGING',
+} as const;
+
+export type StagingTrainingEnvelopeMetadata = {
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  total_records: number;
+  environment: StagingTrainingEnvelopeMetadataEnvironment;
+};
+
+export interface StagingTrainingEnvelope {
+  status: StagingTrainingEnvelopeStatus;
+  metadata: StagingTrainingEnvelopeMetadata;
+  /** @maxItems 100 */
+  data: StagingTrainingRecord[];
+}
+
 export interface HealthStatus {
   status: string;
 }

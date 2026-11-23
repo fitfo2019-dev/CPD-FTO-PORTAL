@@ -33,7 +33,11 @@ import type {
   MockLoginEnvelope,
   MockLoginInput,
   ResourceCatalogEnvelope,
-  SecureRecordsEnvelope
+  SecureRecordsEnvelope,
+  StagingAcknowledgementInput,
+  StagingTrainingEnvelope,
+  StagingTrainingInput,
+  StagingTrainingUpdate
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -62,6 +66,475 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListStagingTrainingRecordsUrl = () => {
+
+
+
+
+  return `/api/v1/staging/training-records`
+}
+
+/**
+ * Development-only isolated staging. Never uploads device drafts or serves operational records.
+ * @summary List authorized synthetic training records
+ */
+export const listStagingTrainingRecords = async ( options?: Parameters<typeof customFetch>[1]): Promise<StagingTrainingEnvelope> => {
+
+  return customFetch<StagingTrainingEnvelope>(getListStagingTrainingRecordsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListStagingTrainingRecordsQueryKey = () => {
+    return [
+    `/api/v1/staging/training-records`
+    ] as const;
+    }
+
+
+export const getListStagingTrainingRecordsQueryOptions = <TData = Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListStagingTrainingRecordsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listStagingTrainingRecords>>> = ({ signal }) => listStagingTrainingRecords({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListStagingTrainingRecordsQueryResult = NonNullable<Awaited<ReturnType<typeof listStagingTrainingRecords>>>
+export type ListStagingTrainingRecordsQueryError = ErrorType<ApiError>
+
+
+export function useListStagingTrainingRecords<TData = Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError = ErrorType<ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listStagingTrainingRecords>>,
+          TError,
+          Awaited<ReturnType<typeof listStagingTrainingRecords>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListStagingTrainingRecords<TData = Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listStagingTrainingRecords>>,
+          TError,
+          Awaited<ReturnType<typeof listStagingTrainingRecords>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListStagingTrainingRecords<TData = Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List authorized synthetic training records
+ */
+
+export function useListStagingTrainingRecords<TData = Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStagingTrainingRecords>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListStagingTrainingRecordsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateStagingTrainingRecordUrl = () => {
+
+
+
+
+  return `/api/v1/staging/training-records`
+}
+
+/**
+ * @summary Create a synthetic record within an active FTO assignment
+ */
+export const createStagingTrainingRecord = async (stagingTrainingInput: StagingTrainingInput, options?: Parameters<typeof customFetch>[1]): Promise<StagingTrainingEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<StagingTrainingEnvelope>(getCreateStagingTrainingRecordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(stagingTrainingInput)
+  }
+);}
+
+
+
+
+
+export const getCreateStagingTrainingRecordMutationKey = () => ['createStagingTrainingRecord'] as const;
+
+export const getCreateStagingTrainingRecordMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStagingTrainingRecord>>, TError,CreateStagingTrainingRecordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createStagingTrainingRecord>>, TError,CreateStagingTrainingRecordMutationVariables, TContext> => {
+
+const mutationKey = getCreateStagingTrainingRecordMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createStagingTrainingRecord>>, CreateStagingTrainingRecordMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createStagingTrainingRecord(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateStagingTrainingRecordMutationResult = NonNullable<Awaited<ReturnType<typeof createStagingTrainingRecord>>>
+    export type CreateStagingTrainingRecordMutationBody = BodyType<StagingTrainingInput>
+    export type CreateStagingTrainingRecordMutationError = ErrorType<ApiError>
+    export type CreateStagingTrainingRecordMutationVariables = {data: BodyType<StagingTrainingInput>}
+
+    /**
+ * @summary Create a synthetic record within an active FTO assignment
+ */
+export const useCreateStagingTrainingRecord = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStagingTrainingRecord>>, TError,CreateStagingTrainingRecordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createStagingTrainingRecord>>,
+        TError,
+        CreateStagingTrainingRecordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateStagingTrainingRecordMutationOptions(options), queryClient);
+    }
+
+export const getGetStagingTrainingRecordUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/training-records/${id}`
+}
+
+/**
+ * @summary Read one authorized synthetic record
+ */
+export const getStagingTrainingRecord = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<StagingTrainingEnvelope> => {
+
+  return customFetch<StagingTrainingEnvelope>(getGetStagingTrainingRecordUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStagingTrainingRecordQueryKey = (id: string,) => {
+    return [
+    `/api/v1/staging/training-records/${id}`
+    ] as const;
+    }
+
+
+export const getGetStagingTrainingRecordQueryOptions = <TData = Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError = ErrorType<ApiError>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStagingTrainingRecordQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStagingTrainingRecord>>> = ({ signal }) => getStagingTrainingRecord(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetStagingTrainingRecordQueryResult = NonNullable<Awaited<ReturnType<typeof getStagingTrainingRecord>>>
+export type GetStagingTrainingRecordQueryError = ErrorType<ApiError>
+
+
+export function useGetStagingTrainingRecord<TData = Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError = ErrorType<ApiError>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStagingTrainingRecord>>,
+          TError,
+          Awaited<ReturnType<typeof getStagingTrainingRecord>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStagingTrainingRecord<TData = Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStagingTrainingRecord>>,
+          TError,
+          Awaited<ReturnType<typeof getStagingTrainingRecord>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStagingTrainingRecord<TData = Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read one authorized synthetic record
+ */
+
+export function useGetStagingTrainingRecord<TData = Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStagingTrainingRecord>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetStagingTrainingRecordQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateStagingTrainingRecordUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/training-records/${id}`
+}
+
+/**
+ * @summary Version-checked FTO synthetic record update
+ */
+export const updateStagingTrainingRecord = async (id: string,
+    stagingTrainingUpdate: StagingTrainingUpdate, options?: Parameters<typeof customFetch>[1]): Promise<StagingTrainingEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<StagingTrainingEnvelope>(getUpdateStagingTrainingRecordUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(stagingTrainingUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateStagingTrainingRecordMutationKey = () => ['updateStagingTrainingRecord'] as const;
+
+export const getUpdateStagingTrainingRecordMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateStagingTrainingRecord>>, TError,UpdateStagingTrainingRecordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateStagingTrainingRecord>>, TError,UpdateStagingTrainingRecordMutationVariables, TContext> => {
+
+const mutationKey = getUpdateStagingTrainingRecordMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateStagingTrainingRecord>>, UpdateStagingTrainingRecordMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateStagingTrainingRecord(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateStagingTrainingRecordMutationResult = NonNullable<Awaited<ReturnType<typeof updateStagingTrainingRecord>>>
+    export type UpdateStagingTrainingRecordMutationBody = BodyType<StagingTrainingUpdate>
+    export type UpdateStagingTrainingRecordMutationError = ErrorType<ApiError>
+    export type UpdateStagingTrainingRecordMutationVariables = {id: string;data: BodyType<StagingTrainingUpdate>}
+
+    /**
+ * @summary Version-checked FTO synthetic record update
+ */
+export const useUpdateStagingTrainingRecord = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateStagingTrainingRecord>>, TError,UpdateStagingTrainingRecordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateStagingTrainingRecord>>,
+        TError,
+        UpdateStagingTrainingRecordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateStagingTrainingRecordMutationOptions(options), queryClient);
+    }
+
+export const getAcknowledgeStagingTrainingRecordUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/training-records/${id}/acknowledgement`
+}
+
+/**
+ * @summary PO acknowledges their own submitted synthetic record version
+ */
+export const acknowledgeStagingTrainingRecord = async (id: string,
+    stagingAcknowledgementInput: StagingAcknowledgementInput, options?: Parameters<typeof customFetch>[1]): Promise<StagingTrainingEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<StagingTrainingEnvelope>(getAcknowledgeStagingTrainingRecordUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(stagingAcknowledgementInput)
+  }
+);}
+
+
+
+
+
+export const getAcknowledgeStagingTrainingRecordMutationKey = () => ['acknowledgeStagingTrainingRecord'] as const;
+
+export const getAcknowledgeStagingTrainingRecordMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeStagingTrainingRecord>>, TError,AcknowledgeStagingTrainingRecordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeStagingTrainingRecord>>, TError,AcknowledgeStagingTrainingRecordMutationVariables, TContext> => {
+
+const mutationKey = getAcknowledgeStagingTrainingRecordMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeStagingTrainingRecord>>, AcknowledgeStagingTrainingRecordMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  acknowledgeStagingTrainingRecord(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgeStagingTrainingRecordMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeStagingTrainingRecord>>>
+    export type AcknowledgeStagingTrainingRecordMutationBody = BodyType<StagingAcknowledgementInput>
+    export type AcknowledgeStagingTrainingRecordMutationError = ErrorType<ApiError>
+    export type AcknowledgeStagingTrainingRecordMutationVariables = {id: string;data: BodyType<StagingAcknowledgementInput>}
+
+    /**
+ * @summary PO acknowledges their own submitted synthetic record version
+ */
+export const useAcknowledgeStagingTrainingRecord = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeStagingTrainingRecord>>, TError,AcknowledgeStagingTrainingRecordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgeStagingTrainingRecord>>,
+        TError,
+        AcknowledgeStagingTrainingRecordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAcknowledgeStagingTrainingRecordMutationOptions(options), queryClient);
+    }
 
 export const getHealthCheckUrl = () => {
 
