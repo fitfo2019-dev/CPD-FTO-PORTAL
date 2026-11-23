@@ -120,6 +120,7 @@ const reportSchema = z.object({
   })).optional(),
   id: z.string(),
   date: z.string(),
+  shiftStartTime:z.string().refine(value=>value===''||/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value),'Shift start time must use 24-hour HH:MM format').optional(),
   shift: reportShiftSchema,
   phase: phaseSchema,
   zone: z.string(),

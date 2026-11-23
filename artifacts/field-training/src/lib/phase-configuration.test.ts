@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  PHASE_CONFIGURATION,
+  PHASE_TIMELINE_REGISTRY,
   PHASE_LENGTH_WEEKS,
   PHASE_LIMBO_FULL_WEEKS,
   PHASE_LIMBO_WORKDAYS,
@@ -10,8 +10,8 @@ import {
 } from '../config/phaseConfiguration.js';
 
 test('phase registry keeps the approved four-phase schedule and Limbo boundaries',()=>{
-  assert.deepEqual(PHASE_CONFIGURATION.map(({phase,weeks})=>({phase,weeks})),[
-    {phase:1,weeks:4},{phase:2,weeks:4},{phase:3,weeks:4},{phase:4,weeks:3},
+  assert.deepEqual(PHASE_TIMELINE_REGISTRY.map(({phase,durationInWeeks})=>({phase,durationInWeeks})),[
+    {phase:1,durationInWeeks:4},{phase:2,durationInWeeks:4},{phase:3,durationInWeeks:4},{phase:4,durationInWeeks:3},
   ]);
   assert.deepEqual(PHASE_LENGTH_WEEKS,{1:4,2:4,3:4,4:3});
   assert.deepEqual(PHASE_PROGRAM_WEEK_START,{1:1,2:5,3:9,4:13});

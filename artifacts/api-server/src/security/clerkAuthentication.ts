@@ -9,7 +9,11 @@ import type { RequestHandler } from "express";
 export const requireClerkAuthentication: RequestHandler = (req, res, next) => {
   const { userId } = getAuth(req);
   if (!userId) {
-    res.status(401).json({ error: "Sign in is required." });
+    res.status(401).json({
+      status: "error",
+      error_code: "AUTHENTICATION_REQUIRED",
+      message: "Sign-in is required.",
+    });
     return;
   }
   res.locals.clerkUserId = userId;

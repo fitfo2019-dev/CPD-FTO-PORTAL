@@ -165,17 +165,20 @@ function WorkspaceRoutes() {
   // Fail closed in the COC preview: no draft/class route is rendered.
   // This UI boundary is not a substitute for server-side packet authorization.
   if (isTechnicalRole(ws.role)) return <RoutedErrorBoundary><Switch>
-    <Route path="/help" component={HelpPage}/>
+    <Route path="/resources" component={HelpPage}/>
+    <Route path="/help"><Redirect to="/resources"/></Route>
     <Route path="/technical-access" component={RoleAccessPage}/>
     <Route component={RoleAccessPage}/>
   </Switch></RoutedErrorBoundary>;
   if (ws.role === 'po') return <RoutedErrorBoundary><Switch>
-    <Route path="/help" component={HelpPage}/>
+    <Route path="/resources" component={HelpPage}/>
+    <Route path="/help"><Redirect to="/resources"/></Route>
     <Route path="/role-access" component={RoleAccessPage}/>
     <Route component={RoleAccessPage}/>
   </Switch></RoutedErrorBoundary>;
   if (ws.role === 'fto_coc') return <RoutedErrorBoundary><Switch>
-    <Route path="/help" component={HelpPage}/>
+    <Route path="/resources" component={HelpPage}/>
+    <Route path="/help"><Redirect to="/resources"/></Route>
     <Route component={CommandReviewPage}/>
   </Switch></RoutedErrorBoundary>;
   return (
@@ -199,7 +202,8 @@ function WorkspaceRoutes() {
          <Route path="/reports/:id">{(params) => <ShiftStartGate key={params.id} reportId={params.id}/>}</Route>
         <Route path="/training" component={Training} />
         <Route path="/settings" component={Settings} />
-        <Route path="/help" component={HelpPage} />
+        <Route path="/resources" component={HelpPage} />
+        <Route path="/help"><Redirect to="/resources" /></Route>
         <Route path="/command-review" component={CommandReviewPage} />
         <Route component={NotFound} />
       </Switch>

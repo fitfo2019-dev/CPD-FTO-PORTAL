@@ -5,9 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AuditLogActorValue } from './auditLogActorValue.js';
-import type { AuditLogEvent } from './auditLogEvent.js';
-import type { AuditLogNetwork } from './auditLogNetwork.js';
+import type { AuditLogActorValue } from './auditLogActorValue';
+import type { AuditLogEvent } from './auditLogEvent';
+import type { AuditLogNetwork } from './auditLogNetwork';
 
 export interface AuditLogRecord {
   timestamp: Date;

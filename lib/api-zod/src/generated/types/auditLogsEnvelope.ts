@@ -5,9 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AuditLogRecord } from './auditLogRecord.js';
-import type { AuditLogsEnvelopeStatus } from './auditLogsEnvelopeStatus.js';
-import type { AuditLogsMetadata } from './auditLogsMetadata.js';
+import type { AuditLogRecord } from './auditLogRecord';
+import type { AuditLogsEnvelopeStatus } from './auditLogsEnvelopeStatus';
+import type { AuditLogsMetadata } from './auditLogsMetadata';
 
 export interface AuditLogsEnvelope {
   status: AuditLogsEnvelopeStatus;

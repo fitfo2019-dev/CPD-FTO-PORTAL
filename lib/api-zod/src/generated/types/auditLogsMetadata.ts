@@ -5,7 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AuditLogsMetadataEnvironment } from './auditLogsMetadataEnvironment.js';
+import type { AuditLogsMetadataEnvironment } from './auditLogsMetadataEnvironment';
 
 export interface AuditLogsMetadata {
   /** @minimum 0 */

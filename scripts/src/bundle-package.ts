@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import {
+  cp,
   mkdir,
   readFile,
   readdir,
@@ -28,6 +29,23 @@ const excludedBuildHelpers = new Set(["pino-file.mjs", "pino-pretty.mjs"]);
 
 async function readManifest(path: string): Promise<PackageManifest> {
   return JSON.parse(await readFile(path, "utf8")) as PackageManifest;
+}
+
+async function listFilesRecursively(
+  directory: string,
+  prefix = "",
+): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const relativePath = prefix ? join(prefix, entry.name) : entry.name;
+      if (entry.isDirectory()) {
+        return listFilesRecursively(join(directory, entry.name), relativePath);
+      }
+      return [relativePath];
+    }),
+  );
+  return files.flat();
 }
 
 function hasWorkspaceImport(source: string): boolean {
@@ -131,9 +149,14 @@ async function bundlePackage(): Promise<void> {
   );
   await writeFile(join(outputDir, "HANDOVER_MANUAL.md"), handoverManual, "utf8");
 
+  const resourceSourceDir = join(apiRoot, "resources");
+  const resourceOutputDir = join(outputDir, "resources");
+  await cp(resourceSourceDir, resourceOutputDir, { recursive: true });
+  const resourceFiles = await listFilesRecursively(resourceOutputDir);
   const archiveEntries = [
     "package.json",
     "HANDOVER_MANUAL.md",
+    ...resourceFiles.map((path) => join("resources", path)),
     ...runtimeFiles.map((entry) =>
       entry.name === "index.mjs" ? "index.js" : entry.name,
     ),
@@ -147,7 +170,7 @@ async function bundlePackage(): Promise<void> {
 
   const archiveStats = await stat(archivePath);
   console.log(
-    `Created dist-production/ with ${runtimeFiles.length} runtime modules and ${Object.keys(dependencies).length} production dependencies; verified dist-production.zip (${archiveStats.size} bytes).`,
+    `Created dist-production/ with ${runtimeFiles.length} runtime modules, ${resourceFiles.length} protected resources and ${Object.keys(dependencies).length} production dependencies; verified dist-production.zip (${archiveStats.size} bytes).`,
   );
 }
 

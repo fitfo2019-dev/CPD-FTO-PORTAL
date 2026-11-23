@@ -146,3 +146,43 @@ export const ListAuditLogsResponse = zod.object({
 })
 
 
+/**
+ * Returns the resource documents available to signed-in users. Every item maps to a server-side allowlisted file.
+ * @summary List reference documents
+ */
+export const listResourcesResponseMetadataTotalRecordsMin = 0;
+
+export const listResourcesResponseDataItemTitleMax = 120;
+
+export const listResourcesResponseDataItemDescriptionMax = 240;
+
+export const listResourcesResponseDataItemHandlingNoteMax = 240;
+
+
+
+export const ListResourcesResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(listResourcesResponseMetadataTotalRecordsMin)
+}),
+  "data": zod.array(zod.object({
+  "id": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud']),
+  "title": zod.string().min(1).max(listResourcesResponseDataItemTitleMax),
+  "file_type": zod.enum(['DOC', 'DOCX', 'PDF']),
+  "description": zod.string().max(listResourcesResponseDataItemDescriptionMax),
+  "handling_note": zod.string().max(listResourcesResponseDataItemHandlingNoteMax)
+}))
+})
+
+
+/**
+ * Streams an allowlisted file as an attachment after Clerk session authentication. Files are not exposed through public static URLs.
+ * @summary Download a reference document
+ */
+export const DownloadResourceFileParams = zod.object({
+  "resourceId": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud'])
+})
+
+export const DownloadResourceFileResponse = zod.unknown()
+
+

@@ -67,10 +67,11 @@ export function PrintableDailyForms({ report,orientation,dayReference,packet:pro
   </section>;
 }
 
-function PageHeader({ title, formNumber, report, subtitle, pageReference }:{title:string;formNumber:string;report:Report;subtitle?:string;pageReference?:string}) {
+function PageHeader({ title, formNumber, report, run, subtitle, pageReference }:{title:string;formNumber:string;report:Report;run?:TrainingRun;subtitle?:string;pageReference?:string}) {
+  const [runDate,runTime]=run?formatDateTimeMDY(run.occurredAt).split(' '):[];
   return <header className="print-run-header">
     <div><p>Columbus Division of Police · Field Training Program</p><h1>{title}</h1>{formNumber&&<b>{formNumber}</b>}</div>
-    <div className="print-run-header-meta"><b>{formatDateDMY(report.date)}</b><span>{phaseLabel(report.phase)} · {shiftDisplayLabel(report.shift)}</span><b className="print-folder-page-reference" data-training-folder-page={pageReference}>{pageReference??'Training-folder reference unavailable'}</b>{subtitle&&<span>{subtitle}</span>}</div>
+    <div className="print-run-header-meta"><span><b>Date:</b> {runDate??formatDateDMY(report.date)}</span><span><b>Time:</b> {runTime??report.shiftStartTime??'Not recorded'}</span><span>{phaseLabel(report.phase)} · {shiftDisplayLabel(report.shift)}</span><b className="print-folder-page-reference" data-training-folder-page={pageReference}>{pageReference??'Training-folder reference unavailable'}</b>{subtitle&&<span>{subtitle}</span>}</div>
   </header>;
 }
 
@@ -107,7 +108,7 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
   const relatedActivity=DAILY_ACTIVITY_FIELDS.filter(item=>item.key!=='solveCitationSummons'&&run.activityFlags?.[item.key]);
   const trafficStop=run.runKind==='traffic_stop'||run.runKind==='high_risk_stop';
   return <article className="print-run-page" data-testid={`print-run-${run.id}`}>
-    <PageHeader title={form?.label||'Primary Run Form'} formNumber={form?.formNumber||''} report={report} pageReference={pageReference} subtitle={`Run ${formatTime(run.occurredAt)} · ${run.formStatus.replace('_',' ')}`}/>
+    <PageHeader title={form?.label||'Primary Run Form'} formNumber={form?.formNumber||''} report={report} run={run} pageReference={pageReference} subtitle={`Run ${formatTime(run.occurredAt)} · ${run.formStatus.replace('_',' ')}`}/>
     <People report={report}/>
     <div className="print-run-fields">
       <Field label="Incident number" value={run.incidentNumber||'Not recorded'}/>
@@ -134,7 +135,7 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
 function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{report:Report;run:TrainingRun;formKey:typeof SUPPLEMENTAL_RUN_FORMS[number]['key'];pageReference?:string;narrativeReferences:(string|undefined)[]}) {
   const form=SUPPLEMENTAL_RUN_FORMS.find(item=>item.key===formKey);
   return <article className="print-run-page" data-testid={`print-supplement-${run.id}-${formKey}`}>
-    <PageHeader title={form?.label||'Supplemental Form'} formNumber={form?.formNumber||''} report={report} pageReference={pageReference} subtitle={`Related run · ${formatTime(run.occurredAt)}`}/>
+    <PageHeader title={form?.label||'Supplemental Form'} formNumber={form?.formNumber||''} report={report} run={run} pageReference={pageReference} subtitle={`Related run · ${formatTime(run.occurredAt)}`}/>
     <People report={report}/>
     <div className="print-run-fields">
       <Field label="Incident number" value={run.incidentNumber||'Not recorded'}/>
@@ -183,7 +184,7 @@ function NarrativeContinuationPages({report,run,pageReferences}:{report:Report;r
   return <Fragment>{pages.map((text,index)=>{
     const reference=pageReferences[index];
     return <article className="print-run-page print-narrative-page" key={`${run.id}-continuation-${index}`} data-testid={`print-narrative-continuation-${run.id}-${index+1}`}>
-    <PageHeader title="Narrative Addition / Continuation" formNumber="U-10.192" report={report} pageReference={reference} subtitle={`Related run ${formatTime(run.occurredAt)}`}/>
+    <PageHeader title="Narrative Addition / Continuation" formNumber="U-10.192" report={report} run={run} pageReference={reference} subtitle={`Related run ${formatTime(run.occurredAt)}`}/>
     <People report={report}/>
     <div className="print-run-fields">
       <Field label="Incident number" value={run.incidentNumber||'Not recorded'}/>

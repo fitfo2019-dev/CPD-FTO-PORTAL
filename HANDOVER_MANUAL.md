@@ -50,12 +50,20 @@ These logs are pseudonymized JSON Lines, not a tamper-proof archive. No external
 
 The Component Preview Sandbox contains **55 reusable, modular UI components**. They provide the visual and component foundation for future application views. The catalog is a presentation layer; it does not itself provide authentication, authorization, data validation, or security controls.
 
+### Resources tab
+
+The signed-in Field Training Officer Portal has a **Resources** navigation tab. It brings together the existing Law Library and 11 uploaded reference documents: Amy's Law Factors; two BMV 2255 files; the Domestic Violence Protocol; Drug Possession Weights; the DV Strangulation Diagram; Key Criminal Law Issues (2024); Ohio Constitutional Opinions; the Ohio Supreme Court Felony Quick Reference; the Police Phone Directory; and Prior Offenses Constituting WUD.
+
+The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v1/resources/{resourceId}/download` and are served as attachments from a fixed server-side allowlist through the Clerk-authenticated API; the documents are not placed in the web app's public static directory. The resource archive is included by the standalone API package builder under `resources/`. `RESOURCE_FILES_DIR` may point to an approved mounted directory instead. Uploaded examples may contain personal details or internal contact information, so follow agency handling rules. Clerk sign-in is authentication only: agency-specific role authorization is not configured for these resources.
+
 ## Current Boundaries and Operating Rules
 
 - The secure-records API is mock-first. Live access requires explicitly configured server-side credentials and an approved upstream URL.
 - The audit-log endpoint returns deterministic development samples and responds with 404 in production.
+- Reference-document downloads require a Clerk-authenticated session, but access is not yet scoped by verified agency role.
 - Clerk session authentication is present, but agency role and record-scope authorization is not configured.
 - The Field Training Officer Portal stores unsent drafts in encrypted IndexedDB; it does not sync training records to a backend.
+- Shift start time and run event date/time are captured as separate, editable fields. Run event time should reflect the minute a call was aired or initiated. PatrolView/CAD prefill and real-time synchronization are not implemented; current values are entered manually.
 - There is no database-backed training-record route or connected portal records view.
 - The database schema and audit helper are foundations only; they are not mounted to current application routes.
 - The XML-to-JSON gateway is planned, not implemented.
@@ -406,8 +414,9 @@ a timestamp when one is absent or invalid.
 
 ### Phase and Limbo bounds
 
-The calendar is bounded to 15 program weeks: Phase I is weeks 1–4, Phase II
-weeks 5–8, Phase III weeks 9–12, and Phase IV weeks 13–15. Limbo covers all
+The calendar is bounded to 15 program weeks with a 4/4/4/3 duration split:
+Phase I is weeks 1–4, Phase II weeks 5–8, Phase III weeks 9–12, and Phase IV
+weeks 13–15. Limbo covers all
 scheduled working days in Phase I week 1, the first two scheduled working days
 of Phase II, and the first scheduled working day of Phases III and IV. Limbo
 reports retain checklists and daily activity records but do not accept SEG
@@ -418,11 +427,13 @@ provide a Week 15 release/termination recommendation workflow.
 The authoritative phase configuration is
 `artifacts/field-training/src/config/phaseConfiguration.ts`. It defines phase
 durations and Limbo boundaries, and derives program-week starts from the ordered
-phase entries. Phase IV is fixed at three weeks. A change requires formal
+`PHASE_TIMELINE_REGISTRY` entries using `durationInWeeks`. The standard values
+are 4/4/4/3, with starts at weeks 1, 5, 9, and 13. Phase IV is fixed at three
+weeks. A change requires formal
 program approval; the Phase IV extension is not active by default.
 
 For agency developers working outside Replit, open that file in a standard text
-editor, change the approved phase's `weeks` value, and from the repository root
+editor, change the approved phase's `durationInWeeks` value, and from the repository root
 run `pnpm typecheck` followed by `pnpm run build`. Review the phase-setup date
 range validation, Limbo boundaries, weekly numbering, export tests, and
 four-tab workbook behavior before release. These checks must run on the

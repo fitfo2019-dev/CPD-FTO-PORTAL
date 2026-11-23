@@ -5,9 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { HealthEnvelopeMetadata } from './healthEnvelopeMetadata.js';
-import type { HealthEnvelopeStatus } from './healthEnvelopeStatus.js';
-import type { HealthStatus } from './healthStatus.js';
+import type { HealthEnvelopeMetadata } from './healthEnvelopeMetadata';
+import type { HealthEnvelopeStatus } from './healthEnvelopeStatus';
+import type { HealthStatus } from './healthStatus';
 
 export interface HealthEnvelope {
   status: HealthEnvelopeStatus;

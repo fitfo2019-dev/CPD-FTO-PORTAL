@@ -5,8 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AuditLogEventDisposition } from './auditLogEventDisposition.js';
-import type { AuditLogEventHttpMethod } from './auditLogEventHttpMethod.js';
+import type { AuditLogEventDisposition } from './auditLogEventDisposition';
+import type { AuditLogEventHttpMethod } from './auditLogEventHttpMethod';
 
 export interface AuditLogEvent {
   http_method: AuditLogEventHttpMethod;

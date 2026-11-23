@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast.js';
 type NavItem = { href: string; label: string; icon: typeof LayoutGrid };
 
 const HOME: NavItem = { href: '/', label: 'Home', icon: LayoutGrid };
-const HELP: NavItem = { href: '/help', label: 'Law Library', icon: BookOpen };
+const RESOURCES: NavItem = { href: '/resources', label: 'Resources', icon: BookOpen };
 const ROLE_NAV: Record<Role, NavItem[]> = {
   fto: [
     HOME,
@@ -22,7 +22,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/reports/new', label: 'Shifts & Runs', icon: ClipboardList },
     { href: '/reports', label: 'Daily Records', icon: FileText },
     { href: '/reports/weekly-summary', label: 'Weekly Packets', icon: ClipboardList },
-    HELP,
+    RESOURCES,
   ],
   fto_coordinator: [
     HOME,
@@ -30,23 +30,23 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/phase-setup', label: 'Assignments', icon: FolderOpen },
     { href: '/substitute-fto', label: 'Coverage', icon: Users },
     { href: '/reports/weekly-summary', label: 'Packet Monitor', icon: ClipboardList },
-    HELP,
+    RESOURCES,
   ],
   fto_coc: [
     { href: '/command-review', label: 'Submitted Packets', icon: ClipboardList },
-    HELP,
+    RESOURCES,
   ],
   po: [
     { href: '/role-access', label: 'Account Access', icon: Lock },
-    HELP,
+    RESOURCES,
   ],
   policenet: [
     { href: '/technical-access', label: 'Technical Access', icon: Settings },
-    HELP,
+    RESOURCES,
   ],
   policenet_admin_sgt: [
     { href: '/technical-access', label: 'Technical Access', icon: Settings },
-    HELP,
+    RESOURCES,
   ],
 };
 
@@ -94,7 +94,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const visibleNav = ROLE_NAV[w.ws.role];
   const mobileNav = visibleNav.length > 5 ? visibleNav.slice(0, 5) : visibleNav;
   const activePage = visibleNav.find(n => isActive(n.href)) ?? visibleNav[0];
-  const currentPage = isCommand && loc!=='/help'
+  const currentPage = isCommand && loc!=='/resources'
     ? 'Submitted packets'
     : loc === '/reports/weekly-ack'
       ? 'Weekly packet acknowledgement'

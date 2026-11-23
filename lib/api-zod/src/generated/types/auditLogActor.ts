@@ -5,7 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AuditLogActorAssignedRole } from './auditLogActorAssignedRole.js';
+import type { AuditLogActorAssignedRole } from './auditLogActorAssignedRole';
 
 export interface AuditLogActor {
   /**

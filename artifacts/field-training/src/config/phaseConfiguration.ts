@@ -6,7 +6,7 @@
  *
  * Agency IT maintenance without Replit:
  * 1. Open this file in a standard local text editor.
- * 2. After program approval, change the `weeks` value for the approved phase.
+ * 2. After program approval, change the `durationInWeeks` value for the approved phase.
  *    For the deferred Phase IV extension, change only Phase IV from 3 to 4.
  * 3. Program-week starts recalculate automatically from phase order and
  *    durations; do not edit a second start-value table.
@@ -18,36 +18,36 @@
 
 export type PhaseId = 1 | 2 | 3 | 4;
 
-export const PHASE_CONFIGURATION = [
-  { phase: 1, weeks: 4, limboFullWeek: true, limboWorkdays: 0 },
-  { phase: 2, weeks: 4, limboFullWeek: false, limboWorkdays: 2 },
-  { phase: 3, weeks: 4, limboFullWeek: false, limboWorkdays: 1 },
-  { phase: 4, weeks: 3, limboFullWeek: false, limboWorkdays: 1 },
+export const PHASE_TIMELINE_REGISTRY = [
+  { phase: 1, durationInWeeks: 4, limboFullWeek: true, limboWorkdays: 0 },
+  { phase: 2, durationInWeeks: 4, limboFullWeek: false, limboWorkdays: 2 },
+  { phase: 3, durationInWeeks: 4, limboFullWeek: false, limboWorkdays: 1 },
+  { phase: 4, durationInWeeks: 3, limboFullWeek: false, limboWorkdays: 1 },
 ] as const satisfies readonly {
   phase: PhaseId;
-  weeks: number;
+  durationInWeeks: number;
   limboFullWeek: boolean;
   limboWorkdays: number;
 }[];
 
 export const PHASE_LENGTH_WEEKS: Record<PhaseId, number> =
-  Object.fromEntries(PHASE_CONFIGURATION.map(({ phase, weeks }) => [phase, weeks])) as Record<PhaseId, number>;
+  Object.fromEntries(PHASE_TIMELINE_REGISTRY.map(({ phase, durationInWeeks }) => [phase, durationInWeeks])) as Record<PhaseId, number>;
 
 export const PHASE_PROGRAM_WEEK_START: Record<PhaseId, number> = (() => {
   const starts = {} as Record<PhaseId, number>;
   let programWeek = 1;
-  for (const configuration of PHASE_CONFIGURATION) {
+  for (const configuration of PHASE_TIMELINE_REGISTRY) {
     starts[configuration.phase] = programWeek;
-    programWeek += configuration.weeks;
+    programWeek += configuration.durationInWeeks;
   }
   return starts;
 })();
 
-export const PHASE_LIMBO_FULL_WEEKS: readonly PhaseId[] = PHASE_CONFIGURATION
+export const PHASE_LIMBO_FULL_WEEKS: readonly PhaseId[] = PHASE_TIMELINE_REGISTRY
   .filter(({ limboFullWeek }) => limboFullWeek)
   .map(({ phase }) => phase);
 
 export const PHASE_LIMBO_WORKDAYS: Record<PhaseId, number> =
-  Object.fromEntries(PHASE_CONFIGURATION.map(({ phase, limboWorkdays }) => [phase, limboWorkdays])) as Record<PhaseId, number>;
+  Object.fromEntries(PHASE_TIMELINE_REGISTRY.map(({ phase, limboWorkdays }) => [phase, limboWorkdays])) as Record<PhaseId, number>;
 
-export const TOTAL_TRAINING_WEEKS = PHASE_CONFIGURATION.reduce((sum, phase) => sum + phase.weeks, 0);
+export const TOTAL_TRAINING_WEEKS = PHASE_TIMELINE_REGISTRY.reduce((sum, phase) => sum + phase.durationInWeeks, 0);

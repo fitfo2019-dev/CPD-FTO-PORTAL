@@ -14,6 +14,8 @@ tags:
     description: Secure records operations
   - name: audit-logs
     description: Development-only audit log samples
+  - name: resources
+    description: Clerk-authenticated reference document catalog and downloads
 paths:
   /healthz:
     get:
@@ -105,6 +107,80 @@ paths:
                 $ref: "#/components/schemas/AuditLogsEnvelope"
         "404":
           description: This endpoint is disabled in production environments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/resources:
+    get:
+      operationId: listResources
+      tags: [resources]
+      summary: List reference documents
+      description: Returns the resource documents available to signed-in users. Every item maps to a server-side allowlisted file.
+      responses:
+        "200":
+          description: Available reference documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceCatalogEnvelope"
+        "401":
+          description: A valid Clerk session is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/resources/{resourceId}/download:
+    get:
+      operationId: downloadResourceFile
+      tags: [resources]
+      summary: Download a reference document
+      description: Streams an allowlisted file as an attachment after Clerk session authentication. Files are not exposed through public static URLs.
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - amys-law-factors
+              - bmv-2255-urine-0-bac
+              - bmv2255-example
+              - domestic-violence-protocol
+              - drug-possession-weights
+              - dv-strangulation-diagram
+              - key-criminal-law-issues-2024
+              - ohio-constitutional-opinions
+              - ohio-supreme-court-felony-quick-reference
+              - police-phone-directory
+              - prior-offenses-constituting-wud
+      responses:
+        "200":
+          description: The requested document, delivered as an attachment
+          headers:
+            Content-Disposition:
+              description: Safe attachment filename
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: A valid Clerk session is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The resource identifier is not in the allowlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: The allowlisted resource file is unavailable
           content:
             application/json:
               schema:
@@ -288,6 +364,58 @@ components:
           maxItems: 100
           items:
             $ref: "#/components/schemas/AuditLogRecord"
+    ResourceCatalogItem:
+      type: object
+      additionalProperties: false
+      required: [id, title, file_type, description, handling_note]
+      properties:
+        id:
+          type: string
+          enum:
+            - amys-law-factors
+            - bmv-2255-urine-0-bac
+            - bmv2255-example
+            - domestic-violence-protocol
+            - drug-possession-weights
+            - dv-strangulation-diagram
+            - key-criminal-law-issues-2024
+            - ohio-constitutional-opinions
+            - ohio-supreme-court-felony-quick-reference
+            - police-phone-directory
+            - prior-offenses-constituting-wud
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        file_type:
+          type: string
+          enum: [DOC, DOCX, PDF]
+        description:
+          type: string
+          maxLength: 240
+        handling_note:
+          type: string
+          maxLength: 240
+    ResourceCatalogMetadata:
+      type: object
+      additionalProperties: false
+      required: [total_records]
+      properties:
+        total_records:
+          type: integer
+          minimum: 0
+    ResourceCatalogEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          $ref: "#/components/schemas/ResourceCatalogMetadata"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceCatalogItem"
     ApiError:
       type: object
       required: [status, error_code, message]

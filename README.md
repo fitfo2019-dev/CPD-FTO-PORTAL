@@ -9,6 +9,10 @@ This pnpm workspace contains the Express API Server, the React/Vite Component Pr
 - Clerk authentication is present, but agency employment, role, record-scope, and department identity policies are not configured here. Do not treat the prototype as approved for operational or CJIS-restricted data.
 - The XML-to-JSON gateway remains a planned boundary. No live Government System XML or binary integration is active.
 
+## Resources tab
+
+The signed-in portal's Resources tab combines the existing Law Library with the 11 uploaded DOC, DOCX, and PDF references. The catalog uses the internal API; downloads require a Clerk session and are streamed from an explicit server-side allowlist rather than a public static URL. Some example files may contain personal details or internal contact information. Authentication is not a substitute for agency role authorization, which is not yet configured.
+
 ## Validation and module format
 
 - The entire workspace environment and its complete transitive dependency graph are 100% unified under the modern Zod 4 runtime engine. There are zero legacy Zod 3 footprints remaining in the active lockfile. The shared catalog is `^4.6.7`; Field Training forms also use `@hookform/resolvers` `7.0.7` and React Hook Form.
@@ -35,6 +39,7 @@ The workspace targets Node.js `^20.19.0 || >=22.12.0 <25`. Configure values thro
 | `ALLOWED_ORIGINS` | Optional for same-origin hosting; required for a separate browser origin | Comma-separated exact HTTPS origins allowed by CORS. Wildcards are rejected. |
 | `LOG_LEVEL` | Optional; defaults to `info` | Pino logging threshold. Structured logs are written to stdout. |
 | `DATABASE_URL` | Not used by current API routes | Connection string for the separate database helper if database-backed routes are implemented. |
+| `RESOURCE_FILES_DIR` | Optional | Approved mounted resource directory; otherwise the API uses its packaged `resources/` directory. |
 
 `TRUST_PROXY_HOPS` is validated and applied before security, request logging, and audit middleware. The confirmed agency ingress uses two trusted hops, so set `TRUST_PROXY_HOPS=2` for that deployment. Do not trust forwarded headers directly or reuse that value for a different proxy topology without verification.
 
@@ -51,7 +56,7 @@ pnpm run build
 pnpm run bundle:production
 ```
 
-`pnpm run build` type-checks the workspace and builds the API, shared libraries, component preview, and portal. `pnpm run bundle:production` builds and type-checks the API, then recreates `dist-production/` and `dist-production.zip`, including the current `HANDOVER_MANUAL.md`. The packaging step removes prior generated package output before writing the new archive; no second `zip` command is needed.
+`pnpm run build` type-checks the workspace and builds the API, shared libraries, component preview, and portal. `pnpm run bundle:production` builds and type-checks the API, then recreates `dist-production/` and `dist-production.zip`, including the current `HANDOVER_MANUAL.md` and protected reference documents under `resources/`. The packaging step removes prior generated package output before writing the new archive; no second `zip` command is needed.
 
 The standalone archive contains the compiled API entry and a production-only `package.json`. Third-party runtime packages remain external and are listed in that manifest; workspace modules are bundled into the API output. No workspace `node_modules` directory is copied. The portal's static build is separate from the API package.
 
@@ -90,10 +95,11 @@ creation are not yet provided.
 
 The authoritative phase registry is
 `artifacts/field-training/src/config/phaseConfiguration.ts`. It defines the
-approved 4/4/4/3 week schedule, derives program-week starts, and contains
+approved 4/4/4/3 week schedule in `PHASE_TIMELINE_REGISTRY.durationInWeeks`,
+derives program-week starts, and contains
 offline developer instructions. Phase IV remains three weeks unless formally
-approved; after approval, an agency developer can edit the Phase IV `weeks`
-value and run `pnpm typecheck` followed by `pnpm run build`.
+approved; after approval, an agency developer can edit the Phase IV
+`durationInWeeks` value and run `pnpm typecheck` followed by `pnpm run build`.
 
 ### Agency-managed monorepo startup
 

@@ -30,11 +30,12 @@ import type {
   HealthEnvelope,
   MockLoginEnvelope,
   MockLoginInput,
+  ResourceCatalogEnvelope,
   SecureRecordsEnvelope
 } from './api.schemas';
 
-import { customFetch } from '../custom-fetch.js';
-import type { ErrorType , BodyType } from '../custom-fetch.js';
+import { customFetch } from '../custom-fetch';
+import type { ErrorType , BodyType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -443,6 +444,210 @@ export function useListAuditLogs<TData = Awaited<ReturnType<typeof listAuditLogs
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListAuditLogsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListResourcesUrl = () => {
+
+
+
+
+  return `/api/v1/resources`
+}
+
+/**
+ * Returns the resource documents available to signed-in users. Every item maps to a server-side allowlisted file.
+ * @summary List reference documents
+ */
+export const listResources = async ( options?: Parameters<typeof customFetch>[1]): Promise<ResourceCatalogEnvelope> => {
+
+  return customFetch<ResourceCatalogEnvelope>(getListResourcesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListResourcesQueryKey = () => {
+    return [
+    `/api/v1/resources`
+    ] as const;
+    }
+
+
+export const getListResourcesQueryOptions = <TData = Awaited<ReturnType<typeof listResources>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listResources>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListResourcesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listResources>>> = ({ signal }) => listResources({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listResources>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListResourcesQueryResult = NonNullable<Awaited<ReturnType<typeof listResources>>>
+export type ListResourcesQueryError = ErrorType<ApiError>
+
+
+export function useListResources<TData = Awaited<ReturnType<typeof listResources>>, TError = ErrorType<ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listResources>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listResources>>,
+          TError,
+          Awaited<ReturnType<typeof listResources>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListResources<TData = Awaited<ReturnType<typeof listResources>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listResources>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listResources>>,
+          TError,
+          Awaited<ReturnType<typeof listResources>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListResources<TData = Awaited<ReturnType<typeof listResources>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listResources>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List reference documents
+ */
+
+export function useListResources<TData = Awaited<ReturnType<typeof listResources>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listResources>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListResourcesQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadResourceFileUrl = (resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud',) => {
+
+
+
+
+  return `/api/v1/resources/${resourceId}/download`
+}
+
+/**
+ * Streams an allowlisted file as an attachment after Clerk session authentication. Files are not exposed through public static URLs.
+ * @summary Download a reference document
+ */
+export const downloadResourceFile = async (resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadResourceFileUrl(resourceId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadResourceFileQueryKey = (resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud',) => {
+    return [
+    `/api/v1/resources/${resourceId}/download`
+    ] as const;
+    }
+
+
+export const getDownloadResourceFileQueryOptions = <TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadResourceFileQueryKey(resourceId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadResourceFile>>> = ({ signal }) => downloadResourceFile(resourceId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: resourceId !== null && resourceId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type DownloadResourceFileQueryResult = NonNullable<Awaited<ReturnType<typeof downloadResourceFile>>>
+export type DownloadResourceFileQueryError = ErrorType<ApiError>
+
+
+export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(
+ resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof downloadResourceFile>>,
+          TError,
+          Awaited<ReturnType<typeof downloadResourceFile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(
+ resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof downloadResourceFile>>,
+          TError,
+          Awaited<ReturnType<typeof downloadResourceFile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(
+ resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Download a reference document
+ */
+
+export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(
+ resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getDownloadResourceFileQueryOptions(resourceId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

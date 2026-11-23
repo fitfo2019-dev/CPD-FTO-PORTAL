@@ -12,7 +12,7 @@ import {
 import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { cn } from '@/lib/utils.js';
-import { currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeEntryMDY, formatDateTimeMDY, getNextReportDate, getPhaseScheduleInfo, getSundaySaturdayWeek, getWeekdayIndex, parseDateDMY, requiredDaysOff, shiftWeekDescription } from '@/lib/training-calendar.js';
+import { currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getNextReportDate, getPhaseScheduleInfo, getSundaySaturdayWeek, getWeekdayIndex, parseDateDMY, requiredDaysOff, shiftWeekDescription, splitDateTimeEntryMDY } from '@/lib/training-calendar.js';
 import { isValidAssignment } from '@/lib/cpd-geography.js';
 import { PrintableDailyLog } from '@/components/printable-daily-log.js';
 import { PrintableDailyForms } from '@/components/printable-daily-forms.js';
@@ -65,6 +65,7 @@ export default function ReportEditor() {
   const [runDraftId, setRunDraftId] = useState(uid);
   const [runKind, setRunKind] = useState<PrimaryRunForm>('call_for_service');
   const [runDateTimeText, setRunDateTimeText] = useState(() => r ? formatDateDMY(r.date) : '');
+  const [runTimeText, setRunTimeText] = useState('');
   const [incidentNumber, setIncidentNumber] = useState('');
   const [runLocation, setRunLocation] = useState('');
   const [runError, setRunError] = useState('');
@@ -110,6 +111,7 @@ export default function ReportEditor() {
   }, [r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, transportDestinationType, clearanceCode, arrestProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runNarrative]);
   const deficiencyEditor = useDeficiencyEditor(r, setR, getOperationalPacket, candidateRun, r?.status === 'draft' && ws.role === 'fto');
   const parsedDate = parseDateDMY(dateText);
+  const runDateTimeParts = splitDateTimeEntryMDY(runDateTimeText);
   const dateWeekday = parsedDate ? getWeekdayIndex(parsedDate) : undefined;
   const selectedDayOff = !!(isNew && ws.caseFolder && dateWeekday !== undefined && ws.caseFolder.daysOff?.includes(dateWeekday));
   const checkItems = RUN_CHECKLIST_ITEMS[runKind];
@@ -131,7 +133,7 @@ export default function ReportEditor() {
   const baseline = useMemo(() => JSON.stringify(existing ?? null), [existing]);
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
-  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== SITUATION_FOUND_NA || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestProcessRequired || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
+  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== SITUATION_FOUND_NA || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestProcessRequired || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
   const isDirty = !!r && (JSON.stringify(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
   useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
@@ -353,7 +355,7 @@ export default function ReportEditor() {
     });
     setRunDraftId(uid());
     setChargeText('');
-    setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunDispatched(true); setRunError(''); runReviewConfirmedRef.current = false;
+    setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunTimeText(''); setRunDispatched(true); setRunError(''); runReviewConfirmedRef.current = false;
     setIncidentNumber(''); setRunLocation(''); generatedNarrativeRef.current = '';
     setTrafficMode('none'); setArrestMade(false); setTransported(false); setTransportDestination(''); setTransportDestinationType(undefined); setArrestProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
     setActivityFlags({}); setDispatchedCode(''); setSituationFoundCode(SITUATION_FOUND_NA); setClearanceCode('');
@@ -367,7 +369,8 @@ export default function ReportEditor() {
     setIncidentNumber(run.incidentNumber ?? ''); setRunLocation(run.location ?? ''); generatedNarrativeRef.current = '';
     const occurredAt = new Date(run.occurredAt);
     const localDateTime = new Date(occurredAt.getTime() - occurredAt.getTimezoneOffset() * 60000).toISOString();
-    setRunDateTimeText(`${formatDateDMY(localDateTime.slice(0,10))} ${localDateTime.slice(11,16)}`); setRunDispatched(run.isDispatched);
+    const localRunDateTime=`${formatDateDMY(localDateTime.slice(0,10))} ${localDateTime.slice(11,16)}`;
+    setRunDateTimeText(localRunDateTime); setRunTimeText(splitDateTimeEntryMDY(localRunDateTime).time); setRunDispatched(run.isDispatched);
     setTrafficMode(run.trafficMode); setArrestMade(run.arrestMade);
     setActivityFlags(run.activityFlags ?? {}); setDispatchedCode(run.runKind==='traffic_stop'?'6':run.dispatchedCode ?? DEFAULT_RUN_TYPE_CODES[run.runKind] ?? '');
     setSituationFoundCode(run.situationFoundCode ?? ''); setClearanceCode(run.clearanceCode ?? '');
@@ -451,6 +454,7 @@ export default function ReportEditor() {
         <p className="border-b px-4 py-3 text-sm text-muted-foreground">The assigned FTO’s name and badge come from the phase assignment and are saved as this report’s identity snapshot.</p>
         <fieldset disabled={!editable} className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
           <F l="Shift date (MM/DD/YYYY)"><input type="text" inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={dateText} onChange={e=>{const value=formatDateEntryMDY(e.target.value);setDateText(value);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,value));applyShiftDate(value);}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const today=currentDateTimeMDY().date;setDateText(today);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,today));applyShiftDate(today);}}} data-testid="input-date" /><span className="text-xs font-normal text-muted-foreground">Slashes are added automatically. Enter ? then press Enter for today.</span></F>
+           <F l="Shift time"><input required type="time" className={inp+' mono'} value={r.shiftStartTime??''} onChange={event=>set('shiftStartTime',event.target.value)} data-testid="input-shift-start-time" /><span className="text-xs font-normal text-muted-foreground">Enter the actual shift start time in 24-hour format.</span></F>
           <F l="Shift (from case folder)"><input className={inp} value={shiftDisplayLabel(r.shift)} disabled data-testid="input-shift" /></F>
           <F l="Phase (from case folder)"><input className={inp} value={phaseLabel(r.phase)} disabled data-testid="input-phase" /></F>
           <F l="Probationary Officer (PO)"><input className={inp} value={r.recruitName} onChange={e=>set('recruitName',e.target.value)} data-testid="input-po-name" /></F>
@@ -526,7 +530,8 @@ export default function ReportEditor() {
                 {['call_for_service','self_initiated'].includes(runKind)
                   ? <p className="text-xs text-muted-foreground sm:col-span-2">{runKind==='call_for_service'?'Call for Service is the default for each new run.':'Use Self-Initiated Run / Training when the PO initiates the activity.'} Choose a dedicated form when the manual calls for one.</p>
                   : <F l="Run origin"><SearchableSelect className={inp} value={runDispatched?'call_for_service':'self_initiated'} onChange={e=>{const dispatched=e.target.value==='call_for_service';setRunDispatched(dispatched);setRunChecklist(prev=>checklistFor(runKind,trafficMode,dispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);setRunError('');}} data-testid="select-run-origin"><option value="call_for_service">Call for Service / dispatched</option><option value="self_initiated">Self-initiated</option></SearchableSelect></F>}
-                <F l="Run date and time · MM/DD/YYYY HH:MM"><input required inputMode="text" maxLength={16} placeholder="MM/DD/YYYY HH:MM" className={inp} value={runDateTimeText} onChange={event=>{setRunDateTimeText(formatDateTimeEntryMDY(event.target.value));setRunError('');}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const now=currentDateTimeMDY();setRunDateTimeText(`${now.date} ${now.time}`);setRunError('');}}} data-testid="input-run-datetime" /><span className="text-xs font-normal text-muted-foreground">Enter date and 24-hour time together. Enter ? then press Enter to fill the current date and time.</span></F>
+                 <F l="Run event date · MM/DD/YYYY"><input required inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={runDateTimeParts.date} onChange={event=>{const date=formatDateEntryMDY(event.target.value);setRunDateTimeText(`${date}${runTimeText?` ${runTimeText}`:''}`);setRunError('');}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const now=currentDateTimeMDY();setRunDateTimeText(`${now.date} ${now.time}`);setRunTimeText(now.time);setRunError('');}}} data-testid="input-run-date" /></F>
+                 <F l="Run event time"><input required type="time" className={inp+' mono'} value={runTimeText} onChange={event=>{const time=event.target.value;setRunTimeText(time);setRunDateTimeText(current=>{const date=splitDateTimeEntryMDY(current).date;return date?`${date}${time?` ${time}`:''}`:'';});setRunError('');}} data-testid="input-run-time" /><span className="text-xs font-normal text-muted-foreground">Enter the time the call was aired or initiated. Correct dispatch details as needed.</span></F>
                  <F l="Incident Number"><input className={inp} value={incidentNumber} onChange={event=>setIncidentNumber(event.target.value)} maxLength={120} placeholder="Optional" data-testid="input-run-incident-number" /></F>
                  <F l="Location"><input className={inp} value={runLocation} onChange={event=>setRunLocation(event.target.value)} maxLength={200} placeholder="Optional" data-testid="input-run-location" /></F>
                 {runKind==='traffic_stop' && <F l="Traffic violator"><SearchableSelect className={inp} value={trafficMode==='none'?'motor_vehicle':trafficMode} onChange={e=>{const mode=e.target.value as TrainingRun['trafficMode'];setTrafficMode(mode);setRunChecklist(prev=>checklistFor(runKind,mode,runDispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);setRunError('');}} data-testid="select-traffic-violator"><option value="motor_vehicle">Motor vehicle</option><option value="pedestrian">Pedestrian</option><option value="bicycle">Bicycle</option><option value="other">Other</option></SearchableSelect></F>}

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useUser } from '@clerk/react';
 import { Link } from 'wouter';
 import {
-  ArrowDownRight, ArrowUpRight, BookMarked, BookOpen, Check, ClipboardCheck, FileText, ExternalLink,
+  ArrowDownRight, ArrowUpRight, BookMarked, BookOpen, Check, ClipboardCheck, Download, FileText, ExternalLink,
   LibraryBig, Search, ShieldCheck, UserRound, X,
 } from 'lucide-react';
+import { useListResources, apiEndpoint, type ResourceCatalogItem } from '@workspace/api-client-react';
 import { PageHead } from '@/components/bits.js';
 import {
   FTO_HELP, MANUAL_SOURCE, UPLOADED_FORM_SOURCES,
@@ -53,6 +54,16 @@ type LibraryRecord = {
   latestLegislation?: string;
   retrievedAt?: string;
 };
+
+function isResourceCatalogItem(value: unknown): value is ResourceCatalogItem {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Partial<ResourceCatalogItem>;
+  return typeof item.id === 'string'
+    && typeof item.title === 'string'
+    && typeof item.file_type === 'string'
+    && typeof item.description === 'string'
+    && typeof item.handling_note === 'string';
+}
 
 const MANUAL_PASSAGES = JSON.parse(manualIndexText) as ManualPassage[];
 const PDF_BY_NUMBER = new Map<string, (typeof DIRECTIVE_PDF_LINKS)[number]>(
@@ -180,6 +191,15 @@ function testSlug(value: string) {
 export default function HelpPage() {
   const { ws, upsertLawReviewRecord, deleteLawReviewRecord, vault, dirty } = useWorkspace();
   const { user } = useUser();
+  const {
+    data: resourceResponse,
+    isLoading: resourcesLoading,
+    isError: resourcesError,
+    refetch: refetchResources,
+  } = useListResources();
+  const resources = Array.isArray(resourceResponse?.data)
+    ? resourceResponse.data.filter(isResourceCatalogItem)
+    : [];
   const [orcCorpus, setOrcCorpus] = useState<OfficialOrcSection[]>([]);
   const [orcCorpusState, setOrcCorpusState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [query, setQuery] = useState('');
@@ -378,7 +398,7 @@ export default function HelpPage() {
 
   return (
     <div className="law-library-page mx-auto max-w-[1440px]">
-      <PageHead kicker="Field Training Officer Portal · Columbus" title="Law Library">
+      <PageHead kicker="Field Training Officer Portal · Columbus" title="Resources">
         <a
           href={DIRECTIVE_PDF_INDEX_SOURCE}
           target="_blank"
@@ -390,9 +410,68 @@ export default function HelpPage() {
         </a>
       </PageHead>
 
+      <section className="uploaded-resources" aria-labelledby="uploaded-resources-title" data-testid="section-uploaded-resources">
+        <div className="uploaded-resources-heading">
+          <div>
+            <p className="library-eyebrow"><ShieldCheck size={15} aria-hidden="true" /> Signed-in downloads</p>
+            <h2 id="uploaded-resources-title">Uploaded reference documents</h2>
+          </div>
+          <span className="uploaded-resources-count" data-testid="text-resource-count">
+            {resourcesLoading ? 'Loading' : `${resources.length} ${resources.length === 1 ? 'file' : 'files'}`}
+          </span>
+        </div>
+        <p className="uploaded-resources-note">
+          Some examples may contain personal details or internal contact information. Downloads require sign-in; follow agency handling rules and verify current law and policy before relying on these references.
+        </p>
+        {resourcesLoading ? (
+          <div className="uploaded-resources-grid" aria-busy="true" aria-label="Loading reference documents">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div className="uploaded-resource-skeleton" key={index} data-testid={`skeleton-resource-${index}`} />
+            ))}
+          </div>
+        ) : resourcesError ? (
+          <div className="uploaded-resources-state" role="alert" data-testid="error-resource-catalog">
+            <p>The reference document list could not be loaded. Try again; downloads require an active sign-in.</p>
+            <button type="button" onClick={() => { void refetchResources(); }} data-testid="button-retry-resource-catalog">
+              Try again
+            </button>
+          </div>
+        ) : resources.length === 0 ? (
+          <p className="uploaded-resources-state" data-testid="empty-resource-catalog">
+            No uploaded reference documents are available.
+          </p>
+        ) : (
+          <div className="uploaded-resources-grid" data-testid="grid-uploaded-resources">
+            {resources.map((resource) => (
+              <article className="uploaded-resource-card" key={resource.id} data-testid={`card-resource-${resource.id}`}>
+                <div className="uploaded-resource-card-top">
+                  <span className="uploaded-resource-type"><FileText size={15} aria-hidden="true" />{resource.file_type}</span>
+                  <ShieldCheck size={16} aria-label="Sign-in required" className="uploaded-resource-protected" />
+                </div>
+                <div className="uploaded-resource-copy">
+                  <h3>{resource.title}</h3>
+                  <p>{resource.description}</p>
+                  {resource.handling_note && (
+                    <p className="uploaded-resource-handling">{resource.handling_note}</p>
+                  )}
+                </div>
+                <a
+                  className="uploaded-resource-download"
+                  href={apiEndpoint(`/v1/resources/${encodeURIComponent(resource.id)}/download`)}
+                  download
+                  data-testid={`link-download-resource-${resource.id}`}
+                >
+                  <Download size={15} aria-hidden="true" /> Download
+                </a>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
       <header className="library-intro">
         <div className="library-intro-copy">
-          <p className="library-eyebrow"><LibraryBig size={15} aria-hidden="true" /> Working reference desk</p>
+          <p className="library-eyebrow"><LibraryBig size={15} aria-hidden="true" /> Law Library · Working reference desk</p>
           <h2>Find the source.<br /><span>Get back to the work.</span></h2>
           <p className="library-intro-text">Search the manual and directive list, or open the complete official codes, casebook, glossary, and case-law collections below.</p>
         </div>

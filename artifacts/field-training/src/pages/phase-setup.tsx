@@ -183,7 +183,7 @@ export default function PhaseSetupPage() {
     <PageHead kicker="Step 1 · Class and phase details" title="Phase setup">
       {ws.caseFolder&&<Link href="/reports/new" className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground" data-testid="link-start-shift"><FolderOpen className="h-4 w-4"/>Start shift</Link>}
     </PageHead>
-    <div className="mb-3 flex flex-wrap items-center justify-end gap-4 text-sm"><Link href="/help" className="font-semibold underline" data-testid="link-phase-help">Forms & Help</Link>{phaseValue==='1'&&<Link href="/substation-orientation" className="font-semibold underline" data-testid="link-phase-orientation">Substation Orientation · first day</Link>}</div>
+    <div className="mb-3 flex flex-wrap items-center justify-end gap-4 text-sm"><Link href="/resources" className="font-semibold underline" data-testid="link-phase-help">Resources</Link>{phaseValue==='1'&&<Link href="/substation-orientation" className="font-semibold underline" data-testid="link-phase-orientation">Substation Orientation · first day</Link>}</div>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(save)} noValidate>
         <Panel title="PO, class, phase, and assigned FTO">

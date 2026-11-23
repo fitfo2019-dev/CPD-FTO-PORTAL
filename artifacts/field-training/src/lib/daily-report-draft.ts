@@ -14,7 +14,7 @@ export function createDailyReportDraft(folder:PhaseCaseFolder,date:string,prior?
   const now=new Date().toISOString();
   const schedule=getPhaseScheduleInfo(folder.phase,date,folder.phaseStartDate,folder.daysOff,folder.phaseWeekRanges,folder.limboExtensionWeeks);
   return {
-    id:uid(),date,shift:folder.shift,phase:folder.phase,zone:folder.zone,precinct:folder.precinct,
+    id:uid(),date,shiftStartTime:'',shift:folder.shift,phase:folder.phase,zone:folder.zone,precinct:folder.precinct,
     cruiserDistrict:folder.cruiserDistrict,ftoAssignment:folder.ftoAssignment,className:folder.className??'',
     recruitName:folder.recruitName,recruitBadge:folder.recruitBadge,ftoName:folder.ftoName,ftoBadge:folder.ftoBadge,
     activity:emptyDailyActivitySummary(),activityCountsIncludeRuns:false,runs:[],

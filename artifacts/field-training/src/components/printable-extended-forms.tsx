@@ -14,6 +14,7 @@ export function PrintableSubstationOrientation({record,pageReference,continuatio
 }
 
 function OrientationPage({record,phase,pageReference,title,sections,continued,testId}:{record:SubstationOrientationRecord;phase:Phase;pageReference?:string;title:string;sections:typeof SUBSTATION_ORIENTATION_SECTIONS[number][];continued?:boolean;testId:string}) {
+  const [date,time]=formatDateTimeMDY(record.dateTime).split(' ');
   return <section className={`print-substation${continued?' print-substation-continuation':''}`} aria-hidden="true" data-testid={testId}>
     <header className="print-extended-header">
       <div><p>Columbus Division of Police · Field Training Program</p><h1>{title}</h1><b>U-10.181 (05/23)</b></div>
@@ -23,7 +24,8 @@ function OrientationPage({record,phase,pageReference,title,sections,continued,te
       <span><b>Probationary Officer</b>{record.recruitName} · {record.recruitBadge}</span>
       <span><b>FTO</b>{record.ftoName} · {record.ftoBadge}</span>
        <span><b>Substation</b>{substationDisplay(record.substation)}</span>
-      <span><b>Date / time</b>{formatDateTimeMDY(record.dateTime)}</span>
+       <span><b>Date</b>{date||'Not recorded'}</span>
+       <span><b>Time</b>{time||'Not recorded'}</span>
        <span><b>Class / phase</b>{record.className||'—'} · {phaseLabel(phase)}</span>
        <span data-training-folder-page={pageReference}><b>Training-folder reference</b>{pageReference??'Training-folder reference unavailable'}</span>
     </div>

@@ -48,3 +48,13 @@ it must not erase an observed checklist failure.
 
 **How to apply:** Keep N/A as separate report applicability metadata, exclude it
 from weekly rating counts, and retain any recorded deficiency as UA evidence.
+
+Run event date and time represent the actual call ingress minute (aired or
+initiated), and FTOs must be able to correct them. PatrolView/CAD prefill is not
+connected yet; current entry is manual and editable.
+
+**Why:** The user specified event-ingress time as the authoritative run time and
+allowed FTO corrections, while the project currently has no PatrolView feed.
+
+**How to apply:** Keep these fields editable and never claim CAD synchronization
+or populate from a dispatch source until an approved integration is connected.

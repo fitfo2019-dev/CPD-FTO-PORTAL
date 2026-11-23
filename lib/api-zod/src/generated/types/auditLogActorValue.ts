@@ -5,6 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { AuditLogActor } from './auditLogActor.js';
+import type { AuditLogActor } from './auditLogActor';
 
 export type AuditLogActorValue = 'ANONYMOUS' | 'UNAUTHENTICATED' | AuditLogActor;

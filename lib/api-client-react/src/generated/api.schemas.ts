@@ -204,6 +204,64 @@ export interface AuditLogsEnvelope {
   data: AuditLogRecord[];
 }
 
+export type ResourceCatalogItemId = typeof ResourceCatalogItemId[keyof typeof ResourceCatalogItemId];
+
+
+export const ResourceCatalogItemId = {
+  'amys-law-factors': 'amys-law-factors',
+  'bmv-2255-urine-0-bac': 'bmv-2255-urine-0-bac',
+  'bmv2255-example': 'bmv2255-example',
+  'domestic-violence-protocol': 'domestic-violence-protocol',
+  'drug-possession-weights': 'drug-possession-weights',
+  'dv-strangulation-diagram': 'dv-strangulation-diagram',
+  'key-criminal-law-issues-2024': 'key-criminal-law-issues-2024',
+  'ohio-constitutional-opinions': 'ohio-constitutional-opinions',
+  'ohio-supreme-court-felony-quick-reference': 'ohio-supreme-court-felony-quick-reference',
+  'police-phone-directory': 'police-phone-directory',
+  'prior-offenses-constituting-wud': 'prior-offenses-constituting-wud',
+} as const;
+
+export type ResourceCatalogItemFileType = typeof ResourceCatalogItemFileType[keyof typeof ResourceCatalogItemFileType];
+
+
+export const ResourceCatalogItemFileType = {
+  DOC: 'DOC',
+  DOCX: 'DOCX',
+  PDF: 'PDF',
+} as const;
+
+export interface ResourceCatalogItem {
+  id: ResourceCatalogItemId;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  file_type: ResourceCatalogItemFileType;
+  /** @maxLength 240 */
+  description: string;
+  /** @maxLength 240 */
+  handling_note: string;
+}
+
+export interface ResourceCatalogMetadata {
+  /** @minimum 0 */
+  total_records: number;
+}
+
+export type ResourceCatalogEnvelopeStatus = typeof ResourceCatalogEnvelopeStatus[keyof typeof ResourceCatalogEnvelopeStatus];
+
+
+export const ResourceCatalogEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export interface ResourceCatalogEnvelope {
+  status: ResourceCatalogEnvelopeStatus;
+  metadata: ResourceCatalogMetadata;
+  data: ResourceCatalogItem[];
+}
+
 export type ApiErrorStatus = typeof ApiErrorStatus[keyof typeof ApiErrorStatus];
 
 

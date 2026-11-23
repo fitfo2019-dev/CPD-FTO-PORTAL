@@ -5,9 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { SecureRecord } from './secureRecord.js';
-import type { SecureRecordsEnvelopeStatus } from './secureRecordsEnvelopeStatus.js';
-import type { SecureRecordsMetadata } from './secureRecordsMetadata.js';
+import type { SecureRecord } from './secureRecord';
+import type { SecureRecordsEnvelopeStatus } from './secureRecordsEnvelopeStatus';
+import type { SecureRecordsMetadata } from './secureRecordsMetadata';
 
 export interface SecureRecordsEnvelope {
   status: SecureRecordsEnvelopeStatus;

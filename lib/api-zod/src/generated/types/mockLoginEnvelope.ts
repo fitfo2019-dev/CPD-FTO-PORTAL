@@ -5,9 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { MockLoginEnvelopeDataItem } from './mockLoginEnvelopeDataItem.js';
-import type { MockLoginEnvelopeMetadata } from './mockLoginEnvelopeMetadata.js';
-import type { MockLoginEnvelopeStatus } from './mockLoginEnvelopeStatus.js';
+import type { MockLoginEnvelopeDataItem } from './mockLoginEnvelopeDataItem';
+import type { MockLoginEnvelopeMetadata } from './mockLoginEnvelopeMetadata';
+import type { MockLoginEnvelopeStatus } from './mockLoginEnvelopeStatus';
 
 export interface MockLoginEnvelope {
   status: MockLoginEnvelopeStatus;

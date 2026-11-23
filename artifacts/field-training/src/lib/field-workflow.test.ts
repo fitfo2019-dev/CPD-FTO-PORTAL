@@ -260,6 +260,13 @@ test('Limbo logs have no default SEG ratings and do not require rating validatio
   assert.equal(validateReport(report).some(error=>error.includes('select a manual rating')),false);
 });
 
+test('new shift-header times require valid 24-hour HH:MM while legacy records remain readable',()=>{
+  const report=seedReports()[0];
+  assert.ok(!validateReport(report).some(error=>error.includes('Shift start time')));
+  assert.ok(validateReport({...report,shiftStartTime:''}).some(error=>error.includes('Shift start time must use 24-hour HH:MM format')));
+  assert.ok(!validateReport({...report,shiftStartTime:'07:15'}).some(error=>error.includes('Shift start time')));
+});
+
 test('manual run segments expose described actions for every form',()=>{
   for(const form of Object.values(RUN_CHECKLIST_SECTIONS)){
     assert.ok(form.length>1);

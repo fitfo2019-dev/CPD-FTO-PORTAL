@@ -1,7 +1,7 @@
 import { isValidAssignment } from './cpd-geography.js';
 import { SUBMITTED_PRIMARY_CHECKLISTS, SUBMITTED_SUPPLEMENTAL_CHECKLISTS } from './manual-form-checklists.js';
 import {
-  PHASE_CONFIGURATION,
+  PHASE_TIMELINE_REGISTRY,
   PHASE_LENGTH_WEEKS,
   PHASE_LIMBO_FULL_WEEKS,
   PHASE_LIMBO_WORKDAYS,
@@ -11,7 +11,7 @@ import {
 } from '../config/phaseConfiguration.js';
 
 export {
-  PHASE_CONFIGURATION,
+  PHASE_TIMELINE_REGISTRY,
   PHASE_LENGTH_WEEKS,
   PHASE_LIMBO_FULL_WEEKS,
   PHASE_LIMBO_WORKDAYS,
@@ -584,7 +584,7 @@ export const normalizePreviewRole = (value: unknown): Role => {
 };
 export const canViewClass = (role: Role) => role === 'fto' || role === 'fto_coordinator';
 export type Phase = PhaseId;
-export const PHASES: Phase[] = PHASE_CONFIGURATION.map(({ phase }) => phase);
+export const PHASES: Phase[] = PHASE_TIMELINE_REGISTRY.map(({ phase }) => phase);
 export const phaseLabel = (p: Phase) => 'Phase ' + p;
 export interface PhaseWeekRange {
   startDate: string;
@@ -813,7 +813,7 @@ export interface ChecklistDeficiencyGroup {
   reviewed?: boolean;
 }
 export interface Report {
-  id: string; date: string; shift: ReportShift; phase: Phase; zone: string; precinct: string; cruiserDistrict: string;
+  id: string; date: string; shiftStartTime?: string; shift: ReportShift; phase: Phase; zone: string; precinct: string; cruiserDistrict: string;
   deficiencyAutomationEnabled?: boolean;
   deficiencyOverrides?: Record<string, Category>;
   deficiencyNarratives?: Record<string, string>;
@@ -892,6 +892,7 @@ export function scanPII(text: string): string[] { return PII.filter(p => p.re.te
 
 export function validateReport(r: Report): string[] {
   const errs: string[] = [];
+  if (r.shiftStartTime !== undefined && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(r.shiftStartTime)) errs.push('Shift start time must use 24-hour HH:MM format');
   if (r.deficiencyAutomationEnabled && !r.limboDay && r.checklistDeficiencies?.some(group=>!group.narrative.trim())) errs.push('Every checklist deficiency requires an FTO articulation');
   if (r.reportingForDuty.shotgunTraining !== undefined && !['Y','N'].includes(r.reportingForDuty.shotgunTraining)) errs.push('Shotgun Training must be Y or N');
   for(const run of r.runs??[]) {
