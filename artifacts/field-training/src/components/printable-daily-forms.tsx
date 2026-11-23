@@ -87,7 +87,7 @@ function People({report}:{report:Report}) {
 
 function DutyPage({report,pageReference}:{report:Report;pageReference?:string}) {
   const record=report.reportingForDuty;
-  return <article className="print-run-page" data-testid="print-duty-form">
+  return <article className="print-run-page print-duty-page" data-testid="print-duty-form">
     <PageHeader title="Reporting for Duty Form" formNumber="" report={report} pageReference={pageReference}/>
     <People report={report}/>
     <div className="print-run-legend">Checklist items start checked. Review each item and clear anything not completed acceptably; Not applicable remains unchecked unless explicitly selected.</div>

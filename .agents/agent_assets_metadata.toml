@@ -392,3 +392,31 @@ mtime_ms = 1795430348569
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/1db0921e-eef0-4ed6-9835-3a6a151861ed/6422bc38-acc0-49ec-bb52-ca009dcc50ba"
 storage_version_token = "1795430466447098"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "8BKvXVc1twj-9R99FU1Kq"
+uri = "file://generated-artifacts/packet-print-check/duty-full-page.png"
+type = "image"
+title = "Corrected full-page Reporting for Duty"
+description = "Updated actual export using fictional sample data, with larger text and balanced full-page checklist sections."
+logical_id = "d2ded2e4-5311-4e96-8b5b-df40e396298d"
+content_hash = "sha256:694fe396bc281db2fcc1c374ae41b72039fa633b619f52f1c97677afbfa5053c"
+size = 176870
+mtime_ms = 1795430772169
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/d2ded2e4-5311-4e96-8b5b-df40e396298d/22b10188-615a-4981-bade-06e627875af1"
+storage_version_token = "1795430797220221"
+content_type = "image/png"
+
+[[outputs]]
+id = "pYab8wwq3tWe3zktIWnaB"
+uri = "file://generated-artifacts/packet-print-check/Reporting-For-Duty-2.pdf"
+type = "pdf"
+title = "Download the corrected duty sheet"
+description = "Single Letter-size PDF. This phase-start sample remains Page 2; routine-day duty forms retain Page 1."
+logical_id = "7bba6f29-b321-459c-b5a6-5ebcccc21689"
+content_hash = "sha256:17b137986a4336d866263739aace0607884b8f131bfffd2c11ae1a23ee7a3bb0"
+size = 58288
+mtime_ms = 1795430771909
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/7bba6f29-b321-459c-b5a6-5ebcccc21689/97296445-959f-4a24-b272-7782886a090e"
+storage_version_token = "1795430797821798"
+content_type = "application/pdf"

@@ -9,6 +9,14 @@ Verify physical PDF sheets, not just visible page labels or the on-screen print 
 
 **How to apply:** For packet print changes, compare actual PDF page counts with the expected form references and inspect the final sheet for footer-only overflow. Include long narratives and explicit blank lines; short sample text does not expose these failures.
 
+Reporting for Duty should use a full Letter sheet with readable checklist text
+and balanced sections, rather than inheriting the compact incident-run density.
+
+**Why:** The user rejected the compact duty export because it did not fill the page.
+
+**How to apply:** Scope sizing to the duty form, keep every item and its page
+reference, and verify that its footer remains on the same physical PDF sheet.
+
 The user approved a single-sheet Substation Orientation at Page 1 on Phase Day 1,
 then clarified that Reporting for Duty must be retained every day. Phase ingress
 therefore has orientation P1, duty P2 and runs P3 onward. Routine days start with
