@@ -313,7 +313,7 @@ export function WorkspaceProvider({
       setEditorDirty(false);
       setSaveError(null);
       setPreviewChatDrafts([]);
-      setWs(createUiPreviewWorkspace());
+      setWs(createUiPreviewWorkspace(wsRef.current.role));
       setEpoch(e => e + 1);
       setLockedNotice(false);
       return;
@@ -503,7 +503,17 @@ export function WorkspaceProvider({
       [...ws.phaseFolders, ...(ws.caseFolder ? [ws.caseFolder] : [])],
       ws.substationOrientations,
     ),
-    setRole: (role) => setWs(w => ({ ...w, role: normalizePreviewRole(role) })),
+    setRole: (role) => {
+      if (!previewOnly) return;
+      const nextRole = normalizePreviewRole(role);
+      rev.current++;
+      setWs(createUiPreviewWorkspace(nextRole));
+      setDirty(false);
+      setEditorDirty(false);
+      setSaveError(null);
+      setPreviewChatDrafts([]);
+      setEpoch(value => value + 1);
+    },
     setCaseFolder: (caseFolder) => mutate(w => {
       const folders=w.phaseFolders??[];
       const index=folders.findIndex(existing=>sameCaseFolder(existing,caseFolder));
@@ -574,7 +584,7 @@ export function WorkspaceProvider({
     toggleTask: (id, by) => mutate(w => ({ ...w, tasks: w.tasks.map((t: Task) => t.id !== id ? t : t.done ? { ...t, done: false, by: undefined, at: undefined } : { ...t, done: true, by, at: new Date().toISOString() }) })),
     openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
     setupAndSave, unlockAndRestore, saveNow, syncPackets, lockNow, dismissLockedNotice: () => setLockedNotice(false),
-    resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace() : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setEpoch(e => e + 1); },
+    resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace(wsRef.current.role) : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setEpoch(e => e + 1); },
   }), [ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
 
   return <C.Provider value={value}>{children}</C.Provider>;

@@ -29,7 +29,7 @@ import CommandReviewPage from '@/pages/command-review.js';
 import WeeklyPerformanceLogPage from '@/pages/weekly-performance-log.js';
 import SubstationOrientationPage from '@/pages/substation-orientation.js';
 import RoleAccessPage from '@/pages/role-access.js';
-import { isTechnicalRole } from '@/lib/model.js';
+import { isTechnicalRole, ROLE_LABEL } from '@/lib/model.js';
 import { getNextReportDate } from '@/lib/training-calendar.js';
 import FtoClassesPage from '@/pages/fto-classes.js';
 import { PortalRouteSwitch, UiPreviewRouter } from '@/lib/portal-routing.js';
@@ -256,19 +256,27 @@ function DemoWorkspace() {
   );
 }
 
+function DevelopmentUiPreviewContent() {
+  const { ws } = useWorkspace();
+  return (
+    <div className="min-h-screen">
+      <div
+        className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-950"
+        role="status"
+        data-testid="banner-role-preview"
+      >
+        DISPOSABLE UI PREVIEW · Fictional {ROLE_LABEL[ws.role]} workspace · Memory only, clears on refresh · No operational or shared-service access
+      </div>
+      <Shell><WorkspaceRoutes /></Shell>
+    </div>
+  );
+}
+
 function DevelopmentUiPreview() {
   return (
     <UiPreviewRouter>
       <WorkspaceProvider storageNamespace="fieldready-ui-preview" previewOnly>
-        <div className="min-h-screen">
-          <div
-            className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-950"
-            role="status"
-          >
-            DISPOSABLE UI PREVIEW · Fictional assignment loaded · Changes stay in memory until refresh · No portal or record access
-          </div>
-          <Shell><WorkspaceRoutes /></Shell>
-        </div>
+        <DevelopmentUiPreviewContent />
       </WorkspaceProvider>
     </UiPreviewRouter>
   );

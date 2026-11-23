@@ -21,7 +21,7 @@ test('production bundle includes the preview route, fictional workspace, and sig
   assert.match(bundle, /fieldready-ui-preview/);
   assert.match(bundle, /substation-orientation/);
   assert.match(bundle, /sign-in/);
-  assert.match(bundle, /Open disposable UI preview/);
   assert.match(bundle, /DISPOSABLE UI PREVIEW/);
-  assert.match(bundle, /No portal or record access/);
+  assert.match(bundle, /No operational or shared-service access/);
+  assert.match(bundle, /Fictional role preview/);
 });

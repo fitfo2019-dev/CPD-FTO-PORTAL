@@ -6,7 +6,7 @@ import { Link, useLocation } from 'wouter';
 import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, Users, FolderOpen, ClipboardList, BookOpen } from 'lucide-react';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
-import { ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
+import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
 import { VaultDialog } from './vault-dialog.js';
 import { cn } from '@/lib/utils.js';
 import { useToast } from '@/hooks/use-toast.js';
@@ -104,6 +104,17 @@ export function Shell({ children }: { children: ReactNode }) {
       : loc === '/reports/monthly-summary'
         ? 'Monthly performance summary'
         : activePage.label;
+  const selectPreviewRole = (role: Role) => {
+    if (!w.previewOnly) return;
+    w.setRole(role);
+    setLocation(role === 'fto_coc'
+      ? '/command-review'
+      : role === 'po'
+        ? '/role-access'
+        : isTechnicalRole(role)
+          ? '/technical-access'
+          : '/');
+  };
 
   async function onSave() {
     try { await w.saveNow(); if (w.vault === 'unlocked') toast({ title: 'Saved locally (encrypted)' }); }
@@ -157,22 +168,22 @@ export function Shell({ children }: { children: ReactNode }) {
               </Link>
             ))}
             <div className="ml-auto flex items-center gap-2">
-              {isLoaded && isSignedIn ? (
+              {!w.previewOnly && isLoaded && isSignedIn ? (
                 <>
                   <span className="hidden max-w-48 break-words text-[0.65rem] font-semibold text-white/80 xl:inline" title="Signed-in account">
                     {user?.fullName || user?.primaryEmailAddress?.emailAddress}
                   </span>
                   <button type="button" onClick={() => void onSignOut()} className="h-8 rounded-sm border border-white/30 px-2 text-xs font-semibold text-white hover:bg-white/10">Sign out</button>
                 </>
-              ) : (
+              ) : !w.previewOnly ? (
                 <Link href="/sign-in" className="h-8 rounded-sm border border-white/30 px-2 py-1.5 text-xs font-semibold text-white hover:bg-white/10">Sign in</Link>
-              )}
-              <label className="flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-white/70">
-                <span>Role preview</span>
-                <select aria-label="Role preview" data-testid="select-role-desktop" className="h-8 min-w-44 max-w-56 rounded-sm border border-white/30 bg-white px-2 text-xs font-semibold normal-case tracking-normal text-[#172b46]" value={w.ws.role} onChange={e => w.setRole(e.target.value as Role)}>
-                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+              ) : null}
+              {w.previewOnly && <label className="flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-white/70">
+                <span>Preview role</span>
+                <select aria-label="Fictional role preview" data-testid="select-role-desktop" className="h-8 min-w-44 max-w-56 rounded-sm border border-white/30 bg-white px-2 text-xs font-semibold normal-case tracking-normal text-[#172b46]" value={w.ws.role} onChange={e => selectPreviewRole(e.target.value as Role)}>
+                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]} · fictional</option>)}
                 </select>
-              </label>
+              </label>}
             </div>
           </nav>
         </div>
@@ -182,7 +193,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div data-testid="status-connection" aria-live="polite" className={cn('flex items-center gap-2 rounded-sm border px-3 py-1.5 text-xs font-semibold', w.online ? 'border-border bg-background' : 'border-accent bg-accent/10')}>
             {w.online ? <Wifi className="h-3.5 w-3.5 text-primary" /> : <WifiOff className="h-3.5 w-3.5 text-accent" />}
             {w.previewOnly
-              ? <>UI test workspace · changes stay in memory until refresh</>
+              ? <>Fictional {ROLE_LABEL[w.ws.role]} preview · changes stay in memory until refresh</>
               : w.vault === 'unlocked'
               ? unsaved
                 ? <>{w.online ? 'Online' : 'Offline'} · changes not yet saved · <span className="mono">{w.pending}</span> local records not uploaded</>
@@ -193,25 +204,25 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
           <div className="hidden text-xs text-muted-foreground lg:block" data-testid="status-vault">
             {w.previewOnly
-              ? 'Fictional test assignment · refresh clears test changes'
+              ? `Fictional ${ROLE_LABEL[w.ws.role]} sample · role changes and refresh clear test changes`
               : w.vault === 'unlocked'
                 ? (unsaved ? 'Vault open · unsaved changes' : 'Vault open · saved on this device')
                 : (unsaved ? 'Unsaved changes · not stored on this device' : 'Not saved · local changes in memory')}
           </div>
           <div className="ml-auto flex w-full min-w-0 items-center gap-1.5 md:w-auto">
-            {isLoaded && isSignedIn ? (
+            {!w.previewOnly && isLoaded && isSignedIn ? (
               <button type="button" onClick={() => void onSignOut()} aria-label="Sign out" className="h-9 shrink-0 rounded-sm border px-2 text-xs font-semibold md:hidden">
                 Sign out
               </button>
-            ) : (
+            ) : !w.previewOnly ? (
               <Link href="/sign-in" className="h-9 shrink-0 rounded-sm border px-2 py-2 text-xs font-semibold md:hidden">Sign in</Link>
-            )}
-            <label className="flex min-w-0 flex-1 items-center gap-1.5 md:hidden">
+            ) : null}
+            {w.previewOnly && <label className="flex min-w-0 flex-1 items-center gap-1.5 md:hidden">
               <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Role</span>
-              <select aria-label="Role preview" data-testid="select-role-mobile" className="h-9 min-w-0 w-full rounded-sm border border-input bg-card px-2 text-xs font-semibold" value={w.ws.role} onChange={e => w.setRole(e.target.value as Role)}>
-                {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+              <select aria-label="Fictional role preview" data-testid="select-role-mobile" className="h-9 min-w-0 w-full rounded-sm border border-input bg-card px-2 text-xs font-semibold" value={w.ws.role} onChange={e => selectPreviewRole(e.target.value as Role)}>
+                {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]} · fictional</option>)}
               </select>
-            </label>
+            </label>}
             {w.previewOnly ? (
               <button
                 type="button"

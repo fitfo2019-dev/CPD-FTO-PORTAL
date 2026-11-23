@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "test:checker": "node --test vite-checker.integration.test.mjs",
-    "test:ui-preview": "pnpm run typecheck:tests && BASE_PATH=/field-training-preview/ pnpm run build && TSX_TSCONFIG_PATH=$PWD/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/portal-routing.test.ts ../artifacts/field-training/src/lib/portal-production-build.test.ts"
+    "test:ui-preview": "pnpm run typecheck:tests && BASE_PATH=/field-training-preview/ pnpm run build && TSX_TSCONFIG_PATH=$PWD/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/portal-routing.test.ts ../artifacts/field-training/src/lib/empty-workspace.test.ts ../artifacts/field-training/src/lib/portal-production-build.test.ts"
   },
   "devDependencies": {
     "@hookform/resolvers": "^7.0.7",

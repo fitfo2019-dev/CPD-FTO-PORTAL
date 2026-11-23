@@ -13,11 +13,13 @@ interface PhaseExtensionReviewViewProps {
   reviewingId?:string;
   loading?:boolean;
   error?:string|null;
+  previewOnly?:boolean;
 }
 
-export function PhaseExtensionReviewView({requests,onReview,reviewingId,loading,error}:PhaseExtensionReviewViewProps) {
+export function PhaseExtensionReviewView({requests,onReview,reviewingId,loading,error,previewOnly=false}:PhaseExtensionReviewViewProps) {
   return <Panel title={`Pending phase extension requests · ${requests.length}`} className="mb-4" id="panel-phase-extension-review">
     {error&&<p role="alert" className="border-b bg-destructive/5 p-4 text-sm text-destructive">{error}</p>}
+    {previewOnly&&<p role="status" className="border-b bg-amber-50 p-4 text-sm text-amber-950">Fictional request shown for preview only. Review actions and shared-service access are disabled.</p>}
     {loading&&<p role="status" className="border-b p-4 text-sm text-muted-foreground">Loading shared requests…</p>}
     {!loading&&!error&&!requests.length&&<p className="p-4 text-sm text-muted-foreground">No pending requests are available.</p>}
     {!!requests.length&&<ul className="divide-y">
@@ -32,17 +34,17 @@ export function PhaseExtensionReviewView({requests,onReview,reviewingId,loading,
         </div>
         <p className="whitespace-pre-wrap text-sm">{request.justification}</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={!!reviewingId} onClick={()=>void onReview(request.id,true)} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid={`button-approve-extension-${request.id}`}>{reviewingId===request.id?'Saving…':'Approve'}</button>
-          <button type="button" disabled={!!reviewingId} onClick={()=>void onReview(request.id,false)} className="min-h-10 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-deny-extension-${request.id}`}>Deny</button>
+          <button type="button" disabled={previewOnly||!!reviewingId} onClick={()=>void onReview(request.id,true)} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid={`button-approve-extension-${request.id}`}>{reviewingId===request.id?'Saving…':'Approve'}</button>
+          <button type="button" disabled={previewOnly||!!reviewingId} onClick={()=>void onReview(request.id,false)} className="min-h-10 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-deny-extension-${request.id}`}>Deny</button>
         </div>
       </li>)}
     </ul>}
-    <p className="border-t px-4 py-3 text-xs text-muted-foreground">Requests and review decisions are stored by the authenticated agency service and are available across devices.</p>
+    <p className="border-t px-4 py-3 text-xs text-muted-foreground">{previewOnly?'Fictional preview data stays in memory and clears on refresh. No request or decision is sent.':'Requests and review decisions are stored by the authenticated agency service and are available across devices.'}</p>
   </Panel>;
 }
 
 export function PhaseExtensionPanel() {
-  const {ws,vault,submitPhaseExtensionRequest,syncSharedPhaseExtensionRequest}=useWorkspace();
+  const {ws,vault,previewOnly,submitPhaseExtensionRequest,syncSharedPhaseExtensionRequest}=useWorkspace();
   const {getToken,isLoaded,isSignedIn}=useAuth();
   const {toast}=useToast();
   const [extensionType,setExtensionType]=React.useState<PhaseExtensionRequest['extensionType']>('training_weeks');
@@ -56,7 +58,7 @@ export function PhaseExtensionPanel() {
   const localRequests=ws.phaseExtensionRequests??[];
 
   React.useEffect(()=>{
-    if(!isLoaded||!isSignedIn)return;
+    if(previewOnly||!isLoaded||!isSignedIn)return;
     let active=true;
     async function refresh() {
       setLoading(true);
@@ -84,9 +86,10 @@ export function PhaseExtensionPanel() {
     void refresh();
     const timer=window.setInterval(()=>void refresh(),30_000);
     return ()=>{active=false;window.clearInterval(timer);};
-  },[getToken,isLoaded,isSignedIn,ws.role,vault]);
+  },[getToken,isLoaded,isSignedIn,ws.role,vault,previewOnly]);
 
   async function reviewRequest(id:string,approve:boolean) {
+    if(previewOnly)return;
     setReviewingId(id);
     try {
       const token=await getToken();
@@ -105,6 +108,25 @@ export function PhaseExtensionPanel() {
       setReviewingId(undefined);
     }
   }
+
+  if(previewOnly&&ws.role==='fto_coordinator') {
+    return <PhaseExtensionReviewView
+      requests={localRequests.filter(request=>request.status==='pending')}
+      onReview={async()=>{}}
+      previewOnly
+    />;
+  }
+
+  if(previewOnly&&ws.role==='fto') {
+    return <Panel title="Request a phase extension · preview only" className="mb-4" id="panel-phase-extension-request">
+      <div className="grid gap-3 p-4">
+        <p className="text-sm text-muted-foreground">{ws.caseFolder?.className ?? 'Fictional FTO sample'} · {ws.caseFolder?.recruitName ?? 'DEMO PO'} · phase {ws.caseFolder?.phase ?? 3}.</p>
+        <p role="status" className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">This sample shows the FTO extension-request area. Submission is disabled; previews never read or write shared requests.</p>
+      </div>
+    </Panel>;
+  }
+
+  if(previewOnly)return null;
 
   if(ws.role==='fto_coordinator'&&serverRole==='FTO_COORDINATOR') {
     return <PhaseExtensionReviewView requests={sharedRequests.filter(request=>request.status==='pending')} onReview={reviewRequest} reviewingId={reviewingId} loading={loading} error={serviceError}/>;
@@ -143,6 +165,7 @@ export function PhaseExtensionPanel() {
   const activeFolder=folder;
 
   async function sendRequest(request:PhaseExtensionRequest) {
+    if(previewOnly)throw new Error('Shared phase-extension requests are disabled in the fictional preview.');
     if(vault!=='unlocked')throw new Error('Unlock this device’s encrypted workspace first.');
     if(!isLoaded||!isSignedIn)throw new PhaseExtensionApiError('Sign in with your approved staff account.',401);
     if(!navigator.onLine) {
