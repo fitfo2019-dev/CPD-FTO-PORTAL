@@ -99,7 +99,7 @@ export const CreateStagingTrainingRecordResponse = zod.object({
  * @summary Read one authorized synthetic record
  */
 export const GetStagingTrainingRecordParams = zod.object({
-  "id": zod.coerce.string().uuid()
+  "id": zod.string().uuid()
 })
 
 export const getStagingTrainingRecordResponseMetadataTotalRecordsMin = 0;
@@ -139,7 +139,7 @@ export const GetStagingTrainingRecordResponse = zod.object({
  * @summary Version-checked FTO synthetic record update
  */
 export const UpdateStagingTrainingRecordParams = zod.object({
-  "id": zod.coerce.string().uuid()
+  "id": zod.string().uuid()
 })
 
 
@@ -192,7 +192,7 @@ export const UpdateStagingTrainingRecordResponse = zod.object({
  * @summary PO acknowledges their own submitted synthetic record version
  */
 export const AcknowledgeStagingTrainingRecordParams = zod.object({
-  "id": zod.coerce.string().uuid()
+  "id": zod.string().uuid()
 })
 
 

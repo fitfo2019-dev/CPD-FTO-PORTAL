@@ -1,5 +1,56 @@
 # Handover Manual
 
+## Verified synthetic staging and source-recovery boundary
+
+The unused extra developer-password gate has been removed. Normal Clerk
+sign-in, recent MFA, and explicit server-managed role/assignment grants remain
+mandatory for synthetic-record routes. There is no private developer access in
+the agency handover. The entire source is intended for Columbus IT review.
+
+An isolated `synthetic_training` PostgreSQL schema and tested development-only
+record API now exist; this is not a connected operational training-record
+service. The portal's encrypted device drafts are unchanged and are never
+automatically uploaded. See `docs/SYNTHETIC_STAGING.md` in the source repository
+for scope, setup and test limitations. The agency-release compiler excludes the
+staging executable code; staging routes must return 404 in production.
+
+### Visible configuration snapshots
+
+`pnpm snapshot:context` creates
+`local-history-snapshots/snapshot_YYYYMMDD_HHMMSS_<unique suffix>/` containing
+only allowlisted context documents/configuration files, with a timestamp and
+SHA-256 manifest. It never copies Secrets, browser vaults, user uploads,
+training records or database contents. It is not a complete site/data backup.
+
+For an automatic snapshot immediately before a protected configuration write:
+
+```sh
+pnpm context:write .replit-context.md prepared-context.md
+pnpm typecheck
+```
+
+The prepared replacement must be a non-hidden text file in the repository.
+The writer aborts if the snapshot fails and replaces the target atomically.
+This is a source-maintenance command, not a browser/FTO-save event or an OS-wide
+file watcher. Other editors/agents must explicitly run `pnpm snapshot:context`
+before changing protected documents. Backend requests never write these files.
+
+The snapshot root is owner-only (0700), copied files are owner-read/write (0600),
+and the directory is excluded from Git, deployment and the ZIP. It is not
+served by Express or Vite. Before a whole-directory IT transfer, omit or purge
+this directory and all temporary prepared replacements; administrator access
+can bypass ordinary filesystem permissions. These measures are not a
+compliance certification or a guarantee of privacy from a machine owner.
+
+### Packet-order discrepancy requiring an explicit decision
+
+The unchanged renderer currently has two physical orientation sheets. Current
+Phase Day 1 order is Reporting for Duty P1, orientation P2/P3, then run P4.
+The latest requested orientation-only P1 and run P2 would require a single-sheet
+orientation redesign or a revised numbering requirement. Do not claim that
+order is implemented, hide the second sheet, reuse page numbers, or rewrite
+historical narrative references silently. Routine days begin with duty P1.
+
 **Before modifying this workspace, read `PROJECT_MANIFEST.md` and preserve its API contracts, naming rules, and scope boundaries.**
 
 ## CONFIGURATION PROTECTION GATES (QUEUE CONTROL & ANALYSIS CONTRACT)

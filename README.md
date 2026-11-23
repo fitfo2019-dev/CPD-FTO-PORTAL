@@ -1,5 +1,23 @@
 # Project Setup and Agency Handover
 
+## Synthetic access verification and recovery copies
+
+The isolated, development-only PostgreSQL record API is documented in
+`docs/SYNTHETIC_STAGING.md`. It uses normal verified sign-in, recent MFA and
+server-managed assignment scopes—not an extra developer password. It does not
+upload portal drafts or make the application approved for operational data.
+`pnpm test:staging` exercises synthetic database transactions and access denials.
+`pnpm run bundle:production` uses the agency-release compiler, which removes the
+staging router and rejects staging markers in the resulting executable.
+
+Use `pnpm snapshot:context` before editing protected context/configuration files,
+or `pnpm context:write <allowlisted-target> <prepared-text-file>` for a write that
+automatically snapshots first. Owner-only recovery copies are visible under
+`local-history-snapshots/`, excluded from Git, deployments and delivery ZIPs.
+They contain selected source files only—not secrets, browser drafts or database
+data—and are not a full-site backup. Omit/purge them before transferring a full
+workspace directory. No private developer access is retained in the IT handover.
+
 This pnpm workspace contains the Express API Server, the React/Vite Component Preview Sandbox, and the Field Training Officer Portal. `callbox\pv3` is an internal-server application and is not included in this source tree.
 
 ## Current scope

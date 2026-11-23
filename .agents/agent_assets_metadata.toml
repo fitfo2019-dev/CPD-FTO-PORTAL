@@ -294,3 +294,17 @@ mtime_ms = 1795274499739
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/3f1a3550-2818-471a-93d8-2223d6a6296f/eeb2436e-4b17-4e92-94e0-54f909c59344"
 storage_version_token = "1795274545969922"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "GEw4cUu2PgVFTIvl-ltKs"
+uri = "file://dist-production.zip"
+type = "unspecified"
+title = "Verified API handover ZIP"
+description = "API-only release and 23 reference files. Installed and started without workspace links; synthetic staging and local snapshots excluded. Portal frontend packaging and the orientation-page decision remain pending."
+logical_id = "53770732-0f29-44f2-b2d6-4f0a761fe5c5"
+content_hash = "sha256:7866097dacfe87f567146da303338454296dc70d36ed7c925bd43551ec1991b7"
+size = 9950393
+mtime_ms = 1795427600397
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/53770732-0f29-44f2-b2d6-4f0a761fe5c5/494eda97-ffd8-4489-8b32-d47f4290a93d"
+storage_version_token = "1795427777389359"
+content_type = "application/octet-stream"

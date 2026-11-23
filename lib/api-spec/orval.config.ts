@@ -64,7 +64,9 @@ export default defineConfig({
           version: 3,
           coerce: {
             query: ["boolean", "number", "string"],
-            param: ["boolean", "number", "string"],
+            // URL path strings already arrive as strings. Coercion creates a
+            // ZodCoercedString without UUID refinement methods in this runtime.
+            param: ["boolean", "number"],
             body: ["bigint", "date"],
             response: ["bigint", "date"],
           },

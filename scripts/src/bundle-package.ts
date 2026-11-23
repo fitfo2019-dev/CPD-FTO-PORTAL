@@ -109,6 +109,9 @@ async function bundlePackage(): Promise<void> {
       /^\s*\/\/# sourceMappingURL=.*$/gm,
       "",
     );
+    if (/synthetic_training|SYNTHETIC_STAGING_ENABLED|DEVELOPER_STAGING_PASSWORD|X-Developer-Staging-Password/.test(withoutSourceMapLink)) {
+      throw new Error("Developer-only staging code was found in the agency release. Build with --agency-release first.");
+    }
     if (hasWorkspaceImport(withoutSourceMapLink)) {
       throw new Error(
         `The compiled module ${entry.name} still references a pnpm workspace package.`,

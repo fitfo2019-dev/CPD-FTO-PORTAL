@@ -20,12 +20,19 @@ async function buildAll() {
     platform: "node",
     bundle: true,
     format: "esm",
+    define: {
+      __INCLUDE_SYNTHETIC_STAGING__: JSON.stringify(
+        !process.argv.includes("--agency-release") && process.env.NODE_ENV === "development",
+      ),
+    },
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
     // Keep third-party runtime packages external. The standalone package
     // installs these from its generated production manifest.
-    external: ["*.node", ...runtimePackages],
+    // pg is a development-only dependency of the synthetic staging adapter.
+    // Agency-release dead-code elimination removes that adapter entirely.
+    external: ["*.node", "pg", ...runtimePackages],
     sourcemap: "linked",
   });
 }

@@ -19,6 +19,8 @@ import {
   recordPayloadSize,
 } from "./middlewares/audit-request.js";
 
+declare const __INCLUDE_SYNTHETIC_STAGING__: boolean;
+
 const app: Express = express();
 
 app.disable("x-powered-by");
@@ -120,6 +122,14 @@ app.use(
 );
 
 app.use("/api", router);
+
+// The agency-release compiler removes this branch and its entire dependency
+// graph. The normal sign-in and agency-scope checks cannot be bypassed.
+if (typeof __INCLUDE_SYNTHETIC_STAGING__ !== "undefined" && __INCLUDE_SYNTHETIC_STAGING__
+  && process.env.SYNTHETIC_STAGING_ENABLED === "true") {
+  const { default: stagingRouter } = await import("./developer-staging/index.js");
+  app.use("/api", stagingRouter);
+}
 
 app.use((_req, res) => {
   res.status(404).json({

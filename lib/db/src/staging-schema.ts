@@ -50,6 +50,12 @@ export const stagingAuditEvents = syntheticTraining.table("audit_events", {
   recordId: uuid("record_id"),
   version: integer("version"),
 });
+export const stagingRecordVersions = syntheticTraining.table("record_versions", {
+  recordId: uuid("record_id").notNull().references(() => stagingRecords.id),
+  version: integer("version").notNull(),
+  narrative: text("narrative").notNull(),
+  status: text("status", { enum: ["draft", "submitted"] }).notNull(),
+}, table => [unique().on(table.recordId, table.version)]);
 export const stagingReceipts = syntheticTraining.table("receipts", {
   actorHash: text("actor_hash").notNull(),
   operationId: uuid("operation_id").notNull(),

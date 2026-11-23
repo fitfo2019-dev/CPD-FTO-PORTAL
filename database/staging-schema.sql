@@ -47,6 +47,13 @@ CREATE TABLE IF NOT EXISTS synthetic_training.audit_events (
   record_id uuid,
   version integer
 );
+CREATE TABLE IF NOT EXISTS synthetic_training.record_versions (
+  record_id uuid NOT NULL REFERENCES synthetic_training.records(id),
+  version integer NOT NULL CHECK (version >= 1),
+  narrative text NOT NULL CHECK (length(narrative) <= 4000),
+  status text NOT NULL CHECK (status IN ('draft','submitted')),
+  PRIMARY KEY (record_id, version)
+);
 CREATE TABLE IF NOT EXISTS synthetic_training.receipts (
   actor_hash text NOT NULL,
   operation_id uuid NOT NULL,
