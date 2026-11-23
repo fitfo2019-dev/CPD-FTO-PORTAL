@@ -68,8 +68,10 @@ export default function MonthlySummaryPage() {
       const { exportMonthlyWorkbook } = await import('@/lib/monthly-export.js');
       exportMonthlyWorkbook(reports, monthKey,workbookWeekRanges);
       setExportMessage('Monthly Excel workbook downloaded.');
-    } catch {
-      setExportMessage('The workbook could not be created. Your saved daily records are unchanged.');
+    } catch (error) {
+      setExportMessage(error instanceof Error&&error.name==='MonthlyWorkbookRangeError'
+        ?error.message
+        :'The workbook could not be created. Your saved daily records are unchanged.');
     } finally {
       setExporting(false);
     }
@@ -108,7 +110,7 @@ export default function MonthlySummaryPage() {
       </div>
 
       <div role="note" className="mb-4 rounded-sm border bg-muted/60 p-3 text-sm">
-        Monthly rating counts include reviewed daily summaries only; unreviewed default ratings are excluded. Activity totals combine manual entries with versioned clearance-derived counts from new reviewed runs. Run activity checkboxes remain supporting evidence. This monthly view does not change daily logs and includes local records only.
+        Monthly rating counts include reviewed daily summaries only; unreviewed default ratings are excluded. Activity totals combine manual entries with versioned clearance-derived counts from new reviewed runs. Run activity checkboxes remain supporting evidence. This monthly view does not change daily logs and includes local records only. Excel exports use four separate weekly tabs and stop when the source month requires more than four ranges; weeks are never combined.
       </div>
       {exportMessage && <p role="status" className="mb-4 rounded-sm border bg-card p-3 text-sm">{exportMessage}</p>}
 

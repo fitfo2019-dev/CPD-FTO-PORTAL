@@ -121,7 +121,7 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
       {trafficStop&&<Field label="Traffic violator" value={run.trafficMode.replace('_',' ')||'—'}/>}
       {citationSummons&&<Field label="Solve Citation/Summons*" value="1"/>}
       {relatedActivity.length>0&&<Field label="Additional activity / forms" value={relatedActivity.map(item=>item.label).join('; ')}/>}
-      <Field label="Arrest / transport" value={`${run.arrestMade?'Arrest made':'No arrest'}${run.transportedAfterArrest?' · transported':''}`}/>
+      <Field label="Arrest / transport" value={`${run.arrestMade?'Arrest made':'No arrest'}${run.transportedAfterArrest?` · transported to ${run.transportDestination?.trim()||'destination not recorded'}`:''}`}/>
       <Field label="OVI processed" value={run.oviProcessed?'Yes':'No'}/>
     </div>
     <Checklist title="Primary form checklist" sections={RUN_CHECKLIST_SECTIONS[run.runKind]} state={run.checklist} prefix="task-" notApplicable={!!run.checklist['na-task']}/>
@@ -142,7 +142,7 @@ function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{
       <Field label="Run ended" value={run.endedAt?formatDateTimeMDY(run.endedAt):'Not recorded'}/>
       <Field label="Primary run" value={PRIMARY_RUN_FORMS.find(item=>item.key===run.runKind)?.label||run.runKind}/>
       <Field label="Arrest made" value={run.arrestMade?'Yes':'No'}/>
-      <Field label="Transported after arrest" value={run.transportedAfterArrest?'Yes':'No'}/>
+      <Field label="Transported after arrest" value={run.transportedAfterArrest?`Yes · ${run.transportDestination?.trim()||'destination not recorded'}`:'No'}/>
       <Field label="OVI processed" value={run.oviProcessed?'Yes':'No'}/>
       <Field label="Dispatched" value={run.isDispatched?'Yes':'No'}/>
       <Field label="Traffic violator" value={run.trafficMode==='none'?'—':run.trafficMode.replace('_',' ')}/>

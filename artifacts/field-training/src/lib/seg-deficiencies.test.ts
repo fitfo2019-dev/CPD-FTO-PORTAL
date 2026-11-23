@@ -47,7 +47,37 @@ test('same-incident failures consolidate, keep source coordinates, and cap weekl
   const reviewed={...next,ratingsReviewedAt:'2026-11-09T17:00:00Z'};
   assert.equal(weeklyRatingCount([reviewed], 'buildingSearch','UA'),1);
   assert.equal(weeklyRatingCount([reviewed,{...base(),ratingsReviewedAt:reviewed.ratingsReviewedAt}], 'buildingSearch','A'),0);
+  const cleanReviewed=base();
+  cleanReviewed.ratings={...cleanReviewed.ratings,buildingSearch:{...cleanReviewed.ratings.buildingSearch,rating:'A'}};
+  assert.equal(weeklyRatingCount([{
+    ...cleanReviewed,ratingsReviewedAt:reviewed.ratingsReviewedAt,
+  },{
+    ...base(),runs:[{...failingRun(),formStatus:'in_progress',checklistReviewedAt:undefined}],
+  }],'buildingSearch','A'),1,'unreviewed deficiencies must not affect the weekly A ceiling');
+  const separateRt=base();
+  separateRt.ratings={...separateRt.ratings,buildingSearch:{...separateRt.ratings.buildingSearch,rating:'RT'}};
+  assert.equal(weeklyRatingCount([
+    {...cleanReviewed,ratingsReviewedAt:reviewed.ratingsReviewedAt},
+    {...separateRt,ratingsReviewedAt:reviewed.ratingsReviewedAt},
+  ],'buildingSearch','A'),1,'RT does not become an unchecked-task A ceiling');
   assert.equal(reconcileDeficiencyRatings(next,packet(next)),next);
+});
+
+test('unchecked tasks project UA immediately but articulation is reviewable only after checklist confirmation',()=>{
+  const unreviewedRun={...failingRun(),formStatus:'in_progress' as const,checklistReviewedAt:undefined};
+  const draft={...base(),runs:[unreviewedRun]};
+  const draftGroup=collectDeficiencies(draft,packet(draft))[0];
+  assert.ok(draftGroup);
+  assert.equal(draftGroup.reviewed,false);
+  const draftProjection=reconcileDeficiencyRatings(draft,packet(draft));
+  assert.equal(draftProjection.ratings.buildingSearch.rating,'UA');
+  assert.equal(weeklyRatingCount([draftProjection],'buildingSearch','UA'),0);
+
+  const reviewedRun={...unreviewedRun,formStatus:'complete' as const,checklistReviewedAt:'2026-11-09T15:00:00Z'};
+  const reviewedReport={...draft,runs:[reviewedRun]};
+  const reviewedGroup=collectDeficiencies(reviewedReport,packet(reviewedReport))[0];
+  assert.equal(reviewedGroup?.reviewed,true);
+  assert.equal(reviewedGroup?.tasks[0]?.reference,'W1D1P2');
 });
 
 test('manual overrides restore the old category and preserve long narratives; rechecking restores the baseline',()=>{
@@ -118,7 +148,7 @@ test('distinct incidents remain distinct weekly evidence, with no fabricated tra
 });
 
 test('clearance multipliers and distinct complaint payloads are versioned, deterministic, and reversible',()=>{
-  const arrest={...run(),clearanceRulesVersion:1 as const,clearanceCode:'3V' as const,
+  const arrest={...run(),clearanceRulesVersion:1 as const,clearanceCode:'3V' as const,arrestMade:true,
     charges:[{id:'charge-1',description:'Fictional charge one'},{id:'charge-2',description:'Fictional charge two'}]};
   const counts=clearanceDerivedActivityCounts([arrest]);
   for(const key of ['u10100Reports','premierOneReports','prisonersSlated','pcAffidavits'] as const)assert.equal(counts[key],1);
@@ -130,6 +160,11 @@ test('clearance multipliers and distinct complaint payloads are versioned, deter
   assert.equal(clearanceDerivedActivityCounts([{...arrest,clearanceRulesVersion:undefined}]).premierOneReports,0);
   assert.equal(clearanceDerivedActivityCounts([{...arrest,clearanceCode:'2V'}]).premierOneReports,0);
   assert.equal(clearanceDerivedActivityCounts([{...arrest,clearanceCode:'4V'}]).premierOneReports,0);
+  const unverifiedArrest={...arrest,arrestMade:false};
+  assert.equal(clearanceDerivedActivityCounts([unverifiedArrest]).premierOneReports,0);
+  assert.equal(buildClearanceDocuments(unverifiedArrest).length,0);
+  const errand={...arrest,runKind:'traffic_stop' as const,clearanceCode:'4V' as const};
+  assert.equal(clearanceDerivedActivityCounts([errand]).trafficStops,0);
   const traffic={...arrest,runKind:'traffic_stop' as const,dispatchedCode:'6',clearanceCode:'1V' as const};
   assert.equal(clearanceDerivedActivityCounts([traffic]).solveCitationSummons,1);
   assert.equal(clearanceDerivedActivityCounts([traffic]).trafficCitations,0);

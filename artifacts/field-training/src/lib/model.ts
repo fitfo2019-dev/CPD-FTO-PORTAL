@@ -418,6 +418,7 @@ export interface TrainingRun {
   id: string;
   incidentNumber?: string;
   location?: string;
+  transportDestination?: string;
   endedAt?: string;
   occurredAt: string;
   runKind: PrimaryRunForm;
@@ -795,6 +796,7 @@ export interface ChecklistDeficiencyGroup {
   category: Category;
   tasks: { id: string; label: string; reference?: string }[];
   narrative: string;
+  reviewed?: boolean;
 }
 export interface Report {
   id: string; date: string; shift: ReportShift; phase: Phase; zone: string; precinct: string; cruiserDistrict: string;
@@ -877,6 +879,10 @@ export function validateReport(r: Report): string[] {
   const errs: string[] = [];
   if (r.deficiencyAutomationEnabled && !r.limboDay && r.checklistDeficiencies?.some(group=>!group.narrative.trim())) errs.push('Every checklist deficiency requires an FTO articulation');
   if (r.reportingForDuty.shotgunTraining !== undefined && !['Y','N'].includes(r.reportingForDuty.shotgunTraining)) errs.push('Shotgun Training must be Y or N');
+  for(const run of r.runs??[]) {
+    if(run.clearanceRulesVersion===1&&run.transportedAfterArrest&&!run.transportDestination?.trim()) errs.push('Record the actual destination for each transported arrest');
+    if(run.transportDestination&&run.transportDestination.length>200) errs.push('Transport destination must be 200 characters or fewer');
+  }
   const req: [keyof Report, string][] = [['date','Shift date'],['shift','Shift'],['recruitName','Recruit name'],['recruitBadge','Recruit badge'],['ftoName','FTO name'],['ftoBadge','FTO badge']];
   for (const [k,l] of req) if (!String(r[k] ?? '').trim()) errs.push(l + ' is required');
   if (!isValidAssignment(r.zone, r.precinct, r.cruiserDistrict, r.shift)) errs.push('Valid Division patrol assignment (Zone, Precinct, and FTO Assignment) is required');

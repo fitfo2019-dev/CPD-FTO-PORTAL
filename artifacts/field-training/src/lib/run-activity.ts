@@ -1,6 +1,8 @@
 import { emptyDailyActivitySummary, type ActivityKey, type DailyActivitySummary, type Report, type TrainingRun } from './model.js';
 
-export function runActivityValidationError(run:Pick<TrainingRun,'runKind'|'dispatchedCode'|'clearanceCode'|'activityFlags'>):string|undefined {
+export function runActivityValidationError(run:Pick<TrainingRun,'runKind'|'dispatchedCode'|'clearanceCode'|'activityFlags'|'arrestMade'|'transportedAfterArrest'|'transportDestination'>):string|undefined {
+  if(run.clearanceCode==='3V'&&!run.arrestMade) return '3V means Arrest Made. Correct the clearance code or record the arrest that occurred.';
+  if(run.transportedAfterArrest&&!run.transportDestination?.trim()) return 'Record the actual destination before confirming transport after arrest.';
   if(run.runKind==='traffic_stop'&&run.dispatchedCode==='6'&&['1V','3V'].includes(run.clearanceCode??'')&&run.activityFlags?.premierOneReports) {
     return 'A 10-6 Traffic Stop with 1V or 3V must not count as a PremierOne/Axon report. Clear PremierOne Reports; select Solve Citation/Summons* only when applicable.';
   }
@@ -28,7 +30,7 @@ export function clearanceDerivedActivityCounts(runs: TrainingRun[]): DailyActivi
       if (run.activityFlags?.trafficCitations) counts.trafficCitations++;
       else if (run.runKind === 'traffic_stop' || run.activityFlags?.solveCitationSummons) counts.solveCitationSummons++;
       else counts.premierOneReports++;
-    } else if (run.clearanceCode === '3V') {
+    } else if (run.clearanceCode === '3V' && run.arrestMade) {
       counts.u10100Reports++;
       counts.prisonersSlated++;
       counts.premierOneReports++;
@@ -36,13 +38,13 @@ export function clearanceDerivedActivityCounts(runs: TrainingRun[]): DailyActivi
       counts.criminalComplaints += run.charges?.length ?? 0;
     }
     // 2V has no report/citation increment; 4V has no approved extra multiplier.
-    if (run.clearanceCode && run.runKind === 'traffic_stop') counts.trafficStops++;
+    if (run.clearanceCode && run.clearanceCode !== '4V' && run.runKind === 'traffic_stop') counts.trafficStops++;
   }
   return counts;
 }
 
 export function buildClearanceDocuments(run: TrainingRun): NonNullable<TrainingRun['generatedDocuments']> {
-  if (run.clearanceRulesVersion !== 1 || run.clearanceCode !== '3V') return [];
+  if (run.clearanceRulesVersion !== 1 || run.clearanceCode !== '3V' || !run.arrestMade) return [];
   return [
     { id: `${run.id}:U-10.100`, kind: 'U-10.100' },
     { id: `${run.id}:Probable-Cause-Affidavit`, kind: 'Probable Cause Affidavit' },
@@ -59,6 +61,13 @@ export function activityTotals(report:Pick<Report,'activity'|'runs'|'activityCou
   return Object.fromEntries(Object.entries(emptyDailyActivitySummary()).map(([key])=>[
     key,Math.max(0,Math.floor(Number(report.activity?.[key as ActivityKey])||0)) + automatic[key as ActivityKey],
   ])) as DailyActivitySummary;
+}
+
+/** Convert the visible total back to its manual portion without duplicating run-derived counts. */
+export function manualActivityEntryForTotal(displayedTotal:string|number,derivedTotal:number):number {
+  const displayed=Math.max(0,Math.floor(Number(displayedTotal)||0));
+  const derived=Math.max(0,Math.floor(Number(derivedTotal)||0));
+  return Math.max(0,displayed-derived);
 }
 
 export function activityDiscrepancies(entered:DailyActivitySummary,supportingRunCounts:DailyActivitySummary):ActivityKey[] {

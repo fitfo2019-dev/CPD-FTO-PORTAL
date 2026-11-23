@@ -7,12 +7,12 @@ import { createEmptyWorkspace } from './empty-workspace.js';
 import { seedReports } from './seed.js';
 import { BUILDING_SEARCH_DISPATCH_CODES, DEFAULT_RUN_TYPE_CODES, SITUATION_FOUND_NA, formatRadioCode, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode, isEligibleCitationSummons, RADIO_CODES, RADIO_CODE_SOURCE_LABEL } from './radio-codes.js';
 import { currentDateTimeMDY, formatDateEntryMDY, formatDateTimeEntryMDY, splitDateTimeEntryMDY, getNextReportDate, getPhaseScheduleInfo } from './training-calendar.js';
-import { activityTotals, runActivityValidationError, runDerivedActivityCounts } from './run-activity.js';
+import { activityTotals, manualActivityEntryForTotal, runActivityValidationError, runDerivedActivityCounts } from './run-activity.js';
 import { cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, isValidAssignment } from './cpd-geography.js';
 import { getRunDirectivePrompts } from './directive-prompts.js';
 import { normalizePreviewRole, ROLES } from './model.js';
 import { FTO_HELP, UPLOADED_FORM_SOURCES } from './fto-help.js';
-import { parseRunDateTime, runDetailError } from './run-details.js';
+import { alignRunDateToShift, parseRunDateTime, runDetailError } from './run-details.js';
 import { splitExcelText } from './extended-form-rows.js';
 import { defaultSubstationOrientationChecklist, SUBSTATION_ORIENTATION_KEYS } from './substation-orientation.js';
 import { splitNarrativeContinuation } from './narrative-continuation.js';
@@ -63,6 +63,12 @@ test('run timestamps allow explicit overnight dates and reject reversed/invalid 
   assert.match(runDetailError(start,'11/19/2026 25:30')!,/Enter the end/);
   assert.equal(runDetailError(start,''),undefined);
   assert.equal(parseRunDateTime('02/30/2026 12:00'),undefined);
+});
+
+test('changing a new shift date keeps its entered run time aligned and never supplies a made-up time',()=>{
+  assert.equal(alignRunDateToShift('11/18/2026 23:50','11/19/2026'),'11/19/2026 23:50');
+  assert.equal(alignRunDateToShift('11/18/2026','11/19/2026'),'11/19/2026');
+  assert.equal(alignRunDateToShift('11/18/2026 9:5','11/19/2026'),'11/19/2026');
 });
 
 test('run source metadata appears in Excel without interpreting user input as a formula',()=>{
@@ -384,7 +390,7 @@ test('only explicitly selected related activity counts on completed and reviewed
   const traffic={...run('traffic','1V'),activityFlags:{solveCitationSummons:true}};
   assert.equal(traffic.dispatchedCode,'6');
   assert.equal(runActivityValidationError(traffic),undefined);
-  assert.match(runActivityValidationError({...traffic,clearanceCode:'3V',activityFlags:{premierOneReports:true}})??'',/1V or 3V/);
+  assert.match(runActivityValidationError({...traffic,clearanceCode:'3V',arrestMade:true,activityFlags:{premierOneReports:true}})??'',/1V or 3V/);
   const trafficOnlyCounts=runDerivedActivityCounts([traffic]);
   assert.equal(trafficOnlyCounts.solveCitationSummons,1);
   assert.equal(trafficOnlyCounts.premierOneReports,0);
@@ -413,12 +419,43 @@ test('only explicitly selected related activity counts on completed and reviewed
   assert.equal(legacyTotals.solveCitationSummons,0);
 });
 
-test('clearance 3V and arrest facts do not automatically add activity statistics',()=>{
+test('transport requires the actual destination and clearance totals are not duplicated by manual entry',()=>{
+  const base={...run('arrest-3v','3V'),clearanceRulesVersion:1 as const,runKind:'call_for_service' as const,arrestMade:true,
+    charges:[{id:'charge-1',description:'Fictional charge'}]};
+  assert.match(runActivityValidationError({...base,transportedAfterArrest:true})??'',/actual destination/);
+  assert.equal(runActivityValidationError({...base,transportedAfterArrest:true,transportDestination:'Fictional intake location'}),undefined);
+  assert.equal(runActivityValidationError({...base,arrestMade:false}),/3V means Arrest Made. Correct the clearance code or record the arrest that occurred./);
+
+  const invalid3v={...base,arrestMade:false};
+  const counted3v={...base,activityFlags:{}};
+  const values=activityTotals({activity:emptyDailyActivitySummary(),runs:[invalid3v,counted3v]});
+  assert.equal(values.u10100Reports,1);
+  assert.equal(values.prisonersSlated,1);
+  assert.equal(manualActivityEntryForTotal(1,1),0);
+  assert.equal(manualActivityEntryForTotal(4,1),3);
+  assert.equal(manualActivityEntryForTotal('',1),0);
+  assert.equal(manualActivityEntryForTotal(-2,1),0);
+  const visibleTotals=activityTotals({
+    activity:{...emptyDailyActivitySummary(),u10100Reports:manualActivityEntryForTotal(1,1)},
+    runs:[counted3v],
+  });
+  assert.equal(visibleTotals.u10100Reports,1);
+});
+
+test('run activity flags add no totals unless the FTO explicitly selects them',()=>{
   const noArrest={...run('3v-no-arrest','3V'),runKind:'call_for_service' as const,arrestMade:false};
   const arrested={...noArrest,id:'3v-arrest',arrestMade:true};
   assert.equal(runDerivedActivityCounts([noArrest]).u10100Reports,0);
   assert.equal(runDerivedActivityCounts([arrested]).u10100Reports,0);
   assert.equal(runDerivedActivityCounts([{...arrested,activityFlags:{u10100Reports:true}}]).u10100Reports,1);
+});
+
+test('2V records only a traffic-stop event while 4V creates no automatic activity counts',()=>{
+  const twoV={...run('2v-stop','2V'),clearanceRulesVersion:1 as const};
+  const fourV={...run('4v-stop','4V'),clearanceRulesVersion:1 as const};
+  assert.equal(activityTotals({activity:emptyDailyActivitySummary(),runs:[twoV]}).trafficStops,1);
+  assert.equal(activityTotals({activity:emptyDailyActivitySummary(),runs:[twoV]}).premierOneReports,0);
+  assert.deepEqual(activityTotals({activity:emptyDailyActivitySummary(),runs:[fourV]}),emptyDailyActivitySummary());
 });
 
 test('Excel round trip includes all current SEGs, weekly forms, phase totals, codes and citation/summons metrics', () => {

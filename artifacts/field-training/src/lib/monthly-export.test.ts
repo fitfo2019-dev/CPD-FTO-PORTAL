@@ -127,7 +127,13 @@ test('monthly workbook includes every calendar week without leaking incident det
     activity: { ...emptyDailyActivitySummary(), trafficStops: 99 },
     ratings: Object.fromEntries(CATEGORIES.map(category => [category, ratingEntry('UA')])) as Report['ratings'],
   });
-  const workbook = buildMonthlyWorkbook([weekOne, weekTwo, unreviewed, outsideMonth], '2026-11');
+  const approvedFourWeeks=[
+    {startDate:'2026-11-01',endDate:'2026-11-07'},
+    {startDate:'2026-11-08',endDate:'2026-11-14'},
+    {startDate:'2026-11-15',endDate:'2026-11-21'},
+    {startDate:'2026-11-22',endDate:'2026-11-28'},
+  ];
+  const workbook = buildMonthlyWorkbook([weekOne, weekTwo, unreviewed, outsideMonth], '2026-11',approvedFourWeeks);
   assert.deepEqual(workbook.SheetNames, ['Week 1', 'Week 2', 'Week 3', 'Week 4']);
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Week 1'], { header: 1 }) as unknown[][];
   const formUsageRows = rows.filter(row => row[8] === 'Form Usage');
@@ -161,46 +167,27 @@ test('monthly workbook includes every calendar week without leaking incident det
   for(const sheet of Object.values(workbook.Sheets))assert.equal(Object.values(sheet).some(cell=>typeof cell==='object'&&cell!==null&&'f'in cell),false);
 });
 
-test('five-week months keep four tabs and include the fifth week in the final tab',()=>{
+test('five-week months fail explicitly instead of combining source weeks',()=>{
   const reports=[
     makeReport('first',{date:'2026-11-01',activity:{...emptyDailyActivitySummary(),trafficStops:2},phase:1,phaseWeek:4}),
     makeReport('fifth',{date:'2026-11-29',activity:{...emptyDailyActivitySummary(),trafficStops:7},phase:2,phaseWeek:1}),
   ];
-  const workbook=buildMonthlyWorkbook(reports,'2026-11');
-  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3','Week 4']);
-  const lastRows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 4'],{header:1}) as unknown[][];
-  assert.equal(lastRows.find(row=>row[0]==='Traffic Stops')?.[5],7);
-  assert.equal(lastRows[1][11],'1');
-  assert.equal(lastRows[2][10],'11/22/2026 – 12/05/2026 · 2026-11 · includes additional source weeks');
-  const activityTotal=workbook.SheetNames.reduce((total,name)=>{
-    const rows=XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][];
-    return total+(Number(rows.find(row=>row[0]==='Traffic Stops')?.[5])||0);
-  },0);
-  assert.equal(activityTotal,9);
+  assert.throws(()=>buildMonthlyWorkbook(reports,'2026-11'),/more than four Sunday–Saturday weeks/);
+  assert.equal(reports[0].activity.trafficStops,2);
+  assert.equal(reports[1].activity.trafficStops,7);
 });
 
-test('six-week months retain boundary records across exactly four tabs',()=>{
+test('six-week months fail explicitly instead of dropping or merging boundary records',()=>{
   const reports=[
     makeReport('first',{date:'2026-08-01',activity:{...emptyDailyActivitySummary(),trafficStops:3},phase:1,phaseWeek:4}),
     makeReport('last',{date:'2026-08-31',activity:{...emptyDailyActivitySummary(),trafficStops:8},phase:2,phaseWeek:1}),
   ];
-  const workbook=buildMonthlyWorkbook(reports,'2026-08');
-  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3','Week 4']);
-  const firstRows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 1'],{header:1}) as unknown[][];
-  const lastRows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 4'],{header:1}) as unknown[][];
-  assert.equal(firstRows.find(row=>row[0]==='Traffic Stops')?.[5],3);
-  assert.equal(lastRows.find(row=>row[0]==='Traffic Stops')?.[5],8);
-  assert.equal(firstRows[1][11],'4');
-  assert.equal(lastRows[1][11],'1');
-  assert.equal(lastRows[2][10],'08/16/2026 – 09/05/2026 · 2026-08 · includes additional source weeks');
-  const activityTotal=workbook.SheetNames.reduce((total,name)=>{
-    const rows=XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][];
-    return total+(Number(rows.find(row=>row[0]==='Traffic Stops')?.[5])||0);
-  },0);
-  assert.equal(activityTotal,11);
+  assert.throws(()=>buildMonthlyWorkbook(reports,'2026-08'),/more than four Sunday–Saturday weeks/);
+  assert.equal(reports[0].activity.trafficStops,3);
+  assert.equal(reports[1].activity.trafficStops,8);
 });
 
-test('approved phase-week extensions feed the final workbook tab without dropping activity',()=>{
+test('phase ranges exceeding four weeks do not merge extension records into a different tab',()=>{
   const phaseWeekRanges=[
     {startDate:'2027-01-03',endDate:'2027-01-09'},
     {startDate:'2027-01-10',endDate:'2027-01-16'},
@@ -212,12 +199,7 @@ test('approved phase-week extensions feed the final workbook tab without droppin
     makeReport('week-four',{date:'2027-01-24',activity:{...emptyDailyActivitySummary(),trafficStops:4},phaseWeek:4}),
     makeReport('extension-week',{date:'2027-01-31',activity:{...emptyDailyActivitySummary(),trafficStops:6},phaseWeek:5}),
   ];
-  const workbook=buildMonthlyWorkbook(reports,'2027-01',phaseWeekRanges);
-  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3','Week 4']);
-  const rows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 4'],{header:1}) as unknown[][];
-  assert.equal(rows.find(row=>row[0]==='Traffic Stops')?.[5],10);
-  assert.equal(rows[1][11],'Multiple');
-  assert.equal(rows[2][10],'01/24/2027 – 02/06/2027 · 2027-01 · includes additional source weeks');
+  assert.throws(()=>buildMonthlyWorkbook(reports,'2027-01',phaseWeekRanges),/more than four Sunday–Saturday weeks/);
 });
 
 test('export boundary validates the exact approved categories and count types without type assertions', () => {
@@ -245,4 +227,23 @@ test('weekly form styles survive class workbook assembly and formula-like text s
   assert.ok(rows.some(row => row[0] === 'WEEKLY ACTIVITY SUMMARY · FACTUAL COUNTS'));
   assert.ok(JSON.stringify(rows).includes("'=TEST-NAME"));
   assert.ok(JSON.stringify(rows).includes("'=TEST-ID"));
+});
+
+test('transport destinations remain visible as literal text in detailed exports',()=>{
+  const report=makeReport('transport',{
+    runs:[{
+      id:'run-transport',occurredAt:'2026-11-01T18:30:00Z',runKind:'call_for_service',isDispatched:true,
+      trafficMode:'none',arrestMade:true,transportedAfterArrest:true,transportDestination:'=FORMULA-DEST',
+      oviProcessed:false,narrativeAdditionRequired:false,clearanceRulesVersion:1,clearanceCode:'3V',
+      formStatus:'complete',checklist:newRunChecklist('call_for_service'),checklistReviewedAt:'2026-11-01T19:00:00Z',narrative:'Fictional export test.',
+    }],
+  });
+  const sheet=buildClassWorkbook([report]).Sheets['Run Forms'];
+  const rows=XLSX.utils.sheet_to_json(sheet,{header:1}) as unknown[][];
+  const headerIndex=rows.findIndex(row=>row.includes('Transport destination'));
+  assert.ok(headerIndex>=0);
+  const destinationIndex=rows[headerIndex].indexOf('Transport destination');
+  const dataRow=rows.slice(headerIndex+1).find(row=>row[0]==='TEST ONLY — Avery Example');
+  assert.ok(dataRow);
+  assert.equal(dataRow[destinationIndex],"'=FORMULA-DEST");
 });

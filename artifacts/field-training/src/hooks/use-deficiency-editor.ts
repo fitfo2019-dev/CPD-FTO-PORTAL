@@ -26,15 +26,22 @@ export function useDeficiencyEditor(
     });
   }, [report, preview, packet, editable, setReport]);
   useEffect(() => {
-    if (!editable || report?.limboDay) return;
-    if (activeId && groups.some(group => group.id === activeId)) return;
-    const pending = groups.find(group => !seen.current.has(group.id) && !group.narrative.trim());
+    if (!editable || report?.limboDay) {
+      if(activeId)setActiveId(null);
+      return;
+    }
+    if (activeId && groups.some(group => group.id === activeId && group.reviewed)) return;
+    if (activeId) {
+      setActiveId(null);
+      return;
+    }
+    const pending = groups.find(group => group.reviewed && !seen.current.has(group.id) && !group.narrative.trim());
     if (pending) {
       seen.current.add(pending.id);
       setActiveId(pending.id);
     } else if (activeId) setActiveId(null);
   }, [activeId, groups, editable, report?.limboDay]);
-  const active = groups.find(group => group.id === activeId);
+  const active = groups.find(group => group.id === activeId && group.reviewed);
   const setNarrative = (text: string) => {
     if (!active || !editable) return;
     setReport(current => !current ? current : {
@@ -49,6 +56,6 @@ export function useDeficiencyEditor(
     setReport(current => current ? overrideDeficiency(current, active, category) : current);
     setActiveId(id);
   };
-  return { groups, active, setNarrative, override, close: () => setActiveId(null), open: (id: string) => setActiveId(id),
+  return { groups, active, setNarrative, override, close: () => setActiveId(null), open: (id: string) => { if(groups.some(group=>group.id===id&&group.reviewed))setActiveId(id); },
     resetIncident: () => { seen.current.clear(); setActiveId(null); } };
 }

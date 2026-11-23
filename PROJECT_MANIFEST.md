@@ -123,18 +123,24 @@ Missing phase-start orientation prevents packet review and print-all completion.
 Saved source-reference text is retained but its review confirmation is cleared
 after the duty-first migration or subsequent source/schedule changes.
 
-Cleared applicable tasks on new or explicitly edited duty/run checklists now
-route to named SEG categories and project UA, with one editable articulation per
-incident/category and an FTO override selector. This is user-directed prototype
-automation, not a certified manual crosswalk. Historical manual numbers are not
-current worksheet ordinals. All 30 named categories remain intact. Not Applicable
-and Limbo restrictions still apply, and training time is never inferred.
+Cleared applicable tasks on new or explicitly edited duty/run checklists route to
+named SEG categories and project UA immediately. The grouped articulation editor
+is available only after the FTO confirms checklist review. Weekly counts and the
+category A ceiling use reviewed, non-Limbo daily summaries only. This is
+user-directed prototype automation, not a certified manual crosswalk. Historical
+manual numbers are not current worksheet ordinals. All 30 named categories
+remain intact. Not Applicable and Limbo restrictions still apply, and training
+time is never inferred.
 
 Monthly exports contain exactly four consecutive Sunday–Saturday weekly tabs,
-each with a 30-category grid above Weekly Activity Summary totals. More than
-four source weeks produces an explicit error instead of omitted data. New,
-reviewed run records use versioned clearance multipliers; legacy records retain
-manual accounting. Cruiser ID and the Y/N Shotgun Training flag are saved in the
+each with a 30-category grid above Weekly Activity Summary totals. Exports stop
+with an explicit error if a month or phase schedule needs more than four ranges,
+or a saved record lies outside them; source weeks are never combined or silently
+omitted. New, reviewed run records use versioned clearance multipliers; legacy
+records retain manual accounting. A transported arrest requires its actual
+destination on a new versioned run. Changing the shift date keeps a valid
+entered run time aligned and never fills a missing time with a fabricated
+default. Cruiser ID and the required Y/N Shotgun Training flag are saved in the
 existing encrypted workspace. `3V` charge payloads are local drafts, not filed
 or completed legal forms. See `HANDOVER_MANUAL.md`, section 12.
 The 15-week calendar uses phase lengths 4/4/4/3 and Limbo timing of one full

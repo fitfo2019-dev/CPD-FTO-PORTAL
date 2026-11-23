@@ -14,6 +14,12 @@ import type { PhaseWeekRange } from './model.js';
 
 const border = Object.fromEntries(['top','bottom','left','right'].map(edge=>[edge,{style:'thin',color:{rgb:'FF000000'}}]));
 const allColumns = 24;
+export class MonthlyWorkbookRangeError extends Error {
+  constructor(message:string) {
+    super(message);
+    this.name='MonthlyWorkbookRangeError';
+  }
+}
 const ratingLabel: Record<(typeof RATINGS)[number],string> = {
   NO:'Not Observed',A:'Acceptable',RT:'Responding to Training',UA:'Unacceptable',NRT:'Not Responding to Training',
 };
@@ -72,9 +78,8 @@ function buildWeeklyTabRanges(monthKey:string,phaseWeekRanges?:readonly PhaseWee
       start=next.toISOString().slice(0,10);
     }
   }
-  const tabs=sourceRanges.slice(0,3);
-  const remaining=sourceRanges.slice(3);
-  if(remaining.length)tabs.push({startDate:remaining[0].startDate,endDate:remaining.at(-1)!.endDate});
+  if(sourceRanges.length>4)throw new MonthlyWorkbookRangeError('This month spans more than four Sunday–Saturday weeks. Export stopped; no source weeks were combined or omitted.');
+  const tabs=[...sourceRanges];
   while(tabs.length<4) {
     const previous=tabs.at(-1);
     if(!previous)throw new Error('No weekly date ranges are available for this workbook.');
@@ -90,13 +95,10 @@ function buildWeeklyTabRanges(monthKey:string,phaseWeekRanges?:readonly PhaseWee
 function tabForDate(date:string,tabs:readonly WeeklyTabRange[]):number {
   const exact=tabs.findIndex(range=>date>=range.startDate&&date<=range.endDate);
   if(exact>=0)return exact;
-  const before=tabs.findIndex(range=>date<range.startDate);
-  if(before===0)return 0;
-  if(before>0)return before-1;
-  return tabs.length-1;
+  throw new MonthlyWorkbookRangeError(`The saved log date ${formatDateMDY(date)} is outside the exported weekly ranges.`);
 }
 
-/** Four Sunday–Saturday phase tabs; approved weeks beyond four roll into the final tab. */
+/** Four separate Sunday–Saturday tabs; every source date must fit one weekly range. */
 export function buildMonthlyWorkbook(reports: Report[], monthKey: string, phaseWeekRanges?:readonly PhaseWeekRange[]) {
   const selected = filterReportsForMonth(validateReportsForExport(reports), monthKey);
   if (!selected.length) throw new Error('There are no saved daily logs in this month to export.');
@@ -105,6 +107,8 @@ export function buildMonthlyWorkbook(reports: Report[], monthKey: string, phaseW
     throw new Error('Select one probationary officer and training class for the monthly workbook.');
   }
   const weekRanges=buildWeeklyTabRanges(monthKey,phaseWeekRanges);
+  const uncovered=selected.find(report=>!weekRanges.some(range=>report.date>=range.startDate&&report.date<=range.endDate));
+  if(uncovered)throw new MonthlyWorkbookRangeError(`The saved log date ${formatDateMDY(uncovered.date)} falls outside the four weekly ranges. No records were merged or omitted.`);
   const workbook=XLSX.utils.book_new();
   for (const [index,weekRange] of weekRanges.entries()) {
     const week=selected.filter(report=>tabForDate(report.date,weekRanges)===index);

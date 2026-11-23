@@ -12,6 +12,12 @@ export function parseRunDateTime(value:string):string|undefined {
   return local.toISOString();
 }
 
+/** Keep a new run tied to its parent shift date while preserving an entered time. */
+export function alignRunDateToShift(value:string,shiftDate:string):string {
+  const {time}=splitDateTimeEntryMDY(value);
+  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)?`${shiftDate} ${time}`:shiftDate;
+}
+
 export function runDetailError(occurredAt:string,endText:string):string|undefined {
   if(!endText.trim()) return;
   const endedAt=parseRunDateTime(endText);

@@ -67,6 +67,7 @@ const trainingRunSchema = z.object({
   id: z.string(),
   incidentNumber: z.string().optional(),
   location: z.string().optional(),
+  transportDestination: z.string().max(200).optional(),
   endedAt: z.string().optional(),
   occurredAt: z.string(),
   runKind: z.enum(PRIMARY_RUN_FORMS.map(form => form.key)),
@@ -111,6 +112,7 @@ const reportSchema = z.object({
   checklistDeficiencies:z.array(z.object({
     id:z.string(),runId:z.string().optional(),category:categorySchema,narrative:z.string(),
     tasks:z.array(z.object({id:z.string(),label:z.string(),reference:z.string().optional()})),
+    reviewed:z.boolean().optional(),
   })).optional(),
   id: z.string(),
   date: z.string(),

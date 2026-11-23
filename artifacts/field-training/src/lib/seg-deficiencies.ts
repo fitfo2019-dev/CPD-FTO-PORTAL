@@ -85,8 +85,9 @@ export function collectDeficiencies(report: Report, packet: OperationalPacket): 
     const category = override ?? defaultCategory;
     const id = deficiencyGroupId(exception.runId, category);
     const group = groups.get(id) ?? {
-      id, runId: exception.runId, category, tasks: [], narrative: report.deficiencyNarratives?.[id] ?? '',
+      id, runId: exception.runId, category, tasks: [], narrative: report.deficiencyNarratives?.[id] ?? '', reviewed:true,
     };
+    group.reviewed=group.reviewed&&exception.reviewed;
     group.tasks.push({ id: exception.id, label: exception.task, reference: exception.reference });
     groups.set(id, group);
   }

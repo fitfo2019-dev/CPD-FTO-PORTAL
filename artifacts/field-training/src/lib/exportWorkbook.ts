@@ -220,7 +220,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
   ]];
   const runRows: (string | number)[][] = [[
     'Probationary Officer', 'Badge', 'Date', 'Shift', 'FTO Assignment', 'Run time', 'Primary form', 'Additional forms', 'Form status',
-    'Dispatched', 'Arrest made', 'Transported after arrest', 'OVI processed', 'Traffic violator', 'Run narrative',
+    'Dispatched', 'Arrest made', 'Transported after arrest', 'Transport destination', 'OVI processed', 'Traffic violator', 'Run narrative',
     'Incident number', 'Run location', 'Run ended',
     'Run type 10-code', 'Run type description — public reference', 'Situation found 10-code', 'Situation description — public reference',
     'Clearance code', 'Clearance description — public reference', 'Solve Citation/Summons*', 'Related activity/forms', 'Source log ID', 'Run ID', 'Class',
@@ -317,7 +317,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
          safeText(report.shift), safeText(assignmentValue(report)), safeText(formatDateTimeMDY(run.occurredAt)), safeText(primary?.label ?? 'Unassigned primary form'),
         supplements.map(form => form.formNumber ? `${form.label} (${form.formNumber})` : form.label).join('; '),
         safeText(run.formStatus), run.isDispatched ? 'Yes' : 'No', run.arrestMade ? 'Yes' : 'No',
-        run.transportedAfterArrest ? 'Yes' : 'No', run.oviProcessed ? 'Yes' : 'No', safeText(run.trafficMode),
+         run.transportedAfterArrest ? 'Yes' : 'No', safeText(run.transportDestination ?? ''), run.oviProcessed ? 'Yes' : 'No', safeText(run.trafficMode),
         safeText(run.narrative),
         safeText(run.incidentNumber??''),safeText(run.location??''),safeText(run.endedAt?formatDateTimeMDY(run.endedAt):''),
         run.dispatchedCode ? `10-${safeText(run.dispatchedCode)}` : '', safeText(RADIO_CODES[run.dispatchedCode ?? ''] ?? ''),

@@ -250,9 +250,9 @@ Primary run checklists and currently required supplemental checklists start with
 
 ### Run and supplemental form context
 
-Arrest Process, OVI Process, and Narrative Addition / Continuation are conditional supplements attached to the same `TrainingRun`, not separate records in a second queue. The current form rules activate Arrest Process for a transported arrest or when the payout/transfer requirement is selected; an arrest alone does not force that supplement. OVI Process follows the OVI-processed flag, and Narrative Addition follows its explicit required flag. The parent daily report supplies the PO/FTO names and badges, class, phase, shift, and assignment; the run supplies its timestamp and optional incident number/location. Print views reuse the same run object, so its supplement and continuation pages remain linked without copying a second record.
+Arrest Process, OVI Process, and Narrative Addition / Continuation are conditional supplements attached to the same `TrainingRun`, not separate records in a second queue. Every recorded arrest attaches its Arrest Process supplement; OVI Process follows the OVI-processed flag, and Narrative Addition follows its explicit required flag. A transported arrest requires the FTO to enter the actual destination before the new run can be saved. The parent daily report supplies the PO/FTO names and badges, class, phase, shift, and assignment; the run supplies its required date/time and optional incident number/location. Print views reuse the same run object, so its supplement and continuation pages remain linked without copying a second record.
 
-Incident number and location are optional, device-local fields. Saved drafts remain protected by the encrypted local vault. Printed forms and the class Excel workbook include the values in plain text; the monthly totals workbook remains aggregate-only. This fictional prototype is not approved for operational data—use demo values only.
+Incident number and location are optional, device-local fields. The run time must be explicitly entered; changing a new draft's shift date keeps a valid entered time attached to that date, and the system no longer substitutes a fabricated end-of-day time. The transported destination is included in the existing print and detailed-workbook fields. Saved drafts remain protected by the encrypted local vault. Printed forms and the class Excel workbook include those fields in plain text; the monthly totals workbook remains aggregate-only. This fictional prototype is not approved for operational data—use demo values only.
 
 ### Checklist-derived narrative draft
 
@@ -260,9 +260,9 @@ After the FTO explicitly confirms checklist review, the run form can seed an edi
 
 ### Monthly Excel aggregation
 
-The monthly summary selects the chosen PO’s saved daily records by `YYYY-MM`. Its Excel output now contains exactly **Week 1**, **Week 2**, **Week 3**, and **Week 4** tabs, each formatted after the supplied U-10.174 reference: landscape, fit to one page, officer/phase/date header, three side-by-side SEG panels, a four-part Daily Activity Summary grid, optional FTO-comments area, and rating legend. The approved 30-category set appears above the complete activity matrix with centered counts, bold section headings, and thin black borders. Unused tabs remain present with zero counts. A selected month needing more than four weekly windows is rejected explicitly; no record is silently discarded or moved into the wrong week. Raw incident/location values, charge descriptions, and narratives are excluded from this aggregate workbook.
+The monthly summary selects the chosen PO’s saved daily records by `YYYY-MM`. Its Excel output contains exactly **Week 1**, **Week 2**, **Week 3**, and **Week 4** tabs, each formatted after the supplied U-10.174 reference: landscape, fit to one page, officer/phase/date header, three side-by-side SEG panels, a four-part Daily Activity Summary grid, optional FTO-comments area, and rating legend. The approved 30-category set appears above the complete activity matrix with centered counts, bold section headings, and thin black borders. Unused tabs remain present with zero counts. If the source month or approved phase ranges require more than four weekly ranges, export stops with an explanation; it never merges separate weeks into one tab or silently drops records. A selected record outside the four ranges also stops export. Raw incident/location values, charge descriptions, and narratives are excluded from this aggregate workbook.
 
-Applicable unchecked tasks on newly created or explicitly edited duty/run checklists now project UA into named categories. The user approved named-category meanings rather than historical manual numbers as worksheet ordinals. This is user-directed local prototype behavior, not independent certification of a manual-mandated algorithm. Explicit Not Applicable sections and Limbo-day rating restrictions remain respected. Weekly evidence is counted once per incident/category and a weekly deficiency suppresses that category's A ceiling. Only reviewed, non-Limbo records contribute rating counts.
+Applicable unchecked tasks on newly created or explicitly edited duty/run checklists project UA into named categories immediately, except on Limbo days. That immediate marker is not a weekly rating count: an exception articulation group is not offered for editing until the associated checklist has been explicitly reviewed, and weekly A-ceiling suppression and counts use reviewed, non-Limbo daily summaries only. Multiple failed tasks in the same category on one run remain one articulation group with all source coordinates. The user approved named-category meanings rather than historical manual numbers as worksheet ordinals. This is user-directed local prototype behavior, not independent certification of a manual-mandated algorithm. Explicit Not Applicable sections and Limbo-day rating restrictions remain respected. No numeric performance rating is used.
 
 ### Spreadsheet export validation and formatting
 
@@ -279,11 +279,12 @@ labels. The four-tab monthly grid replaces the earlier Monthly Totals/Run Suppor
 pair; detailed run evidence remains in the class workbook. Formula-like user
 text remains literal spreadsheet text.
 
-The supplied UA default and named-category interpretation are now active in the
+The supplied UA default and named-category interpretation are active in the
 local checklist workflow. The four-tab exporter fails explicitly when a month
-cannot fit four consecutive weeks. It never changes phase lengths or omits
-records to fit the workbook. Articulations do not assert that training occurred;
-new source-linked weekly entries leave actual training time blank.
+or approved phase schedule needs more than four separate weekly ranges. It never
+changes phase lengths, combines source weeks, or omits records to fit the
+workbook. Articulations do not assert that training occurred; new source-linked
+weekly entries leave actual training time blank.
 
 ## 11. SHIFT-LOCAL OPERATIONAL PAGE COORDINATOR
 
@@ -366,10 +367,12 @@ communication, geography, and report-writing tasks use the corresponding named
 categories. Defaults are inspectable in `seg-deficiencies.ts`; they are semantic
 defaults approved as an approach, not a certified manual crosswalk.
 
-An applicable cleared task immediately projects UA while editing. The dialog
-groups all source tasks in one incident/category and displays their current
-W#D#P# coordinates outside the editable narrative. The FTO can select any of the
-30 named categories as an override. Rerouting moves the current source tasks,
+An applicable cleared task immediately projects UA while editing, even before
+checklist confirmation. The articulation dialog is offered only after the FTO
+explicitly confirms that checklist review. It groups all source tasks in one
+incident/category and displays their current W#D#P# coordinates outside the
+editable narrative. The FTO can select any of the 30 named categories as an
+override. Rerouting moves the current source tasks,
 merges distinct articulations without truncation, and restores the old category's
 prior rating when no deficiencies remain there. Human-entered rating text is
 preserved. NRT is not downgraded to UA. Rechecking tasks restores the captured
@@ -386,10 +389,13 @@ checklist edit.
 
 The duty editor stores a mutable **Cruiser ID**, distinct from precinct,
 district, or FTO Assignment. A new shift defaults it from the most recent saved
-record in the same class/recruit/phase. **Shotgun Training** accepts only `Y` or
-`N`; it is not automatically carried into a later shift and does not replace the
-detailed shotgun checklist. Names, badges, phase, assignment, and shift schedule
-continue to come from the phase folder.
+record in the same class/recruit/phase. **Shotgun Training** is required to save
+and accepts only `Y` or `N`; it is not automatically carried into a later shift
+and does not replace the detailed shotgun checklist. Names, badges, phase,
+assignment, and shift schedule continue to come from the phase folder. Changing
+a new daily draft's shift date also updates the date portion of a valid run
+timestamp while retaining its entered time; the application does not fabricate
+a timestamp when one is absent or invalid.
 
 ### Phase and Limbo bounds
 
@@ -415,6 +421,10 @@ accounting even when edited; they are not recounted retroactively. Only complete
 checklist-reviewed versioned runs contribute automatic counts. Displayed totals
 are manual extras plus derived counts; editing a total adjusts its manual portion
 without counting the run again. Run activity flags remain supporting evidence.
+`3V` is rejected unless Arrest Made is recorded. When an arrest is transported,
+the actual destination is required for newly versioned runs and appears in the
+existing daily print field and detailed class workbook. `4V` is timeline evidence
+only and does not increment activity totals.
 
 - `1V`: uses an explicitly selected Traffic Citations metric if present;
   otherwise a Traffic Stop or selected Solve Citation/Summons metric contributes
@@ -424,7 +434,9 @@ without counting the run again. Run activity flags remain supporting evidence.
 - `3V`: one U-10.100, one Prisoners Slated, one PremierOne Report, one Probable
   Cause Affidavit, and one Criminal Complaint per explicitly entered charge.
 - `4V`: no extra report/citation multiplier was supplied, so none is invented.
-- Primary-run occurrence totals count each completed, reviewed source run once.
+- Traffic-stop totals increase only for completed, reviewed 1V/2V/3V traffic-stop
+  runs; 4V does not create that count. Other source activity flags do not replace
+  or duplicate the clearance-derived totals.
 
 For `3V`, the editor accepts one charge per line and derives stable, distinct
 draft payloads: U-10.100, Probable Cause Affidavit, and one Criminal Complaint

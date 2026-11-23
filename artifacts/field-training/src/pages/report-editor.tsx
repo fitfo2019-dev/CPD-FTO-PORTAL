@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, Trash } from 'lucide-react';
 import { useOperationalStateMachine, useWorkspace } from '@/state/workspace.js';
-import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultReportingForDutyRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
+import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
 import { PageHead, Panel, StatusPill } from '@/components/bits.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
@@ -16,14 +16,15 @@ import { currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeEn
 import { isValidAssignment } from '@/lib/cpd-geography.js';
 import { PrintableDailyLog } from '@/components/printable-daily-log.js';
 import { PrintableDailyForms } from '@/components/printable-daily-forms.js';
-import { activityDiscrepancies, activityTotals, buildClearanceDocuments, clearanceDerivedActivityCounts, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
+import { activityDiscrepancies, activityTotals, buildClearanceDocuments, clearanceDerivedActivityCounts, manualActivityEntryForTotal, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
 import { checklistForMetadata, toggleChecklistSection } from '@/lib/run-checklist-state.js';
 import { buildRunNarrativeDraft } from '@/lib/run-narrative-draft.js';
 import { isRtRestricted } from '@/lib/model.js';
 import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatRadioCode, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes.js';
-import { parseRunDateTime } from '@/lib/run-details.js';
+import { alignRunDateToShift, parseRunDateTime } from '@/lib/run-details.js';
 import { useDeficiencyEditor } from '@/hooks/use-deficiency-editor.js';
 import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
+import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
 
 function checklistHelp(form:string,meaning:string) {
   return `${form}: ${meaning} Keep checked only when the PO completed the described action acceptably. Clearing an applicable task creates a UA deficiency. Use the Not applicable control for an inapplicable form or group; document observed facts and any training actually completed.`;
@@ -41,12 +42,6 @@ function runTypeCodeHelp(kind:PrimaryRunForm) {
   return 'Choose the actual dispatched code; calls for service can use different 10-codes.';
 }
 
-function blank(folder: PhaseCaseFolder, date: string, prior?: Report): Report {
-  const now = new Date().toISOString();
-  const schedule=getPhaseScheduleInfo(folder.phase,date,folder.phaseStartDate,folder.daysOff,folder.phaseWeekRanges,folder.limboExtensionWeeks);
-  return { id: uid(), date, shift:folder.shift, phase:folder.phase, zone:folder.zone, precinct:folder.precinct, cruiserDistrict:folder.cruiserDistrict, ftoAssignment:folder.ftoAssignment, className:folder.className ?? '', recruitName:folder.recruitName, recruitBadge:folder.recruitBadge, ftoName:folder.ftoName, ftoBadge:folder.ftoBadge, activity:emptyDailyActivitySummary(),activityCountsIncludeRuns:false, runs:[], reportingForDuty:{...defaultReportingForDutyRecord(),cruiserId:prior?.reportingForDuty.cruiserId},
-    deficiencyAutomationEnabled:true, ratings: schedule.limboDay ? emptyRatings() : defaultRatings(), phaseWeek:schedule.phaseWeek, limboDay:schedule.limboDay, narrative:'', remedial:'', recruitComments:'', status:'draft', signatures:{}, createdAt: now, updatedAt: now };
-}
 export default function ReportEditor() {
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
@@ -58,7 +53,7 @@ export default function ReportEditor() {
     return () => document.body.classList.remove('print-daily-route');
   }, []);
   const existing = isNew ? undefined : ws.reports.find(r => r.id === params.id);
-  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? blank(ws.caseFolder,getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0]) : undefined);
+  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? createDailyReportDraft(ws.caseFolder,getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0]) : undefined);
   const operationalPacket = useOperationalStateMachine(r);
   const [initialReport] = useState(()=>JSON.stringify(r ?? null));
   const [dateText, setDateText] = useState(() => r ? formatDateDMY(r.date) : '');
@@ -82,6 +77,7 @@ export default function ReportEditor() {
   const [chargeText, setChargeText] = useState('');
   const [arrestMade, setArrestMade] = useState(false);
   const [transported, setTransported] = useState(false);
+  const [transportDestination, setTransportDestination] = useState('');
   const [arrestProcessRequired, setArrestProcessRequired] = useState(false);
   const [oviProcessed, setOviProcessed] = useState(false);
   const [narrativeAdditionRequired, setNarrativeAdditionRequired] = useState(false);
@@ -97,15 +93,17 @@ export default function ReportEditor() {
   const generatedNarrativeRef = useRef('');
   const runReviewConfirmedRef = useRef(false);
   const candidateRun = useMemo<TrainingRun | undefined>(() => {
-    if (!r || (!editingRunId && !Object.entries(runChecklist).some(([key, value]) => !value && /^(task-|supp-)/.test(key)))) return undefined;
+    const occurredAt=parseRunDateTime(runDateTimeText);
+    if (!r || !occurredAt || (!editingRunId && !Object.entries(runChecklist).some(([key, value]) => !value && /^(task-|supp-)/.test(key)))) return undefined;
     return {
-      id: editingRunId ?? runDraftId, occurredAt: parseRunDateTime(runDateTimeText) ?? `${r.date}T23:59:00`,
+      id: editingRunId ?? runDraftId, occurredAt,
       runKind, isDispatched: runDispatched, trafficMode, arrestMade,
       transportedAfterArrest: arrestMade && transported, arrestProcessRequired,
+      transportDestination:arrestMade&&transported?transportDestination.trim()||undefined:undefined,
       oviProcessed, narrativeAdditionRequired, checklist: runChecklist, narrative: runNarrative,
       formStatus: runNarrative.trim() ? 'complete' : 'in_progress',
     };
-  }, [r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, arrestProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runNarrative]);
+  }, [r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, arrestProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runNarrative]);
   const deficiencyEditor = useDeficiencyEditor(r, setR, getOperationalPacket, candidateRun, r?.status === 'draft' && ws.role === 'fto');
   const parsedDate = parseDateDMY(dateText);
   const dateWeekday = parsedDate ? getWeekdayIndex(parsedDate) : undefined;
@@ -129,7 +127,7 @@ export default function ReportEditor() {
   const baseline = useMemo(() => JSON.stringify(existing ?? null), [existing]);
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
-  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== SITUATION_FOUND_NA || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || arrestProcessRequired || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
+  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== SITUATION_FOUND_NA || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || arrestProcessRequired || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
   const isDirty = !!r && (JSON.stringify(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
   useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
@@ -232,7 +230,7 @@ export default function ReportEditor() {
     },prior);
   const setArrestState = (value:boolean) => {
     setArrestMade(value);
-    if(!value){setTransported(false);setArrestProcessRequired(false);}
+    if(!value){setTransported(false);setTransportDestination('');setArrestProcessRequired(false);}
     setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,value,value&&transported,oviProcessed,narrativeAdditionRequired,prev,value&&arrestProcessRequired));
     setRunChecklistReviewed(false);
   };
@@ -248,9 +246,12 @@ export default function ReportEditor() {
       setRunError('Enter the code number and optional letters, such as 6 or 17A. The 10- prefix is supplied.');
       return;
     }
-    const activityError=runActivityValidationError({runKind,dispatchedCode,clearanceCode,activityFlags});
+    const activityError=runActivityValidationError({
+      runKind,dispatchedCode,clearanceCode,activityFlags,arrestMade,
+      transportedAfterArrest:arrestMade&&transported,
+      transportDestination,
+    });
     if(activityError){setRunError(activityError);return;}
-    if(clearanceCode==='3V'&&!arrestMade){setRunError('3V means Arrest Made. Select Arrest made or correct the clearance code before saving.');return;}
     if (!runChecklistReviewed) {
       setRunReviewOpen(true);
       return;
@@ -272,6 +273,7 @@ export default function ReportEditor() {
       id: previous?.id ?? runDraftId,
       incidentNumber: incidentNumber.trim() || undefined,
       location: runLocation.trim() || undefined,
+      transportDestination:arrestMade&&transported?transportDestination.trim():undefined,
       occurredAt: localRunDateTime,
       runKind, isDispatched: runDispatched, trafficMode, arrestMade,
       activityFlags:{...activityFlags}, dispatchedCode, situationFoundCode, clearanceCode,
@@ -307,7 +309,7 @@ export default function ReportEditor() {
     setChargeText('');
     setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunDispatched(true); setRunError(''); runReviewConfirmedRef.current = false;
     setIncidentNumber(''); setRunLocation(''); generatedNarrativeRef.current = '';
-    setTrafficMode('none'); setArrestMade(false); setTransported(false); setArrestProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
+    setTrafficMode('none'); setArrestMade(false); setTransported(false); setTransportDestination(''); setArrestProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
     setActivityFlags({}); setDispatchedCode(''); setSituationFoundCode(SITUATION_FOUND_NA); setClearanceCode('');
     setRunNarrative(''); setRunChecklist(newRunChecklist('call_for_service')); setDirectiveReviews({}); setRunReviewOpen(false); setRunChecklistReviewed(false);
   };
@@ -323,7 +325,7 @@ export default function ReportEditor() {
     setTrafficMode(run.trafficMode); setArrestMade(run.arrestMade);
     setActivityFlags(run.activityFlags ?? {}); setDispatchedCode(run.runKind==='traffic_stop'?'6':run.dispatchedCode ?? DEFAULT_RUN_TYPE_CODES[run.runKind] ?? '');
     setSituationFoundCode(run.situationFoundCode ?? ''); setClearanceCode(run.clearanceCode ?? '');
-    setTransported(run.transportedAfterArrest); setArrestProcessRequired(!!run.arrestProcessRequired); setOviProcessed(run.oviProcessed);
+    setTransported(run.transportedAfterArrest); setTransportDestination(run.transportDestination??''); setArrestProcessRequired(!!run.arrestProcessRequired); setOviProcessed(run.oviProcessed);
     setNarrativeAdditionRequired(run.narrativeAdditionRequired);
     setDirectiveReviews(run.directiveReviews??{});
     setRunNarrative(run.narrative); setRunChecklist(run.checklist ?? {}); setRunReviewOpen(false); setRunChecklistReviewed(false);
@@ -402,7 +404,7 @@ export default function ReportEditor() {
       <Panel id="shift-details" title="Shift metadata" className="mb-4 scroll-mt-28">
         <p className="border-b px-4 py-3 text-sm text-muted-foreground">The assigned FTO’s name and badge come from the phase assignment and are saved as this report’s identity snapshot.</p>
         <fieldset disabled={!editable} className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
-          <F l="Shift date (MM/DD/YYYY)"><input type="text" inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={dateText} onChange={e=>{const value=formatDateEntryMDY(e.target.value);setDateText(value);if(!editingRunId&&!runDateTimeText.includes(' '))setRunDateTimeText(value);applyShiftDate(value);}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const today=currentDateTimeMDY().date;setDateText(today);if(!editingRunId&&!runDateTimeText.includes(' '))setRunDateTimeText(today);applyShiftDate(today);}}} data-testid="input-date" /><span className="text-xs font-normal text-muted-foreground">Slashes are added automatically. Enter ? then press Enter for today.</span></F>
+          <F l="Shift date (MM/DD/YYYY)"><input type="text" inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={dateText} onChange={e=>{const value=formatDateEntryMDY(e.target.value);setDateText(value);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,value));applyShiftDate(value);}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const today=currentDateTimeMDY().date;setDateText(today);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,today));applyShiftDate(today);}}} data-testid="input-date" /><span className="text-xs font-normal text-muted-foreground">Slashes are added automatically. Enter ? then press Enter for today.</span></F>
           <F l="Shift (from case folder)"><input className={inp} value={shiftDisplayLabel(r.shift)} disabled data-testid="input-shift" /></F>
           <F l="Phase (from case folder)"><input className={inp} value={phaseLabel(r.phase)} disabled data-testid="input-phase" /></F>
           <F l="Probationary Officer (PO)"><input className={inp} value={r.recruitName} onChange={e=>set('recruitName',e.target.value)} data-testid="input-po-name" /></F>
@@ -434,7 +436,7 @@ export default function ReportEditor() {
              <F l="Cruiser ID"><input value={r.reportingForDuty.cruiserId??''} maxLength={80} className={inp} onChange={event=>set('reportingForDuty',{...r.reportingForDuty,cruiserId:event.target.value,reviewedAt:undefined})} data-testid="input-cruiser-id"/></F>
              <F l="Shotgun Training"><select className={inp} value={r.reportingForDuty.shotgunTraining??''} onChange={event=>{const value=event.target.value;if(value==='Y'||value==='N')set('reportingForDuty',{...r.reportingForDuty,shotgunTraining:value,reviewedAt:undefined});}} data-testid="select-shotgun-training"><option value="" disabled>Select Y / N</option><option value="Y">Y</option><option value="N">N</option></select></F>
            </fieldset>
-           {deficiencyEditor.groups.length>0&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.map(group=><button type="button" key={group.id} disabled={!editable} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
+            {deficiencyEditor.groups.length>0&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.map(group=><button type="button" key={group.id} disabled={!editable||!group.reviewed} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded border bg-muted/20 p-3">
               <span className="text-sm font-semibold">Reporting for Duty form checkboxes</span>
               <button type="button" disabled={!editable} onClick={toggleDutyChecklist} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-duty-checklist">{dutyAllChecked?'Deselect all':'Select all'}</button>
@@ -502,7 +504,8 @@ export default function ReportEditor() {
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={arrestMade} onChange={e=>setArrestState(e.target.checked)} data-testid="checkbox-arrest-made" />Arrest made</label>
               {clearanceCode==='3V'&&<F l="Criminal charges · one per line"><textarea disabled={!editable} rows={3} className={inp} value={chargeText} onChange={event=>setChargeText(event.target.value)} data-testid="input-criminal-charges"/></F>}
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable || !arrestMade} checked={transported} onChange={e=>{const value=e.target.checked;setTransported(value);setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,value,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);}} data-testid="checkbox-transported" />Transported after arrest</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable || !arrestMade} checked={transported} onChange={e=>{const value=e.target.checked;setTransported(value);if(!value)setTransportDestination('');setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,value,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);}} data-testid="checkbox-transported" />Transported after arrest</label>
+              {arrestMade&&transported&&<F l="Actual transport destination"><input disabled={!editable} className={inp} maxLength={200} value={transportDestination} onChange={event=>{setTransportDestination(event.target.value);setRunChecklistReviewed(false);setRunError('');}} placeholder="Enter the destination that actually occurred" data-testid="input-transport-destination"/></F>}
               {arrestMade&&!transported&&<label title="Use for payout arrests or when the arrestee is remanded to another jurisdiction; transported arrests add the form automatically." className="flex items-start gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={arrestProcessRequired} onChange={e=>{const value=e.target.checked;setArrestProcessRequired(value);setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,prev,value));setRunChecklistReviewed(false);}} data-testid="checkbox-arrest-process-required" />Arrest Process required · payout / transfer</label>}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={oviProcessed} onChange={e=>{const value=e.target.checked;setOviProcessed(value);setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,transported,value,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);}} data-testid="checkbox-ovi-processed" />OVI processing occurred</label>
                <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={narrativeAdditionRequired} onChange={e=>{const value=e.target.checked;setNarrativeAdditionRequired(value);setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,transported,oviProcessed,value,prev,arrestProcessRequired));setRunChecklistReviewed(false);}} data-testid="checkbox-narrative-addition" />Narrative Addition supplement required</label>
@@ -699,7 +702,7 @@ export default function ReportEditor() {
                       inputMode="numeric"
                       className={inp + ' mono text-right'}
                       value={totalActivity[key]}
-                      onChange={event => setR(current=>current&&({...current,ratingsReviewedAt:undefined,activityCountsIncludeRuns:false,activity:{...current.activity,[key]:Math.max(0,Math.floor(Number(event.target.value)||0)-clearanceDerivedActivityCounts(current.runs)[key])}}))}
+                      onChange={event => setR(current=>current&&({...current,ratingsReviewedAt:undefined,activityCountsIncludeRuns:false,activity:{...current.activity,[key]:manualActivityEntryForTotal(event.target.value,clearanceDerivedActivityCounts(current.runs)[key])}}))}
                       data-testid={'activity-' + key}
                     />
                     {runDerivedActivity[key]>0&&<p className="col-span-2 text-[10px] leading-4 text-muted-foreground">Supporting run records contain {runDerivedActivity[key]} selected item(s); this does not change the manual daily statistic.</p>}
