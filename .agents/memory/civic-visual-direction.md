@@ -18,3 +18,14 @@ ALL CAPS or Title Case, not sentence case.
 all words except short connector words, and reiterated, “TITLES SHOULD BE ALL CAPS OR CAPITAL FIRST LETTERS.”
 
 **How to apply:** Preserve acronyms and identifiers; do not uppercase user-entered records.
+
+The user likes the Law Library design-system preview's layout, but not its text
+or fonts. Its color scheme must match the current portal. They do not like
+"run on pages that just keep going."
+
+**Why:** The user distinguished approval of the layout direction from approval
+of the preview's typography, wording and palette.
+
+**How to apply:** Use the layout as a reference, not an approved replacement
+theme. Preserve current portal branding and avoid stacking whole forms into
+one continuous page.
