@@ -274,7 +274,7 @@ test('preview edits, autosave, sync, and reset never create device storage recor
   }
 
   const container = dom.window.document.getElementById('root')!;
-  const root = createRoot(container);
+  let root = createRoot(container);
   try {
     await act(async () => {
       root.render(createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
@@ -325,6 +325,21 @@ test('preview edits, autosave, sync, and reset never create device storage recor
       await new Promise(resolve => setTimeout(resolve, 850));
     });
     await act(async () => { await current!.syncPackets(); });
+    assert.deepEqual(await indexedDB.databases().then(databases =>
+      databases.filter(database => database.name === databaseName)), []);
+
+    await act(async () => { root.unmount(); });
+    root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
+        createElement(Probe)));
+    });
+    assert.ok(current);
+    assert.equal(current!.ws.caseFolder?.recruitName, 'DEMO PO');
+    assert.equal(current!.ws.phaseExtensionRequests.some(request =>
+      request.id === 'preview-extension'), false);
+    assert.equal(current!.dirty, false);
+    assert.deepEqual(await current!.loadLocalChatDrafts(), []);
     assert.deepEqual(await indexedDB.databases().then(databases =>
       databases.filter(database => database.name === databaseName)), []);
 
