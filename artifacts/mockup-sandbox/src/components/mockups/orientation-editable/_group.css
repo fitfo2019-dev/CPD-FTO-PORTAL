@@ -1,0 +1,181 @@
+@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap");
+
+:root {
+  --background: 210 9% 95%;
+  --foreground: 214 52% 18%;
+  --border: 210 10% 81%;
+  --card: 0 0% 100%;
+  --card-foreground: 214 52% 18%;
+  --card-border: 210 10% 81%;
+  --sidebar: 214 66% 18%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-border: 214 42% 30%;
+  --sidebar-primary: 0 73% 45%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 214 45% 27%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 214 52% 18%;
+  --popover-border: 210 10% 81%;
+  --primary: 210 100% 30%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 10% 92%;
+  --secondary-foreground: 214 55% 20%;
+  --muted: 210 10% 92%;
+  --muted-foreground: 214 15% 37%;
+  --accent: 0 73% 45%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 4 72% 42%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 210 10% 67%;
+  --ring: 210 100% 30%;
+  --ok: 152 55% 28%;
+  --warn: 30 90% 40%;
+  --radius: .375rem;
+  --app-font-sans: Arial, sans-serif;
+  --app-font-display: "Oswald", "Arial Narrow", Arial, sans-serif;
+  --app-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+}
+
+body { margin: 0; font-family: var(--app-font-sans); color: hsl(var(--foreground)); }
+.orientation-preview { color: hsl(var(--foreground)); font-family: var(--app-font-sans); }
+.orientation-preview h1, .orientation-preview h1 * { font-family: var(--app-font-display); font-weight: 600; letter-spacing: .015em; }
+.orientation-preview h2, .orientation-preview h3 { line-height: 1.3; }
+.orientation-preview input[type="checkbox"] { accent-color: hsl(var(--primary)); flex-shrink: 0; }
+.orientation-preview :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+
+.orientation-preview { min-height: 100vh; background: hsl(var(--background)); }
+.orientation-topbar { background: hsl(var(--sidebar)); color: hsl(var(--sidebar-foreground)); }
+.orientation-topbar-inner { max-width: 1260px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.orientation-brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.orientation-brand-logo { width: 176px; height: 42px; object-fit: contain; }
+.orientation-brand-seal { width: 38px; height: 48px; object-fit: contain; background: #fff; border-radius: 3px; }
+.orientation-brand-copy { border-left: 1px solid hsl(var(--sidebar-border)); padding-left: 14px; }
+.orientation-brand-copy strong { display: block; font-family: var(--app-font-display); font-size: 17px; letter-spacing: .035em; }
+.orientation-brand-copy span { display: block; color: #d5deea; font-size: 11px; }
+.orientation-top-actions { display: flex; align-items: center; gap: 10px; }
+.orientation-demo-chip { border: 1px solid #7f9ab8; border-radius: 999px; padding: 5px 10px; color: #f7fafc; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.orientation-button { min-height: 40px; border: 1px solid hsl(var(--border)); border-radius: var(--radius); background: hsl(var(--card)); color: hsl(var(--foreground)); padding: 8px 14px; font: 700 13px var(--app-font-sans); cursor: pointer; }
+.orientation-button:hover { background: hsl(var(--muted)); }
+.orientation-button-primary { border-color: hsl(var(--primary)); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.orientation-button-primary:hover { background: hsl(var(--primary) / .9); }
+.orientation-button:disabled { opacity: .65; cursor: default; }
+.orientation-content { max-width: 1260px; margin: 0 auto; padding: 24px 20px 36px; }
+.orientation-intro { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 14px; }
+.orientation-kicker { margin: 0 0 4px; color: hsl(var(--muted-foreground)); font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+.orientation-intro h1 { margin: 0; font-size: clamp(28px, 3vw, 38px); line-height: 1.1; }
+.orientation-intro p:last-child { max-width: 58ch; margin: 8px 0 0; color: hsl(var(--muted-foreground)); font-size: 14px; line-height: 1.45; }
+.orientation-safety { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 16px; border: 1px solid #d7b76d; border-left: 4px solid hsl(var(--warn)); border-radius: var(--radius); background: #fff9e9; padding: 11px 14px; color: #49380d; font-size: 13px; line-height: 1.45; }
+.orientation-safety strong { white-space: nowrap; }
+.orientation-paper { border: 1px solid hsl(var(--border)); border-radius: 4px; background: #fff; box-shadow: 0 8px 28px rgba(20, 30, 60, .09); padding: 24px; }
+.orientation-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 2px solid #142d4f; padding-bottom: 10px; }
+.orientation-sheet-brand { display: flex; align-items: center; gap: 13px; }
+.orientation-sheet-brand img { width: 44px; height: 55px; object-fit: contain; }
+.orientation-sheet-heading p { margin: 0 0 3px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.orientation-sheet-heading h2 { margin: 0; font-family: var(--app-font-display); font-size: 27px; line-height: 1; }
+.orientation-sheet-id { margin-top: 4px; font-size: 12px; font-weight: 700; }
+.orientation-sheet-instruction { max-width: 34ch; color: hsl(var(--muted-foreground)); font-size: 12px; font-weight: 600; line-height: 1.4; text-align: right; }
+.orientation-sheet-subtitle { margin: 10px 0 8px; color: #142d4f; font-size: 12px; font-weight: 700; }
+.orientation-meta-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border-top: 1px solid #89919b; border-left: 1px solid #89919b; }
+.orientation-field { display: grid; align-content: start; gap: 3px; min-width: 0; min-height: 62px; border-right: 1px solid #89919b; border-bottom: 1px solid #89919b; padding: 7px 9px; }
+.orientation-field label { color: #34465a; font-size: 10px; font-weight: 700; letter-spacing: .055em; text-transform: uppercase; }
+.orientation-field input, .orientation-field select, .orientation-text-box textarea { width: 100%; min-width: 0; border: 0; border-radius: 0; background: transparent; color: #172d46; padding: 2px 0; font: 13px var(--app-font-sans); }
+.orientation-field input::placeholder, .orientation-text-box textarea::placeholder { color: #687789; opacity: 1; }
+.orientation-field input:focus-visible, .orientation-field select:focus-visible, .orientation-text-box textarea:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.orientation-meta-wide { grid-column: 1 / -1; }
+.orientation-checklist-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 7px; }
+.orientation-checklist-head h3 { margin: 0; font-family: var(--app-font-display); font-size: 18px; }
+.orientation-counts { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; color: hsl(var(--muted-foreground)); font-size: 11px; }
+.orientation-counts strong { color: hsl(var(--foreground)); font-family: var(--app-font-mono); }
+.orientation-coverage-note { margin: 0 0 9px; border: 1px solid #d9dee5; background: #f1f3f5; padding: 7px 9px; color: #34465a; font-size: 10px; line-height: 1.4; }
+.orientation-columns { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); align-items: stretch; gap: 8px; }
+.orientation-column { display: grid; grid-template-rows: 1fr 1fr; gap: 8px; align-content: start; min-width: 0; }
+.orientation-column:first-child > .orientation-section { grid-row: 1 / -1; }
+.orientation-section { min-width: 0; border: 1px solid #89919b; padding: 9px; break-inside: avoid; }
+.orientation-section h3 { margin: 0 0 3px; border-bottom: 1px solid #d0d5da; padding-bottom: 4px; font-family: var(--app-font-display); font-size: 14px; }
+.orientation-section-description { margin: 0 0 6px; color: #4a5663; font-size: 9px; line-height: 1.3; }
+.orientation-task-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.orientation-task { display: grid; grid-template-columns: 18px minmax(0,1fr) auto; align-items: start; gap: 5px; min-width: 0; border: 1px solid transparent; border-radius: 2px; padding: 2px 3px; color: #202e3b; font-size: 10px; line-height: 1.25; cursor: pointer; }
+.orientation-task:hover { background: hsl(var(--primary) / .035); }
+.orientation-task.is-group { border-top: 1px dotted #b9c0c7; }
+.orientation-task.is-mixed { border: 1px dashed #ad7714; background: #fff9e9; }
+.orientation-task input { width: 14px; height: 14px; margin: 0; }
+.orientation-task-labels { display: grid; gap: 2px; min-width: 0; }
+.orientation-task-labels > span::before { content: "– "; }
+.orientation-task-count { color: #526273; font-family: var(--app-font-mono); font-size: 9px; white-space: nowrap; }
+.orientation-bottom { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,2fr); gap: 8px; margin-top: 8px; }
+.orientation-bottom .orientation-section { display: flex; flex-direction: column; }
+.orientation-text-box { min-width: 0; border: 1px solid #89919b; padding: 8px 10px; }
+.orientation-text-box label { display: block; margin-bottom: 4px; color: #34465a; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.orientation-text-box textarea { display: block; min-height: 62px; resize: vertical; white-space: pre-wrap; }
+.orientation-text-box + .orientation-text-box { margin-top: 7px; }
+.orientation-directives textarea { min-height: 34px; }
+.orientation-review-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 9px; border: 1px solid #b7c6d5; border-left: 4px solid #142d4f; background: #f2f6fa; padding: 9px 11px; }
+.orientation-review-bar p { margin: 0; font-size: 11px; line-height: 1.35; }
+.orientation-review-status { font-weight: 700; }
+.orientation-sheet-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; border-top: 1px solid #89919b; padding-top: 6px; color: #45515d; font-size: 9px; }
+.orientation-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 12px; }
+.orientation-controls p { margin: 0; color: hsl(var(--muted-foreground)); font-size: 12px; }
+.orientation-controls-actions { display: flex; gap: 8px; }
+.orientation-statusline { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; color: hsl(var(--muted-foreground)); font-size: 11px; }
+.orientation-statusline strong { color: hsl(var(--foreground)); }
+
+@media (max-width: 760px) {
+  .orientation-topbar-inner { align-items: flex-start; flex-direction: column; }
+  .orientation-top-actions { align-self: stretch; justify-content: space-between; }
+  .orientation-content { padding: 18px 12px 26px; }
+  .orientation-intro { align-items: flex-start; flex-direction: column; }
+  .orientation-safety { display: block; }
+  .orientation-safety strong { display: block; margin-bottom: 3px; }
+  .orientation-paper { padding: 14px; }
+  .orientation-sheet-head { align-items: flex-start; flex-direction: column; }
+  .orientation-sheet-instruction { max-width: none; text-align: left; }
+  .orientation-meta-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .orientation-columns { grid-template-columns: 1fr; }
+  .orientation-column { grid-template-rows: auto; }
+  .orientation-column:first-child > .orientation-section { grid-row: auto; }
+  .orientation-bottom { grid-template-columns: 1fr; }
+  .orientation-review-bar, .orientation-sheet-footer, .orientation-statusline { align-items: flex-start; flex-direction: column; }
+}
+
+@page { size: letter portrait; margin: .28in; }
+@media print {
+  body { background: #fff !important; }
+  .orientation-preview { min-height: 0; background: #fff; }
+  .orientation-topbar, .orientation-intro, .orientation-safety, .orientation-controls, .orientation-statusline { display: none !important; }
+  .orientation-content { max-width: none; margin: 0; padding: 0; }
+  .orientation-paper { border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+  .orientation-sheet-head { padding-bottom: 3px; margin-bottom: 4px; }
+  .orientation-sheet-brand img { width: 31px; height: 39px; }
+  .orientation-sheet-heading p { font-size: 7pt; margin-bottom: 1px; }
+  .orientation-sheet-heading h2 { font-size: 15pt; }
+  .orientation-sheet-id, .orientation-sheet-instruction { font-size: 7pt; }
+  .orientation-sheet-subtitle { margin: 3px 0; font-size: 7pt; }
+  .orientation-meta-grid { margin-bottom: 3px; }
+  .orientation-field { min-height: 25px; padding: 2px 4px; gap: 0; }
+  .orientation-field label, .orientation-text-box label { font-size: 5.8pt; }
+  .orientation-field input, .orientation-field select, .orientation-text-box textarea { font-size: 7pt; }
+  .orientation-checklist-head { margin: 3px 0; }
+  .orientation-checklist-head h3 { font-size: 9pt; }
+  .orientation-counts { font-size: 6pt; }
+  .orientation-coverage-note { margin: 2px 0; padding: 2px 4px; font-size: 6pt; }
+  .orientation-columns { gap: 5px; }
+  .orientation-column { gap: 5px; }
+  .orientation-section { padding: 3px 4px; }
+  .orientation-section h3 { margin: 0 0 2px; padding-bottom: 2px; font-size: 7.4pt; }
+  .orientation-section-description { margin: 0 0 2px; font-size: 5.7pt; }
+  .orientation-task-list { gap: 1px; }
+  .orientation-task { grid-template-columns: 12px minmax(0,1fr) auto; gap: 3px; padding: 1px 2px; font-size: 6.2pt; line-height: 1.15; }
+  .orientation-task input { width: 9px; height: 9px; }
+  .orientation-task-count { font-size: 5.5pt; }
+  .orientation-bottom { gap: 5px; margin-top: 5px; }
+  .orientation-text-box { padding: 3px 4px; }
+  .orientation-text-box textarea { min-height: 28px; resize: none; }
+  .orientation-directives textarea { min-height: 18px; }
+  .orientation-text-box + .orientation-text-box { margin-top: 3px; }
+  .orientation-review-bar { margin-top: 4px; padding: 3px 5px; }
+  .orientation-review-bar p { font-size: 6.5pt; }
+  .orientation-button { min-height: 0; padding: 3px 6px; font-size: 6.5pt; }
+  .orientation-sheet-footer { margin-top: 3px; padding-top: 2px; font-size: 5.5pt; }
+  input, textarea, select { print-color-adjust: exact; }
+}
