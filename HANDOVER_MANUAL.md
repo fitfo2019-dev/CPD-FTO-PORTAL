@@ -16,12 +16,27 @@ operation ID or contents. An unconfirmed attempt temporarily blocks editing
 that packet until retry resolves the server outcome; it is not proof that the
 upload failed. The pending upload interface must explain this before sending.
 
-The new `WorkspaceProvider.syncPackets()` operation is an explicit, abortable,
-15-second upload hook. **It is not connected to a visible upload button yet.**
-“Save locally” still only saves locally. Per the required approval process,
-upload/confirmation controls and shared-record views need a preview and user
-approval before integration. Automatic sync is intentionally disabled:
-`navigator.onLine` does not establish a trusted city-network connection.
+The `WorkspaceProvider.syncPackets()` operation is an explicit, abortable,
+15-second upload hook. After sandbox preview and user approval, the Daily Records
+page now connects it to Review and Upload, with a packet list, sealing warning
+and mandatory acknowledgement. Pending, uploading, failed/unconfirmed and
+synchronized/sealed outcomes are distinguished. Save Locally still only saves
+locally. Failed upload state is separate from local-save errors.
+
+Check Agency Access is an explicit readiness read, not proof of a trusted network
+or of authorization for every pending packet. The server remains authoritative.
+Refresh Shared Records requests the latest authorized copies (up to 100) without
+uploading, merging, or replacing device drafts. Shared data stays in component
+memory, shows failed/stale/empty outcomes, and is discarded on vault lock,
+role/session changes or navigation. No agency packet request occurs in UI preview
+mode. Automatic sync is intentionally disabled: `navigator.onLine` does not
+establish a trusted city-network connection.
+
+The approved connection guidance covers managed substation Wi-Fi and home access
+through an approved device and department VPN or zero-trust gateway. Selecting a
+path only changes guidance. It does not establish or attest a connection, enable
+the adapter, configure network hardware, or replace signed identity/server-roster
+checks. Agency IT must provide and approve both network routes before real use.
 
 ### Agency deployment configuration
 

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, type LocalChatDraft } from '@/lib/offlineStorage.js';
 import { createEmptyWorkspace, createUiPreviewWorkspace } from '@/lib/empty-workspace.js';
 import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type PhaseExtensionRequest, type PhaseWeekRange, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
@@ -13,6 +13,7 @@ import { uploadPacketBatch } from '@/lib/training-packet-sync.js';
 import { preserveProtectedPackets } from '@/lib/protected-packets.js';
 
 export type VaultState = 'none' | 'unlocked';
+export type PacketSyncState = 'idle' | 'uploading' | 'failed' | 'synchronized';
 type VaultIntent = 'save' | 'restore' | null;
 
 interface Ctx {
@@ -28,6 +29,7 @@ interface Ctx {
   setupAndSave(pass: string): Promise<void>; unlockAndRestore(pass: string): Promise<void>; saveNow(): Promise<void>; lockNow(reason?: string): void; dismissLockedNotice(): void;
   resetWorkspace(): void;
   syncPackets(): Promise<void>;
+  packetSyncState: PacketSyncState; packetSyncError: string | null;
   getOperationalPacket(report: Report): OperationalPacket;
   segTaskDirectory: typeof SEG_TASK_DIRECTORY;
 }
@@ -240,6 +242,8 @@ export function WorkspaceProvider({
   const [lockedNotice, setLockedNotice] = useState(false);
   const [lockedWithUnsaved, setLockedWithUnsaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [packetSyncState, setPacketSyncState] = useState<PacketSyncState>('idle');
+  const [packetSyncError, setPacketSyncError] = useState<string | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const wasOnline = useRef(online);
   const rev = useRef(0);
@@ -303,6 +307,7 @@ export function WorkspaceProvider({
 
   const lockNow = useCallback((reason?: string) => {
     syncAbort.current?.abort();
+    setPacketSyncState('idle'); setPacketSyncError(null);
     if (previewOnly) {
       storage.current.lock();
       setLockedWithUnsaved(false);
@@ -455,6 +460,7 @@ export function WorkspaceProvider({
       throw new Error('Save open edits and unlock the online workspace before synchronizing.');
     if (syncing.current) throw new Error('Sync is already running.');
     syncing.current = true;
+    setPacketSyncState('uploading'); setPacketSyncError(null);
     const controller = new AbortController();
     syncAbort.current = controller;
     try {
@@ -465,13 +471,15 @@ export function WorkspaceProvider({
       if (controller.signal.aborted) return;
       if (next) { wsRef.current = next; setWs(next); setEpoch(value => value + 1); }
       await refreshPending();
+      if (!controller.signal.aborted) setPacketSyncState('synchronized');
     } catch (error) {
       if (!controller.signal.aborted) {
         const guarded = await storage.current.get<Workspace>('workspace');
         if (guarded && !controller.signal.aborted) {
           wsRef.current = guarded; setWs(guarded); setEpoch(value => value + 1);
         }
-        setSaveError('Packet sync was not confirmed. Its exact saved snapshot is protected until retry confirms the outcome.');
+        setPacketSyncError('Upload Not Confirmed. The Exact Saved Snapshot Is Protected Until Retry Confirms the Outcome.');
+        setPacketSyncState('failed');
       }
       throw error;
     } finally { syncing.current = false; syncAbort.current = null; }
@@ -583,9 +591,9 @@ export function WorkspaceProvider({
     }),
     toggleTask: (id, by) => mutate(w => ({ ...w, tasks: w.tasks.map((t: Task) => t.id !== id ? t : t.done ? { ...t, done: false, by: undefined, at: undefined } : { ...t, done: true, by, at: new Date().toISOString() }) })),
     openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
-    setupAndSave, unlockAndRestore, saveNow, syncPackets, lockNow, dismissLockedNotice: () => setLockedNotice(false),
+    setupAndSave, unlockAndRestore, saveNow, syncPackets, packetSyncState, packetSyncError, lockNow, dismissLockedNotice: () => setLockedNotice(false),
     resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace(wsRef.current.role) : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setEpoch(e => e + 1); },
-  }), [ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
+  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

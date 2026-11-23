@@ -1,16 +1,16 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   AlertCircle, Archive, Check, CheckCircle2, ChevronDown, ChevronRight, Clock3, FileCheck2,
   FileText, LockKeyhole, MessageSquareText, RefreshCw, ShieldCheck, UserRound, X,
 } from "lucide-react";
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/model.js";
 import type { AgencyPacket, AgencyPacketsEnvelope, PacketReviewAction, PacketReviewDraft } from "@/lib/agency-packets.js";
-import "./agency-packet-review.css";
 
 type Role = AgencyPacketsEnvelope["metadata"]["role"];
 export type AgencyPacketReviewProps = {
   packets: AgencyPacket[]; role: Role | null; loading: boolean; refreshing: boolean;
   unavailable: string; actionError: string; message: string; busy: boolean;
+  canRefresh?: boolean;
   pendingAction: PacketReviewAction | null; onRefresh: () => void;
   onAction: (packet: AgencyPacket, draft: PacketReviewDraft) => void; onRetry: () => void;
 };
@@ -49,7 +49,7 @@ function safeJson(value: unknown) {
 }
 
 export function AgencyPacketReview(props: AgencyPacketReviewProps) {
-  const { packets, role, loading, refreshing, unavailable, actionError, message, busy, pendingAction, onRefresh, onRetry } = props;
+  const { packets, role, loading, refreshing, unavailable, actionError, message, busy, pendingAction, onRefresh, onRetry, canRefresh = true } = props;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const locked = busy || pendingAction !== null;
 
@@ -73,10 +73,10 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
       <div className="apr-title-row">
         <div><h1>Agency packets</h1><p>{subtitle}</p></div>
         <div className="apr-title-actions">
-          <button type="button" className="apr-refresh" onClick={onRefresh} disabled={busy || refreshing} data-testid="button-refresh-packets">
+          <button type="button" className="apr-refresh" onClick={onRefresh} disabled={!canRefresh || busy || refreshing} data-testid="button-refresh-packets">
             <RefreshCw size={13} className={refreshing ? "apr-spin" : undefined} />{refreshing ? "Refreshing" : "Refresh"}
           </button>
-          <span className="apr-refresh-note" data-testid="text-refresh-state">{refreshing ? "Checking agency server" : "Updates every 30 seconds"}</span>
+          <span className="apr-refresh-note" data-testid="text-refresh-state">{!canRefresh ? "Agency Reads Disabled" : refreshing ? "Checking agency server" : "Updates every 30 seconds"}</span>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
           <div className="apr-list-head"><h2>{listTitle}</h2>{!blocked && !loading && <span className="apr-count" data-testid="text-packet-count">{visible.length} {visible.length === 1 ? "PACKET" : "PACKETS"}</span>}</div>
           {listSub && !blocked && <p className="apr-list-sub">{listSub}</p>}
           {unavailable ? <div className="apr-empty" role="alert" data-testid="status-packets-unavailable"><div className="apr-empty-icon err"><AlertCircle size={17} /></div><h3>Packets unavailable</h3><p>{unavailable}</p>
-              <button className="apr-button" type="button" onClick={onRefresh} disabled={busy || refreshing} data-testid="button-try-refresh"><RefreshCw size={12} />Try refresh</button></div>
+              <button className="apr-button" type="button" onClick={onRefresh} disabled={!canRefresh || busy || refreshing} data-testid="button-try-refresh"><RefreshCw size={12} />Try refresh</button></div>
             : loading ? [0, 1, 2].map(i => <div className="apr-skel" key={i} aria-hidden><i style={{ width: "45%" }} /><i style={{ width: "70%" }} /><i style={{ width: "55%" }} /></div>)
             : roleMissing ? <div className="apr-empty" role="alert" data-testid="status-role-missing"><div className="apr-empty-icon err"><AlertCircle size={17} /></div><h3>Role not confirmed</h3><p>The agency server did not return a recognized role for this account. No packet actions are available.</p></div>
             : visible.length ? visible.map(p => {

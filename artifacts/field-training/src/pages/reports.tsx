@@ -7,9 +7,10 @@ import { PageHead, Panel, StatusPill } from '@/components/bits.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
 import { formatDateDMY } from '@/lib/training-calendar.js';
 import { activityTotals } from '@/lib/run-activity.js';
+import { PacketTransferPanel } from '@/components/packet-transfer-panel.js';
 
 export default function Reports() {
-  const { ws } = useWorkspace();
+  const { ws, vault, previewOnly } = useWorkspace();
   const [q, setQ] = useState(''); const [status, setStatus] = useState<'' | Status>(''); const [phase, setPhase] = useState(''); const [shift, setShift] = useState(''); const [flagged, setFlagged] = useState(false);
   const list = useMemo(() => ws.reports.filter(r => {
     if (status && r.status !== status) return false;
@@ -31,6 +32,7 @@ export default function Reports() {
         <Link href="/reports/weekly-ack" data-testid="link-weekly-acknowledgement" className="h-10 px-4 rounded border bg-card font-bold text-sm inline-flex items-center gap-2">Weekly Packet Acknowledgement</Link>
         <Link href="/reports/new" data-testid="link-new-log" className="h-10 px-4 rounded bg-primary text-primary-foreground font-bold text-sm inline-flex items-center gap-2"><PenLine className="h-4 w-4" />Start shift</Link>
       </PageHead>
+      <PacketTransferPanel key={`${ws.role}:${vault}:${previewOnly}`} />
       <p className="mb-3 rounded border bg-card p-3 text-sm text-muted-foreground">Each record covers one shift/day and contains its related duty, run, activity, and evaluation forms. Open a saved record to review or continue it; weekly totals are assembled separately from eligible records.</p>
       <div className="rise flex flex-wrap gap-2 mb-3">
           <div className="relative flex-1 min-w-[220px]"><Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" /><input data-testid="input-search" type="search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Search PO, zone, precinct, FTO assignment, narrative" className="h-10 w-full rounded border bg-card pl-9 pr-3 text-sm" /></div>

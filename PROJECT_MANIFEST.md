@@ -6,7 +6,7 @@
 
 This workspace contains three artifacts: an Express API Server, a React/Vite Component Preview Sandbox, and the Field Training Officer Portal. `callbox\pv3` exists on the internal server, but its source and runtime are outside this workspace.
 
-The Field Training Officer Portal has sign-in and workflow views; training records remain in an encrypted device-local vault by default. Agency packet API routes and encrypted sync hooks now exist, gated off until an agency-managed PostgreSQL connection, verified signed identity claim mappings and trusted assignment roster are configured. There is no visible upload control or shared-record screen yet. “Save locally” does not upload. The isolated `AdminLogsDashboard` mockup uses development sample data; it is not a production audit console.
+The Field Training Officer Portal has sign-in and workflow views; training records remain in an encrypted device-local vault by default. Agency packet API routes and encrypted sync hooks exist, gated off until an agency-managed PostgreSQL connection, verified signed identity claim mappings and trusted assignment roster are configured. Following sandbox preview and user approval, Daily Records includes explicit upload confirmation and read-only shared-record refresh controls. “Save Locally” does not upload. Neither connectivity nor choosing connection guidance starts an upload or grants authorization. The isolated `AdminLogsDashboard` mockup uses development sample data; it is not a production audit console.
 
 Packet routes are `/api/v1/training-packets`, `/api/v1/training-packets/:id`,
 `/api/v1/training-packets/sync`, and `/api/v1/training-packets/sync-readiness`.

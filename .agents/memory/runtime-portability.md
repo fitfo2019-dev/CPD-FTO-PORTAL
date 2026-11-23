@@ -18,3 +18,13 @@ undefined when executed under Node/tsx.
 
 **How to apply:** Preserve the tested default-import interop and exercise a real
 workbook-generation test whenever spreadsheet imports or build transforms change.
+
+JSX regression checks must actually render components under the Node test runner.
+
+**Why:** In this workspace, tsx workers used classic JSX behavior despite the
+nested test configuration requesting the automatic runtime. Type checks and Vite
+builds passed while rendering failed because React was not in scope.
+
+**How to apply:** Run a rendering test when introducing component-level Node
+tests. Keep explicit React imports where needed by that runner rather than
+assuming the browser build proves the test runtime works.

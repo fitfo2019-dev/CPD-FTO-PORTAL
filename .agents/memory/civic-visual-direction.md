@@ -8,3 +8,12 @@ The user renamed the site “Field Training Officer Portal.” Use the Columbus 
 **Why:** The user explicitly specified the portal name, supplied the body font styling, corrected the header's asset positions, requested separate masthead text colors for day and night, and specified a white eagle on the patch.
 
 **How to apply:** Use this direction for future screens and components while retaining the persistent fictional-demo and not-approved notices.
+
+Use ALL CAPS or Title Case for portal wording, keeping short connector words
+such as “of” and “or” lowercase in Title Case. The user approved the Title Case
+packet-control preview before integration.
+
+**Why:** The user explicitly requested either all capitals or capitalization of
+all words except short connector words.
+
+**How to apply:** Preserve acronyms and identifiers; do not uppercase user-entered records.

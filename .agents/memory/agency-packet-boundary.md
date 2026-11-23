@@ -11,10 +11,19 @@ from browser tokens or turn a local-save action into an upload.
 claims, complete daily packets and signed-role plus server-roster authorization.
 They require local editing without connectivity and approval/preview for UI changes.
 
-**How to apply:** Keep local saving independent of the network. Use exact
-`local_draft_pending` and `synchronized_complete` statuses. Confirmed uploads seal
+**How to apply:** Keep local saving independent of the network. Confirmed uploads seal
 the local packet, but must not invent electronic signatures or PO release.
 Do not claim a live agency integration without testing its actual configuration.
+
+Each substation has one physical network jack for 15 FTOs; per-upload wired
+connections are impractical. The upload design must support an agency-approved
+shared Wi-Fi or remote-access route rather than requiring each FTO to plug in.
+
+**Why:** The user described the substations' single network jack and 15-FTO
+workforce as an operational constraint.
+
+**How to apply:** Treat managed wireless/VPN as an agency network design decision.
+Do not imply this app provides it or recommend unmanaged access equipment.
 
 An uncertain upload outcome must retain its exact original snapshot and retry
 identity across vault restoration; schema normalization must not replace it.

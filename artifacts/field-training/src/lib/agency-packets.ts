@@ -34,8 +34,9 @@ export async function loadAgencyPackets(signal?: AbortSignal): Promise<AgencyPac
   }));
 }
 
-export async function performPacketReview(command: PacketReviewCommand): Promise<AgencyPacketsEnvelope> {
-  const options = { signal: AbortSignal.timeout(15000) };
+export async function performPacketReview(command: PacketReviewCommand, signal?: AbortSignal): Promise<AgencyPacketsEnvelope> {
+  const timeout = AbortSignal.timeout(15000);
+  const options = { signal: signal ? AbortSignal.any([signal, timeout]) : timeout };
   const result = command.action === "release"
     ? await releaseTrainingPacket(command.packetId, ReleaseTrainingPacketBody.strict().parse(command.input), options)
     : command.action === "withdraw"
