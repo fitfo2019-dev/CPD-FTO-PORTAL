@@ -37,6 +37,12 @@ function findByTestId(node:ReactNode,testId:string):ReactElement<Record<string,u
   return findByTestId(element.props.children as ReactNode,testId);
 }
 
+function addDays(isoDate:string,days:number):string {
+  const value=new Date(`${isoDate}T12:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate()+days);
+  return value.toISOString().slice(0,10);
+}
+
 test('request validation keeps written justification unlimited in length',()=>{
   const parsed=phaseExtensionRequestInputSchema.safeParse({
     extensionType:'training_weeks',requestedWeeks:1,justification:'x'.repeat(150_000),
@@ -126,6 +132,61 @@ test('phase extension requests and approved ranges survive locking and restoring
   assert.deepEqual(deniedWorkspace.phaseFolders[0].phaseWeekRanges,expectedRanges);
   assert.deepEqual(deniedWorkspace.caseFolder?.phaseWeekRanges,expectedRanges);
   afterDenial.lock();
+});
+
+test('approved Limbo extensions preserve shifted ranges and extension count after vault reopening',async()=>{
+  const namespace=`limbo-extension-${crypto.randomUUID()}`;
+  const passphrase=new TextEncoder().encode('limbo-extension-test-passphrase');
+  const limboRequest:PhaseExtensionRequest={
+    ...request,id:'extension-limbo-1',extensionType:'limbo_period',requestedWeeks:1,
+    justification:'Add one Limbo week.',
+  };
+  const initial=createEmptyWorkspace();
+  initial.caseFolder=folder;
+  initial.phaseFolders=[folder];
+  initial.phaseExtensionRequests=[limboRequest];
+
+  const firstVault=new OfflineStorage(namespace);
+  await firstVault.unlock(passphrase);
+  await firstVault.save('workspace',initial);
+  firstVault.lock();
+
+  const reviewVault=new OfflineStorage(namespace);
+  await reviewVault.unlock(passphrase);
+  const restoredPending=await reviewVault.get<Workspace>('workspace');
+  assert.ok(restoredPending);
+  const restoredRequests=normalizePhaseExtensionRequests(restoredPending.phaseExtensionRequests);
+  assert.deepEqual(restoredRequests,[limboRequest]);
+  const pendingWorkspace={...restoredPending,phaseExtensionRequests:restoredRequests};
+  const approved=approvePhaseExtension(pendingWorkspace,limboRequest.id);
+  const initialRanges=folder.phaseWeekRanges!;
+  const expectedRanges=initialRanges.map((range,index)=>({
+    startDate:index===0?range.startDate:addDays(range.startDate,7),
+    endDate:addDays(range.endDate,7),
+  }));
+  assert.deepEqual(approved.phaseFolders[0].phaseWeekRanges,expectedRanges);
+  assert.deepEqual(approved.caseFolder?.phaseWeekRanges,expectedRanges);
+  assert.equal(approved.phaseFolders[0].limboExtensionWeeks,1);
+  assert.equal(approved.caseFolder?.limboExtensionWeeks,1);
+  assert.deepEqual(approved.phaseExtensionRequests,[]);
+  await reviewVault.save('workspace',approved);
+  reviewVault.lock();
+
+  const reopenedVault=new OfflineStorage(namespace);
+  await reopenedVault.unlock(passphrase);
+  const reopened=await reopenedVault.get<Workspace>('workspace');
+  assert.ok(reopened);
+  assert.deepEqual(reopened.phaseFolders[0].phaseWeekRanges,expectedRanges);
+  assert.deepEqual(reopened.caseFolder?.phaseWeekRanges,expectedRanges);
+  assert.equal(reopened.phaseFolders[0].limboExtensionWeeks,1);
+  assert.equal(reopened.caseFolder?.limboExtensionWeeks,1);
+  assert.deepEqual(reopened.phaseExtensionRequests,[]);
+  assert.deepEqual(
+    approvePhaseExtension(reopened,limboRequest.id).phaseFolders[0].phaseWeekRanges,
+    expectedRanges,
+    'a request removed by approval must not shift the restored dates again',
+  );
+  reopenedVault.lock();
 });
 
 test('vault-restored requests render in coordinator review and approve or deny actions resolve them',async()=>{
