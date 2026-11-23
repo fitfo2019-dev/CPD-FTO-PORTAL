@@ -283,6 +283,12 @@ test('preview edits, autosave, sync, and reset never create device storage recor
     assert.ok(current);
     assert.equal(current.dirty, false);
 
+    await assert.rejects(current!.setupAndSave('preview-must-not-persist'), /memory-only/);
+    await assert.rejects(current!.unlockAndRestore('preview-must-not-restore'), /memory-only/);
+    assert.equal(current!.pending, 0);
+    assert.deepEqual(await indexedDB.databases().then(databases =>
+      databases.filter(database => database.name === databaseName)), []);
+
     await act(async () => {
       current!.setCaseFolder({ ...current!.ws.caseFolder!, recruitName: 'PREVIEW EDIT ONLY' });
       await current!.saveNow();
