@@ -283,8 +283,11 @@ test('preview edits, autosave, sync, and reset never create device storage recor
   let root = createRoot(container);
   try {
     await act(async () => {
-      root.render(createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
-        createElement(Probe)));
+      root.render(createElement(WorkspaceProvider, {
+        storageNamespace: namespace,
+        previewOnly: true,
+        children: createElement(Probe),
+      }));
     });
     assert.ok(current);
     assert.equal(current.dirty, false);

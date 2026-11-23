@@ -158,7 +158,7 @@ test('monthly workbook renders four supplied weekly ranges without leaking incid
     assert.equal(values.slice(4,21).flat().filter(value=>SEG_CATEGORIES.some(category=>category.label===value)).length,30);
     assert.ok(values.some(row=>row[0]==='DAILY ACTIVITY SUMMARY'));
   }
-  assert.equal(workbook.Sheets['Week 1']['!cols'].length,24);
+  assert.equal(workbook.Sheets['Week 1']!['!cols']?.length,24);
   assert.equal(workbook.Sheets['Week 1']['!pageSetup'].orientation,'landscape');
   const runSupportText = JSON.stringify(Object.values(workbook.Sheets));
   assert.equal(runSupportText.includes('PRIVATE-INCIDENT'), false);

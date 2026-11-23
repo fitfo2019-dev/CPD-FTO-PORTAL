@@ -12,6 +12,21 @@ import {
 } from './model.js';
 import { SUBSTATION_ORIENTATION_KEYS, SUBSTATION_ORIENTATION_SECTIONS, defaultSubstationOrientationChecklist } from './substation-orientation.js';
 
+const dailyDutyItems = DAILY_DUTY_CHECKLIST.reduce<Array<{ key: string; label: string }>>(
+  (items, group) => {
+    items.push(...group.items);
+    return items;
+  },
+  [],
+);
+
+const orientationKeys = SUBSTATION_ORIENTATION_SECTIONS.reduce<
+  Array<(typeof SUBSTATION_ORIENTATION_KEYS)[number]>
+>((keys, section) => {
+  section.items.forEach(([key]) => keys.push(key));
+  return keys;
+}, []);
+
 const submittedPrimaryCounts = {
   call_for_service: 52,
   self_initiated: 52,
@@ -53,9 +68,9 @@ test('all submitted run checkboxes and the three checklists start checked', () =
     assert.ok(RUN_SUPPLEMENT_CHECKLIST_ITEMS[form].every((_, index) => checklist[`supp-${form}-${index}`] === true), form);
     assert.equal(checklist[`na-supp-${form}`], false);
   }
-  assert.ok(DAILY_DUTY_CHECKLIST.flatMap(group => group.items).length === 33);
+  assert.ok(dailyDutyItems.length === 33);
   assert.ok(SUBSTATION_ORIENTATION_KEYS.length === 82);
-  assert.ok(SUBSTATION_ORIENTATION_SECTIONS.flatMap(group => group.items).every(([key]) => defaultSubstationOrientationChecklist()[key]));
+  assert.ok(orientationKeys.every(key => defaultSubstationOrientationChecklist()[key]));
 });
 
 test('Arrest Process carries the user-specified U-10.188 form identifier', () => {
@@ -66,11 +81,10 @@ test('Arrest Process carries the user-specified U-10.188 form identifier', () =>
 });
 
 test('daily duty wording and one/two-officer checkboxes match the submitted form', () => {
-  const items = DAILY_DUTY_CHECKLIST.flatMap(group => group.items);
-  assert.ok(items.some(item => item.label === 'Worked as a one officer unit'));
-  assert.ok(items.some(item => item.label === 'Worked as a two officer unit'));
-  assert.ok(items.some(item => item.label === 'Conducted inspection of cruiser (cleanliness, damage, weapons, contraband, equipment, etc.)'));
-  assert.ok(items.some(item => item.label === 'Returned assigned equipment to substation (unloaded shotgun, keys, Taser, etc)'));
+  assert.ok(dailyDutyItems.some(item => item.label === 'Worked as a one officer unit'));
+  assert.ok(dailyDutyItems.some(item => item.label === 'Worked as a two officer unit'));
+  assert.ok(dailyDutyItems.some(item => item.label === 'Conducted inspection of cruiser (cleanliness, damage, weapons, contraband, equipment, etc.)'));
+  assert.ok(dailyDutyItems.some(item => item.label === 'Returned assigned equipment to substation (unloaded shotgun, keys, Taser, etc)'));
   assert.ok(RUN_CHECKLIST_ITEMS.high_risk_stop.includes('Other:'));
   for (const form of [...Object.keys(submittedPrimaryCounts), 'arrest_process', 'ovi_process'] as (keyof typeof RUN_CHECKLIST_ITEMS | keyof typeof RUN_SUPPLEMENT_CHECKLIST_ITEMS)[]) {
     const allItems = form in RUN_CHECKLIST_ITEMS

@@ -43,7 +43,7 @@ function makeReport(id: string, overrides: Partial<Report> = {}): Report {
     narrative: '',
     remedial: '',
     recruitComments: '',
-    status: 'complete',
+    status: 'draft',
     signatures: {},
     createdAt: '2026-11-02T12:00:00.000Z',
     updatedAt: '2026-11-02T12:00:00.000Z',

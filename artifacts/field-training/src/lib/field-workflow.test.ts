@@ -20,6 +20,14 @@ import { ensureWeeklyUaLogs, mergeReviewedUaEntries } from './weekly-performance
 import { categoryNumberLabel, hasReviewedCorrectiveSource, isValidTrainingFolderReference, paginateWeeklyLogEntries } from './weekly-log-layout.js';
 import { parseRosterRows } from './assignment-import.js';
 
+const dailyDutyItems = DAILY_DUTY_CHECKLIST.reduce<Array<{ key: string; label: string }>>(
+  (items, group) => {
+    items.push(...group.items);
+    return items;
+  },
+  [],
+);
+
 test('only current portal roles are selectable; legacy roles normalize safely',()=>{
   assert.deepEqual(ROLES,['po','fto','fto_coordinator','fto_coc','policenet','policenet_admin_sgt']);
   assert.equal(normalizePreviewRole('sergeant'),'po');
@@ -52,7 +60,7 @@ test('Help cites the manual/forms and inventories every uploaded PDF',()=>{
   assert.equal(UPLOADED_FORM_SOURCES.length,14);
   assert.ok(FTO_HELP.every(item=>/FTO Manual|Uploaded/.test(item.source)));
   assert.match(FTO_HELP.find(item=>item.id==='rt')!.text,/minimal FTO/);
-  assert.ok(DAILY_DUTY_CHECKLIST.flatMap(group=>group.items).some(item=>item.key==='docked_bwc'));
+  assert.ok(dailyDutyItems.some(item=>item.key==='docked_bwc'));
 });
 
 test('run timestamps allow explicit overnight dates and reject reversed/invalid times',()=>{
@@ -323,7 +331,7 @@ test('all form checklists start checked while not-applicable options stay unchec
 });
 
 test('next log date advances to the next assigned workday for the same PO and phase', () => {
-  const folder={recruitBadge:'123',recruitName:'Fictional PO',phase:1,shift:'A-Co' as const,className:'Class X',phaseStartDate:'2025-01-05',daysOff:[0,6] as (0|1|2|3|4|5|6)[]};
+  const folder={recruitBadge:'123',recruitName:'Fictional PO',phase:1 as const,shift:'A-Co' as const,className:'Class X',phaseStartDate:'2025-01-05',daysOff:[0,6] as (0|1|2|3|4|5|6)[]};
   assert.equal(getNextReportDate(folder,[]),'2025-01-06');
   assert.equal(getNextReportDate(folder,[{...folder,date:'2025-01-07'}]),'2025-01-08');
   assert.equal(getNextReportDate(folder,[{...folder,date:'2025-01-07'},{...folder,recruitBadge:'other',date:'2025-01-10'}]),'2025-01-08');
@@ -394,7 +402,7 @@ function run(id: string, clearanceCode: NonNullable<TrainingRun['clearanceCode']
 }
 
 test('traffic data collection stays on its primary form instead of generating an unsubmitted supplement', () => {
-  const sample={...run('run','S'),arrestMade:true,transportedAfterArrest:true,oviProcessed:true};
+  const sample={...run('run','1V'),arrestMade:true,transportedAfterArrest:true,oviProcessed:true};
   assert.deepEqual(requiredSupplementalForms(sample),['arrest_process','ovi_process']);
   assert.deepEqual(requiredSupplementalForms({...sample,trafficMode:'pedestrian'}),['arrest_process','ovi_process']);
   assert.deepEqual(requiredSupplementalForms({...sample,trafficMode:'other'}),['arrest_process','ovi_process']);

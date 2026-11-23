@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { emptyDailyActivitySummary, emptyRatings, type Report } from './model.js';
+import { emptyDailyActivitySummary, emptyRatings, emptyReportingForDutyRecord, type Report } from './model.js';
 import { filterReportsForMonth } from './monthly-summary.js';
 
 function report(id: string, date: string): Report {
@@ -20,6 +20,7 @@ function report(id: string, date: string): Report {
     activity: emptyDailyActivitySummary(),
     activityCountsIncludeRuns: false,
     runs: [],
+    reportingForDuty: emptyReportingForDutyRecord(),
     ratings: emptyRatings(),
     phaseWeek: 1,
     limboDay: false,

@@ -27,7 +27,7 @@ function renderPortalAt(path: string, base = '/field-portal') {
     protectedPortal: createElement('p', null, 'PROTECTED PORTAL'),
   });
   return renderToString(
-    createElement(Router, { base, hook: locationAt(path) }, routes),
+    createElement(Router, { base, hook: locationAt(path), children: routes }),
   );
 }
 
@@ -46,8 +46,11 @@ test('preview navigation preserves both the app base path and the isolated previ
   const html = renderToString(
     createElement(
       Router,
-      { base: '/field-portal', hook: locationAt('/field-portal/ui-preview') },
-      preview,
+      {
+        base: '/field-portal',
+        hook: locationAt('/field-portal/ui-preview'),
+        children: preview,
+      },
     ),
   );
   assert.match(html, /href="\/field-portal\/ui-preview\/substation-orientation"/);
