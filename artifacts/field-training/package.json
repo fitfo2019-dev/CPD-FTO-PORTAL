@@ -8,6 +8,7 @@
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:checker": "node --test vite-checker.integration.test.mjs",
     "test:ui-preview": "BASE_PATH=/field-training-preview/ pnpm run build && TSX_TSCONFIG_PATH=$PWD/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/portal-routing.test.ts ../artifacts/field-training/src/lib/portal-production-build.test.ts"
   },
   "devDependencies": {

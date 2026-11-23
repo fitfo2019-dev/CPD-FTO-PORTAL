@@ -14,6 +14,7 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "test:field-training:checker": "pnpm --filter @workspace/field-training run test:checker",
     "test:field-training:phase": "TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/phase-configuration.test.ts ../artifacts/field-training/src/lib/phase-extension.test.ts ../artifacts/field-training/src/lib/training-calendar.test.ts",
     "test:field-training:regressions": "pnpm run test:field-training:phase && TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/offlineStorage.test.ts ../artifacts/field-training/src/lib/dispatch-prefill.test.ts"
   },
