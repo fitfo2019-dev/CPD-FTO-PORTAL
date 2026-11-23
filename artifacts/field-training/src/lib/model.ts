@@ -175,11 +175,13 @@ export const SUPPLEMENTAL_RUN_FORMS = [
   { key:'arrest_process', label:'Arrest Process', formNumber:'U-10.188' },
   { key:'ovi_process', label:'OVI Process', formNumber:'' },
   { key:'narrative_addition', label:'Narrative Addition / Continuation', formNumber:'U-10.192' },
+  { key:'building_search', label:'Building Search', formNumber:'' },
 ] as const;
 export const SUPPLEMENTAL_FORM_GUIDANCE: Record<(typeof SUPPLEMENTAL_RUN_FORMS)[number]['key'],string> = {
   arrest_process:'The manual requires Arrest Process for an arrest that is transported for processing; also select it for payout arrests or transfers to another jurisdiction. Select U-10.100 Reports in the related activity checkboxes only when the Arrest Report was completed; no statistic is added automatically.',
   ovi_process:'Use with the applicable primary form when the person is processed for OVI. Select OVI Packets in the related activity checkboxes only when the packet was completed; no statistic is added automatically.',
   narrative_addition:'Use only when an additional narrative page is needed for the primary run record.',
+  building_search:'Attach the Building Search checklist to this same incident when needed. This is not another run and does not add an activity count or confirm that the checklist was reviewed.',
 };
 export type SupplementalRunForm = typeof SUPPLEMENTAL_RUN_FORMS[number]['key'];
 type ChecklistItemDefinition = { label: string; help: string };
@@ -348,6 +350,7 @@ export const RUN_CHECKLIST_HELP = Object.fromEntries(
   Object.entries(RUN_CHECKLIST_SECTIONS).map(([key,sections])=>[key,sections.flatMap(section=>section.items.map(item=>item.help))]),
 ) as unknown as Record<PrimaryRunForm, readonly string[]>;
 export const RUN_SUPPLEMENT_CHECKLIST_SECTIONS: Record<SupplementalRunForm, readonly ChecklistSectionDefinition[]> = {
+  building_search: RUN_CHECKLIST_SECTIONS.building_search,
   arrest_process: [
     checklistSection('Arrest at scene',
       checklistItem('Restraints, search, and property','PO applies appropriate handcuff/leg restraints, conducts the required search, and secures property and evidence.'),
@@ -435,6 +438,8 @@ export interface TrainingRun {
   generatedDocuments?: { id: string; kind: 'U-10.100' | 'Probable Cause Affidavit' | 'Criminal Complaint Form'; chargeId?: string; description?: string }[];
   id: string;
   incidentNumber?: string;
+  unitNumber?: string;
+  dispatchedAt?: string;
   location?: string;
   transportDestination?: string;
   transportDestinationType?: 'Jail'|'HQ'|'Clerks';
@@ -449,6 +454,8 @@ export interface TrainingRun {
   arrestMade: boolean;
   transportedAfterArrest: boolean;
   arrestProcessRequired?: boolean;
+  buildingSearchRequired?: boolean;
+  oviProcessRequired?: boolean;
   activityFlags?: Partial<Record<ActivityKey,boolean>>;
   oviProcessed: boolean;
   narrativeAdditionRequired: boolean;
@@ -510,6 +517,7 @@ export type DutyStatus = 'on_duty'|'training'|'sick'|'off_duty'|'other';
 export interface ReportingForDutyRecord {
   dutyStatus: DutyStatus;
   cruiserId?: string;
+  unitNumber?: string;
   shotgunTraining?: 'Y' | 'N';
   checklist: Record<string, boolean>;
   notApplicable?: Record<string, boolean>;
@@ -523,10 +531,11 @@ export const defaultReportingForDutyRecord = (): ReportingForDutyRecord => ({
   notApplicable:Object.fromEntries(DAILY_DUTY_CHECKLIST.map(group=>[group.section,false])),
   notes:'',
 });
-export function requiredSupplementalForms(run: Pick<TrainingRun, 'runKind'|'trafficMode'|'isDispatched'|'arrestMade'|'transportedAfterArrest'|'oviProcessed'|'narrativeAdditionRequired'> & {arrestProcessRequired?:boolean}): SupplementalRunForm[] {
+export function requiredSupplementalForms(run: Pick<TrainingRun, 'runKind'|'trafficMode'|'isDispatched'|'arrestMade'|'transportedAfterArrest'|'oviProcessed'|'narrativeAdditionRequired'> & Pick<TrainingRun,'arrestProcessRequired'|'buildingSearchRequired'|'oviProcessRequired'>): SupplementalRunForm[] {
   const forms: SupplementalRunForm[] = [];
-  if (run.arrestMade) forms.push('arrest_process');
-  if (run.oviProcessed) forms.push('ovi_process');
+  if (run.buildingSearchRequired && run.runKind !== 'building_search') forms.push('building_search');
+  if (run.arrestMade || run.arrestProcessRequired) forms.push('arrest_process');
+  if (run.oviProcessed || run.oviProcessRequired) forms.push('ovi_process');
   if (run.narrativeAdditionRequired) forms.push('narrative_addition');
   return forms;
 }

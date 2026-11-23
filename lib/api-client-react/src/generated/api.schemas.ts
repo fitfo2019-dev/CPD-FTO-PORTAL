@@ -378,6 +378,77 @@ export interface ResourceCatalogEnvelope {
   data: ResourceCatalogItem[];
 }
 
+export interface DispatchIncidentLookupInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     * @pattern ^[A-Za-z0-9._:-]+$
+     */
+  incidentNumber: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     * @pattern ^[A-Za-z0-9 ._:/-]+$
+     */
+  unitNumber: string;
+}
+
+export type DispatchIncidentPrefillRunKind = typeof DispatchIncidentPrefillRunKind[keyof typeof DispatchIncidentPrefillRunKind];
+
+
+export const DispatchIncidentPrefillRunKind = {
+  call_for_service: 'call_for_service',
+  self_initiated: 'self_initiated',
+  domestic_incident: 'domestic_incident',
+  traffic_crash: 'traffic_crash',
+  traffic_stop: 'traffic_stop',
+  high_risk_stop: 'high_risk_stop',
+  building_search: 'building_search',
+} as const;
+
+export interface DispatchIncidentPrefill {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  incidentNumber: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  unitNumber?: string;
+  eventIngressAt?: string;
+  dispatchedAt?: string;
+  clearedAt?: string;
+  /** @maxLength 200 */
+  location?: string;
+  /** @pattern ^\d{1,3}[A-Z]?$ */
+  dispatchedCode?: string;
+  runKind?: DispatchIncidentPrefillRunKind;
+}
+
+export type DispatchIncidentEnvelopeStatus = typeof DispatchIncidentEnvelopeStatus[keyof typeof DispatchIncidentEnvelopeStatus];
+
+
+export const DispatchIncidentEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type DispatchIncidentEnvelopeMetadata = {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  total_records: number;
+};
+
+export interface DispatchIncidentEnvelope {
+  status: DispatchIncidentEnvelopeStatus;
+  metadata: DispatchIncidentEnvelopeMetadata;
+  /** @maxItems 1 */
+  data: DispatchIncidentPrefill[];
+}
+
 export interface DispatchEventIngressInput {
   /**
      * @minLength 1

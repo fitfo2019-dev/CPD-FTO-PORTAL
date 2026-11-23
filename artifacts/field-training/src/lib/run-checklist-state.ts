@@ -11,12 +11,12 @@ export function checklistForMetadata(
     requiredSupplementalForms(metadata),
   );
 
-  return Object.fromEntries(
+  return {...previous, ...Object.fromEntries(
     Object.entries(defaults).map(([key, defaultValue]) => [
       key,
       previous[key] ?? defaultValue,
     ]),
-  );
+  )};
 }
 
 export function toggleChecklistSection(

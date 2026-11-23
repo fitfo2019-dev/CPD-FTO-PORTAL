@@ -1,10 +1,12 @@
 import { getAuth } from "@clerk/express";
-import { Router, type IRouter, type Response } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
+import { DispatchIncidentLookupBody, DispatchIncidentLookupResponse } from "@workspace/api-zod";
 import { logger } from "../lib/logger.js";
 import {
   fetchPatrolViewEvent,
   PatrolViewIntegrationError,
 } from "../services/patrolViewIntegration.js";
+import {fetchPatrolViewIncident} from "../services/patrolViewIncidentIntegration.js";
 
 const router: IRouter = Router();
 
@@ -18,7 +20,7 @@ function sendError(
   res.status(statusCode).json({ status: "error", error_code: code, message });
 }
 
-router.post("/v1/dispatch/event-ingress", async (req, res): Promise<void> => {
+function authorizeDispatch(req:Request,res:Response):boolean {
   let userId: string | null = null;
   try {
     userId = getAuth(req).userId ?? null;
@@ -27,7 +29,7 @@ router.post("/v1/dispatch/event-ingress", async (req, res): Promise<void> => {
   }
   if (!userId) {
     sendError(res, 401, "AUTHENTICATION_REQUIRED", "Sign-in is required.");
-    return;
+    return false;
   }
 
   const authorizedUserIds = (process.env.PATROLVIEW_ALLOWED_CLERK_USER_IDS ?? "")
@@ -41,13 +43,39 @@ router.post("/v1/dispatch/event-ingress", async (req, res): Promise<void> => {
       "DISPATCH_AUTHORIZATION_NOT_CONFIGURED",
       "Dispatch access is not configured for this agency.",
     );
-    return;
+    return false;
   }
   if (!authorizedUserIds.includes(userId)) {
     sendError(res, 403, "DISPATCH_ACCESS_DENIED", "Dispatch access is not authorized.");
+    return false;
+  }
+  return true;
+}
+
+router.post("/v1/dispatch/incident-lookup",async(req,res):Promise<void>=>{
+  if(!authorizeDispatch(req,res))return;
+  const input=DispatchIncidentLookupBody.strict().safeParse(req.body);
+  if(!input.success){
+    sendError(res,400,'INVALID_INCIDENT_LOOKUP','Enter a valid incident number and, when available, your unit number.');
     return;
   }
+  try{
+    const data=await fetchPatrolViewIncident(input.data.incidentNumber,input.data.unitNumber);
+    const response=DispatchIncidentLookupResponse.safeParse({
+      status:'success',metadata:{total_records:data.length},data,
+    });
+    if(!response.success)throw new PatrolViewIntegrationError('PATROLVIEW_INVALID_RESPONSE',502,'Invalid incident response.');
+    res.set('Cache-Control','no-store');
+    res.json(response.data);
+  }catch(error){
+    logger.warn({errorCode:error instanceof PatrolViewIntegrationError?error.code:'PATROLVIEW_UNAVAILABLE'},'Dispatch incident lookup unavailable');
+    sendError(res,error instanceof PatrolViewIntegrationError?error.statusCode:502,
+      'DISPATCH_PREFILL_UNAVAILABLE','Dispatch details are unavailable. Enter or correct the run details manually.');
+  }
+});
 
+router.post("/v1/dispatch/event-ingress", async (req, res): Promise<void> => {
+  if(!authorizeDispatch(req,res))return;
   const eventId = typeof req.body?.eventId === "string" ? req.body.eventId.trim() : "";
   if (!/^[A-Za-z0-9._:-]{1,128}$/.test(eventId)) {
     sendError(res, 400, "INVALID_DISPATCH_EVENT_ID", "A valid dispatch event identifier is required.");

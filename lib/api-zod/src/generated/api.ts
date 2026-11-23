@@ -376,6 +376,57 @@ export const ListAuditLogsResponse = zod.object({
 
 
 /**
+ * Returns normalized incident/unit candidates from an agency-configured adapter. No polling, no classification from codes, and no automatic review or activity counts.
+ * @summary Look up an incident explicitly entered by the FTO
+ */
+export const dispatchIncidentLookupBodyIncidentNumberMax = 120;
+
+
+export const dispatchIncidentLookupBodyIncidentNumberRegExp = new RegExp('^[A-Za-z0-9._:-]+$');
+export const dispatchIncidentLookupBodyUnitNumberMax = 40;
+
+
+export const dispatchIncidentLookupBodyUnitNumberRegExp = new RegExp('^[A-Za-z0-9 ._:/-]+$');
+
+
+export const DispatchIncidentLookupBody = zod.object({
+  "incidentNumber": zod.string().min(1).max(dispatchIncidentLookupBodyIncidentNumberMax).regex(dispatchIncidentLookupBodyIncidentNumberRegExp),
+  "unitNumber": zod.string().min(1).max(dispatchIncidentLookupBodyUnitNumberMax).regex(dispatchIncidentLookupBodyUnitNumberRegExp)
+})
+
+export const dispatchIncidentLookupResponseMetadataTotalRecordsMin = 0;
+export const dispatchIncidentLookupResponseMetadataTotalRecordsMax = 1;
+
+export const dispatchIncidentLookupResponseDataItemIncidentNumberMax = 120;
+
+export const dispatchIncidentLookupResponseDataItemUnitNumberMax = 40;
+
+export const dispatchIncidentLookupResponseDataItemLocationMax = 200;
+
+export const dispatchIncidentLookupResponseDataItemDispatchedCodeRegExp = new RegExp('^\\d{1,3}[A-Z]?$');
+export const dispatchIncidentLookupResponseDataMax = 1;
+
+
+
+export const DispatchIncidentLookupResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(dispatchIncidentLookupResponseMetadataTotalRecordsMin).max(dispatchIncidentLookupResponseMetadataTotalRecordsMax)
+}),
+  "data": zod.array(zod.object({
+  "incidentNumber": zod.string().min(1).max(dispatchIncidentLookupResponseDataItemIncidentNumberMax),
+  "unitNumber": zod.string().min(1).max(dispatchIncidentLookupResponseDataItemUnitNumberMax).optional(),
+  "eventIngressAt": zod.coerce.date().optional(),
+  "dispatchedAt": zod.coerce.date().optional(),
+  "clearedAt": zod.coerce.date().optional(),
+  "location": zod.string().max(dispatchIncidentLookupResponseDataItemLocationMax).optional(),
+  "dispatchedCode": zod.string().regex(dispatchIncidentLookupResponseDataItemDispatchedCodeRegExp).optional(),
+  "runKind": zod.enum(['call_for_service', 'self_initiated', 'domestic_incident', 'traffic_crash', 'traffic_stop', 'high_risk_stop', 'building_search']).optional()
+})).max(dispatchIncidentLookupResponseDataMax)
+})
+
+
+/**
  * Looks up one explicit event ID using the protected server-side adapter. This does not discover or poll active units.
  * @summary Look up an approved dispatch event
  */

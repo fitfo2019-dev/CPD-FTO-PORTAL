@@ -1,9 +1,68 @@
+import type {PrimaryRunForm} from './model.js';
+
 export type DispatchPrefill = {
   eventIngressAt?: string;
   incidentNumber?: string;
   location?: string;
   dispatchedCode?: string;
 };
+
+export type DispatchIncidentPrefill=DispatchPrefill & {
+  incidentNumber:string;
+  unitNumber?:string;
+  dispatchedAt?:string;
+  clearedAt?:string;
+  runKind?:PrimaryRunForm;
+};
+const dispatchRunTypes:readonly string[]=['call_for_service','self_initiated','domestic_incident','traffic_crash','traffic_stop','high_risk_stop','building_search'];
+const normalizedUnit=(value:string)=>value.trim().toUpperCase().replace(/\s+/g,' ');
+
+/** Reject malformed envelopes rather than silently selecting a partial result. */
+export function mapDispatchIncidentResponse(value:unknown):DispatchIncidentPrefill[]|undefined {
+  if(value===null||typeof value!=='object'||Array.isArray(value))return;
+  const root=value as Record<string,unknown>;
+  const metadata=root.metadata;
+  if(root.status!=='success'||metadata===null||typeof metadata!=='object'||Array.isArray(metadata)||
+    !Array.isArray(root.data)||root.data.length>100||
+    (metadata as Record<string,unknown>).total_records!==root.data.length)return;
+  const result:DispatchIncidentPrefill[]=[];
+  for(const item of root.data){
+    const common=mapDispatchPrefillResponse({status:'success',metadata:{total_records:1},data:[item]});
+    if(!common?.incidentNumber?.trim()||typeof item!=='object'||item===null||Array.isArray(item))return;
+    const record=item as Record<string,unknown>;
+    if(record.unitNumber!==undefined&&(typeof record.unitNumber!=='string'||!/^[A-Za-z0-9 ._:/-]{1,40}$/.test(record.unitNumber.trim())))return;
+    const row:DispatchIncidentPrefill={...common,incidentNumber:common.incidentNumber};
+    if(typeof record.unitNumber==='string')row.unitNumber=record.unitNumber.trim();
+    for(const key of ['dispatchedAt','clearedAt'] as const){
+      const time=record[key];
+      if(time===undefined)continue;
+      if(typeof time!=='string'||!/(?:Z|[+-]\d{2}:\d{2})$/i.test(time)||!Number.isFinite(Date.parse(time)))return;
+      // Unit-specific clock values require a unit association.
+      if(row.unitNumber)row[key]=new Date(time).toISOString();
+    }
+    if(row.dispatchedAt&&row.clearedAt&&Date.parse(row.clearedAt)<Date.parse(row.dispatchedAt))return;
+    if(typeof record.runKind==='string'&&dispatchRunTypes.includes(record.runKind))row.runKind=record.runKind as PrimaryRunForm;
+    result.push(row);
+  }
+  return result;
+}
+
+export type DispatchIncidentSelection=
+  |{status:'matched';match:DispatchIncidentPrefill}
+  |{status:'empty'|'choose_unit'|'ambiguous';matches:DispatchIncidentPrefill[]};
+
+export function selectDispatchIncidentMatch(
+  matches:readonly DispatchIncidentPrefill[],incidentNumber:string,unitNumber:string,
+):DispatchIncidentSelection {
+  const candidates=matches.filter(row=>normalizedUnit(row.incidentNumber)===normalizedUnit(incidentNumber));
+  if(!candidates.length)return {status:'empty',matches:[]};
+  const ownUnit=unitNumber.trim()?candidates.filter(row=>row.unitNumber&&normalizedUnit(row.unitNumber)===normalizedUnit(unitNumber)):[];
+  if(ownUnit.length===1)return {status:'matched',match:ownUnit[0]};
+  if(ownUnit.length>1)return {status:'ambiguous',matches:ownUnit};
+  if(candidates.length===1&&!candidates[0].unitNumber)return {status:'matched',match:candidates[0]};
+  // Never offer another unit's run as an override for the FTO's assigned unit.
+  return {status:'empty',matches:[]};
+}
 
 export type DispatchPrefillDraft = {
   runDateTimeText: string;

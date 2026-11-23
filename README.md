@@ -23,7 +23,7 @@ This pnpm workspace contains the Express API Server, the React/Vite Component Pr
 ## Current scope
 
 - The Field Training Officer Portal includes Clerk sign-in and workflow screens. Its drafts are encrypted in device-local IndexedDB; no training-record synchronization or database-backed portal routes are connected.
-- New run forms can receive editable dispatch defaults through the server-only PatrolView adapter when an approved adapter URL, server credential, and authorized Clerk user allowlist are configured. No live dispatch feed is configured in this checkout; manual run entry remains available.
+- The New run dialog performs incident lookup only after the FTO enters an incident number and clicks Look up. It matches the editable Unit / cruiser assignment from Reporting for Duty; the server returns only that exact unit's record, so each PO can query the same incident independently without seeing another unit's row. Prefilled fields remain editable and require FTO review. Manual entry remains available. A live PatrolView JSON endpoint and credentials are not configured in this checkout; the uploaded screen image is not an API contract.
 - The API's `/api/v1/secure-records` route serves validated synthetic records by default. `USE_REAL_API` is fail-secure and defaults to `false`; production live mode requires server-side configuration and an approved authorization grant.
 - Clerk authentication is present, but agency employment, role, record-scope, and department identity policies are not configured here. Do not treat the prototype as approved for operational or CJIS-restricted data.
 - The XML-to-JSON gateway remains a planned boundary. No live Government System XML or binary integration is active.

@@ -229,6 +229,7 @@ export const SUBMITTED_PRIMARY_CHECKLISTS: Record<PrimaryRunForm, readonly Manua
 };
 
 export const SUBMITTED_SUPPLEMENTAL_CHECKLISTS: Record<SupplementalRunForm, readonly ManualChecklistSection[]> = {
+  building_search: SUBMITTED_PRIMARY_CHECKLISTS.building_search,
   arrest_process: [
     section('Arrest at Scene',
       'Gapped/Double locked handcuffs', 'Hobble strap/leg restraints', 'Conduct thorough search (same sex)',

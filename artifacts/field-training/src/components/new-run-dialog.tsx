@@ -1,0 +1,152 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Search, RotateCw, PenLine } from 'lucide-react';
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
+import { PRIMARY_RUN_FORMS, type PrimaryRunForm } from '@/lib/model.js';
+import { formatDateTimeMDY } from '@/lib/training-calendar.js';
+import { lookupDispatchIncident } from '@/components/dispatch-incident-lookup.js';
+import type { DispatchIncidentPrefill } from '@/lib/dispatch-prefill.js';
+
+export type NewRunSeed = {
+  incidentNumber: string;
+  unitNumber: string;
+  location: string;
+  occurredAtText: string;
+  dispatchedAtText: string;
+  clearedAtText: string;
+  dispatchedCode: string;
+  runKind: PrimaryRunForm;
+  fromDispatch: boolean;
+};
+
+type Phase = 'ask' | 'loading' | 'choose' | 'review' | 'failed';
+const inp = 'h-10 w-full rounded border bg-card px-3 text-sm';
+
+export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
+  open: boolean;
+  defaultUnit: string;
+  onCancel: () => void;
+  onConfirm: (seed: NewRunSeed) => void;
+}) {
+  const [phase, setPhase] = useState<Phase>('ask');
+  const [incident, setIncident] = useState('');
+  const [unit, setUnit] = useState(defaultUnit);
+  const [failure, setFailure] = useState('');
+  const [fromDispatch, setFromDispatch] = useState(false);
+  const [location, setLocation] = useState('');
+  const [occurred, setOccurred] = useState('');
+  const [dispatchedAt, setDispatchedAt] = useState('');
+  const [clearedAt, setClearedAt] = useState('');
+  const [code, setCode] = useState('');
+  const [kind, setKind] = useState<PrimaryRunForm | ''>('');
+  const abortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+  const [candidates, setCandidates] = useState<DispatchIncidentPrefill[]>([]);
+  const [chooseReason, setChooseReason] = useState<'choose_unit' | 'ambiguous'>('ambiguous');
+  const [picked, setPicked] = useState<number | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const cancelPending = useCallback(() => { requestIdRef.current += 1; abortRef.current?.abort(); abortRef.current = null; },[]);
+  // Editing the number or unit invalidates any in-flight or unaccepted lookup result.
+  const editIncident = (value: string) => { setIncident(value); if (phase === 'loading' || phase === 'choose' || phase === 'failed') { cancelPending(); setPhase('ask'); setCandidates([]); setPicked(null); } };
+  const editUnit = (value: string) => { setUnit(value); if (phase === 'loading' || phase === 'choose' || phase === 'failed') { cancelPending(); setPhase('ask'); setCandidates([]); setPicked(null); } };
+  const applyMatch = (p: DispatchIncidentPrefill) => {
+    setFromDispatch(true);
+    setIncident(p.incidentNumber);
+    if (p.unitNumber) setUnit(p.unitNumber);
+    setLocation(p.location ?? '');
+    setOccurred(p.eventIngressAt ? formatDateTimeMDY(p.eventIngressAt) : '');
+    setDispatchedAt(p.dispatchedAt ? formatDateTimeMDY(p.dispatchedAt) : '');
+    setClearedAt(p.clearedAt ? formatDateTimeMDY(p.clearedAt) : '');
+    setCode(p.dispatchedCode ?? '');
+    // Only an explicit runKind from the record is used; it is never guessed from the 10-code.
+    setKind(p.runKind ?? '');
+    setConfirmed(false);
+    setPhase('review');
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    setPhase('ask'); setIncident(''); setUnit(defaultUnit); setFailure(''); setFromDispatch(false);
+    setLocation(''); setOccurred(''); setDispatchedAt(''); setClearedAt(''); setCode(''); setKind('');
+    setCandidates([]); setPicked(null); setConfirmed(false);
+    return () => cancelPending();
+  }, [open, defaultUnit,cancelPending]);
+  useEffect(()=>{setConfirmed(false);},[incident,unit,location,occurred,dispatchedAt,clearedAt,code,kind]);
+
+  const runLookup = async () => {
+    const inc = incident.trim(); const un = unit.trim();
+    if (!inc || !un) return;
+    cancelPending();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = requestIdRef.current;
+    setPhase('loading');
+    const result = await lookupDispatchIncident(inc, un, controller.signal);
+    // Reject stale results: a newer request, an edit, or a close supersedes this one.
+    if (controller.signal.aborted || requestId !== requestIdRef.current || result.status === 'aborted') return;
+    abortRef.current = null;
+    if (result.status === 'matched') applyMatch(result.match);
+    else if (result.status === 'choose') { setCandidates(result.matches); setChooseReason(result.reason); setPicked(null); setPhase('choose'); }
+    else { setFailure(result.status === 'empty' ? `No dispatch record for incident ${inc} on unit ${un} was found.` : result.message); setPhase('failed'); }
+  };
+  const manual = () => { cancelPending(); setFromDispatch(false); setConfirmed(false); setPhase('review'); };
+
+  return <AlertDialog open={open} onOpenChange={next => { if (!next) { cancelPending(); onCancel(); } }}>
+    <AlertDialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto" data-testid="dialog-new-run">
+      <AlertDialogHeader>
+        <AlertDialogTitle>{phase === 'review' ? 'Confirm run details' : 'Start a new run'}</AlertDialogTitle>
+        <AlertDialogDescription>
+          {phase === 'review'
+            ? fromDispatch ? 'Dispatch details were returned as a draft. Every field is editable; correct anything that is wrong before opening the run sheet.' : 'Enter the run details manually. Nothing was imported.'
+            : 'Enter the incident number. Lookup runs only when you select Look up; your unit number keeps the match to your own unit.'}
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+
+      {(phase === 'ask' || phase === 'loading' || phase === 'failed' || phase === 'choose') && <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1"><span className="label-caps">Incident / run number</span><input autoFocus className={inp + ' mono'} value={incident} maxLength={120} onChange={e => editIncident(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void runLookup(); } }} data-testid="input-new-run-incident" /></label>
+        <label className="block space-y-1"><span className="label-caps">Unit / cruiser assignment</span><input className={inp + ' mono'} value={unit} maxLength={40} onChange={e => editUnit(e.target.value)} placeholder="Assigned unit or cruiser" data-testid="input-new-run-unit" /></label>
+        {!unit.trim() && <p className="text-xs text-muted-foreground sm:col-span-2">Enter the unit or cruiser assignment from Reporting for Duty. This editable value identifies your unit when multiple officers share an incident.</p>}
+        {phase === 'loading' && <div className="h-10 animate-pulse rounded bg-muted sm:col-span-2" role="status" aria-label="Looking up incident" />}
+        {phase === 'failed' && <div role="alert" className="rounded border border-warn/60 bg-warn/10 p-3 text-sm sm:col-span-2" data-testid="text-lookup-failed">
+          <b>{failure}</b> No dispatch data was added. Retry, or continue with manual entry; the incident number you typed is kept.
+        </div>}
+        {phase === 'choose' && <fieldset className="sm:col-span-2" data-testid="list-dispatch-candidates">
+          <legend className="text-sm font-semibold">{chooseReason === 'choose_unit' ? 'Several units are on this incident. Select your own unit record.' : 'More than one record matches. Select the correct record.'}</legend>
+          <ul className="mt-2 max-h-60 divide-y overflow-y-auto rounded border bg-card">
+            {candidates.map((c, i) => <li key={i}><label className="flex cursor-pointer items-start gap-2 p-2 text-sm">
+              <input type="radio" name="dispatch-candidate" checked={picked === i} onChange={() => setPicked(i)} data-testid={`radio-dispatch-candidate-${i}`} />
+              <span><b className="mono">{c.unitNumber || 'No unit listed'}</b> · {c.incidentNumber}{c.dispatchedCode ? ` · 10-${c.dispatchedCode}` : ''}{c.location ? ` · ${c.location}` : ''}{c.dispatchedAt ? ` · dispatched ${formatDateTimeMDY(c.dispatchedAt)}` : ''}</span>
+            </label></li>)}
+          </ul>
+          <p className="mt-1 text-xs text-muted-foreground">Nothing is selected for you. Only choose a record for your own unit; another unit's times do not belong on this run.</p>
+        </fieldset>}
+      </div>}
+
+      {phase === 'review' && <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Primary run type · required</span>
+          <select className={inp} value={kind} onChange={e => setKind(e.target.value as PrimaryRunForm)} data-testid="select-new-run-kind">
+            <option value="" disabled>Select the primary form</option>
+            {PRIMARY_RUN_FORMS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+          </select>
+          {!kind && <span className="text-xs text-muted-foreground">The 10-code alone does not decide the form. Choose it.</span>}
+        </label>
+        <label className="block space-y-1"><span className="label-caps">Incident / run number</span><input className={inp + ' mono'} value={incident} maxLength={120} onChange={e => setIncident(e.target.value)} data-testid="input-review-incident" /></label>
+        <label className="block space-y-1"><span className="label-caps">Unit / cruiser assignment</span><input className={inp + ' mono'} value={unit} maxLength={40} onChange={e => setUnit(e.target.value)} data-testid="input-review-unit" /></label>
+        <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Location</span><input className={inp} value={location} maxLength={200} onChange={e => setLocation(e.target.value)} data-testid="input-review-location" /></label>
+        <label className="block space-y-1"><span className="label-caps">Run date and time</span><input className={inp + ' mono'} value={occurred} placeholder="MM/DD/YYYY HH:MM" onChange={e => setOccurred(e.target.value)} data-testid="input-review-occurred" /></label>
+        <label className="block space-y-1"><span className="label-caps">10-code</span><input className={inp + ' mono uppercase'} value={code} placeholder="6 or 17A" onChange={e => setCode(e.target.value.toUpperCase())} data-testid="input-review-code" /></label>
+        <label className="block space-y-1"><span className="label-caps">Dispatched at</span><input className={inp + ' mono'} value={dispatchedAt} placeholder="MM/DD/YYYY HH:MM" onChange={e => setDispatchedAt(e.target.value)} data-testid="input-review-dispatched-at" /></label>
+        <label className="block space-y-1"><span className="label-caps">Cleared at</span><input className={inp + ' mono'} value={clearedAt} placeholder="MM/DD/YYYY HH:MM" onChange={e => setClearedAt(e.target.value)} data-testid="input-review-cleared-at" /></label>
+        <label className="flex items-start gap-2 rounded border bg-muted/30 p-2 text-sm sm:col-span-2"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} data-testid="checkbox-new-run-reviewed" /><span>I reviewed these details{fromDispatch ? ' returned by dispatch' : ''} and corrected anything that was wrong.</span></label>
+      </div>}
+
+      <AlertDialogFooter className="flex-wrap gap-2">
+        <AlertDialogCancel data-testid="button-new-run-cancel">Cancel</AlertDialogCancel>
+        {phase !== 'review' && <button type="button" onClick={manual} className="inline-flex min-h-10 items-center gap-1.5 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-new-run-manual"><PenLine className="h-4 w-4" />Enter manually</button>}
+        {phase === 'choose' && <button type="button" disabled={picked === null} onClick={() => { const c = picked !== null ? candidates[picked] : undefined; if (c) applyMatch(c); }} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-use-candidate">Use selected record</button>}
+        {phase === 'failed' && <button type="button" onClick={() => void runLookup()} className="inline-flex min-h-10 items-center gap-1.5 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-new-run-retry"><RotateCw className="h-4 w-4" />Retry</button>}
+        {(phase === 'ask' || phase === 'loading') && <button type="button" disabled={!incident.trim() || !unit.trim() || phase === 'loading'} onClick={() => void runLookup()} className="inline-flex min-h-10 items-center gap-1.5 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-lookup"><Search className="h-4 w-4" />Look up</button>}
+        {phase === 'review' && <button type="button" disabled={!kind || !confirmed} onClick={() => kind && confirmed && onConfirm({ incidentNumber: incident.trim(), unitNumber: unit.trim(), location: location.trim(), occurredAtText: occurred.trim(), dispatchedAtText: dispatchedAt.trim(), clearedAtText: clearedAt.trim(), dispatchedCode: code.trim(), runKind: kind, fromDispatch })} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-confirm">Open run sheet</button>}
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>;
+}

@@ -1,5 +1,6 @@
 export type PatrolViewConfig = {
   PATROLVIEW_EVENT_LOOKUP_URL?: string;
+  PATROLVIEW_INCIDENT_LOOKUP_URL?: string;
   PATROLVIEW_API_TOKEN?: string;
 };
 
@@ -212,6 +213,16 @@ export async function fetchPatrolViewEvent(
   const endpoint = new URL(
     endpointTemplate.replace("{eventId}", encodeURIComponent(cleanEventId)),
   );
+  return mapPatrolViewEvent(await fetchPatrolViewJson(endpoint,apiToken,fetchImpl,requestTimeoutMs));
+}
+
+/** Shared bounded machine-to-machine transport; never accepts browser headers. */
+export async function fetchPatrolViewJson(
+  endpoint: URL,
+  apiToken: string,
+  fetchImpl: FetchFunction = fetch as FetchFunction,
+  requestTimeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
   try {
@@ -262,7 +273,7 @@ export async function fetchPatrolViewEvent(
         "The approved dispatch adapter returned invalid JSON.",
       );
     }
-    return mapPatrolViewEvent(parsed);
+    return parsed;
   } catch (error) {
     if (error instanceof PatrolViewIntegrationError) throw error;
     if (controller.signal.aborted) {

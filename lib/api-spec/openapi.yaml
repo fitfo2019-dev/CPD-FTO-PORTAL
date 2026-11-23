@@ -212,6 +212,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /v1/dispatch/incident-lookup:
+    post:
+      operationId: dispatchIncidentLookup
+      tags: [dispatch]
+      summary: Look up an incident explicitly entered by the FTO
+      description: Returns normalized incident/unit candidates from an agency-configured adapter. No polling, no classification from codes, and no automatic review or activity counts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DispatchIncidentLookupInput"
+      responses:
+        "200":
+          description: Editable incident and unit candidates for FTO review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DispatchIncidentEnvelope"
+        default:
+          description: Invalid input, unauthorized access, or unavailable approved adapter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
   /v1/dispatch/event-ingress:
     post:
       operationId: dispatchEventIngress
@@ -662,6 +687,52 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ResourceCatalogItem"
+    DispatchIncidentLookupInput:
+      type: object
+      additionalProperties: false
+      required: [incidentNumber, unitNumber]
+      properties:
+        incidentNumber:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: "^[A-Za-z0-9._:-]+$"
+        unitNumber:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: "^[A-Za-z0-9 ._:/-]+$"
+    DispatchIncidentPrefill:
+      type: object
+      additionalProperties: false
+      required: [incidentNumber]
+      properties:
+        incidentNumber: { type: string, minLength: 1, maxLength: 120 }
+        unitNumber: { type: string, minLength: 1, maxLength: 40 }
+        eventIngressAt: { type: string, format: date-time }
+        dispatchedAt: { type: string, format: date-time }
+        clearedAt: { type: string, format: date-time }
+        location: { type: string, maxLength: 200 }
+        dispatchedCode: { type: string, pattern: "^\\d{1,3}[A-Z]?$" }
+        runKind:
+          type: string
+          enum: [call_for_service, self_initiated, domestic_incident, traffic_crash, traffic_stop, high_risk_stop, building_search]
+    DispatchIncidentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records]
+          properties:
+            total_records: { type: integer, minimum: 0, maximum: 1 }
+        data:
+          type: array
+          maxItems: 1
+          items: { $ref: "#/components/schemas/DispatchIncidentPrefill" }
     DispatchEventIngressInput:
       type: object
       additionalProperties: false

@@ -21,7 +21,7 @@ const submittedPrimaryCounts = {
   high_risk_stop: 60,
   building_search: 71,
 } as const;
-const submittedSupplementCounts = { arrest_process: 62, ovi_process: 63, narrative_addition: 0 } as const;
+const submittedSupplementCounts = { arrest_process: 62, ovi_process: 63, narrative_addition: 0, building_search: 71 } as const;
 
 test('run form checklists keep one checkbox for every submitted form item', () => {
   for (const [form, expected] of Object.entries(submittedPrimaryCounts)) {

@@ -505,9 +505,9 @@ test('Excel round trip includes all current SEGs, weekly forms, phase totals, co
   assert.ok(rows('Reporting for Duty')[0].includes('Not applicable'));
   assert.ok(rows('Run Checklist')[0].includes('Not applicable to category'));
   assert.ok(rows('Weekly Run Checklist')[0].includes('Not applicable forms'));
-  assert.equal(rows('Form Index').some(row=>String(row[1]).includes('U-10.18')),false);
   const formIndex=rows('Form Index');
   const formReference=(name:string)=>formIndex.find(row=>row[0]===name)?.[1];
+  assert.equal(formReference('Arrest Process'),'U-10.188');
   assert.equal(formReference('Daily Performance Log'),'U-10.174');
   assert.equal(formReference('Weekly Performance Summary'),'U-10.173');
   assert.equal(formReference('Weekly Performance Log Supplement'),'U-10.174S');

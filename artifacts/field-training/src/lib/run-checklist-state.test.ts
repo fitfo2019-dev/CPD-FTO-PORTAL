@@ -22,7 +22,7 @@ test('metadata synchronization keeps exception-only defaults for active run form
   assert.ok(Object.entries(checklist).filter(([key]) => key.startsWith('supp-')).every(([, checked]) => checked));
 });
 
-test('metadata turning a supplement off removes its stale checklist state', () => {
+test('turning a supplement off retains its answers for safe reactivation', () => {
   const previous = checklistForMetadata(metadata);
   previous['supp-arrest_process-0'] = false;
   previous['supp-ovi_process-0'] = false;
@@ -36,12 +36,12 @@ test('metadata turning a supplement off removes its stale checklist state', () =
   }, previous);
 
   assert.equal(inactive['task-0'], false);
-  assert.equal(Object.keys(inactive).some(key => key.startsWith('supp-arrest_process-')), false);
-  assert.equal(Object.keys(inactive).some(key => key.startsWith('supp-ovi_process-')), false);
+  assert.equal(inactive['supp-arrest_process-0'], false);
+  assert.equal(inactive['supp-ovi_process-0'], false);
 
   const reactivated = checklistForMetadata(metadata, inactive);
-  assert.equal(reactivated['supp-arrest_process-0'], true);
-  assert.equal(reactivated['supp-ovi_process-0'], true);
+  assert.equal(reactivated['supp-arrest_process-0'], false);
+  assert.equal(reactivated['supp-ovi_process-0'], false);
 });
 
 test('section toggle clears or restores only the selected checklist section', () => {

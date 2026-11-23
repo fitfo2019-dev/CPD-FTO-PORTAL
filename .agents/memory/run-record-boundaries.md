@@ -49,12 +49,23 @@ it must not erase an observed checklist failure.
 **How to apply:** Keep N/A as separate report applicability metadata, exclude it
 from weekly rating counts, and retain any recorded deficiency as UA evidence.
 
-Run event date and time represent the actual call ingress minute (aired or
-initiated), and FTOs must be able to correct them. PatrolView/CAD prefill is not
-connected yet; current entry is manual and editable.
+Run event time (call aired or initiated) is distinct from dispatch and cleared
+times. The incident lookup occurs only after the FTO enters an incident number
+and explicitly starts it. Use the editable Unit / cruiser assignment from
+Reporting for Duty to match the FTO/PO's own unit. Each PO may query the same
+incident independently; never consume a shared incident record or return another
+unit's row. Apply incident-wide times to that unit when supplied; unit-specific
+times take precedence. Keep all prefilled values editable and require review.
+Never infer a primary form from a 10-code; an absent or ambiguous type needs an
+explicit FTO choice. Manual entry remains available. The uploaded PatrolView
+screen is a visual example, not an API contract, and no live feed is configured.
 
-**Why:** The user specified event-ingress time as the authoritative run time and
-allowed FTO corrections, while the project currently has no PatrolView feed.
+**Why:** The user specified explicit incident-number lookup, editable cruiser/
+assignment matching, multiple POs on a shared incident, dispatch and clear times,
+and FTO review/type selection. The real upstream JSON contract is still pending.
 
-**How to apply:** Keep these fields editable and never claim CAD synchronization
-or populate from a dispatch source until an approved integration is connected.
+**How to apply:** Query only on FTO action; match incident plus the entered
+assigned unit on the server, return only that unit's record, preserve shared and
+unit-specific time semantics, and allow manual fallback. Do not enable live
+access until agency IT validates the upstream endpoint, JSON mapping, credentials,
+and authorization allowlist.
