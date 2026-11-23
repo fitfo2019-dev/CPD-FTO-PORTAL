@@ -1,8 +1,10 @@
+import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createEmptyWorkspace } from './empty-workspace.js';
 import { approvePhaseExtension, denyPhaseExtension, phaseExtensionRequestInputSchema } from './phase-extension.js';
-import type { PhaseCaseFolder, PhaseExtensionRequest } from './model.js';
+import { OfflineStorage } from './offlineStorage.js';
+import type { PhaseCaseFolder, PhaseExtensionRequest, Workspace } from './model.js';
 import { createPhaseWeekRanges } from './training-calendar.js';
 
 const folder:PhaseCaseFolder={
@@ -55,4 +57,56 @@ test('denial removes the pending request without changing phase dates',()=>{
   const denied=denyPhaseExtension(workspace,request.id);
   assert.deepEqual(denied.caseFolder?.phaseWeekRanges,folder.phaseWeekRanges);
   assert.equal(denied.phaseExtensionRequests.length,0);
+});
+
+test('phase extension requests and approved ranges survive locking and restoring the vault',async()=>{
+  const namespace=`phase-extension-${crypto.randomUUID()}`;
+  const passphrase=new TextEncoder().encode('phase-extension-test-passphrase');
+  const initial=createEmptyWorkspace();
+  initial.caseFolder=folder;
+  initial.phaseFolders=[folder];
+  initial.phaseExtensionRequests=[request];
+
+  const vault=new OfflineStorage(namespace);
+  await vault.unlock(passphrase);
+  await vault.save('workspace',initial);
+  vault.lock();
+
+  const reopened=new OfflineStorage(namespace);
+  await reopened.unlock(passphrase);
+  const pendingWorkspace=await reopened.get<Workspace>('workspace');
+  assert.ok(pendingWorkspace);
+  assert.deepEqual(pendingWorkspace.phaseExtensionRequests,[request]);
+
+  const approved=approvePhaseExtension(pendingWorkspace,request.id);
+  await reopened.save('workspace',approved);
+  reopened.lock();
+
+  const afterApproval=new OfflineStorage(namespace);
+  await afterApproval.unlock(passphrase);
+  const approvedWorkspace=await afterApproval.get<Workspace>('workspace');
+  assert.ok(approvedWorkspace);
+  const expectedRanges=approved.phaseFolders[0].phaseWeekRanges;
+  assert.deepEqual(approvedWorkspace.phaseFolders[0].phaseWeekRanges,expectedRanges);
+  assert.equal(approvedWorkspace.phaseFolders[0].phaseWeekRanges?.length,folder.phaseWeekRanges!.length+1);
+  assert.deepEqual(approvedWorkspace.caseFolder?.phaseWeekRanges,expectedRanges);
+  assert.deepEqual(approvedWorkspace.phaseExtensionRequests,[]);
+
+  const deniedRequest={...request,id:'extension-denied'};
+  const withDeniedRequest={
+    ...approvedWorkspace,
+    phaseExtensionRequests:[deniedRequest],
+  };
+  const denied=denyPhaseExtension(withDeniedRequest,deniedRequest.id);
+  await afterApproval.save('workspace',denied);
+  afterApproval.lock();
+
+  const afterDenial=new OfflineStorage(namespace);
+  await afterDenial.unlock(passphrase);
+  const deniedWorkspace=await afterDenial.get<Workspace>('workspace');
+  assert.ok(deniedWorkspace);
+  assert.deepEqual(deniedWorkspace.phaseExtensionRequests,[]);
+  assert.deepEqual(deniedWorkspace.phaseFolders[0].phaseWeekRanges,expectedRanges);
+  assert.deepEqual(deniedWorkspace.caseFolder?.phaseWeekRanges,expectedRanges);
+  afterDenial.lock();
 });
