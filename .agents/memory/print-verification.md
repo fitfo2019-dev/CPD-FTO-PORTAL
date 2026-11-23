@@ -10,13 +10,13 @@ Verify physical PDF sheets, not just visible page labels or the on-screen print 
 **How to apply:** For packet print changes, compare actual PDF page counts with the expected form references and inspect the final sheet for footer-only overflow. Include long narratives and explicit blank lines; short sample text does not expose these failures.
 
 The user approved a single-sheet Substation Orientation at Page 1 on Phase Day 1,
-with the first run at Page 2. Routine days still start with Reporting for Duty at
-Page 1. Treat this as the requested design, not proof the current packet engine
-already implements it. Runs, supplements and continuations advance the source
+then clarified that Reporting for Duty must be retained every day. Phase ingress
+therefore has orientation P1, duty P2 and runs P3 onward. Routine days start with
+duty P1 and runs P2 onward. Runs, supplements and continuations advance the source
 page sequence without a fixed application page cap.
 
-**Why:** The user explicitly approved the single-sheet redesign after reviewing
-the conflict between the old two-sheet orientation and the requested numbering.
+**Why:** The user approved the single-sheet redesign and then stated that every
+day must still have its Reporting for Duty page.
 
 **How to apply:** Preserve existing historical citations rather than silently
 rewriting them when packet order changes. Require reference reconfirmation before
@@ -30,5 +30,6 @@ uncovered items must not by themselves imply a performance rating or deficiency.
 **Why:** The user clarified: "for that page its just a checklist for fto to go over with po".
 
 **How to apply:** Keep orientation completion separate from daily run evaluation
-rules. Combining checklist items requires explicit approval of the proposed
-groupings; showing example sheets is not permission to change stored task states.
+rules. The user selected Example B's related-item groupings, with safety-specific
+items kept separate. Preserve saved individual task values; a mixed group must
+not become fully covered merely because the display is grouped.

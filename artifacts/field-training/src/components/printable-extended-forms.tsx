@@ -1,45 +1,97 @@
-import React from 'react';
 import { phaseLabel, type Phase, type WeeklyPerformanceLog, type SubstationOrientationRecord } from '@/lib/model.js';
 import { formatDateDMY, formatDateTimeMDY } from '@/lib/training-calendar.js';
-import { SUBSTATION_ORIENTATION_SECTIONS } from '@/lib/substation-orientation.js';
+import { SUBSTATION_ORIENTATION_GROUPED_SECTIONS } from '@/lib/substation-orientation.js';
+import { orientationPrintLayout } from '@/lib/orientation-print-layout.js';
 import { substationDisplay } from '@/lib/substations.js';
 import { categoryNumberLabel, paginateWeeklyLogEntries, type PrintableLogEntry } from '@/lib/weekly-log-layout.js';
 
-export function PrintableSubstationOrientation({record,pageReference,continuationPageReference}:{record:SubstationOrientationRecord;pageReference?:string;continuationPageReference?:string}) {
+type OrientationSection=typeof SUBSTATION_ORIENTATION_GROUPED_SECTIONS[number];
+const ORIENTATION_COLUMNS:readonly (readonly number[])[]=[[0],[1,2],[3,4]];
+
+function overflowRefs(record:SubstationOrientationRecord,refs?:readonly (string|undefined)[]) {
+  const {continuations}=orientationPrintLayout(record);
+  return continuations.map((item,index)=>({...item,index,reference:refs?.[index]}));
+}
+
+function refLabel(index:number,reference?:string) {
+  return reference?`continuation ${index+1} (${reference})`:`unindexed continuation ${index+1}`;
+}
+
+export function PrintableSubstationOrientation({record,pageReference,continuationReferences,includeContinuations=true}:{record:SubstationOrientationRecord;pageReference?:string;continuationReferences?:readonly (string|undefined)[];includeContinuations?:boolean}) {
   const phase=(record.phase??1) as Phase;
+  const layout=orientationPrintLayout(record);
+  const pages=overflowRefs(record,continuationReferences);
+  const refsFor=(label:string)=>{
+    const matching=pages.filter(page=>page.label===label);
+    const first=matching[0], last=matching.at(-1);
+    if(!first||!last)return '';
+    return first===last?refLabel(first.index,first.reference):`${refLabel(first.index,first.reference)} through ${refLabel(last.index,last.reference)}`;
+  };
+  const [date,time]=formatDateTimeMDY(record.dateTime).split(' ');
+  const originalTotal=SUBSTATION_ORIENTATION_GROUPED_SECTIONS.reduce((sum,section)=>sum+section.items.length,0);
+  const rowTotal=SUBSTATION_ORIENTATION_GROUPED_SECTIONS.reduce((sum,section)=>sum+section.rows.length,0);
+  const coveredTasks=SUBSTATION_ORIENTATION_GROUPED_SECTIONS.reduce((sum,section)=>sum+section.items.filter(([key])=>record.checklist[key]!==false).length,0);
+  const directivesLabel='Division Directives / SOP reviewed';
+  const narrativeLabel='Additional narrative / continuation';
+  const reviewSection=SUBSTATION_ORIENTATION_GROUPED_SECTIONS[5];
   return <>
-    <OrientationPage record={record} phase={phase} pageReference={pageReference} title="Substation Orientation" sections={SUBSTATION_ORIENTATION_SECTIONS.slice(0,2)} testId="print-substation-orientation"/>
-    <OrientationPage record={record} phase={phase} pageReference={continuationPageReference} title="Substation Orientation · Continued" sections={SUBSTATION_ORIENTATION_SECTIONS.slice(2)} continued testId="print-substation-orientation-continuation"/>
+    <section className="print-substation print-orientation-b" aria-hidden="true" data-testid="print-substation-orientation">
+      <header className="print-extended-header">
+        <div><p>Columbus Division of Police · Field Training Program</p><h1>Substation Orientation</h1><b>U-10.181 (05/23)</b></div>
+        <span>Complete on the first scheduled day of each phase.</span>
+      </header>
+      <p className="print-orientation-sub">FTO / PO walkthrough checklist · records items covered, not performance ratings.</p>
+      <div className="print-orientation-meta">
+        <span><b>Probationary Officer</b>{record.recruitName} · {record.recruitBadge}</span>
+        <span><b>FTO</b>{record.ftoName} · {record.ftoBadge}</span>
+        <span><b>Substation</b>{substationDisplay(record.substation)}</span>
+        <span><b>Date</b>{date||'Not recorded'}</span>
+        <span><b>Time</b>{time||'Not recorded'}</span>
+        <span><b>Class / phase</b>{record.className||'—'} · {phaseLabel(phase)}</span>
+        <span className="print-orientation-wide" data-training-folder-page={pageReference}><b>Training-folder reference</b>{pageReference??'Training-folder reference unavailable'}</span>
+      </div>
+      <p className="print-orientation-note">☒ covered · ☐ not yet covered. A combined row is checked only when ALL listed tasks were covered. {coveredTasks} of {originalTotal} original tasks covered · {rowTotal} printed rows. New forms start checked; the FTO reviews every row before treating it as covered.</p>
+      <div className="print-orientation-cols">
+        {ORIENTATION_COLUMNS.map((column,ci)=><div key={ci} className="print-orientation-col">
+          {column.map(index=><PrintOrientationSection key={index} section={SUBSTATION_ORIENTATION_GROUPED_SECTIONS[index]} record={record}/>)}
+        </div>)}
+      </div>
+      <div className="print-orientation-bottom">
+        <PrintOrientationSection section={reviewSection} record={record}/>
+        <div className="print-orientation-box">
+          <b>{directivesLabel}:</b>
+          <p data-testid="print-orientation-directives">{layout.directives||(refsFor(directivesLabel)?`See ${refsFor(directivesLabel)}.`:'None recorded.')}</p>
+          <b>{narrativeLabel}</b>
+          <p data-testid="print-orientation-narrative">{layout.narrative||(refsFor(narrativeLabel)?`See ${refsFor(narrativeLabel)}.`:'None recorded.')}</p>
+        </div>
+      </div>
+      <div className="print-orientation-review">Checklist review: {record.checklistReviewedAt?'☒ Confirmed':'☐ Not confirmed'} — FTO and PO went over every row above.</div>
+      <footer className="print-orientation-footer"><span>FTO / PO walkthrough checklist · records items covered, not performance ratings.{pages.length>0?` Overflow text: ${pages.length} U-10.192 attachments.`:''}</span><span>Local copy · not server-confirmed or electronically signed.</span></footer>
+    </section>
+    {includeContinuations&&<PrintableOrientationContinuations record={record} pageReferences={continuationReferences}/>}
   </>;
 }
 
-function OrientationPage({record,phase,pageReference,title,sections,continued,testId}:{record:SubstationOrientationRecord;phase:Phase;pageReference?:string;title:string;sections:typeof SUBSTATION_ORIENTATION_SECTIONS[number][];continued?:boolean;testId:string}) {
-  const [date,time]=formatDateTimeMDY(record.dateTime).split(' ');
-  return <section className={`print-substation${continued?' print-substation-continuation':''}`} aria-hidden="true" data-testid={testId}>
-    <header className="print-extended-header">
-      <div><p>Columbus Division of Police · Field Training Program</p><h1>{title}</h1><b>U-10.181 (05/23)</b></div>
-      <span>Complete on the first scheduled day of each phase.</span>
-    </header>
-    <div className="print-extended-meta">
-      <span><b>Probationary Officer</b>{record.recruitName} · {record.recruitBadge}</span>
-      <span><b>FTO</b>{record.ftoName} · {record.ftoBadge}</span>
-       <span><b>Substation</b>{substationDisplay(record.substation)}</span>
-       <span><b>Date</b>{date||'Not recorded'}</span>
-       <span><b>Time</b>{time||'Not recorded'}</span>
-       <span><b>Class / phase</b>{record.className||'—'} · {phaseLabel(phase)}</span>
-       <span data-training-folder-page={pageReference}><b>Training-folder reference</b>{pageReference??'Training-folder reference unavailable'}</span>
-    </div>
-    <p className="print-extended-note">Checklist review: {record.checklistReviewedAt?'Confirmed':'Not confirmed'} · ☒ checked · ☐ unchecked. New forms start checked; review every item before treating it as completed.</p>
-    <div className="print-orientation-grid">
-      {sections.map(section=><section key={section.title}>
-        <h2>{section.title}</h2><p className="print-orientation-description">{section.description}</p>
-        <ul>{section.items.map(([key,label])=><li key={key}><b>{record.checklist[key]!==false?'☒':'☐'}</b>{label}</li>)}</ul>
-      </section>)}
-    </div>
-    {continued&&record.directivesReview&&<p className="print-extended-note"><b>Division Directives / SOP reviewed:</b> {record.directivesReview}</p>}
-    {continued&&record.narrative&&<div className="print-extended-narrative"><b>Additional narrative / continuation</b><p>{record.narrative}</p></div>}
-    <footer className="print-extended-footer">Checklist review: {record.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Local copy · not server-confirmed or electronically signed.</footer>
+function PrintOrientationSection({section,record}:{section:OrientationSection;record:SubstationOrientationRecord}) {
+  return <section>
+    <h2>{section.title}</h2><p className="print-orientation-description">{section.description}</p>
+    <ul>{section.rows.map(row=><li key={row.id} className={row.keys.length>1?'is-group':undefined}><b>{row.keys.every(key=>record.checklist[key]!==false)?'☒':'☐'}</b><span>{row.label}</span></li>)}</ul>
   </section>;
+}
+
+export function PrintableOrientationContinuations({record,pageReferences}:{record:SubstationOrientationRecord;pageReferences?:readonly (string|undefined)[]}) {
+  const pages=overflowRefs(record,pageReferences);
+  if(pages.length===0) return null;
+  return <>{pages.map(page=><section key={page.index} className="print-substation print-orientation-continuation" aria-hidden="true" data-testid={`print-orientation-continuation-${page.index+1}`}>
+    <header className="print-orientation-cont-head">
+      <span>Columbus Division of Police · U-10.192 continuation of U-10.181 Substation Orientation</span>
+      <span data-training-folder-page={page.reference}>Continuation {page.index+1} of {pages.length} · {page.reference??'Unindexed attachment · no packet reference yet'}</span>
+    </header>
+    <p className="print-orientation-cont-meta">{record.recruitName} · {record.recruitBadge} · FTO {record.ftoName} · {record.ftoBadge}</p>
+    <h2>{page.label}</h2>
+    <div className="print-orientation-cont-text">{page.text}</div>
+    <footer className="print-orientation-footer"><span>Full saved text, unedited.</span><span>Local copy · not electronically signed.</span></footer>
+  </section>)}</>;
 }
 
 export function PrintableWeeklyPerformanceLog({log,preview=false}:{log:WeeklyPerformanceLog;preview?:boolean}) {

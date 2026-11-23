@@ -23,7 +23,7 @@ import {
   formatDateTimeMDY,
   type TrainingFolderDayReference,
 } from '@/lib/training-calendar.js';
-import { PrintableSubstationOrientation } from '@/components/printable-extended-forms.js';
+import { PrintableOrientationContinuations, PrintableSubstationOrientation } from '@/components/printable-extended-forms.js';
 import type { SubstationOrientationRecord } from '@/lib/model.js';
 import { splitNarrativeContinuation } from '@/lib/narrative-continuation.js';
 import { buildOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
@@ -33,8 +33,8 @@ import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
 export function PrintableDailyForms({ report,orientation,dayReference,packet:providedPacket }: { report:Report;orientation?:SubstationOrientationRecord;dayReference?:TrainingFolderDayReference;packet?:OperationalPacket }) {
   const packet = providedPacket ?? buildOperationalPacket(report, { orientation, dayReference });
   const orientationReference = packet.pages.find(page => page.kind === 'orientation')?.reference;
-  const orientationContinuationReference = packet.pages.find(page => page.kind === 'orientation_continuation')?.reference;
-  const dutyReference = packet.pages[0]?.reference;
+  const orientationContinuationReferences = packet.pages.filter(page => page.kind === 'orientation_continuation').map(page => page.reference);
+  const dutyPage = packet.pages.find(page => page.kind === 'duty');
   const runsById = new Map(report.runs.map(run => [run.id, run]));
   const orderedRuns = packet.pages.filter(page => page.kind === 'run').map(page => {
     const run = page.runId ? runsById.get(page.runId) : undefined;
@@ -54,8 +54,8 @@ export function PrintableDailyForms({ report,orientation,dayReference,packet:pro
     if (page.kind === 'run_continuation') references.narratives.push(page.reference);
   }
   return <section className="print-run-packet" aria-hidden="true" data-testid="print-daily-forms">
-    <DutyPage report={report} pageReference={dutyReference}/>
-    {orientation&&<PrintableSubstationOrientation record={orientation} pageReference={orientationReference} continuationPageReference={orientationContinuationReference}/>}
+    {orientation&&<PrintableSubstationOrientation record={orientation} pageReference={orientationReference} continuationReferences={orientationContinuationReferences} includeContinuations={false}/>}
+    {dutyPage&&<DutyPage report={report} pageReference={dutyPage.reference}/>}
     {orderedRuns.map(run=>{
       const references=runReferences.get(run.id);
       return <Fragment key={run.id}>
@@ -64,6 +64,7 @@ export function PrintableDailyForms({ report,orientation,dayReference,packet:pro
         {!!references?.narratives.length&&<NarrativeContinuationPages key={`narrative-${run.id}`} report={report} run={run} pageReferences={references.narratives}/>}
       </Fragment>;
     })}
+    {orientation&&<PrintableOrientationContinuations record={orientation} pageReferences={orientationContinuationReferences}/>}
   </section>;
 }
 

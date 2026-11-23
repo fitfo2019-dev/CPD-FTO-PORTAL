@@ -50,3 +50,47 @@ export type SubstationOrientationKey=typeof SUBSTATION_ORIENTATION_SECTIONS[numb
 export const SUBSTATION_ORIENTATION_KEYS=SUBSTATION_ORIENTATION_SECTIONS.flatMap(section=>section.items.map(([key])=>key)) as SubstationOrientationKey[];
 export const defaultSubstationOrientationChecklist=():Record<SubstationOrientationKey,boolean>=>
   Object.fromEntries(SUBSTATION_ORIENTATION_KEYS.map(key=>[key,true])) as Record<SubstationOrientationKey,boolean>;
+
+/** Approved Example B display groups; original persisted task keys are unchanged. */
+const COMBINED_ORIENTATION_ROWS = [
+  ['building_orientation','locker_rooms','restrooms','break_room','vending'],
+  ['vehicle_status_board','cruiser_keys','relief_car'],
+  ['computer_access','daily_bulletin','division_email'],
+  ['paperwork_box','outgoing_mail','subpoena_book'],
+  ['traffic_citation_book','parking_citation_book'],
+  ['paperwork_supplies','briefcase_clipboard','copier_printer'],
+  ['riot_helmet','riot_padding'], ['rain_gear','traffic_vest'], ['tychem','tyvek'],
+  ['rubber_gloves','rubber_boots','chem_tape'], ['directives','complaint_manual','aid_manual'],
+  ['cvs','pa_system'], ['trunk_equipment','personal_equipment'],
+  ['car_radio','walkie','radios','car_to_car'], ['computer','division_computer'],
+  ['ohleg','leads','courtview','common_pleas'], ['internet','s_drive','powerdms','daily_email'],
+  ['boundaries','cruiser_districts','adjacent_precincts'],
+  ['directions','major_roads','one_way_streets'],
+  ['cfd_stations','hospitals','landmarks','schools'],
+] as const satisfies readonly (readonly SubstationOrientationKey[])[];
+
+export const SUBSTATION_ORIENTATION_GROUPED_SECTIONS = SUBSTATION_ORIENTATION_SECTIONS.map(section => {
+  const remaining = new Set<SubstationOrientationKey>(section.items.map(([key]) => key));
+  const labels = new Map<SubstationOrientationKey,string>(section.items.map(([key,label]) => [key,label]));
+  const rows: {id:string; keys:readonly SubstationOrientationKey[]; label:string}[] = [];
+  for (const [key] of section.items) {
+    if (!remaining.has(key)) continue;
+    const keys: readonly SubstationOrientationKey[] =
+      COMBINED_ORIENTATION_ROWS.find(group => group.some(item => item === key)) ?? [key];
+    if (keys.some(item => !remaining.has(item))) throw new Error('Orientation groups must partition each section.');
+    rows.push({id:key,keys,label:keys.map(item => labels.get(item)).join('; ')});
+    keys.forEach(item => remaining.delete(item));
+  }
+  return {...section,rows};
+});
+
+export function orientationGroupState(checklist:Readonly<Record<string,boolean>>, keys:readonly SubstationOrientationKey[]) {
+  const count = keys.filter(key => checklist[key] !== false).length;
+  return {checked:count === keys.length, indeterminate:count > 0 && count < keys.length};
+}
+
+export function setOrientationGroup(checklist:Readonly<Record<string,boolean>>, keys:readonly SubstationOrientationKey[], checked:boolean):Record<string,boolean> {
+  const next = {...checklist};
+  keys.forEach(key => { next[key] = checked; });
+  return next;
+}

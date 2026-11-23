@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildOperationalPacket, invalidateOperationalReferences, reconcileOperationalReferences, resolveOperationalPacket } from './operational-state-machine.js';
+import { buildOperationalPacket, invalidateOperationalReferences, migrateOperationalReferenceReviews, reconcileOperationalReferences, resolveOperationalPacket } from './operational-state-machine.js';
 import { seedReports } from './seed.js';
 import { newRunChecklist, type PhaseCaseFolder, type SubstationOrientationRecord, type TrainingRun, type WeeklyPerformanceLog } from './model.js';
 import { createEmptyWorkspace } from './empty-workspace.js';
@@ -46,17 +46,43 @@ test('packet arrays exceed 147 pages and restart at duty Page 1 for the next shi
   assert.ok(Object.isFrozen(first.pages));
 });
 
-test('phase-start orientation follows duty once, respecting the first scheduled day and class scope', () => {
-  const first = resolveOperationalPacket(report, [folder], [orientation]);
-  assert.deepEqual(first.pages.slice(0, 3).map(page => page.kind), ['duty', 'orientation', 'orientation_continuation']);
+test('phase-start orientation is Page 1, daily duty is Page 2 and the first run is Page 3', () => {
+  const first = resolveOperationalPacket({...report,runs:[makeRun('first-run')]}, [folder], [orientation]);
+  assert.deepEqual(first.pages.slice(0, 3).map(page => page.kind), ['orientation', 'duty', 'run']);
+  assert.equal(first.pages[0].reference, 'W1D1P1');
   assert.equal(first.pages[1].reference, 'W1D1P2');
+  assert.equal(first.pages[2].reference, 'W1D1P3');
+  assert.equal(first.pages.filter(page=>page.kind==='duty').length,1);
   assert.equal(first.blockingIssues.length, 0);
   assert.equal(resolveOperationalPacket(report, [folder], []).blockingIssues.length, 1);
   assert.equal(resolveOperationalPacket(report, [folder], [{ ...orientation, checklistReviewedAt: undefined }]).blockingIssues.length, 1);
   assert.equal(resolveOperationalPacket(report, [folder], [{ ...orientation, className: 'Another Class' }]).orientation, undefined);
   const nextDay = resolveOperationalPacket({ ...report, date: '2025-01-07' }, [folder], [orientation]);
   assert.equal(nextDay.pages[0].reference, 'W1D2P1');
+  assert.equal(nextDay.pages[0].kind, 'duty');
   assert.equal(nextDay.pages.some(page => page.kind === 'orientation'), false);
+});
+
+test('orientation notes get separate indexed continuation pages after runs without changing stored notes', () => {
+  const notes = {...orientation,narrative:'Long walkthrough note.\n'.repeat(150),directivesReview:'Reviewed directive; '.repeat(100)};
+  const before = JSON.stringify(notes);
+  const packet = resolveOperationalPacket({...report,runs:[makeRun('first-run')]},[folder],[notes]);
+  assert.deepEqual(packet.pages.slice(0,3).map(page=>page.kind),['orientation','duty','run']);
+  assert.ok(packet.pages.filter(page=>page.kind==='orientation_continuation').length>1);
+  assert.equal(packet.pages[3].kind,'orientation_continuation');
+  assert.equal(new Set(packet.pages.map(page=>page.reference)).size,packet.pages.length);
+  assert.equal(packet.pages.at(-1)?.kind,'daily_summary');
+  assert.equal(JSON.stringify(notes),before);
+});
+
+test('uncovered orientation walkthrough items never become performance exceptions',()=>{
+  const ratingsBefore=JSON.stringify(report.ratings);
+  const covered=resolveOperationalPacket(report,[folder],[orientation]);
+  const notCovered=resolveOperationalPacket(report,[folder],[{
+    ...orientation,checklist:{building_orientation:false,taser_spark_test:false,shotgun_rack:false},
+  }]);
+  assert.deepEqual(notCovered.exceptions,covered.exceptions);
+  assert.equal(JSON.stringify(report.ratings),ratingsBefore);
 });
 
 test('conditional supplements and every continuation consume their own sequential page', () => {
@@ -132,4 +158,8 @@ test('changed packet sources invalidate reference review without rewriting histo
   assert.equal(before.weeklyPerformanceLogs[0].entries[0].sourceReferenceReviewed, true);
   assert.equal(invalidateOperationalReferences([log], new Set(['unrelated-report']))[0], log);
   assert.equal(invalidateOperationalReferences([log])[0].entries[0].sourceReferenceReviewed, false);
+  const migrated = migrateOperationalReferenceReviews(1,[log]);
+  assert.equal(migrated[0].entries[0].sourceReferenceReviewed,false);
+  assert.deepEqual(migrated[0].entries[0].sourceReferences,['W1D1P4']);
+  assert.equal(migrateOperationalReferenceReviews(2,[log])[0],log);
 });

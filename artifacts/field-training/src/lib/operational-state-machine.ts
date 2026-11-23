@@ -19,6 +19,9 @@ import {
   type TrainingFolderDayReference,
 } from './training-calendar.js';
 import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from './narrative-continuation.js';
+import { orientationPrintLayout } from './orientation-print-layout.js';
+
+export const CURRENT_PACKET_INDEX_VERSION = 2;
 
 export type OperationalPageKind =
   | 'duty'
@@ -100,6 +103,10 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
     }));
   };
 
+  const phaseIngress = !!context.orientation || context.orientationRequired === true;
+  if (phaseIngress) {
+    append({ id: 'orientation', kind: 'orientation', title: 'Substation Orientation', part: 1 });
+  }
   const duty = append({ id: 'duty', kind: 'duty', title: 'Reporting for Duty' });
   for (const group of DAILY_DUTY_CHECKLIST) {
     if (report.reportingForDuty.notApplicable?.[group.section]) continue;
@@ -108,12 +115,6 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
         captureException(duty, item.key, item.label, group.section, !!report.reportingForDuty.reviewedAt);
       }
     }
-  }
-
-  if (context.orientation) {
-    append({ id: 'orientation', kind: 'orientation', title: 'Substation Orientation', part: 1 });
-    // The existing orientation document has two fixed sheets.
-    append({ id: 'orientation-continuation', kind: 'orientation_continuation', title: 'Substation Orientation', part: 2 });
   }
 
   const runIds = new Set<string>();
@@ -160,6 +161,16 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
     }
   }
 
+  // Overflow is separate U-10.192 material, not an extra orientation checklist
+  // sheet. Place it after runs so it never displaces duty or the first incident.
+  if (context.orientation) {
+    orientationPrintLayout(context.orientation).continuations.forEach((_, index) => append({
+      id: `orientation-continuation:${index + 1}`,
+      kind: 'orientation_continuation',
+      title: 'Substation Orientation · Narrative Addition / Continuation',
+      part: index + 1,
+    }));
+  }
   append({ id: 'daily-summary', kind: 'daily_summary', title: 'Daily Performance Log' });
   dailyLogContinuations(report).forEach((continuation, index) => append({
     id: `daily-continuation:${index + 1}`,
@@ -225,6 +236,11 @@ export function invalidateOperationalReferences(
     return logChanged ? { ...log, entries } : log;
   });
   return changed ? result : logs;
+}
+
+/** Preserve historical citation text while requiring review after layout changes. */
+export function migrateOperationalReferenceReviews(version:number|undefined, logs:WeeklyPerformanceLog[]):WeeklyPerformanceLog[] {
+  return version === CURRENT_PACKET_INDEX_VERSION ? logs : invalidateOperationalReferences(logs);
 }
 
 export function reconcileOperationalReferences(previous: Workspace, next: Workspace): Workspace {

@@ -1133,6 +1133,12 @@ main button.seg-rating-choice {
 .orientation-check input {
   accent-color: var(--form-blue);
 }
+.orientation-check.is-group { align-items: flex-start; }
+.orientation-check.is-mixed { border-style: dashed; border-color: hsl(var(--warn) / .6); background: hsl(var(--warn) / .05); }
+.orientation-check-tasks { display: grid; gap: .1rem; margin: 0; padding: 0; list-style: none; color: hsl(var(--muted-foreground)); font-size: .8rem; }
+.orientation-check-tasks li::before { content: "\2013\00a0"; }
+.orientation-check-count { margin-left: auto; flex: 0 0 auto; font-family: var(--app-font-mono); font-size: .68rem; color: hsl(var(--muted-foreground)); }
+.orientation-review-bar { border-top: 1px solid hsl(var(--border)); background: hsl(var(--primary) / .04); }
 .orientation-progress {
   height: 4px;
   overflow: hidden;
@@ -1542,6 +1548,35 @@ main button.seg-rating-choice {
   .print-orientation-grid li b { min-width: 13px; }
   .print-extended-narrative { margin-top: 6px; border: 1px solid #888; padding: 5px; }
   .print-extended-narrative p { margin: 3px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .print-orientation-b { font-size: 7.4pt !important; line-height: 1.22; }
+  .print-orientation-b .print-extended-header { padding-bottom: 3px; margin-bottom: 4px; }
+  .print-orientation-b .print-extended-header h1 { font-size: 12.5pt; margin: 1px 0; }
+  .print-orientation-sub { margin: 0 0 3px; color: #142d4f; font-size: 7pt; font-weight: 700; }
+  .print-orientation-meta { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border-left: 1px solid #888; border-top: 1px solid #888; margin-bottom: 4px; }
+  .print-orientation-meta span { display: block; min-height: 22px; border-right: 1px solid #888; border-bottom: 1px solid #888; padding: 2px 4px; overflow-wrap: anywhere; }
+  .print-orientation-meta b { display: block; font-size: 5.8pt; text-transform: uppercase; }
+  .print-orientation-wide { grid-column: 1 / -1; }
+  .print-orientation-note { margin: 3px 0; padding: 2px 4px; background: #eef1f4; font-size: 6.6pt; }
+  .print-orientation-cols { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; }
+  .print-orientation-col { display: grid; gap: 5px; align-content: start; min-width: 0; }
+  .print-orientation-b section section { min-width: 0; border: 1px solid #888; padding: 3px 4px; break-inside: avoid; page-break-inside: avoid; }
+  .print-orientation-b h2 { margin: 0 0 1px; font-size: 7.8pt; }
+  .print-orientation-b .print-orientation-description { margin: 0 0 2px; font-size: 5.9pt; }
+  .print-orientation-b ul { display: grid; gap: 1.5px; margin: 0; padding: 0; list-style: none; }
+  .print-orientation-b li { display: flex; gap: 4px; }
+  .print-orientation-b li b { min-width: 10px; flex: 0 0 auto; }
+  .print-orientation-b li.is-group { border-top: 1px dotted #bbb; padding-top: 1px; }
+  .print-orientation-bottom { display: grid; grid-template-columns: 1fr 2fr; gap: 5px; margin-top: 5px; }
+  .print-orientation-box { border: 1px solid #888; padding: 3px 4px; min-width: 0; }
+  .print-orientation-box p { margin: 1px 0 3px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .print-orientation-review { margin-top: 5px; border: 1px solid #142d4f; padding: 3px 5px; font-weight: 700; }
+  .print-orientation-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; border-top: 1px solid #777; padding-top: 2px; font-size: 5.8pt; }
+  .print-orientation-continuation { font-size: 9pt !important; }
+  .print-orientation-continuation:last-child { break-after: auto; page-break-after: auto; }
+  .print-orientation-cont-head { display: flex; justify-content: space-between; gap: 8px; border-bottom: 2px solid #142d4f; padding-bottom: 2px; font-size: 6.5pt; font-weight: 700; }
+  .print-orientation-cont-meta { margin: 3px 0; font-size: 6.5pt; }
+  .print-orientation-continuation h2 { margin: 4px 0; font-size: 8pt; }
+  .print-orientation-cont-text { font-size: 10pt; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
   .print-extended-footer { margin-top: 7px; border-top: 1px solid #777; padding-top: 3px; font-size: 6pt; text-align: right; }
   .print-weekly-log-strengths,
   .print-weekly-log-corrective { margin: 8px 0; }
@@ -1795,4 +1830,39 @@ main button.seg-rating-choice {
   .weekly-rating-mobile-count > b { font-size: 0.875rem; }
   .weekly-rating-mobile-count.is-flagged > span,
   .weekly-rating-mobile-count.is-flagged > b { color: hsl(var(--destructive)); }
+}
+
+/* Print-only box refinement: even interior cells, single-weight shared borders. */
+@media print {
+  /* Shared run/duty/supplement metadata: collapsed grid borders (no doubled lines). */
+  .print-run-meta,
+  .print-run-fields { gap: 0; border-top: 1px solid #888; border-left: 1px solid #888; align-items: stretch; }
+  .print-run-meta > span,
+  .print-run-fields > span { min-height: 22px; border: 0; border-right: 1px solid #888; border-bottom: 1px solid #888; padding: 2px 4px; align-content: start; }
+  .print-run-meta b,
+  .print-run-fields b { line-height: 1.15; letter-spacing: .03em; }
+  .print-run-checkgroup,
+  .print-run-checklist { margin: 2px 0; padding: 2px 4px; border: 1px solid #888; }
+  .print-run-checkgroup h2,
+  .print-run-checklist h2 { padding-bottom: 0; margin-bottom: 2px; border-bottom: 0; }
+  .print-run-checkgroup ul,
+  .print-run-checklist ul { column-gap: 8px; row-gap: 1px; align-items: start; }
+  .print-run-narrative,
+  .print-run-notes { border: 1px solid #888; padding: 2px 4px; }
+  .print-meta-grid { align-items: stretch; }
+
+  /* Orientation Example B. */
+  .print-orientation-meta { align-items: stretch; }
+  .print-orientation-meta span { min-height: 24px; padding: 3px 5px; }
+  .print-orientation-cols { align-items: stretch; gap: 6px; }
+  .print-orientation-col { display: grid; grid-template-rows: repeat(2, 1fr); gap: 6px; }
+  .print-orientation-col:first-child > section { grid-row: 1 / -1; }
+  .print-orientation-col > section,
+  .print-orientation-bottom > section { min-width: 0; padding: 4px 5px; border: 1px solid #888; }
+  .print-orientation-b h2 { padding-bottom: 2px; margin-bottom: 2px; border-bottom: 1px solid #ccc; font-weight: 700; }
+  .print-orientation-bottom { align-items: stretch; gap: 6px; margin-top: 6px; }
+  .print-orientation-box,
+  .print-orientation-review { border: 1px solid #888; padding: 4px 5px; }
+  .print-orientation-review { margin-top: 6px; border-left: 3px solid #142d4f; }
+  .print-orientation-note { margin: 4px 0; padding: 3px 5px; border: 1px solid #ccd3db; }
 }

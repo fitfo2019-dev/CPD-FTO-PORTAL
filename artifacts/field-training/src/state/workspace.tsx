@@ -7,7 +7,7 @@ import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
 import { buildTimelineInterpolation, type TimelineInterpolation } from '@/lib/timeline-interpolation.js';
 import { createPhaseWeekRanges, getPhaseWeekNumber, getSundaySaturdayWeek } from '@/lib/training-calendar.js';
 import { approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests } from '@/lib/phase-extension.js';
-import { invalidateOperationalReferences, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
+import { CURRENT_PACKET_INDEX_VERSION, migrateOperationalReferenceReviews, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
 
 export type VaultState = 'none' | 'unlocked';
@@ -392,8 +392,7 @@ export function WorkspaceProvider({
     const savedWeeklyPerformanceLogs=Array.isArray(savedWorkspace.weeklyPerformanceLogs)
       ?savedWorkspace.weeklyPerformanceLogs.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.weekStart==='string'&&typeof item.recruitBadge==='string'&&Array.isArray(item.entries))
       :[];
-    const weeklyPerformanceLogs=savedWorkspace.packetIndexVersion===1
-      ?savedWeeklyPerformanceLogs:invalidateOperationalReferences(savedWeeklyPerformanceLogs);
+    const weeklyPerformanceLogs=migrateOperationalReferenceReviews(savedWorkspace.packetIndexVersion,savedWeeklyPerformanceLogs);
     const substationOrientations=Array.isArray(savedWorkspace.substationOrientations)
       ?savedWorkspace.substationOrientations.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&isRecord(item.checklist))
       :[];
@@ -413,7 +412,7 @@ export function WorkspaceProvider({
     const ftoDirectory = Array.isArray(savedWorkspace.ftoDirectory) ? savedWorkspace.ftoDirectory.filter(item=>isRecord(item)&&typeof item.badge==='string'&&typeof item.name==='string') : [];
     const assignments = Array.isArray(savedWorkspace.assignments) ? savedWorkspace.assignments.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&[1,2,3,4].includes(Number(item.phase))) : [];
     const tasks=Array.isArray(savedWorkspace.tasks)?savedWorkspace.tasks.filter(item=>isRecord(item)&&[1,2,3,4].includes(Number(item.phase))):[];
-    setWs({ ...workspaceWithoutChatHistory, packetIndexVersion:1, role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests }); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(weeklyPerformanceLogs!==savedWeeklyPerformanceLogs); setLockedNotice(false); setLockedWithUnsaved(false);
+    setWs({ ...workspaceWithoutChatHistory, packetIndexVersion:CURRENT_PACKET_INDEX_VERSION, role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests }); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(weeklyPerformanceLogs!==savedWeeklyPerformanceLogs||savedWorkspace.packetIndexVersion!==CURRENT_PACKET_INDEX_VERSION); setLockedNotice(false); setLockedWithUnsaved(false);
     setStoragePersistent(await requestPersistentStorage());
     await refreshPending();
   }, [previewOnly, refreshPending]);

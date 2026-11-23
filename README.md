@@ -87,18 +87,26 @@ The standalone archive contains the compiled API entry and a production-only `pa
 ### Daily packet coordination
 
 The portal now derives shift-local page references from one shared coordinator:
-Reporting for Duty first, phase-start orientation when required, chronological
-runs with conditional supplements and continuations, then the daily summary and
+one orientation sheet first on phase ingress, Reporting for Duty on every day,
+chronological runs with conditional supplements and continuations, then orientation
+note attachments and the daily summary and
 its continuations. Each shift starts at Page 1 without a fixed application page
 cap. Print references and the class workbook's Daily Page Index and Checklist
 Exceptions sheets use that same sequence. Old source-reference review
-confirmations require reconfirmation after the duty-first migration; historical
+confirmations require reconfirmation after the packet-index version 2 migration; historical
 text and training time are preserved. See `HANDOVER_MANUAL.md`, section 11, for
 the exact page scope. Section 12 documents the named-category UA rules, FTO
 override dialog, consolidated source-linked articulations, and four-tab
 monthly exporter, styled after the supplied U-10.174 reference with
 three category panels, four activity blocks, metadata, comments, and legend.
-It preserves the 30-category data model. Unchecked tasks project UA immediately,
+
+The approved orientation Example B presents 43 combined checklist rows retaining
+all 82 original task keys and saved partial states. It records an FTO/PO walkthrough,
+not performance ratings. Phase Day 1 is orientation P1, duty P2, runs P3 onward;
+routine days are duty P1 and runs P2 onward. Long orientation notes are preserved
+on separate U-10.192 attachments rather than clipped from the single checklist sheet.
+The monthly exporter preserves the 30-category data model. Unchecked applicable
+daily duty/run tasks (not orientation walkthrough items) project UA immediately,
 but the grouped articulation editor opens only after explicit checklist review;
 weekly counts use reviewed, non-Limbo summaries. More than four source weeks or
 an out-of-range record stops export rather than merging weeks or dropping dates.

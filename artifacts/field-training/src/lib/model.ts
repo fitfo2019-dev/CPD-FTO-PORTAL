@@ -862,7 +862,7 @@ export interface LawReviewRecord {
 export interface Workspace {
   version: number;
   /** Packet-reference review scheme; distinct from encrypted storage revision. */
-  packetIndexVersion?: 1;
+  packetIndexVersion?: 1 | 2;
   role: Role;
   reports: Report[];
   tasks: Task[];

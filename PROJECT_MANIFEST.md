@@ -115,13 +115,17 @@ This archive does not contain the Field Training Officer Portal static build.
 ### Operational page-index alignment
 
 The portal's workspace provider exposes a shift-local operational packet
-projection shared with printing and class workbook indexes. Reporting for Duty
-is Page 1; first-workday orientation starts at Page 2 and occupies the existing
-two sheets. Chronological runs, required supplements and continuations precede
+projection shared with printing and class workbook indexes. First-workday
+orientation occupies one checklist sheet at Page 1, then Reporting for Duty P2
+and runs P3 onward. Every routine day retains duty P1 followed by runs P2 onward.
+Orientation Example B has 43 combined rows retaining all 82 original task keys,
+including mixed saved task states. It is a walkthrough, not a performance evaluation.
+Chronological runs, required supplements and continuations precede orientation
+note U-10.192 attachments, which preserve overflow text, then
 the daily summary and its continuations. There is no fixed application page cap.
 Missing phase-start orientation prevents packet review and print-all completion.
 Saved source-reference text is retained but its review confirmation is cleared
-after the duty-first migration or subsequent source/schedule changes.
+after the packet-index version 2 migration or subsequent source/schedule changes.
 
 Cleared applicable tasks on new or explicitly edited duty/run checklists route to
 named SEG categories and project UA immediately. The grouped articulation editor

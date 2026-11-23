@@ -42,14 +42,20 @@ this directory and all temporary prepared replacements; administrator access
 can bypass ordinary filesystem permissions. These measures are not a
 compliance certification or a guarantee of privacy from a machine owner.
 
-### Packet-order discrepancy requiring an explicit decision
+### Approved orientation walkthrough and daily duty order
 
-The unchanged renderer currently has two physical orientation sheets. Current
-Phase Day 1 order is Reporting for Duty P1, orientation P2/P3, then run P4.
-The latest requested orientation-only P1 and run P2 would require a single-sheet
-orientation redesign or a revised numbering requirement. Do not claim that
-order is implemented, hide the second sheet, reuse page numbers, or rewrite
-historical narrative references silently. Routine days begin with duty P1.
+The user selected Example B: one orientation checklist sheet with 43 combined
+rows covering all 82 original tasks. These are walkthrough completion checks,
+not performance ratings. The original task keys and saved partial states remain
+intact. A mixed row is shown as mixed on screen; checking it explicitly marks
+all of its listed tasks covered. Safety-specific tasks retain individual checks.
+The review confirmation is below the list.
+
+Reporting for Duty is retained every day: Phase Day 1 is orientation P1, duty
+P2, then runs from P3. Routine days are duty P1 and runs from P2. Long orientation
+notes are preserved on separately numbered U-10.192 attachments after the runs.
+Standalone orientation attachments without a matching saved daily report are
+explicitly unindexed rather than assigned made-up packet coordinates.
 
 **Before modifying this workspace, read `PROJECT_MANIFEST.md` and preserve its API contracts, naming rules, and scope boundaries.**
 
@@ -404,13 +410,16 @@ runtime limits still apply; this is not a claim of literally infinite storage.
 
 The shared order is:
 
-1. Reporting for Duty, always Page 1.
-2. Substation Orientation on the first scheduled workday of each phase only,
-   starting at Page 2. The current orientation form occupies two sheets.
+1. Substation Orientation on the first scheduled workday of each phase only:
+   one U-10.181 checklist sheet at Page 1.
+2. Reporting for Duty on every day: Page 2 after orientation on phase ingress,
+   otherwise Page 1. No saved duty record or duty checklist is removed.
 3. Runs in chronological start-time order. Each run has its primary sheet,
    followed by its required Arrest Process and/or OVI Process sheets and every
    generated narrative continuation.
-4. The daily performance summary, followed by its comment/retraining
+4. Any orientation-note U-10.192 attachments, preserving the entire original
+   text without clipping or moving the first run's reference.
+5. The daily performance summary, followed by its comment/retraining
    continuation sheets.
 
 Selecting Arrest Made now requires the Arrest Process supplement even when the
@@ -426,8 +435,8 @@ scheduled training week/day and the particular source form, not whichever page
 was added last. If the phase schedule is unavailable, exports say that the
 coordinate is unavailable instead of inventing a day number. Incomplete
 phase-start orientation blocks local packet review and the print-all action.
-The screen's existing form layouts are retained; the print packet's order and
-the page break before the final daily summary have changed intentionally.
+Only the approved orientation screen and its print layout were redesigned.
+Other forms retain their existing layouts.
 
 Cleared applicable checklist tasks generate source-linked exception evidence.
 Explicit Not Applicable groups are excluded. Evidence distinguishes reviewed
@@ -438,7 +447,7 @@ completed training is inferred.
 ### Existing source references and edits
 
 Historical source-reference text, authored narratives, and actual training time
-are preserved. Restoring a workspace from before the duty-first reference scheme
+are preserved. Restoring a workspace from before packet-index scheme version 2
 clears its source-reference review confirmations, not its content. Save locally
 to persist that review-state migration. Later source-record edits, phase schedule
 changes, or orientation changes also invalidate affected reference reviews.

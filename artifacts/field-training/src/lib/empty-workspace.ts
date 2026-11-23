@@ -1,10 +1,11 @@
 import type { PhaseCaseFolder, TrainingAssignment, Workspace } from './model.js';
+import { CURRENT_PACKET_INDEX_VERSION } from './operational-state-machine.js';
 
 /** A new device workspace starts empty and never inserts invented training records. */
 export function createEmptyWorkspace(): Workspace {
   return {
     version: 0,
-    packetIndexVersion: 1,
+    packetIndexVersion: CURRENT_PACKET_INDEX_VERSION,
     role: 'fto',
     reports: [],
     tasks: [],

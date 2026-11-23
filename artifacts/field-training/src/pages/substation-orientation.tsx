@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { CheckCheck, Printer } from 'lucide-react';
 import { PageHead, Panel } from '@/components/bits.js';
 import { PrintableSubstationOrientation } from '@/components/printable-extended-forms.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { uid, type SubstationOrientationRecord } from '@/lib/model.js';
-import { SUBSTATION_ORIENTATION_SECTIONS, SUBSTATION_ORIENTATION_KEYS, defaultSubstationOrientationChecklist } from '@/lib/substation-orientation.js';
+import { SUBSTATION_ORIENTATION_GROUPED_SECTIONS, SUBSTATION_ORIENTATION_KEYS, defaultSubstationOrientationChecklist, orientationGroupState, setOrientationGroup, type SubstationOrientationKey } from '@/lib/substation-orientation.js';
+import { orientationPrintLayout } from '@/lib/orientation-print-layout.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
 import { CPD_SUBSTATIONS, CPD_SUBSTATION_DIRECTORY_URL, defaultSubstationForAssignment, getSubstation } from '@/lib/substations.js';
 import { formatDateDMY, formatDateTimeMDY, formatDateTimeEntryMDY, formatTrainingFolderPageReference, getNextReportDate, getTrainingFolderDayReference, parseDateDMY, splitDateTimeEntryMDY } from '@/lib/training-calendar.js';
 import { parseRunDateTime } from '@/lib/run-details.js';
 import { useWorkspace } from '@/state/workspace.js';
+import { resolveOperationalPacket } from '@/lib/operational-state-machine.js';
 
 export default function SubstationOrientationPage() {
   const {ws,vault,upsertSubstationOrientation,previewOnly}=useWorkspace();
@@ -28,7 +30,6 @@ export default function SubstationOrientationPage() {
     ?getTrainingFolderDayReference(folder.phase,firstDay,folder.phaseStartDate,folder.daysOff)
     :undefined;
   const orientationPageReference=formatTrainingFolderPageReference(orientationDayReference,2);
-  const orientationContinuationPageReference=formatTrainingFolderPageReference(orientationDayReference,3);
   const defaultSubstation=folder ? defaultSubstationForAssignment(folder) : '';
   const existing=folder ? ws.substationOrientations.find(item=>item.recruitBadge===folder.recruitBadge&&item.className===folder.className&&item.phaseStartDate===firstDay&&(item.phase??1)===folder.phase) : undefined;
   const initial=useMemo<SubstationOrientationRecord|null>(()=>folder?existing
@@ -44,14 +45,26 @@ export default function SubstationOrientationPage() {
     setRecord(initial);
     setDateTimeText(initial?.dateTime?formatDateTimeMDY(initial.dateTime):firstDay?`${formatDateDMY(firstDay)} `:'');
   },[initial,firstDay]);
+  const continuationCount=record?orientationPrintLayout(record).continuations.length:0;
+  // P2 belongs to Reporting for Duty. Only a saved first-day report can place overflow after its runs.
+  const firstDayReport=folder?ws.reports.find(item=>item.date===firstDay&&item.phase===folder.phase&&item.recruitBadge===folder.recruitBadge&&(item.className??'')===(folder.className??'')):undefined;
+  const continuationReferences:(string|undefined)[]=(()=>{
+    if(!record||!folder||!firstDayReport||continuationCount===0) return Array.from({length:continuationCount},()=>undefined);
+    const packet=resolveOperationalPacket(firstDayReport,[...ws.phaseFolders,...(ws.phaseFolders.includes(folder)?[]:[folder])],[record]);
+    const refs=packet.pages.filter(page=>page.kind==='orientation_continuation').map(page=>page.reference);
+    return Array.from({length:continuationCount},(_,index)=>refs[index]);
+  })();
+  const totalRows=SUBSTATION_ORIENTATION_GROUPED_SECTIONS.reduce((sum,section)=>sum+section.rows.length,0);
+  const coveredRows=record?SUBSTATION_ORIENTATION_GROUPED_SECTIONS.reduce((sum,section)=>sum+section.rows.filter(row=>orientationGroupState(record.checklist,row.keys).checked).length,0):0;
   const checked=SUBSTATION_ORIENTATION_KEYS.filter(key=>record?.checklist[key]!==false).length;
   const selectedSubstation=getSubstation(record?.substation??'');
   if(!canAccess) return <Panel title="Substation Orientation access"><p className="p-4">This form is available to FTOs and the FTO Coordinator.</p></Panel>;
   if(!folder||!record) return <Panel title="Substation Orientation"><div className="p-4 text-sm"><p>Open the active phase case folder to prefill the PO and FTO before completing this first-day form.</p><Link href="/phase-setup" className="mt-3 inline-flex min-h-11 items-center font-semibold underline">Open Phase Setup</Link></div></Panel>;
   if(ws.role==='fto_coordinator'&&!existing) return <Panel title="Substation Orientation"><p className="p-4 text-sm">No saved orientation record is available to review. The assigned FTO completes this first-day form.</p></Panel>;
 
-  const update=<K extends keyof SubstationOrientationRecord>(key:K,value:SubstationOrientationRecord[K])=>setRecord(current=>current?{...current,[key]:value,updatedAt:new Date().toISOString()}:current);
+  const update=<K extends keyof SubstationOrientationRecord>(key:K,value:SubstationOrientationRecord[K])=>setRecord(current=>current?{...current,[key]:value,checklistReviewedAt:undefined,updatedAt:new Date().toISOString()}:current);
   const updateChecklist=(checklist:Record<string,boolean>)=>setRecord(current=>current?{...current,checklist,checklistReviewedAt:undefined,updatedAt:new Date().toISOString()}:current);
+  const toggleGroup=(keys:readonly SubstationOrientationKey[],value:boolean)=>setRecord(current=>current?{...current,checklist:setOrientationGroup(current.checklist,keys,value),checklistReviewedAt:undefined,updatedAt:new Date().toISOString()}:current);
   const confirmChecklistReview=()=>setRecord(current=>current?{...current,checklistReviewedAt:new Date().toISOString(),updatedAt:new Date().toISOString()}:current);
   const save=()=>{
     if(!record.checklistReviewedAt){toast({title:'Review the orientation checklist',description:'Keep checked only the items completed during the walkthrough, clear the rest, then confirm the review.',variant:'destructive'});return;}
@@ -103,25 +116,20 @@ export default function SubstationOrientationPage() {
         <label className="grid gap-1 text-sm font-semibold">Date and time · MM/DD/YYYY HH:MM<input disabled={!canEdit} value={dateTimeText} onChange={event=>setDateTimeText(formatDateTimeEntryMDY(event.target.value))} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();setDateTimeText(`${formatDateDMY(firstDay)} ${new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'})}`);}}} maxLength={16} placeholder="MM/DD/YYYY HH:MM" className="h-11 rounded border bg-card px-3 font-normal" data-testid="input-orientation-datetime"/></label>
       </div>
     </Panel>
-    <Panel title={`Orientation checklist · ${checked} of ${SUBSTATION_ORIENTATION_KEYS.length} checked · ${checklistReviewed?'reviewed':'review required'}`} className="orientation-panel mt-4">
+    <Panel title={`Walkthrough checklist · ${checked} of ${SUBSTATION_ORIENTATION_KEYS.length} original tasks covered · ${coveredRows} of ${totalRows} combined rows · ${checklistReviewed?'reviewed':'review required'}`} className="orientation-panel mt-4">
       <div className="orientation-checklist-tools flex flex-wrap items-center justify-between gap-3 border-b p-4">
-        <p className="text-sm text-muted-foreground">Prefilled checks are not confirmation. Clear non-applicable or incomplete items, then confirm your review.</p>
-        <div className="flex flex-wrap gap-2">
-          {canEdit&&<button type="button" onClick={()=>updateChecklist(checked===SUBSTATION_ORIENTATION_KEYS.length?Object.fromEntries(SUBSTATION_ORIENTATION_KEYS.map(key=>[key,false])):defaultSubstationOrientationChecklist())} className={`inline-flex min-h-11 items-center rounded border px-4 text-sm font-bold transition-colors hover:bg-muted ${checked===SUBSTATION_ORIENTATION_KEYS.length?'border-destructive/50 text-destructive':'border-primary/25'}`} data-testid="button-toggle-all-orientation">{checked===SUBSTATION_ORIENTATION_KEYS.length?'Deselect all':'Select all'}</button>}
-          {canEdit&&<>
-          <button type="button" onClick={confirmChecklistReview} disabled={checklistReviewed} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-60" data-testid="button-confirm-orientation-review"><CheckCheck className="h-4 w-4"/>{checklistReviewed?'Review confirmed':'Confirm checklist review'}</button></>}
-        </div>
+        <p className="text-sm text-muted-foreground">FTO / PO walkthrough record, not a performance rating. Check a combined row only when every listed task was covered; a dashed row means some of its tasks are still open.</p>
+        {canEdit&&<button type="button" onClick={()=>updateChecklist(checked===SUBSTATION_ORIENTATION_KEYS.length?Object.fromEntries(SUBSTATION_ORIENTATION_KEYS.map(key=>[key,false])):defaultSubstationOrientationChecklist())} className={`inline-flex min-h-11 items-center rounded border px-4 text-sm font-bold transition-colors hover:bg-muted ${checked===SUBSTATION_ORIENTATION_KEYS.length?'border-destructive/50 text-destructive':'border-primary/25'}`} data-testid="button-toggle-all-orientation">{checked===SUBSTATION_ORIENTATION_KEYS.length?'Deselect all':'Select all'}</button>}
       </div>
-      <div className="orientation-progress" aria-label={`${checked} of ${SUBSTATION_ORIENTATION_KEYS.length} checklist items checked`}>
-        <span style={{width:`${(checked/SUBSTATION_ORIENTATION_KEYS.length)*100}%`}}/>
-      </div>
-       <div className="grid gap-3 p-4">{SUBSTATION_ORIENTATION_SECTIONS.map((section,index)=><fieldset key={section.title} className="orientation-section rounded-md border bg-card p-4">
+       <div className="grid gap-3 p-4">{SUBSTATION_ORIENTATION_GROUPED_SECTIONS.map((section,index)=><fieldset key={section.title} className="orientation-section rounded-md border bg-card p-4">
          <legend className="orientation-section-title mb-1 px-1"><span>{String(index+1).padStart(2,'0')}</span>{section.title}</legend>
-         <p className="orientation-section-description mb-3 pl-1 text-sm text-muted-foreground">{section.description}</p>
-         <div className="grid gap-2 sm:grid-cols-2">{section.items.map(([key,label])=><label key={key} className="orientation-check flex min-h-11 items-start gap-3 rounded border bg-card p-3 text-sm">
-           <input type="checkbox" disabled={!canEdit} checked={record.checklist[key]!==false} onChange={event=>updateChecklist({...record.checklist,[key]:event.target.checked})} className="mt-0.5 h-5 w-5 shrink-0" data-testid={`checkbox-orientation-${key}`}/>{label}
-        </label>)}</div>
+         <p className="orientation-section-description mb-3 pl-1 text-sm text-muted-foreground">{section.description} {section.items.length} tasks · {section.rows.length} rows.</p>
+         <div className="grid gap-2 sm:grid-cols-2">{section.rows.map(row=><GroupCheck key={row.id} id={row.id} keys={row.keys} label={row.label} checklist={record.checklist} disabled={!canEdit} onToggle={toggleGroup}/>)}</div>
       </fieldset>)}</div>
+      <div className="orientation-review-bar flex flex-wrap items-center justify-between gap-3 p-4">
+        <p className="text-sm" data-testid="text-orientation-review-status">{checklistReviewed?'Review confirmed. Any further edit clears this confirmation.':'After walking through every row with the PO, confirm the review below the list.'}</p>
+        {canEdit&&<button type="button" onClick={confirmChecklistReview} disabled={checklistReviewed} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-60" data-testid="button-confirm-orientation-review"><CheckCheck className="h-4 w-4"/>{checklistReviewed?'Review confirmed':'Confirm checklist review'}</button>}
+      </div>
     </Panel>
     <Panel title="Directives, SOP, and narrative" className="orientation-panel mt-4">
       <div className="grid gap-4 p-4">
@@ -137,6 +145,20 @@ export default function SubstationOrientationPage() {
        {canEdit&&<button type="button" onClick={save} className="min-h-11 rounded bg-primary px-5 font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90" data-testid="button-save-orientation">Save and start shift</button>}
       <Link href="/reports/new" className="inline-flex min-h-11 items-center rounded border bg-card px-4 text-sm font-semibold transition-colors hover:bg-muted">Continue to shift forms</Link>
     </div>
-     <PrintableSubstationOrientation record={record} pageReference={orientationPageReference} continuationPageReference={orientationContinuationPageReference}/>
+     <PrintableSubstationOrientation record={record} pageReference={orientationPageReference} continuationReferences={continuationReferences}/>
   </div>;
+}
+
+function GroupCheck({id,keys,label,checklist,disabled,onToggle}:{id:string;keys:readonly SubstationOrientationKey[];label:string;checklist:Record<string,boolean>;disabled:boolean;onToggle:(keys:readonly SubstationOrientationKey[],value:boolean)=>void}) {
+  const state=orientationGroupState(checklist,keys);
+  const ref=useRef<HTMLInputElement>(null);
+  useEffect(()=>{if(ref.current) ref.current.indeterminate=state.indeterminate;},[state.indeterminate]);
+  const covered=keys.filter(key=>checklist[key]!==false).length;
+  const labels=label.split('; ');
+  const grouped=keys.length>1;
+  return <label className={`orientation-check flex min-h-11 items-start gap-3 rounded border bg-card p-3 text-sm${grouped?' is-group':''}${state.indeterminate?' is-mixed':''}`} data-testid={`row-orientation-${id}`}>
+    <input ref={ref} type="checkbox" disabled={disabled} checked={state.checked} aria-checked={state.indeterminate?'mixed':state.checked} onChange={event=>onToggle(keys,event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" data-testid={`checkbox-orientation-${id}`}/>
+    {grouped?<span className="grid gap-1"><span className="font-semibold">{labels.length} tasks covered together</span><ul className="orientation-check-tasks">{labels.map(item=><li key={item}>{item}</li>)}</ul></span>:<span>{label}</span>}
+    {grouped&&<span className="orientation-check-count">{covered}/{keys.length}</span>}
+  </label>;
 }

@@ -364,3 +364,31 @@ mtime_ms = 1795429466401
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/e7ae7663-dfbd-45f4-9d0f-fd76774ba158/7babac0f-15c2-4378-9c8d-c779de6afa48"
 storage_version_token = "1795429522192200"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "z1sYJyTvgYiNwarekhwyk"
+uri = "file://generated-artifacts/packet-print-check/orientation-final.png"
+type = "image"
+title = "Updated orientation export"
+description = "Actual one-page rendering of the approved grouped walkthrough checklist, using fictional sample data and aligned interior boxes."
+logical_id = "acfb5b63-8381-4425-a00c-374d19889d6a"
+content_hash = "sha256:b68226e580e8bd550d9bae224d335419264cce464a0107ea2059c8807ef2e7f6"
+size = 231134
+mtime_ms = 1795430366409
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/acfb5b63-8381-4425-a00c-374d19889d6a/b72882c0-87f0-4dce-a603-e9d161ab7300"
+storage_version_token = "1795430465857489"
+content_type = "image/png"
+
+[[outputs]]
+id = "JhtUvH1WoTzve0SQWLxVj"
+uri = "file://generated-artifacts/packet-print-check/phase-start-short.pdf"
+type = "pdf"
+title = "Download the updated phase-start sample"
+description = "Four-page fictional test packet: orientation P1, Reporting for Duty P2, run P3, daily summary P4."
+logical_id = "1db0921e-eef0-4ed6-9835-3a6a151861ed"
+content_hash = "sha256:0820d1053c5916b2a6262d7bfcdd6c09dd1d042ee51794c933c717a996b0e844"
+size = 133356
+mtime_ms = 1795430348569
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/1db0921e-eef0-4ed6-9835-3a6a151861ed/6422bc38-acc0-49ec-bb52-ca009dcc50ba"
+storage_version_token = "1795430466447098"
+content_type = "application/pdf"
