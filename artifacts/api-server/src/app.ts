@@ -124,6 +124,30 @@ app.use(
   })),
 );
 
+// Development-only public entry point for fictional approval previews. The
+// /api path is intentionally excluded by the portal's old service worker,
+// which may otherwise replace every navigation with its cached sign-in shell.
+app.get("/api/preview", (req, res, next) => {
+  if (process.env.NODE_ENV === "production") {
+    res.status(404).json({ status: "error", error_code: "NOT_FOUND",
+      message: "The requested endpoint is unavailable." });
+    return;
+  }
+  if (req.query.component !== "PacketReviewPreview") { next(); return; }
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+  res.type("html").send(`<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Agency packet review preview</title>
+<script type="module">import { injectIntoGlobalHook } from "/__mockup/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;</script>
+<script type="module" src="/__mockup/@vite/client"></script>
+</head><body style="margin:0"><div id="root"></div><script type="module" src="/__mockup/src/main.tsx"></script></body></html>`);
+});
+
 app.use("/api", router);
 
 // The agency-release compiler removes this branch and its entire dependency

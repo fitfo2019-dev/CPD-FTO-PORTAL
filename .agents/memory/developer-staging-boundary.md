@@ -18,3 +18,14 @@ password requirement and stated the whole website will go to Columbus.
 **How to apply:** Do not treat staging approval as production approval. Never add
 private developer access to the agency system, describe snapshots accurately,
 and never copy secret values into source, snapshots, logs or documentation.
+
+Approval previews must be reachable without portal sign-in. Keep them separate
+from authenticated training screens and preserve the synthetic-data-only boundary.
+
+**Why:** The user reported that sign-in covered an approval preview and asked to
+fix it permanently. Root-scoped offline navigation can also replace a sibling
+artifact's page with the portal shell, even when server routing is correct.
+
+**How to apply:** Give explicit preview links and an auth-free entry point.
+Restrict offline shell navigation to portal-owned routes; exclude approval
+previews and other artifacts. Never solve preview access by opening real records.

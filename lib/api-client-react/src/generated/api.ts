@@ -43,9 +43,12 @@ import type {
   StagingTrainingEnvelope,
   StagingTrainingInput,
   StagingTrainingUpdate,
+  TrainingPacketAcknowledgmentInput,
+  TrainingPacketReviewInput,
   TrainingPacketSyncEnvelope,
   TrainingPacketSyncInput,
   TrainingPacketSyncReadinessEnvelope,
+  TrainingPacketWithdrawalInput,
   TrainingPacketsEnvelope
 } from './api.schemas';
 
@@ -1129,6 +1132,273 @@ export const useSyncTrainingPackets = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getSyncTrainingPacketsMutationOptions(options), queryClient);
+    }
+
+export const getReleaseTrainingPacketUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/training-packets/${id}/release`
+}
+
+/**
+ * @summary Release an explicitly reviewed committed snapshot as a class coordinator
+ */
+export const releaseTrainingPacket = async (id: string,
+    trainingPacketReviewInput: TrainingPacketReviewInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketsEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingPacketsEnvelope>(getReleaseTrainingPacketUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trainingPacketReviewInput)
+  }
+);}
+
+
+
+
+
+export const getReleaseTrainingPacketMutationKey = () => ['releaseTrainingPacket'] as const;
+
+export const getReleaseTrainingPacketMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseTrainingPacket>>, TError,ReleaseTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof releaseTrainingPacket>>, TError,ReleaseTrainingPacketMutationVariables, TContext> => {
+
+const mutationKey = getReleaseTrainingPacketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof releaseTrainingPacket>>, ReleaseTrainingPacketMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  releaseTrainingPacket(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReleaseTrainingPacketMutationResult = NonNullable<Awaited<ReturnType<typeof releaseTrainingPacket>>>
+    export type ReleaseTrainingPacketMutationBody = BodyType<TrainingPacketReviewInput>
+    export type ReleaseTrainingPacketMutationError = ErrorType<ApiError>
+    export type ReleaseTrainingPacketMutationVariables = {id: string;data: BodyType<TrainingPacketReviewInput>}
+
+    /**
+ * @summary Release an explicitly reviewed committed snapshot as a class coordinator
+ */
+export const useReleaseTrainingPacket = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseTrainingPacket>>, TError,ReleaseTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof releaseTrainingPacket>>,
+        TError,
+        ReleaseTrainingPacketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReleaseTrainingPacketMutationOptions(options), queryClient);
+    }
+
+export const getAcknowledgeTrainingPacketUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/training-packets/${id}/acknowledge`
+}
+
+/**
+ * @summary Record assigned PO review of the exact released snapshot, not an electronic signature
+ */
+export const acknowledgeTrainingPacket = async (id: string,
+    trainingPacketAcknowledgmentInput: TrainingPacketAcknowledgmentInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketsEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingPacketsEnvelope>(getAcknowledgeTrainingPacketUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trainingPacketAcknowledgmentInput)
+  }
+);}
+
+
+
+
+
+export const getAcknowledgeTrainingPacketMutationKey = () => ['acknowledgeTrainingPacket'] as const;
+
+export const getAcknowledgeTrainingPacketMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeTrainingPacket>>, TError,AcknowledgeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeTrainingPacket>>, TError,AcknowledgeTrainingPacketMutationVariables, TContext> => {
+
+const mutationKey = getAcknowledgeTrainingPacketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeTrainingPacket>>, AcknowledgeTrainingPacketMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  acknowledgeTrainingPacket(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgeTrainingPacketMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeTrainingPacket>>>
+    export type AcknowledgeTrainingPacketMutationBody = BodyType<TrainingPacketAcknowledgmentInput>
+    export type AcknowledgeTrainingPacketMutationError = ErrorType<ApiError>
+    export type AcknowledgeTrainingPacketMutationVariables = {id: string;data: BodyType<TrainingPacketAcknowledgmentInput>}
+
+    /**
+ * @summary Record assigned PO review of the exact released snapshot, not an electronic signature
+ */
+export const useAcknowledgeTrainingPacket = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeTrainingPacket>>, TError,AcknowledgeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgeTrainingPacket>>,
+        TError,
+        AcknowledgeTrainingPacketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAcknowledgeTrainingPacketMutationOptions(options), queryClient);
+    }
+
+export const getWithdrawTrainingPacketUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/training-packets/${id}/withdraw`
+}
+
+/**
+ * @summary Permanently withdraw a packet for correction without erasing its history
+ */
+export const withdrawTrainingPacket = async (id: string,
+    trainingPacketWithdrawalInput: TrainingPacketWithdrawalInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketsEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingPacketsEnvelope>(getWithdrawTrainingPacketUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trainingPacketWithdrawalInput)
+  }
+);}
+
+
+
+
+
+export const getWithdrawTrainingPacketMutationKey = () => ['withdrawTrainingPacket'] as const;
+
+export const getWithdrawTrainingPacketMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof withdrawTrainingPacket>>, TError,WithdrawTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof withdrawTrainingPacket>>, TError,WithdrawTrainingPacketMutationVariables, TContext> => {
+
+const mutationKey = getWithdrawTrainingPacketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof withdrawTrainingPacket>>, WithdrawTrainingPacketMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  withdrawTrainingPacket(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WithdrawTrainingPacketMutationResult = NonNullable<Awaited<ReturnType<typeof withdrawTrainingPacket>>>
+    export type WithdrawTrainingPacketMutationBody = BodyType<TrainingPacketWithdrawalInput>
+    export type WithdrawTrainingPacketMutationError = ErrorType<ApiError>
+    export type WithdrawTrainingPacketMutationVariables = {id: string;data: BodyType<TrainingPacketWithdrawalInput>}
+
+    /**
+ * @summary Permanently withdraw a packet for correction without erasing its history
+ */
+export const useWithdrawTrainingPacket = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof withdrawTrainingPacket>>, TError,WithdrawTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof withdrawTrainingPacket>>,
+        TError,
+        WithdrawTrainingPacketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getWithdrawTrainingPacketMutationOptions(options), queryClient);
     }
 
 export const getGetTrainingPacketUrl = (id: string,) => {

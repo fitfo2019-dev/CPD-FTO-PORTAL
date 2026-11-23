@@ -33,6 +33,8 @@ import { isTechnicalRole } from '@/lib/model.js';
 import { getNextReportDate } from '@/lib/training-calendar.js';
 import FtoClassesPage from '@/pages/fto-classes.js';
 import { PortalRouteSwitch, UiPreviewRouter } from '@/lib/portal-routing.js';
+import ApprovalPreviews from '@/pages/approval-previews.js';
+import AgencyPacketsPage from '@/pages/agency-packets.js';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -41,10 +43,6 @@ const clerkPubKey = publishableKeyFromHost(
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
 );
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
-
-if (!clerkPubKey) {
-  throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in the Field Training Officer Portal environment.');
-}
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -110,12 +108,28 @@ function SignInPage() {
         signUpUrl={`${basePath}/sign-up`}
         appearance={clerkAppearance}
       />
-      <a
-        href={`${basePath}/ui-preview`}
-        className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
-      >
-        Open disposable UI preview · fictional data only
-      </a>
+      {import.meta.env.DEV && (
+        <div className="flex flex-col items-center gap-3">
+          <a
+            href={`${basePath}/ui-preview`}
+            className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Open UI test preview · fictional data only
+          </a>
+          <a
+            href={`${basePath}/approval-preview`}
+            className="text-sm font-semibold text-primary underline"
+          >
+            Open approval previews · no sign-in needed
+          </a>
+          <a
+            href="/api/preview?component=PacketReviewPreview"
+            className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Open packet approval preview · fictional data only
+          </a>
+        </div>
+      )}
     </div>
   );
 }
@@ -170,6 +184,7 @@ function WorkspaceRoutes() {
     <Route component={RoleAccessPage}/>
   </Switch></RoutedErrorBoundary>;
   if (ws.role === 'po') return <RoutedErrorBoundary><Switch>
+    <Route path="/agency-packets" component={AgencyPacketsPage}/>
     <Route path="/resources" component={HelpPage}/>
     <Route path="/help"><Redirect to="/resources"/></Route>
     <Route path="/role-access" component={RoleAccessPage}/>
@@ -188,6 +203,7 @@ function WorkspaceRoutes() {
         <Route path="/substation-orientation" component={SubstationOrientationPage} />
         <Route path="/fto-forum" component={FtoForumPage} />
         <Route path="/reports" component={Reports} />
+        <Route path="/agency-packets" component={AgencyPacketsPage} />
          <Route path="/reports/new"><ShiftStartGate/></Route>
         <Route path="/reports/weekly-summary" component={WeeklySummaryPage} />
         <Route path="/reports/monthly-summary" component={MonthlySummaryPage} />
@@ -268,6 +284,9 @@ function AuthenticatedWorkspace() {
 
 function ClerkRoutes() {
   const [, setLocation] = useLocation();
+  if (!clerkPubKey) {
+    throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY in the Field Training Officer Portal environment.');
+  }
 
   return (
     <ClerkProvider
@@ -298,7 +317,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={basePath}>
-          <ClerkRoutes />
+          <Switch>
+            {import.meta.env.DEV && <Route path="/approval-preview" component={ApprovalPreviews} />}
+            <Route component={ClerkRoutes} />
+          </Switch>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

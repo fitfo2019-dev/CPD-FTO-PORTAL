@@ -352,6 +352,10 @@ export const listTrainingPacketsResponseDataItemReportRemedialMax = 100000;
 
 export const listTrainingPacketsResponseDataItemReportRecruitCommentsMax = 100000;
 
+export const listTrainingPacketsResponseDataItemContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const listTrainingPacketsResponseDataItemAcknowledgmentOneContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const listTrainingPacketsResponseDataItemAcknowledgmentOneCommentsMax = 4000;
+
 export const listTrainingPacketsResponseDataMax = 100;
 
 
@@ -386,7 +390,19 @@ export const ListTrainingPacketsResponse = zod.object({
   "narrative": zod.string().max(listTrainingPacketsResponseDataItemReportNarrativeMax),
   "remedial": zod.string().max(listTrainingPacketsResponseDataItemReportRemedialMax),
   "recruitComments": zod.string().max(listTrainingPacketsResponseDataItemReportRecruitCommentsMax)
-})
+}),
+  "content_hash": zod.string().regex(listTrainingPacketsResponseDataItemContentHashRegExp),
+  "released_to_po": zod.boolean(),
+  "released_at": zod.coerce.date().nullable(),
+  "withdrawn_at": zod.coerce.date().nullable(),
+  "withdrawal_reason": zod.string().nullable(),
+  "amendment_of": zod.string().nullable(),
+  "amendment_reason": zod.string().nullable(),
+  "acknowledgment": zod.union([zod.object({
+  "acknowledged_at": zod.coerce.date(),
+  "content_hash": zod.string().regex(listTrainingPacketsResponseDataItemAcknowledgmentOneContentHashRegExp),
+  "comments": zod.string().max(listTrainingPacketsResponseDataItemAcknowledgmentOneCommentsMax)
+}),zod.null()])
 })).max(listTrainingPacketsResponseDataMax)
 })
 
@@ -415,6 +431,12 @@ export const GetTrainingPacketSyncReadinessResponse = zod.object({
  * @summary Commit a batch of complete local packets as the assigned FTO
  */
 export const syncTrainingPacketsBodyPacketsItemBaseVersionMin = 0;
+
+export const syncTrainingPacketsBodyPacketsItemAmendmentOfMax = 128;
+
+
+export const syncTrainingPacketsBodyPacketsItemAmendmentOfRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+export const syncTrainingPacketsBodyPacketsItemAmendmentReasonMax = 4000;
 
 export const syncTrainingPacketsBodyPacketsItemReportIdMax = 128;
 
@@ -451,6 +473,8 @@ export const SyncTrainingPacketsBody = zod.object({
   "packets": zod.array(zod.object({
   "operation_id": zod.string().uuid(),
   "base_version": zod.number().int().min(syncTrainingPacketsBodyPacketsItemBaseVersionMin),
+  "amendment_of": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemAmendmentOfMax).regex(syncTrainingPacketsBodyPacketsItemAmendmentOfRegExp).optional(),
+  "amendment_reason": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemAmendmentReasonMax).optional(),
   "report": zod.object({
   "id": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportIdMax).regex(syncTrainingPacketsBodyPacketsItemReportIdRegExp),
   "date": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportDateRegExp),
@@ -494,6 +518,350 @@ export const SyncTrainingPacketsResponse = zod.object({
   "server_version": zod.number().int().min(1),
   "sync_status": zod.enum(['synchronized_complete'])
 })).max(syncTrainingPacketsResponseDataMax)
+})
+
+
+/**
+ * @summary Release an explicitly reviewed committed snapshot as a class coordinator
+ */
+export const releaseTrainingPacketPathIdMax = 128;
+
+
+export const releaseTrainingPacketPathIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+
+
+export const ReleaseTrainingPacketParams = zod.object({
+  "id": zod.string().min(1).max(releaseTrainingPacketPathIdMax).regex(releaseTrainingPacketPathIdRegExp)
+})
+
+export const releaseTrainingPacketBodyContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const ReleaseTrainingPacketBody = zod.object({
+  "operation_id": zod.string().uuid(),
+  "content_hash": zod.string().regex(releaseTrainingPacketBodyContentHashRegExp),
+  "review_confirmed": zod.literal(true)
+})
+
+export const releaseTrainingPacketResponseMetadataTotalRecordsMin = 0;
+export const releaseTrainingPacketResponseMetadataTotalRecordsMax = 100;
+
+export const releaseTrainingPacketResponseDataItemIdMax = 128;
+
+export const releaseTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const releaseTrainingPacketResponseDataItemPhaseMax = 4;
+
+
+export const releaseTrainingPacketResponseDataItemReportIdMax = 128;
+
+
+export const releaseTrainingPacketResponseDataItemReportIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+export const releaseTrainingPacketResponseDataItemReportDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const releaseTrainingPacketResponseDataItemReportPhaseMax = 4;
+
+export const releaseTrainingPacketResponseDataItemReportClassNameMax = 120;
+
+export const releaseTrainingPacketResponseDataItemReportRecruitNameMax = 120;
+
+export const releaseTrainingPacketResponseDataItemReportRecruitBadgeMax = 40;
+
+export const releaseTrainingPacketResponseDataItemReportFtoNameMax = 120;
+
+export const releaseTrainingPacketResponseDataItemReportFtoBadgeMax = 40;
+
+export const releaseTrainingPacketResponseDataItemReportRunsMax = 200;
+
+export const releaseTrainingPacketResponseDataItemReportActivityMinOne = 0;
+
+export const releaseTrainingPacketResponseDataItemReportNarrativeMax = 100000;
+
+export const releaseTrainingPacketResponseDataItemReportRemedialMax = 100000;
+
+export const releaseTrainingPacketResponseDataItemReportRecruitCommentsMax = 100000;
+
+export const releaseTrainingPacketResponseDataItemContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const releaseTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const releaseTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax = 4000;
+
+export const releaseTrainingPacketResponseDataMax = 100;
+
+
+
+export const ReleaseTrainingPacketResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(releaseTrainingPacketResponseMetadataTotalRecordsMin).max(releaseTrainingPacketResponseMetadataTotalRecordsMax),
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(releaseTrainingPacketResponseDataItemIdMax),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string().regex(releaseTrainingPacketResponseDataItemRecordDateRegExp),
+  "phase": zod.number().int().min(1).max(releaseTrainingPacketResponseDataItemPhaseMax),
+  "server_version": zod.number().int().min(1),
+  "sync_status": zod.enum(['synchronized_complete']),
+  "report": zod.object({
+  "id": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportIdMax).regex(releaseTrainingPacketResponseDataItemReportIdRegExp),
+  "date": zod.string().regex(releaseTrainingPacketResponseDataItemReportDateRegExp),
+  "phase": zod.number().int().min(1).max(releaseTrainingPacketResponseDataItemReportPhaseMax),
+  "className": zod.string().max(releaseTrainingPacketResponseDataItemReportClassNameMax),
+  "recruitName": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportRecruitBadgeMax),
+  "ftoName": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportFtoNameMax),
+  "ftoBadge": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportFtoBadgeMax),
+  "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(releaseTrainingPacketResponseDataItemReportRunsMax),
+  "activity": zod.record(zod.string(), zod.number().int().min(releaseTrainingPacketResponseDataItemReportActivityMinOne)),
+  "reportingForDuty": zod.record(zod.string(), zod.unknown()),
+  "ratings": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
+  "narrative": zod.string().max(releaseTrainingPacketResponseDataItemReportNarrativeMax),
+  "remedial": zod.string().max(releaseTrainingPacketResponseDataItemReportRemedialMax),
+  "recruitComments": zod.string().max(releaseTrainingPacketResponseDataItemReportRecruitCommentsMax)
+}),
+  "content_hash": zod.string().regex(releaseTrainingPacketResponseDataItemContentHashRegExp),
+  "released_to_po": zod.boolean(),
+  "released_at": zod.coerce.date().nullable(),
+  "withdrawn_at": zod.coerce.date().nullable(),
+  "withdrawal_reason": zod.string().nullable(),
+  "amendment_of": zod.string().nullable(),
+  "amendment_reason": zod.string().nullable(),
+  "acknowledgment": zod.union([zod.object({
+  "acknowledged_at": zod.coerce.date(),
+  "content_hash": zod.string().regex(releaseTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp),
+  "comments": zod.string().max(releaseTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax)
+}),zod.null()])
+})).max(releaseTrainingPacketResponseDataMax)
+})
+
+
+/**
+ * @summary Record assigned PO review of the exact released snapshot, not an electronic signature
+ */
+export const acknowledgeTrainingPacketPathIdMax = 128;
+
+
+export const acknowledgeTrainingPacketPathIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+
+
+export const AcknowledgeTrainingPacketParams = zod.object({
+  "id": zod.string().min(1).max(acknowledgeTrainingPacketPathIdMax).regex(acknowledgeTrainingPacketPathIdRegExp)
+})
+
+export const acknowledgeTrainingPacketBodyContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const acknowledgeTrainingPacketBodyCommentsMax = 4000;
+
+
+
+export const AcknowledgeTrainingPacketBody = zod.object({
+  "operation_id": zod.string().uuid(),
+  "content_hash": zod.string().regex(acknowledgeTrainingPacketBodyContentHashRegExp),
+  "review_confirmed": zod.literal(true),
+  "comments": zod.string().max(acknowledgeTrainingPacketBodyCommentsMax).optional()
+})
+
+export const acknowledgeTrainingPacketResponseMetadataTotalRecordsMin = 0;
+export const acknowledgeTrainingPacketResponseMetadataTotalRecordsMax = 100;
+
+export const acknowledgeTrainingPacketResponseDataItemIdMax = 128;
+
+export const acknowledgeTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const acknowledgeTrainingPacketResponseDataItemPhaseMax = 4;
+
+
+export const acknowledgeTrainingPacketResponseDataItemReportIdMax = 128;
+
+
+export const acknowledgeTrainingPacketResponseDataItemReportIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+export const acknowledgeTrainingPacketResponseDataItemReportDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const acknowledgeTrainingPacketResponseDataItemReportPhaseMax = 4;
+
+export const acknowledgeTrainingPacketResponseDataItemReportClassNameMax = 120;
+
+export const acknowledgeTrainingPacketResponseDataItemReportRecruitNameMax = 120;
+
+export const acknowledgeTrainingPacketResponseDataItemReportRecruitBadgeMax = 40;
+
+export const acknowledgeTrainingPacketResponseDataItemReportFtoNameMax = 120;
+
+export const acknowledgeTrainingPacketResponseDataItemReportFtoBadgeMax = 40;
+
+export const acknowledgeTrainingPacketResponseDataItemReportRunsMax = 200;
+
+export const acknowledgeTrainingPacketResponseDataItemReportActivityMinOne = 0;
+
+export const acknowledgeTrainingPacketResponseDataItemReportNarrativeMax = 100000;
+
+export const acknowledgeTrainingPacketResponseDataItemReportRemedialMax = 100000;
+
+export const acknowledgeTrainingPacketResponseDataItemReportRecruitCommentsMax = 100000;
+
+export const acknowledgeTrainingPacketResponseDataItemContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const acknowledgeTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const acknowledgeTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax = 4000;
+
+export const acknowledgeTrainingPacketResponseDataMax = 100;
+
+
+
+export const AcknowledgeTrainingPacketResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(acknowledgeTrainingPacketResponseMetadataTotalRecordsMin).max(acknowledgeTrainingPacketResponseMetadataTotalRecordsMax),
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemIdMax),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemRecordDateRegExp),
+  "phase": zod.number().int().min(1).max(acknowledgeTrainingPacketResponseDataItemPhaseMax),
+  "server_version": zod.number().int().min(1),
+  "sync_status": zod.enum(['synchronized_complete']),
+  "report": zod.object({
+  "id": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportIdMax).regex(acknowledgeTrainingPacketResponseDataItemReportIdRegExp),
+  "date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportDateRegExp),
+  "phase": zod.number().int().min(1).max(acknowledgeTrainingPacketResponseDataItemReportPhaseMax),
+  "className": zod.string().max(acknowledgeTrainingPacketResponseDataItemReportClassNameMax),
+  "recruitName": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportRecruitBadgeMax),
+  "ftoName": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportFtoNameMax),
+  "ftoBadge": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportFtoBadgeMax),
+  "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(acknowledgeTrainingPacketResponseDataItemReportRunsMax),
+  "activity": zod.record(zod.string(), zod.number().int().min(acknowledgeTrainingPacketResponseDataItemReportActivityMinOne)),
+  "reportingForDuty": zod.record(zod.string(), zod.unknown()),
+  "ratings": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
+  "narrative": zod.string().max(acknowledgeTrainingPacketResponseDataItemReportNarrativeMax),
+  "remedial": zod.string().max(acknowledgeTrainingPacketResponseDataItemReportRemedialMax),
+  "recruitComments": zod.string().max(acknowledgeTrainingPacketResponseDataItemReportRecruitCommentsMax)
+}),
+  "content_hash": zod.string().regex(acknowledgeTrainingPacketResponseDataItemContentHashRegExp),
+  "released_to_po": zod.boolean(),
+  "released_at": zod.coerce.date().nullable(),
+  "withdrawn_at": zod.coerce.date().nullable(),
+  "withdrawal_reason": zod.string().nullable(),
+  "amendment_of": zod.string().nullable(),
+  "amendment_reason": zod.string().nullable(),
+  "acknowledgment": zod.union([zod.object({
+  "acknowledged_at": zod.coerce.date(),
+  "content_hash": zod.string().regex(acknowledgeTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp),
+  "comments": zod.string().max(acknowledgeTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax)
+}),zod.null()])
+})).max(acknowledgeTrainingPacketResponseDataMax)
+})
+
+
+/**
+ * @summary Permanently withdraw a packet for correction without erasing its history
+ */
+export const withdrawTrainingPacketPathIdMax = 128;
+
+
+export const withdrawTrainingPacketPathIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+
+
+export const WithdrawTrainingPacketParams = zod.object({
+  "id": zod.string().min(1).max(withdrawTrainingPacketPathIdMax).regex(withdrawTrainingPacketPathIdRegExp)
+})
+
+export const withdrawTrainingPacketBodyContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const withdrawTrainingPacketBodyReasonMax = 4000;
+
+
+
+export const WithdrawTrainingPacketBody = zod.object({
+  "operation_id": zod.string().uuid(),
+  "content_hash": zod.string().regex(withdrawTrainingPacketBodyContentHashRegExp),
+  "reason": zod.string().min(1).max(withdrawTrainingPacketBodyReasonMax)
+})
+
+export const withdrawTrainingPacketResponseMetadataTotalRecordsMin = 0;
+export const withdrawTrainingPacketResponseMetadataTotalRecordsMax = 100;
+
+export const withdrawTrainingPacketResponseDataItemIdMax = 128;
+
+export const withdrawTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const withdrawTrainingPacketResponseDataItemPhaseMax = 4;
+
+
+export const withdrawTrainingPacketResponseDataItemReportIdMax = 128;
+
+
+export const withdrawTrainingPacketResponseDataItemReportIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+export const withdrawTrainingPacketResponseDataItemReportDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const withdrawTrainingPacketResponseDataItemReportPhaseMax = 4;
+
+export const withdrawTrainingPacketResponseDataItemReportClassNameMax = 120;
+
+export const withdrawTrainingPacketResponseDataItemReportRecruitNameMax = 120;
+
+export const withdrawTrainingPacketResponseDataItemReportRecruitBadgeMax = 40;
+
+export const withdrawTrainingPacketResponseDataItemReportFtoNameMax = 120;
+
+export const withdrawTrainingPacketResponseDataItemReportFtoBadgeMax = 40;
+
+export const withdrawTrainingPacketResponseDataItemReportRunsMax = 200;
+
+export const withdrawTrainingPacketResponseDataItemReportActivityMinOne = 0;
+
+export const withdrawTrainingPacketResponseDataItemReportNarrativeMax = 100000;
+
+export const withdrawTrainingPacketResponseDataItemReportRemedialMax = 100000;
+
+export const withdrawTrainingPacketResponseDataItemReportRecruitCommentsMax = 100000;
+
+export const withdrawTrainingPacketResponseDataItemContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const withdrawTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const withdrawTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax = 4000;
+
+export const withdrawTrainingPacketResponseDataMax = 100;
+
+
+
+export const WithdrawTrainingPacketResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(withdrawTrainingPacketResponseMetadataTotalRecordsMin).max(withdrawTrainingPacketResponseMetadataTotalRecordsMax),
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemIdMax),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string().regex(withdrawTrainingPacketResponseDataItemRecordDateRegExp),
+  "phase": zod.number().int().min(1).max(withdrawTrainingPacketResponseDataItemPhaseMax),
+  "server_version": zod.number().int().min(1),
+  "sync_status": zod.enum(['synchronized_complete']),
+  "report": zod.object({
+  "id": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportIdMax).regex(withdrawTrainingPacketResponseDataItemReportIdRegExp),
+  "date": zod.string().regex(withdrawTrainingPacketResponseDataItemReportDateRegExp),
+  "phase": zod.number().int().min(1).max(withdrawTrainingPacketResponseDataItemReportPhaseMax),
+  "className": zod.string().max(withdrawTrainingPacketResponseDataItemReportClassNameMax),
+  "recruitName": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportRecruitBadgeMax),
+  "ftoName": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportFtoNameMax),
+  "ftoBadge": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportFtoBadgeMax),
+  "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(withdrawTrainingPacketResponseDataItemReportRunsMax),
+  "activity": zod.record(zod.string(), zod.number().int().min(withdrawTrainingPacketResponseDataItemReportActivityMinOne)),
+  "reportingForDuty": zod.record(zod.string(), zod.unknown()),
+  "ratings": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
+  "narrative": zod.string().max(withdrawTrainingPacketResponseDataItemReportNarrativeMax),
+  "remedial": zod.string().max(withdrawTrainingPacketResponseDataItemReportRemedialMax),
+  "recruitComments": zod.string().max(withdrawTrainingPacketResponseDataItemReportRecruitCommentsMax)
+}),
+  "content_hash": zod.string().regex(withdrawTrainingPacketResponseDataItemContentHashRegExp),
+  "released_to_po": zod.boolean(),
+  "released_at": zod.coerce.date().nullable(),
+  "withdrawn_at": zod.coerce.date().nullable(),
+  "withdrawal_reason": zod.string().nullable(),
+  "amendment_of": zod.string().nullable(),
+  "amendment_reason": zod.string().nullable(),
+  "acknowledgment": zod.union([zod.object({
+  "acknowledged_at": zod.coerce.date(),
+  "content_hash": zod.string().regex(withdrawTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp),
+  "comments": zod.string().max(withdrawTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax)
+}),zod.null()])
+})).max(withdrawTrainingPacketResponseDataMax)
 })
 
 
@@ -546,6 +914,10 @@ export const getTrainingPacketResponseDataItemReportRemedialMax = 100000;
 
 export const getTrainingPacketResponseDataItemReportRecruitCommentsMax = 100000;
 
+export const getTrainingPacketResponseDataItemContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const getTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const getTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax = 4000;
+
 export const getTrainingPacketResponseDataMax = 100;
 
 
@@ -580,7 +952,19 @@ export const GetTrainingPacketResponse = zod.object({
   "narrative": zod.string().max(getTrainingPacketResponseDataItemReportNarrativeMax),
   "remedial": zod.string().max(getTrainingPacketResponseDataItemReportRemedialMax),
   "recruitComments": zod.string().max(getTrainingPacketResponseDataItemReportRecruitCommentsMax)
-})
+}),
+  "content_hash": zod.string().regex(getTrainingPacketResponseDataItemContentHashRegExp),
+  "released_to_po": zod.boolean(),
+  "released_at": zod.coerce.date().nullable(),
+  "withdrawn_at": zod.coerce.date().nullable(),
+  "withdrawal_reason": zod.string().nullable(),
+  "amendment_of": zod.string().nullable(),
+  "amendment_reason": zod.string().nullable(),
+  "acknowledgment": zod.union([zod.object({
+  "acknowledged_at": zod.coerce.date(),
+  "content_hash": zod.string().regex(getTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp),
+  "comments": zod.string().max(getTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax)
+}),zod.null()])
 })).max(getTrainingPacketResponseDataMax)
 })
 

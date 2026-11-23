@@ -11,5 +11,16 @@ export interface TrainingPacketSyncItem {
   operation_id: string;
   /** @minimum 0 */
   base_version: number;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+     */
+  amendment_of?: string;
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
+  amendment_reason?: string;
   report: TrainingPacketReport;
 }

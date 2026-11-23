@@ -434,3 +434,17 @@ mtime_ms = 1795443648214
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/5c531d2f-b3f4-48b0-9d62-130277b2eaf2/454ae943-9b38-4bb8-9c24-a2d35022408b"
 storage_version_token = "1795443685291920"
 content_type = "text/html"
+
+[[outputs]]
+id = "dZnE4NACGTPjvTQ3WERVs"
+uri = "file://generated-artifacts/packet-review-approval-preview.jpg"
+type = "image"
+title = "Packet review preview — no sign-in"
+description = "Screenshot of the new public development-only preview entry. The interactive preview remains isolated and uses fictional records only."
+logical_id = "0e805cd5-0bb1-41c3-bc4c-3c9f718dd805"
+content_hash = "sha256:b81f4074ef3c6f5abd99689c07393ce08e9924356ca3a40f24ab1e5785a12721"
+size = 97470
+mtime_ms = 1795443826169
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/0e805cd5-0bb1-41c3-bc4c-3c9f718dd805/b117e217-6840-4b25-8998-f4a2eb1f119b"
+storage_version_token = "1795443834288366"
+content_type = "image/jpeg"

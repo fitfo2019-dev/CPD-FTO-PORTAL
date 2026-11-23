@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { TrainingPacketAcknowledgment } from './trainingPacketAcknowledgment';
 import type { TrainingPacketRecordSyncStatus } from './trainingPacketRecordSyncStatus';
 import type { TrainingPacketReport } from './trainingPacketReport';
 
@@ -26,4 +27,18 @@ export interface TrainingPacketRecord {
   server_version: number;
   sync_status: TrainingPacketRecordSyncStatus;
   report: TrainingPacketReport;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
+  released_to_po: boolean;
+  /** @nullable */
+  released_at: Date | null;
+  /** @nullable */
+  withdrawn_at: Date | null;
+  /** @nullable */
+  withdrawal_reason: string | null;
+  /** @nullable */
+  amendment_of: string | null;
+  /** @nullable */
+  amendment_reason: string | null;
+  acknowledgment: TrainingPacketAcknowledgment | null;
 }

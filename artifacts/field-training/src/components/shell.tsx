@@ -22,6 +22,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/reports/new', label: 'Shifts & Runs', icon: ClipboardList },
     { href: '/reports', label: 'Daily Records', icon: FileText },
     { href: '/reports/weekly-summary', label: 'Weekly Packets', icon: ClipboardList },
+    { href: '/agency-packets', label: 'Agency packets', icon: FileText },
     RESOURCES,
   ],
   fto_coordinator: [
@@ -30,6 +31,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/phase-setup', label: 'Assignments', icon: FolderOpen },
     { href: '/substitute-fto', label: 'Coverage', icon: Users },
     { href: '/reports/weekly-summary', label: 'Packet Monitor', icon: ClipboardList },
+    { href: '/agency-packets', label: 'Agency packets', icon: FileText },
     RESOURCES,
   ],
   fto_coc: [
@@ -37,6 +39,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     RESOURCES,
   ],
   po: [
+    { href: '/agency-packets', label: 'Agency packets', icon: FileText },
     { href: '/role-access', label: 'Account Access', icon: Lock },
     RESOURCES,
   ],

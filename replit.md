@@ -46,6 +46,9 @@ Current application: dashboard, Daily Performance Log builder, training competen
 
 ## User preferences
 
+Use professional grammar and punctuation throughout the site. Before integrating
+requested interface copy changes, show the user a preview and get approval.
+
 Follow the current FTO manual and the workflow requirements below. Use the exact descriptive rating labels and SEG definitions; do not create numeric performance scores.
 
 ### Verified manual and Columbus geography

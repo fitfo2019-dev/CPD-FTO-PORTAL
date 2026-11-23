@@ -1,9 +1,10 @@
 import { Router, json, type RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
-import { SyncTrainingPacketsResponse, GetTrainingPacketParams } from "@workspace/api-zod";
+import { SyncTrainingPacketsResponse, GetTrainingPacketParams, ReleaseTrainingPacketBody,
+  AcknowledgeTrainingPacketBody, WithdrawTrainingPacketBody } from "@workspace/api-zod";
 import { CompletePacketInput, CompletePacketsEnvelope } from "../lib/packet-contract.js";
 import { requireAgencyIdentity, type AgencyIdentity } from "../security/agencyIdentity.js";
-import { getAgencyPacketStore, PacketError, type AgencyPacketStore } from "../lib/agency-packet-store.js";
+import { getAgencyPacketStore, PacketError, type AgencyPacketStore, type PacketReviewAction } from "../lib/agency-packet-store.js";
 import { recordPayloadSize } from "../middlewares/audit-request.js";
 
 /** A bounded JSON tree rejects prototype keys, embedded file bytes and
@@ -37,6 +38,35 @@ export function createTrainingPacketsRouter(
     res.json({ status: "success", metadata: { can_sync: Boolean(resolveStore()) },
       data: [{ automatic_sync_allowed: false }] });
   });
+  for (const action of ["release", "withdraw", "acknowledge"] as const satisfies readonly PacketReviewAction[]) {
+    const schema = action === "release" ? ReleaseTrainingPacketBody.strict() :
+      action === "withdraw" ? WithdrawTrainingPacketBody.strict() : AcknowledgeTrainingPacketBody.strict();
+    router.post(`/v1/training-packets/:id/${action}`, async (req, res): Promise<void> => {
+      const identity = res.locals.agencyIdentity as AgencyIdentity;
+      if (identity.role !== (action === "acknowledge" ? "PO" : "FTO_COORDINATOR")) {
+        sendPacketError(res, new PacketError(403, "PACKET_REVIEW_FORBIDDEN"));
+        return;
+      }
+      const params = GetTrainingPacketParams.safeParse(req.params);
+      const body = schema.safeParse(req.body);
+      if (!params.success || !body.success || !safePacketTree(req.body) ||
+        ("reason" in body.data && !body.data.reason?.trim())) {
+        sendPacketError(res, new PacketError(400, "INVALID_PACKET_REVIEW"));
+        return;
+      }
+      try {
+        const store = resolveStore();
+        if (!store) throw new PacketError(503, "AGENCY_STORAGE_UNAVAILABLE");
+        const data = await store.review(identity, {
+          requestId: typeof req.id === "string" ? req.id : randomUUID(),
+          clientIp: req.ip || req.socket.remoteAddress || "unknown",
+        }, params.data.id, action, body.data);
+        res.json(CompletePacketsEnvelope.parse({
+          status: "success", metadata: { total_records: data.length, role: identity.role }, data,
+        }));
+      } catch (error) { sendPacketError(res, error); }
+    });
+  }
   router.post("/v1/training-packets/sync", async (req, res) => {
     const identity = res.locals.agencyIdentity as AgencyIdentity;
     if (identity.role !== "FTO") {
@@ -48,7 +78,9 @@ export function createTrainingPacketsRouter(
     if (!parsed.success || !safePacketTree(req.body) ||
       new Set(parsed.data.packets.map(item => item.report.id)).size !== parsed.data.packets.length ||
       new Set(parsed.data.packets.map(item => item.operation_id)).size !== parsed.data.packets.length ||
-      parsed.data.packets.some(item => !/^\d{4}-\d{2}-\d{2}$/.test(item.report.date) ||
+      parsed.data.packets.some(item =>
+        Boolean(item.amendment_of) !== Boolean(item.amendment_reason?.trim()) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(item.report.date) ||
         Number.isNaN(Date.parse(item.report.date)) ||
         new Date(item.report.date).toISOString().slice(0, 10) !== item.report.date ||
         !completeReportStructure(item.report) ||

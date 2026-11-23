@@ -294,6 +294,17 @@ export interface TrainingPacketSyncItem {
   operation_id: string;
   /** @minimum 0 */
   base_version: number;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+     */
+  amendment_of?: string;
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
+  amendment_reason?: string;
   report: TrainingPacketReport;
 }
 
@@ -354,6 +365,41 @@ export interface TrainingPacketSyncEnvelope {
   data: TrainingPacketSyncRecord[];
 }
 
+export interface TrainingPacketReviewInput {
+  operation_id: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
+  review_confirmed: true;
+}
+
+export interface TrainingPacketAcknowledgmentInput {
+  operation_id: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
+  review_confirmed: true;
+  /** @maxLength 4000 */
+  comments?: string;
+}
+
+export interface TrainingPacketWithdrawalInput {
+  operation_id: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
+  reason: string;
+}
+
+export interface TrainingPacketAcknowledgment {
+  acknowledged_at: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
+  /** @maxLength 4000 */
+  comments: string;
+}
+
 export type TrainingPacketRecordSyncStatus = typeof TrainingPacketRecordSyncStatus[keyof typeof TrainingPacketRecordSyncStatus];
 
 
@@ -379,6 +425,20 @@ export interface TrainingPacketRecord {
   server_version: number;
   sync_status: TrainingPacketRecordSyncStatus;
   report: TrainingPacketReport;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
+  released_to_po: boolean;
+  /** @nullable */
+  released_at: string | null;
+  /** @nullable */
+  withdrawn_at: string | null;
+  /** @nullable */
+  withdrawal_reason: string | null;
+  /** @nullable */
+  amendment_of: string | null;
+  /** @nullable */
+  amendment_reason: string | null;
+  acknowledgment: TrainingPacketAcknowledgment | null;
 }
 
 export type TrainingPacketsEnvelopeStatus = typeof TrainingPacketsEnvelopeStatus[keyof typeof TrainingPacketsEnvelopeStatus];

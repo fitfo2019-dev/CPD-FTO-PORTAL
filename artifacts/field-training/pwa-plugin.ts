@@ -2,6 +2,7 @@ import type { Plugin } from "vite";
 import { readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createPortalWorker, retirePortalWorker } from "./pwa-worker.js";
 
 const PUBLIC_ROOT = join(dirname(fileURLToPath(import.meta.url)), "public");
 
@@ -19,7 +20,16 @@ function publicFiles(directory = PUBLIC_ROOT): string[] {
 export function fieldReadyPwa(base: string): Plugin {
   return {
     name: "fieldready-static-precache",
-    apply: "build",
+    configureServer(server) {
+      const basePath = base.endsWith("/") ? base : `${base}/`;
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.split("?")[0] !== `${basePath}sw.js`) { next(); return; }
+        res.setHeader("Content-Type", "application/javascript");
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Service-Worker-Allowed", basePath);
+        res.end(retirePortalWorker);
+      });
+    },
     generateBundle(_options, bundle) {
       const basePath = base.endsWith("/") ? base : `${base}/`;
       const files = Object.keys(bundle).filter(name => /\.(js|css|html|svg|woff2?|png|jpe?g|webp|ico|webmanifest|txt)$/i.test(name));
@@ -31,33 +41,7 @@ export function fieldReadyPwa(base: string): Plugin {
       const version = files.filter(name => /assets\/.*\.(js|css)$/.test(name)).join("|");
       this.emitFile({
         type: "asset", fileName: "sw.js",
-        source: `
-const PREFIX = 'fieldready-shell-';
-const CACHE = PREFIX + ${JSON.stringify(version)};
-const URLS = ${JSON.stringify(urls)};
-const SCOPE = new URL(self.registration.scope);
-const ALLOWED = new Set(URLS.map(path => new URL(path, SCOPE.origin).href));
-self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(URLS)));
-});
-self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(
-    keys.filter(key => key.startsWith(PREFIX) && key !== CACHE).map(key => caches.delete(key))
-  )).then(() => self.clients.claim()));
-});
-self.addEventListener('fetch', event => {
-  const req = event.request;
-  const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== SCOPE.origin ||
-      !url.pathname.startsWith(SCOPE.pathname) || /(^|\\/)api(\\/|$)/.test(url.pathname)) return;
-  if (req.mode === 'navigate') {
-    // An installed shell is tied to its version, avoiding mixed old/new bundles.
-    event.respondWith(caches.match(SCOPE.href).then(hit => hit || fetch(req)));
-  } else if (ALLOWED.has(url.href)) {
-    event.respondWith(caches.match(req).then(hit => hit || fetch(req)));
-  }
-});
-`,
+        source: createPortalWorker(basePath, urls, version),
       });
     },
   };

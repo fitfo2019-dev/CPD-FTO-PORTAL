@@ -281,6 +281,75 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/release:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" } }
+    post:
+      operationId: releaseTrainingPacket
+      tags: [training-packets]
+      summary: Release an explicitly reviewed committed snapshot as a class coordinator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketReviewInput" }
+      responses:
+        "200":
+          description: Server-owned packet workflow state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        default:
+          description: Authentication, scope, conflict, validation or storage error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/acknowledge:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" } }
+    post:
+      operationId: acknowledgeTrainingPacket
+      tags: [training-packets]
+      summary: Record assigned PO review of the exact released snapshot, not an electronic signature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketAcknowledgmentInput" }
+      responses:
+        "200":
+          description: Server-owned packet workflow state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        default:
+          description: Authentication, scope, conflict, validation or storage error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/withdraw:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" } }
+    post:
+      operationId: withdrawTrainingPacket
+      tags: [training-packets]
+      summary: Permanently withdraw a packet for correction without erasing its history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketWithdrawalInput" }
+      responses:
+        "200":
+          description: Server-owned packet workflow state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        default:
+          description: Authentication, scope, conflict, validation or storage error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
   /v1/training-packets/{id}:
     parameters:
       - name: id
@@ -714,6 +783,8 @@ components:
       properties:
         operation_id: { type: string, format: uuid }
         base_version: { type: integer, minimum: 0 }
+        amendment_of: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+        amendment_reason: { type: string, minLength: 1, maxLength: 4000 }
         report: { $ref: "#/components/schemas/TrainingPacketReport" }
     TrainingPacketSyncInput:
       type: object
@@ -751,10 +822,43 @@ components:
           type: array
           maxItems: 100
           items: { $ref: "#/components/schemas/TrainingPacketSyncRecord" }
+    TrainingPacketReviewInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, content_hash, review_confirmed]
+      properties:
+        operation_id: { type: string, format: uuid }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        review_confirmed: { type: boolean, enum: [true] }
+    TrainingPacketAcknowledgmentInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, content_hash, review_confirmed]
+      properties:
+        operation_id: { type: string, format: uuid }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        review_confirmed: { type: boolean, enum: [true] }
+        comments: { type: string, maxLength: 4000 }
+    TrainingPacketWithdrawalInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, content_hash, reason]
+      properties:
+        operation_id: { type: string, format: uuid }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        reason: { type: string, minLength: 1, maxLength: 4000 }
+    TrainingPacketAcknowledgment:
+      type: object
+      additionalProperties: false
+      required: [acknowledged_at, content_hash, comments]
+      properties:
+        acknowledged_at: { type: string, format: date-time }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        comments: { type: string, maxLength: 4000 }
     TrainingPacketRecord:
       type: object
       additionalProperties: false
-      required: [id, assignment_id, record_date, phase, server_version, sync_status, report]
+      required: [id, assignment_id, record_date, phase, server_version, sync_status, report, content_hash, released_to_po, released_at, withdrawn_at, withdrawal_reason, acknowledgment, amendment_of, amendment_reason]
       properties:
         id: { type: string, minLength: 1, maxLength: 128 }
         assignment_id: { type: string, format: uuid }
@@ -763,6 +867,17 @@ components:
         server_version: { type: integer, minimum: 1 }
         sync_status: { type: string, enum: [synchronized_complete] }
         report: { $ref: "#/components/schemas/TrainingPacketReport" }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        released_to_po: { type: boolean }
+        released_at: { type: ["string", "null"], format: date-time }
+        withdrawn_at: { type: ["string", "null"], format: date-time }
+        withdrawal_reason: { type: ["string", "null"] }
+        amendment_of: { type: ["string", "null"] }
+        amendment_reason: { type: ["string", "null"] }
+        acknowledgment:
+          oneOf:
+            - { $ref: "#/components/schemas/TrainingPacketAcknowledgment" }
+            - { type: "null" }
     TrainingPacketsEnvelope:
       type: object
       additionalProperties: false

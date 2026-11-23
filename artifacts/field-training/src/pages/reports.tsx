@@ -25,6 +25,7 @@ export default function Reports() {
   return (
     <div>
       <PageHead kicker="Saved shift records · Daily Performance Log · U-10.174" title={list.length + ' of ' + ws.reports.length + ' records'}>
+        <Link href="/agency-packets" className="h-10 px-4 rounded border bg-card font-bold text-sm inline-flex items-center gap-2">Agency packet review</Link>
         <Link href="/reports/weekly-summary" data-testid="link-weekly-summary" className="h-10 px-4 rounded border bg-card font-bold text-sm inline-flex items-center gap-2">Weekly Performance Summary · U-10.173</Link>
         <Link href="/reports/monthly-summary" data-testid="link-monthly-summary" className="h-10 px-4 rounded border bg-card font-bold text-sm inline-flex items-center gap-2">Monthly Performance Summary</Link>
         <Link href="/reports/weekly-ack" data-testid="link-weekly-acknowledgement" className="h-10 px-4 rounded border bg-card font-bold text-sm inline-flex items-center gap-2">Weekly Packet Acknowledgement</Link>

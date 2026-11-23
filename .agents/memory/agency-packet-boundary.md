@@ -21,3 +21,15 @@ identity across vault restoration; schema normalization must not replace it.
 
 **Why:** A request can commit server-side before its response is lost. Replacing
 its retry identity after restoration strands the locally pending packet.
+
+Packet review must remain distinct from electronic signatures. Release and PO
+acknowledgment refer to an exact immutable snapshot. Corrections permanently
+withdraw the original and append a linked replacement with fresh review; never
+overwrite an acknowledged record or carry its acknowledgment forward.
+
+**Why:** Upload and browser signature/status objects are not trusted approval
+evidence. Retaining originals prevents corrections from rewriting what a PO
+actually reviewed.
+
+**How to apply:** Derive workflow state, actors and times on the server; retain
+withdrawn history for authorized staff and hide withdrawn packets from PO reads.

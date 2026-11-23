@@ -128,15 +128,26 @@ function getPreviewExamplePath(): string {
 }
 
 function Gallery() {
+  const basePath = getBasePath();
+  const previews = Object.keys(discoveredModules).map(path =>
+    path.replace("./components/mockups/", "").replace(/\.tsx$/, ""),
+  ).sort();
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
       <div className="text-center max-w-md">
         <h1 className="text-2xl font-semibold text-gray-900 mb-3">
-          Component Preview Server
+          Approval previews
         </h1>
         <p className="text-gray-500 mb-4">
-          This server renders individual components for the workspace canvas.
+          Fictional data only. These previews do not require portal sign-in or provide access to training records.
         </p>
+        <nav aria-label="Available approval previews" className="mt-6 flex flex-col gap-3">
+          {previews.map(name => <a key={name}
+            href={`${basePath}/preview/${name.split("/").map(encodeURIComponent).join("/")}`}
+            className="rounded border border-gray-300 bg-white px-4 py-3 font-semibold text-blue-900 underline">
+            {name.replaceAll("/", " · ").replace(/([a-z])([A-Z])/g, "$1 $2")}
+          </a>)}
+        </nav>
         <p className="text-sm text-gray-400">
           Access component previews at{" "}
           <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
@@ -151,6 +162,8 @@ function Gallery() {
 function getPreviewPath(): string | null {
   const basePath = getBasePath();
   const { pathname } = window.location;
+  const explicitComponent = new URLSearchParams(window.location.search).get("component");
+  if (explicitComponent && /^[A-Za-z0-9/_-]+$/.test(explicitComponent)) return explicitComponent;
   const local =
     basePath && pathname.startsWith(basePath)
       ? pathname.slice(basePath.length) || "/"
