@@ -213,6 +213,18 @@ export const ResourceCatalogItemId = {
   'bmv2255-example': 'bmv2255-example',
   'domestic-violence-protocol': 'domestic-violence-protocol',
   'drug-possession-weights': 'drug-possession-weights',
+  'dv-3-3-domestic-violence': 'dv-3-3-domestic-violence',
+  'dv-cpo-vs-tpo': 'dv-cpo-vs-tpo',
+  'dv-family-household-member-relationships': 'dv-family-household-member-relationships',
+  'dv-feti-model': 'dv-feti-model',
+  'i-40-115-domestic-violence-lethality-screen': 'i-40-115-domestic-violence-lethality-screen',
+  'dv-power-and-control-wheel': 'dv-power-and-control-wheel',
+  'dv-safety-plan-victims-page-1': 'dv-safety-plan-victims-page-1',
+  'dv-safety-plan-victims-page-2': 'dv-safety-plan-victims-page-2',
+  'dv-strangulation-assessment-card-v4': 'dv-strangulation-assessment-card-v4',
+  'dv-strangulation-checklist': 'dv-strangulation-checklist',
+  'dv-strangulation-physiological-consequences': 'dv-strangulation-physiological-consequences',
+  'dv-types-of-abuse-worksheet-1': 'dv-types-of-abuse-worksheet-1',
   'dv-strangulation-diagram': 'dv-strangulation-diagram',
   'key-criminal-law-issues-2024': 'key-criminal-law-issues-2024',
   'ohio-constitutional-opinions': 'ohio-constitutional-opinions',
@@ -260,6 +272,50 @@ export interface ResourceCatalogEnvelope {
   status: ResourceCatalogEnvelopeStatus;
   metadata: ResourceCatalogMetadata;
   data: ResourceCatalogItem[];
+}
+
+export interface DispatchEventIngressInput {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     * @pattern ^[A-Za-z0-9._:-]+$
+     */
+  eventId: string;
+}
+
+export interface DispatchEventPrefill {
+  eventIngressAt?: string;
+  /** @maxLength 120 */
+  incidentNumber?: string;
+  /** @maxLength 200 */
+  location?: string;
+  /**
+     * @maxLength 8
+     * @pattern ^\d{1,3}[A-Z]?$
+     */
+  dispatchedCode?: string;
+}
+
+export interface DispatchEventIngressMetadata {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  total_records: number;
+}
+
+export type DispatchEventIngressEnvelopeStatus = typeof DispatchEventIngressEnvelopeStatus[keyof typeof DispatchEventIngressEnvelopeStatus];
+
+
+export const DispatchEventIngressEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export interface DispatchEventIngressEnvelope {
+  status: DispatchEventIngressEnvelopeStatus;
+  metadata: DispatchEventIngressMetadata;
+  /** @maxItems 1 */
+  data: DispatchEventPrefill[];
 }
 
 export type ApiErrorStatus = typeof ApiErrorStatus[keyof typeof ApiErrorStatus];

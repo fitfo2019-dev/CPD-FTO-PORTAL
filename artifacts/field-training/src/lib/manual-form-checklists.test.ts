@@ -8,6 +8,7 @@ import {
   RUN_CHECKLIST_SECTIONS,
   RUN_SUPPLEMENT_CHECKLIST_ITEMS,
   RUN_SUPPLEMENT_CHECKLIST_SECTIONS,
+  SUPPLEMENTAL_RUN_FORMS,
 } from './model.js';
 import { SUBSTATION_ORIENTATION_KEYS, SUBSTATION_ORIENTATION_SECTIONS, defaultSubstationOrientationChecklist } from './substation-orientation.js';
 
@@ -55,6 +56,13 @@ test('all submitted run checkboxes and the three checklists start checked', () =
   assert.ok(DAILY_DUTY_CHECKLIST.flatMap(group => group.items).length === 33);
   assert.ok(SUBSTATION_ORIENTATION_KEYS.length === 82);
   assert.ok(SUBSTATION_ORIENTATION_SECTIONS.flatMap(group => group.items).every(([key]) => defaultSubstationOrientationChecklist()[key]));
+});
+
+test('Arrest Process carries the user-specified U-10.188 form identifier', () => {
+  assert.equal(
+    SUPPLEMENTAL_RUN_FORMS.find((form) => form.key === 'arrest_process')?.formNumber,
+    'U-10.188',
+  );
 });
 
 test('daily duty wording and one/two-officer checkboxes match the submitted form', () => {

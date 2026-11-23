@@ -12,7 +12,7 @@ This pnpm workspace contains the Express API Server, the React/Vite Component Pr
 
 ## Resources tab
 
-The signed-in portal's Resources tab combines the existing Law Library with the 11 uploaded DOC, DOCX, and PDF references. The catalog uses the internal API; downloads require a Clerk session and are streamed from an explicit server-side allowlist rather than a public static URL. Some example files may contain personal details or internal contact information. Authentication is not a substitute for agency role authorization, which is not yet configured.
+The signed-in portal's Resources tab combines the existing Law Library with 23 downloadable DOC, DOCX, and PDF references. Twelve unique domestic-violence training PDFs were added from the DV Training archive; duplicate source files were not added twice. The catalog uses the internal API; downloads require a Clerk session and are streamed from an explicit server-side allowlist rather than a public static URL. Some references contain sensitive internal or victim-safety training material. Do not enter case-specific victim information. Authentication is not a substitute for agency role authorization, which is not yet configured, so every signed-in user with app access can download these resources.
 
 ## Validation and module format
 
@@ -45,7 +45,7 @@ The workspace targets Node.js `^20.19.0 || >=22.12.0 <25`. Configure values thro
 | `DATABASE_URL` | Not used by current API routes | Connection string for the separate database helper if database-backed routes are implemented. |
 | `RESOURCE_FILES_DIR` | Optional | Approved mounted resource directory; otherwise the API uses its packaged `resources/` directory. |
 
-For dispatch prefill, the portal accepts a `patrolViewEventId` URL parameter on a new run. It sends that identifier only to the same-origin API; the API checks the signed-in Clerk identity against the server-side allowlist, calls the configured HTTPS adapter, and returns only `eventIngressAt`, `incidentNumber`, `location`, and `dispatchedCode`. The adapter may return those fields in camelCase or snake_case, at the top level or inside `data`/`event`. Missing values are allowed. Run fields remain editable, and a response never overwrites a field the FTO has already changed. Upstream failures leave manual entry available. The agency must supply and approve the actual adapter endpoint and its normalized response contract before enabling the feed.
+The current dispatch adapter accepts a `patrolViewEventId` URL parameter; it is not the requested incident-number-triggered workflow and no live PatrolView feed is configured. The approved next behavior is to look up only after an FTO enters an incident number, then match the response against the Cruiser ID recorded on Reporting for Duty. Apply a unit's values only when there is exactly one exact match; if the unit is missing or ambiguous, leave the run for manual entry. Keep all prefilled fields editable and preserve FTO corrections. The sample PatrolView run page is needed before mapping its unit and metric fields. Until then, do not enable live lookup or infer activity totals from another officer's incident record.
 
 `TRUST_PROXY_HOPS` is validated and applied before security, request logging, and audit middleware. The confirmed agency ingress uses two trusted hops, so set `TRUST_PROXY_HOPS=2` for that deployment. Do not trust forwarded headers directly or reuse that value for a different proxy topology without verification.
 

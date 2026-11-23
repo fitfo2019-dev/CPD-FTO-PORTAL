@@ -5,18 +5,28 @@ import { applyDispatchPrefill, applyDispatchPrefillValue, mapDispatchPrefillResp
 test("maps a successful dispatch response while allowing absent fields", () => {
   assert.deepEqual(mapDispatchPrefillResponse({
     status: "success",
-    data: {
+    metadata: { total_records: 1 },
+    data: [{
       eventIngressAt: "2026-11-23T19:05:00.000Z",
       incidentNumber: "INC-2468",
       dispatchedCode: "17a",
-    },
+    }],
   }), {
     eventIngressAt: "2026-11-23T19:05:00.000Z",
     incidentNumber: "INC-2468",
     dispatchedCode: "17A",
   });
-  assert.deepEqual(mapDispatchPrefillResponse({ status: "success", data: {} }), {});
+  assert.deepEqual(mapDispatchPrefillResponse({
+    status: "success",
+    metadata: { total_records: 0 },
+    data: [],
+  }), {});
   assert.equal(mapDispatchPrefillResponse({ status: "error" }), undefined);
+  assert.equal(mapDispatchPrefillResponse({
+    status: "success",
+    metadata: { total_records: 1 },
+    data: [],
+  }), undefined);
 });
 
 test("dispatch defaults fill untouched fields but preserve FTO corrections", () => {

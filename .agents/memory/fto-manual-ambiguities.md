@@ -35,7 +35,11 @@ The user clarifies that daily summaries carry the statistics, while the weekly p
 
 The user explicitly requests every run checklist selection to start checked for faster input; this is a UI default, not evidence that the item occurred. Require the FTO to review the prechecked items and clear any item that did not apply or was not completed acceptably before marking that run form complete. Weekly Performance Summary rating counts are based on reviewed daily summaries, while run checklist totals remain a separate weekly aggregate.
 
-No Patrol View connector, supported public API contract, or usable redacted export schema was verified. A system path or hostname alone is not an integration contract; keep data import disabled until an authorized source and export/API format are supplied and protected data access is approved.
+The portal has a protected same-origin PatrolView lookup route and configurable upstream adapter, but that does not establish a live connection. Treat dispatch data as optional, user-correctable defaults; do not claim or enable live import until the agency approves the endpoint, server credential, caller allowlist, and returned data contract.
+
+**Why:** The adapter can normalize event fields, but the agency feed and access settings are not configured in this workspace.
+
+**How to apply:** Keep manual entry available, never overwrite FTO corrections, and only enable live lookup after approved server-side configuration is supplied through the secrets flow.
 
 **Why:** The user clarified that the current daily form is U-10.174 and its supplement is U-10.174S, while the revised prompt assigns U-10.173 to the weekly summary. Submitted historical materials conflict, including within the 2026 manual. The signature chapter defines the manual's intended PDF-signing workflow but does not establish an external trust root for its self-signed certificates.
 

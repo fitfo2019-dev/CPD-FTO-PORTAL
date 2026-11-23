@@ -27,6 +27,8 @@ import type {
 import type {
   ApiError,
   AuditLogsEnvelope,
+  DispatchEventIngressEnvelope,
+  DispatchEventIngressInput,
   HealthEnvelope,
   MockLoginEnvelope,
   MockLoginInput,
@@ -456,6 +458,95 @@ export function useListAuditLogs<TData = Awaited<ReturnType<typeof listAuditLogs
 
 
 
+export const getDispatchEventIngressUrl = () => {
+
+
+
+
+  return `/api/v1/dispatch/event-ingress`
+}
+
+/**
+ * Looks up one explicit event ID using the protected server-side adapter. This does not discover or poll active units.
+ * @summary Look up an approved dispatch event
+ */
+export const dispatchEventIngress = async (dispatchEventIngressInput: DispatchEventIngressInput, options?: Parameters<typeof customFetch>[1]): Promise<DispatchEventIngressEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<DispatchEventIngressEnvelope>(getDispatchEventIngressUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(dispatchEventIngressInput)
+  }
+);}
+
+
+
+
+
+export const getDispatchEventIngressMutationKey = () => ['dispatchEventIngress'] as const;
+
+export const getDispatchEventIngressMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchEventIngress>>, TError,DispatchEventIngressMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dispatchEventIngress>>, TError,DispatchEventIngressMutationVariables, TContext> => {
+
+const mutationKey = getDispatchEventIngressMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dispatchEventIngress>>, DispatchEventIngressMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  dispatchEventIngress(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DispatchEventIngressMutationResult = NonNullable<Awaited<ReturnType<typeof dispatchEventIngress>>>
+    export type DispatchEventIngressMutationBody = BodyType<DispatchEventIngressInput>
+    export type DispatchEventIngressMutationError = ErrorType<ApiError>
+    export type DispatchEventIngressMutationVariables = {data: BodyType<DispatchEventIngressInput>}
+
+    /**
+ * @summary Look up an approved dispatch event
+ */
+export const useDispatchEventIngress = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchEventIngress>>, TError,DispatchEventIngressMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof dispatchEventIngress>>,
+        TError,
+        DispatchEventIngressMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDispatchEventIngressMutationOptions(options), queryClient);
+    }
+
 export const getListResourcesUrl = () => {
 
 
@@ -558,7 +649,7 @@ export function useListResources<TData = Awaited<ReturnType<typeof listResources
 
 
 
-export const getDownloadResourceFileUrl = (resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud',) => {
+export const getDownloadResourceFileUrl = (resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-3-3-domestic-violence' | 'dv-cpo-vs-tpo' | 'dv-family-household-member-relationships' | 'dv-feti-model' | 'i-40-115-domestic-violence-lethality-screen' | 'dv-power-and-control-wheel' | 'dv-safety-plan-victims-page-1' | 'dv-safety-plan-victims-page-2' | 'dv-strangulation-assessment-card-v4' | 'dv-strangulation-checklist' | 'dv-strangulation-physiological-consequences' | 'dv-types-of-abuse-worksheet-1' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud',) => {
 
 
 
@@ -570,7 +661,7 @@ export const getDownloadResourceFileUrl = (resourceId: 'amys-law-factors' | 'bmv
  * Streams an allowlisted file as an attachment after Clerk session authentication. Files are not exposed through public static URLs.
  * @summary Download a reference document
  */
-export const downloadResourceFile = async (resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+export const downloadResourceFile = async (resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-3-3-domestic-violence' | 'dv-cpo-vs-tpo' | 'dv-family-household-member-relationships' | 'dv-feti-model' | 'i-40-115-domestic-violence-lethality-screen' | 'dv-power-and-control-wheel' | 'dv-safety-plan-victims-page-1' | 'dv-safety-plan-victims-page-2' | 'dv-strangulation-assessment-card-v4' | 'dv-strangulation-checklist' | 'dv-strangulation-physiological-consequences' | 'dv-types-of-abuse-worksheet-1' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
 
   return customFetch<Blob>(getDownloadResourceFileUrl(resourceId),
   {
@@ -585,14 +676,14 @@ export const downloadResourceFile = async (resourceId: 'amys-law-factors' | 'bmv
 
 
 
-export const getDownloadResourceFileQueryKey = (resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud',) => {
+export const getDownloadResourceFileQueryKey = (resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-3-3-domestic-violence' | 'dv-cpo-vs-tpo' | 'dv-family-household-member-relationships' | 'dv-feti-model' | 'i-40-115-domestic-violence-lethality-screen' | 'dv-power-and-control-wheel' | 'dv-safety-plan-victims-page-1' | 'dv-safety-plan-victims-page-2' | 'dv-strangulation-assessment-card-v4' | 'dv-strangulation-checklist' | 'dv-strangulation-physiological-consequences' | 'dv-types-of-abuse-worksheet-1' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud',) => {
     return [
     `/api/v1/resources/${resourceId}/download`
     ] as const;
     }
 
 
-export const getDownloadResourceFileQueryOptions = <TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+export const getDownloadResourceFileQueryOptions = <TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-3-3-domestic-violence' | 'dv-cpo-vs-tpo' | 'dv-family-household-member-relationships' | 'dv-feti-model' | 'i-40-115-domestic-violence-lethality-screen' | 'dv-power-and-control-wheel' | 'dv-safety-plan-victims-page-1' | 'dv-safety-plan-victims-page-2' | 'dv-strangulation-assessment-card-v4' | 'dv-strangulation-checklist' | 'dv-strangulation-physiological-consequences' | 'dv-types-of-abuse-worksheet-1' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -615,7 +706,7 @@ export type DownloadResourceFileQueryError = ErrorType<ApiError>
 
 
 export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(
- resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>> & Pick<
+ resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-3-3-domestic-violence' | 'dv-cpo-vs-tpo' | 'dv-family-household-member-relationships' | 'dv-feti-model' | 'i-40-115-domestic-violence-lethality-screen' | 'dv-power-and-control-wheel' | 'dv-safety-plan-victims-page-1' | 'dv-safety-plan-victims-page-2' | 'dv-strangulation-assessment-card-v4' | 'dv-strangulation-checklist' | 'dv-strangulation-physiological-consequences' | 'dv-types-of-abuse-worksheet-1' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof downloadResourceFile>>,
           TError,
@@ -625,7 +716,7 @@ export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downlo
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(
- resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>> & Pick<
+ resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-3-3-domestic-violence' | 'dv-cpo-vs-tpo' | 'dv-family-household-member-relationships' | 'dv-feti-model' | 'i-40-115-domestic-violence-lethality-screen' | 'dv-power-and-control-wheel' | 'dv-safety-plan-victims-page-1' | 'dv-safety-plan-victims-page-2' | 'dv-strangulation-assessment-card-v4' | 'dv-strangulation-checklist' | 'dv-strangulation-physiological-consequences' | 'dv-types-of-abuse-worksheet-1' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof downloadResourceFile>>,
           TError,
@@ -635,7 +726,7 @@ export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downlo
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(
- resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-3-3-domestic-violence' | 'dv-cpo-vs-tpo' | 'dv-family-household-member-relationships' | 'dv-feti-model' | 'i-40-115-domestic-violence-lethality-screen' | 'dv-power-and-control-wheel' | 'dv-safety-plan-victims-page-1' | 'dv-safety-plan-victims-page-2' | 'dv-strangulation-assessment-card-v4' | 'dv-strangulation-checklist' | 'dv-strangulation-physiological-consequences' | 'dv-types-of-abuse-worksheet-1' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -643,7 +734,7 @@ export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downlo
  */
 
 export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downloadResourceFile>>, TError = ErrorType<ApiError>>(
- resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ resourceId: 'amys-law-factors' | 'bmv-2255-urine-0-bac' | 'bmv2255-example' | 'domestic-violence-protocol' | 'drug-possession-weights' | 'dv-3-3-domestic-violence' | 'dv-cpo-vs-tpo' | 'dv-family-household-member-relationships' | 'dv-feti-model' | 'i-40-115-domestic-violence-lethality-screen' | 'dv-power-and-control-wheel' | 'dv-safety-plan-victims-page-1' | 'dv-safety-plan-victims-page-2' | 'dv-strangulation-assessment-card-v4' | 'dv-strangulation-checklist' | 'dv-strangulation-physiological-consequences' | 'dv-types-of-abuse-worksheet-1' | 'dv-strangulation-diagram' | 'key-criminal-law-issues-2024' | 'ohio-constitutional-opinions' | 'ohio-supreme-court-felony-quick-reference' | 'police-phone-directory' | 'prior-offenses-constituting-wud', options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof downloadResourceFile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 

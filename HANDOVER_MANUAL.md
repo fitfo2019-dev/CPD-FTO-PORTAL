@@ -2,6 +2,11 @@
 
 **Before modifying this workspace, read `PROJECT_MANIFEST.md` and preserve its API contracts, naming rules, and scope boundaries.**
 
+## CONFIGURATION PROTECTION GATES (QUEUE CONTROL & ANALYSIS CONTRACT)
+1. PARSE TIMELINE SEQUENCE PRIOR TO EMISSION: Prior to executing any structural code modifications, state migrations, or schema updates, the compiler must conduct a multi-file dependency audit mapping the target source file across active workspace modules.
+2. CONFLICT INVERSION BLOCKER: If a queued instruction model demands adjustments to variables or files currently undergoing mutation by an active or immediately preceding thread pass, the agent must freeze execution and print a plain-text architectural warning outline summarizing the collision vectors, explicitly requesting human operator validation before altering the file tree.
+3. TRANSACTIONAL LOG COMPILING: Every structural pass must run `pnpm typecheck` automatically upon completion, rolling back to the immediate prior git baseline commit if a syntax error or contract drift registers.
+
 ## Functional Architecture & Core User Workflows
 
 ### Functional Overview
@@ -50,11 +55,46 @@ These logs are pseudonymized JSON Lines, not a tamper-proof archive. No external
 
 The Component Preview Sandbox contains **55 reusable, modular UI components**. They provide the visual and component foundation for future application views. The catalog is a presentation layer; it does not itself provide authentication, authorization, data validation, or security controls.
 
+### Approved 30-category SEG taxonomy
+
+Use these image-verified category names consistently in forms, deficiency mapping, weekly summaries, and workbook exports:
+
+1. Report/Prepared for Duty
+2. Comprehension/Usage
+3. Public/Police Interaction
+4. Feedback Acceptance
+5. Precinct Orientation
+6. Routine
+7. EVO
+8. Policies / Procedures
+9. Criminal / Traffic Offenses
+10. Arrest, Search, Seizure
+11. Information Gathering
+12. Resource/Equipment Usage
+13. Form Usage
+14. Grammar / Legibility
+15. Content Accuracy
+16. Completion Time
+17. Response to Enforcement
+18. Threat Assessment
+19. Initiating Arrests
+20. Handling Prisoners
+21. Vehicle Stops
+22. Run Approach
+23. Building Search
+24. Pat Down / Searches
+25. Low Stress Situations
+26. High Stress Situations
+27. Arrest Situations
+28. Problem Solving
+29. Motivational Traits
+30. Task Management
+
 ### Resources tab
 
-The signed-in Field Training Officer Portal has a **Resources** navigation tab. It brings together the existing Law Library and 11 uploaded reference documents: Amy's Law Factors; two BMV 2255 files; the Domestic Violence Protocol; Drug Possession Weights; the DV Strangulation Diagram; Key Criminal Law Issues (2024); Ohio Constitutional Opinions; the Ohio Supreme Court Felony Quick Reference; the Police Phone Directory; and Prior Offenses Constituting WUD.
+The signed-in Field Training Officer Portal has a **Resources** navigation tab. It brings together the existing Law Library and 23 downloadable reference documents. The original 11 are Amy's Law Factors; two BMV 2255 files; the Domestic Violence Protocol; Drug Possession Weights; the DV Strangulation Diagram; Key Criminal Law Issues (2024); Ohio Constitutional Opinions; the Ohio Supreme Court Felony Quick Reference; the Police Phone Directory; and Prior Offenses Constituting WUD. Twelve unique PDFs were added from the DV Training archive: 3-3 Domestic Violence; CPO vs TPO; Family or Household Member Relationships; FETI Model; I-40.115 Domestic Violence Lethality Screen; Power and Control Wheel; Safety Plan for Victims, pages 1 and 2; Strangulation Assessment Card v4; Strangulation Checklist; Strangulation: Physiological Consequences; and Worksheet 1: Types of Abuse. Duplicate Amy's Law and the 11 documents already present in the Directories archive were not added again.
 
-The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v1/resources/{resourceId}/download` and are served as attachments from a fixed server-side allowlist through the Clerk-authenticated API; the documents are not placed in the web app's public static directory. The resource archive is included by the standalone API package builder under `resources/`. `RESOURCE_FILES_DIR` may point to an approved mounted directory instead. Uploaded examples may contain personal details or internal contact information, so follow agency handling rules. Clerk sign-in is authentication only: agency-specific role authorization is not configured for these resources.
+The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v1/resources/{resourceId}/download` and are served as attachments from a fixed server-side allowlist through the Clerk-authenticated API; the documents are not placed in the web app's public static directory. The resource archive is included by the standalone API package builder under `resources/`. `RESOURCE_FILES_DIR` may point to an approved mounted directory instead. Uploaded examples may contain personal details or internal contact information. The new victim-safety and domestic-violence training references are training materials only; do not enter case-specific victim information and follow agency handling rules. Clerk sign-in is authentication only: agency-specific role authorization is not configured, so any signed-in user with app access can download the catalog.
 
 ## Current Boundaries and Operating Rules
 
@@ -63,7 +103,9 @@ The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v
 - Reference-document downloads require a Clerk-authenticated session, but access is not yet scoped by verified agency role.
 - Clerk session authentication is present, but agency role and record-scope authorization is not configured.
 - The Field Training Officer Portal stores unsent drafts in encrypted IndexedDB; it does not sync training records to a backend.
-- Shift start time and run event date/time are captured as separate, editable fields. Run event time should reflect the minute a call was aired or initiated. PatrolView/CAD prefill and real-time synchronization are not implemented; current values are entered manually.
+- Shift start time and run event date/time are captured as separate, editable fields. Run event time should reflect the minute a call was aired or initiated. A same-origin dispatch-prefill route and server adapter are implemented, but this checkout has no live dispatch feed configured. The frontend sends the `patrolViewEventId` query parameter to `POST /api/v1/dispatch/event-ingress`; the route requires a verified Clerk session and the `PATROLVIEW_ALLOWED_CLERK_USER_IDS` allowlist. The live adapter additionally requires the agency-approved HTTPS `PATROLVIEW_EVENT_LOOKUP_URL` and server-side `PATROLVIEW_API_TOKEN`, normalizes event ingress time, incident number, location, and dispatched code, and times out after five seconds.
+- All four dispatch-prefilled values—Event Ingress Time, Incident Number, Location Address, and primary 10-Code—remain fully text-editable by the FTO. Prefill only sets fields that remain at their initial untouched values; it does not disable controls or overwrite a correction. Manual entry remains available when the dispatch service is not configured, returns no event, or is unavailable.
+- These values belong to the parent `TrainingRun`. Arrest Process, OVI Process, and narrative continuation pages reference the same run and use deterministic run/supplement page identifiers rather than creating duplicate incident records. The Arrest Process supplement carries the user-specified U-10.188 identifier in its form metadata; it appears in existing print and workbook labels without changing their layout.
 - There is no database-backed training-record route or connected portal records view.
 - The database schema and audit helper are foundations only; they are not mounted to current application routes.
 - The XML-to-JSON gateway is planned, not implemented.
@@ -78,6 +120,7 @@ The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v
 
 - `pnpm run typecheck` — TypeScript checks across workspace packages.
 - `pnpm run build` — type checks and builds all workspace artifacts using their local default ports and paths.
+- `pnpm run test:field-training:phase` — runs the Node test suite for the phase registry, phase extensions, and training calendar using the Field Training test config and path aliases.
 - `pnpm run bundle:production` — builds the API and creates a clean standalone `dist-production.zip`.
 - `pnpm --filter @workspace/api-server run dev` — starts the API Server workflow.
 - `pnpm --filter @workspace/mockup-sandbox run dev` — starts the Component Preview Server workflow.
@@ -134,7 +177,7 @@ The following Section 6 registry describes intended capabilities, not a complian
 * PINO LOGGER DATA STRIPPER: A high-performance server-side logging configuration hardcoded with dynamic path strings to automatically erase and redact raw HTTP authorization headers, Bearer tokens, and session cookies before strings hit the terminal or SIEM pipeline.
 * CUSTOM FORM WRAPPER TYPE SIGNATURES (ZOD 4 COMPLIANCE): Underlying form schemas mapped strictly against 'z.ZodTypeAny' generic constraints rather than legacy Zod 3 variants, ensuring ultra-light compile-time footprints and type safety across all 55 component files.
 * BROWSER ERROR BOUNDARY SCREEN & AUTOMATED RETRY: A client-side structural fallback wrapper that intercepts unexpected interface or component code failures. It halts total page crashes, renders an explicit loading/retry button state, and routes exception data safely to the developer tools console while filtering out entered user text data.
-* TWO-HOP TRUSTED PROXY INGRESS CONTROLLER: A hardcoded Express network binding ('app.set("trust proxy", 2)') tailored exactly to Columbus ZTN specs that isolates proxy hops behind the upstream firewall, neutralizing public X-Forwarded-* spoofing vectors.
+* TWO-HOP TRUSTED PROXY INGRESS CONTROLLER: Express reads the trusted proxy hop count from `TRUST_PROXY_HOPS`, defaults to `1`, and validates values from `1` through `16`. Set it to `2` for the documented Columbus ingress; the value is not hardcoded, and the edge proxy must overwrite untrusted forwarding headers.
 * ROSTER IMPORT PANEL (MAMMOTH UTILITY): A local text compilation interface embedded in the training assignments workspace that uses an entirely client-side, detached instance of Mammoth to extract raw text strings from '.docx' or '.csv' roster files under a hard 2 MB memory ceiling.
 * EXACT-ORIGIN PRODUCTION CORS PERIMETER: An API-level authorization matrix that disables loose wildcard accesses, restricting cross-origin resource sharing strictly to explicit, allowlisted agency HTTPS domains while entirely stripping away server identity signature headers.
 * STRUCTURAL JSON RESILIENCE ENVELOPES: A standardized backend-to-frontend payload contract ensuring that all data responses conform to an explicit block structure (status, tracking metadata, and data arrays), guaranteeing clean frontend error-handling loops if an API connection degrades.
@@ -424,16 +467,24 @@ ratings or rating review. Reports beyond a phase's configured week length fail
 validation. The portal does not yet auto-create the next phase assignment or
 provide a Week 15 release/termination recommendation workflow.
 
-The authoritative phase configuration is
-`artifacts/field-training/src/config/phaseConfiguration.ts`. It defines phase
-durations and Limbo boundaries, and derives program-week starts from the ordered
-`PHASE_TIMELINE_REGISTRY` entries using `durationInWeeks`. The standard values
-are 4/4/4/3, with starts at weeks 1, 5, 9, and 13. Phase IV is fixed at three
-weeks. A change requires formal
+The authoritative phase configuration is the workspace-root
+`src/config/phaseConfiguration.ts`. Its `PHASE_TIMELINE_REGISTRY` is the single
+source for phase durations and Limbo policy. The artifact-local
+`artifacts/field-training/src/config/phaseConfiguration.ts` only re-exports the
+root module. `model.ts` and `training-calendar.ts` derive phase lengths,
+program-week starts, and Limbo boundaries from the root registry. The local
+phase-setup Zod schema uses the same phase-length constants to enforce its
+minimum week-range count. The monthly exporter consumes saved/computed
+`phaseWeekRanges`; default ranges are generated from the registry, while
+approved extensions may lengthen the saved ranges. The generated API schemas
+do not encode phase durations, so they should not be described as direct
+consumers of this registry.
+The standard values are 4/4/4/3, with starts at weeks 1, 5, 9, and 13. Phase IV
+is fixed at three weeks. A change requires formal
 program approval; the Phase IV extension is not active by default.
 
-For agency developers working outside Replit, open that file in a standard text
-editor, change the approved phase's `durationInWeeks` value, and from the repository root
+For agency developers working outside Replit, open the workspace-root registry in
+a standard text editor, change the approved phase's `durationInWeeks` value, and from the repository root
 run `pnpm typecheck` followed by `pnpm run build`. Review the phase-setup date
 range validation, Limbo boundaries, weekly numbering, export tests, and
 four-tab workbook behavior before release. These checks must run on the
@@ -473,8 +524,9 @@ accounting even when edited; they are not recounted retroactively. Only complete
 checklist-reviewed versioned runs contribute automatic counts. Displayed totals
 are manual extras plus derived counts; editing a total adjusts its manual portion
 without counting the run again. Run activity flags remain supporting evidence.
-`3V` requires Arrest Made and transport. Selecting Arrest Made or 3V preselects
-transport and reveals destination fields. The FTO selects Jail, HQ, or Clerks
+Transport starts unchecked on a new run. `3V` requires Arrest Made and
+transport. Selecting Arrest Made or 3V preselects transport and reveals
+destination fields. The FTO selects Jail, HQ, or Clerks
 and enters the actual destination for a new versioned run. If no transport
 occurred, the FTO can clear the transport flag; an arrest without transport must
 use 1V. The destination type and actual destination appear in the daily print

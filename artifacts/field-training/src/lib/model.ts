@@ -8,7 +8,7 @@ import {
   PHASE_PROGRAM_WEEK_START,
   TOTAL_TRAINING_WEEKS,
   type PhaseId,
-} from '../config/phaseConfiguration.js';
+} from '../../../../src/config/phaseConfiguration.js';
 
 export {
   PHASE_TIMELINE_REGISTRY,
@@ -172,7 +172,7 @@ export const RUN_FORM_GUIDANCE: Record<PrimaryRunForm,string> = {
 };
 export type PrimaryRunForm = typeof PRIMARY_RUN_FORMS[number]['key'];
 export const SUPPLEMENTAL_RUN_FORMS = [
-  { key:'arrest_process', label:'Arrest Process', formNumber:'' },
+  { key:'arrest_process', label:'Arrest Process', formNumber:'U-10.188' },
   { key:'ovi_process', label:'OVI Process', formNumber:'' },
   { key:'narrative_addition', label:'Narrative Addition / Continuation', formNumber:'U-10.192' },
 ] as const;
@@ -584,7 +584,7 @@ export const normalizePreviewRole = (value: unknown): Role => {
 };
 export const canViewClass = (role: Role) => role === 'fto' || role === 'fto_coordinator';
 export type Phase = PhaseId;
-export const PHASES: Phase[] = PHASE_TIMELINE_REGISTRY.map(({ phase }) => phase);
+export const PHASES: Phase[] = PHASE_TIMELINE_REGISTRY.map(({ phaseId }) => phaseId);
 export const phaseLabel = (p: Phase) => 'Phase ' + p;
 export interface PhaseWeekRange {
   startDate: string;

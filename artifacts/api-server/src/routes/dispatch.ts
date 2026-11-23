@@ -57,7 +57,12 @@ router.post("/v1/dispatch/event-ingress", async (req, res): Promise<void> => {
   try {
     const data = await fetchPatrolViewEvent(eventId);
     res.set("Cache-Control", "no-store");
-    res.json({ status: "success", data });
+    const totalRecords = Object.keys(data).length > 0 ? 1 : 0;
+    res.json({
+      status: "success",
+      metadata: { total_records: totalRecords },
+      data: totalRecords ? [data] : [],
+    });
   } catch (error) {
     if (error instanceof PatrolViewIntegrationError) {
       logger.warn({ errorCode: error.code }, "Dispatch event prefill request failed");

@@ -25,7 +25,8 @@ import { alignRunDateToShift, parseRunDateTime } from '@/lib/run-details.js';
 import { useDeficiencyEditor } from '@/hooks/use-deficiency-editor.js';
 import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
 import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
-import { applyDispatchPrefillValue, mapDispatchPrefillResponse } from '@/lib/dispatch-prefill.js';
+import { applyDispatchPrefillValue } from '@/lib/dispatch-prefill.js';
+import { usePatrolViewSync } from '@/hooks/use-patrolview-sync.js';
 
 function checklistHelp(form:string,meaning:string) {
   return `${form}: ${meaning} Keep checked only when the PO completed the described action acceptably. Clearing an applicable task creates a UA deficiency. Use the Not applicable control for an inapplicable form or group; document observed facts and any training actually completed.`;
@@ -69,14 +70,33 @@ export default function ReportEditor() {
   const [runTimeText, setRunTimeText] = useState('');
   const [incidentNumber, setIncidentNumber] = useState('');
   const [runLocation, setRunLocation] = useState('');
-  const [dispatchPrefillStatus, setDispatchPrefillStatus] = useState<'idle'|'loading'|'loaded'|'empty'|'unavailable'>('idle');
-  const dispatchPrefillAttempted = useRef<string | null>(null);
   const dispatchEventId = useMemo(() => new URLSearchParams(window.location.search).get('patrolViewEventId')?.trim() ?? '', []);
   const [runError, setRunError] = useState('');
   const [runDispatched, setRunDispatched] = useState(true);
   const [trafficMode, setTrafficMode] = useState<TrainingRun['trafficMode']>('none');
   const [activityFlags, setActivityFlags] = useState<Partial<Record<ActivityKey,boolean>>>({});
   const [dispatchedCode, setDispatchedCode] = useState('');
+  const { status: dispatchPrefillStatus, reset: resetDispatchPrefill } = usePatrolViewSync({
+    eventId: dispatchEventId,
+    enabled: isNew && !!r && r.status === 'draft' && ws.role === 'fto',
+    draft: {
+      runDateTimeText,
+      runTimeText,
+      incidentNumber,
+      runLocation,
+      dispatchedCode,
+    },
+    onPrefill: (initial, prefill) => {
+      const eventDateTimeText = prefill.eventIngressAt
+        ? formatDateTimeMDY(prefill.eventIngressAt)
+        : undefined;
+      setRunDateTimeText(current => applyDispatchPrefillValue(current, initial.runDateTimeText, eventDateTimeText));
+      setRunTimeText(current => applyDispatchPrefillValue(current, initial.runTimeText, eventDateTimeText?.split(' ')[1]));
+      setIncidentNumber(current => applyDispatchPrefillValue(current, initial.incidentNumber, prefill.incidentNumber));
+      setRunLocation(current => applyDispatchPrefillValue(current, initial.runLocation, prefill.location));
+      setDispatchedCode(current => applyDispatchPrefillValue(current, initial.dispatchedCode, prefill.dispatchedCode));
+    },
+  });
   const [situationFoundCode, setSituationFoundCode] = useState(SITUATION_FOUND_NA);
   const [clearanceCode, setClearanceCode] = useState<NonNullable<TrainingRun['clearanceCode']>>('');
   const [chargeText, setChargeText] = useState('');
@@ -146,41 +166,6 @@ export default function ReportEditor() {
     setDateText(formatDateDMY(r.date));
     if (!editingRunId) setRunDateTimeText(current=>current.includes(' ')?current:formatDateDMY(r.date));
   }, [r?.date, editingRunId]);
-  useEffect(() => {
-    if (!isNew || !dispatchEventId || !r || r.status !== 'draft' || ws.role !== 'fto') return;
-    if (dispatchPrefillAttempted.current === dispatchEventId) return;
-    dispatchPrefillAttempted.current = dispatchEventId;
-    const initial = {
-      runDateTimeText,
-      runTimeText,
-      incidentNumber,
-      runLocation,
-      dispatchedCode,
-    };
-    setDispatchPrefillStatus('loading');
-    void fetch('/api/v1/dispatch/event-ingress', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventId: dispatchEventId }),
-    }).then(async response => {
-      if (!response.ok) throw new Error('Dispatch prefill unavailable');
-      return mapDispatchPrefillResponse(await response.json());
-    }).then(prefill => {
-      if (!prefill) throw new Error('Dispatch prefill unavailable');
-      const eventDateTimeText = prefill.eventIngressAt
-        ? formatDateTimeMDY(prefill.eventIngressAt)
-        : undefined;
-      setRunDateTimeText(current => applyDispatchPrefillValue(current, initial.runDateTimeText, eventDateTimeText));
-      setRunTimeText(current => applyDispatchPrefillValue(current, initial.runTimeText, eventDateTimeText?.split(' ')[1]));
-      setIncidentNumber(current => applyDispatchPrefillValue(current, initial.incidentNumber, prefill.incidentNumber));
-      setRunLocation(current => applyDispatchPrefillValue(current, initial.runLocation, prefill.location));
-      setDispatchedCode(current => applyDispatchPrefillValue(current, initial.dispatchedCode, prefill.dispatchedCode));
-      setDispatchPrefillStatus(
-        Object.values(prefill).some(value => value !== undefined) ? 'loaded' : 'empty',
-      );
-    }).catch(() => setDispatchPrefillStatus('unavailable'));
-  }, [isNew, dispatchEventId, r, ws.role, runDateTimeText, runTimeText, incidentNumber, runLocation, dispatchedCode]);
   const errs = useMemo(() => r ? [
     ...validateReport(r),
     ...(operationalPacket?.blockingIssues ?? []),
@@ -395,7 +380,7 @@ export default function ReportEditor() {
     setRunDraftId(uid());
     setChargeText('');
     setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunTimeText(''); setRunDispatched(true); setRunError(''); runReviewConfirmedRef.current = false;
-    setDispatchPrefillStatus('idle');
+    resetDispatchPrefill();
     setIncidentNumber(''); setRunLocation(''); generatedNarrativeRef.current = '';
     setTrafficMode('none'); setArrestMade(false); setTransported(false); setTransportDestination(''); setTransportDestinationType(undefined); setArrestProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
     setActivityFlags({}); setDispatchedCode(''); setSituationFoundCode(SITUATION_FOUND_NA); setClearanceCode('');
@@ -575,13 +560,13 @@ export default function ReportEditor() {
                   : <F l="Run origin"><SearchableSelect className={inp} value={runDispatched?'call_for_service':'self_initiated'} onChange={e=>{const dispatched=e.target.value==='call_for_service';setRunDispatched(dispatched);setRunChecklist(prev=>checklistFor(runKind,trafficMode,dispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);setRunError('');}} data-testid="select-run-origin"><option value="call_for_service">Call for Service / dispatched</option><option value="self_initiated">Self-initiated</option></SearchableSelect></F>}
                  <F l="Run event date · MM/DD/YYYY"><input required inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={runDateTimeParts.date} onChange={event=>{const date=formatDateEntryMDY(event.target.value);setRunDateTimeText(`${date}${runTimeText?` ${runTimeText}`:''}`);setRunError('');}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const now=currentDateTimeMDY();setRunDateTimeText(`${now.date} ${now.time}`);setRunTimeText(now.time);setRunError('');}}} data-testid="input-run-date" /></F>
                  <F l="Run event time"><input required type="time" className={inp+' mono'} value={runTimeText} onChange={event=>{const time=event.target.value;setRunTimeText(time);setRunDateTimeText(current=>{const date=splitDateTimeEntryMDY(current).date;return date?`${date}${time?` ${time}`:''}`:'';});setRunError('');}} data-testid="input-run-time" /><span className="text-xs font-normal text-muted-foreground">Enter the time the call was aired or initiated. Correct dispatch details as needed.</span></F>
-                 <F l="Incident Number"><input className={inp} value={incidentNumber} onChange={event=>setIncidentNumber(event.target.value)} maxLength={120} placeholder="Optional" data-testid="input-run-incident-number" /></F>
-                 <F l="Location"><input className={inp} value={runLocation} onChange={event=>setRunLocation(event.target.value)} maxLength={200} placeholder="Optional" data-testid="input-run-location" /></F>
+                 <F l="Incident Number"><input className={inp} value={incidentNumber} onChange={event=>setIncidentNumber(event.target.value)} maxLength={120} data-testid="input-run-incident-number" /></F>
+                 <F l="Location"><input className={inp} value={runLocation} onChange={event=>setRunLocation(event.target.value)} maxLength={200} data-testid="input-run-location" /></F>
                 {runKind==='traffic_stop' && <F l="Traffic violator"><SearchableSelect className={inp} value={trafficMode==='none'?'motor_vehicle':trafficMode} onChange={e=>{const mode=e.target.value as TrainingRun['trafficMode'];setTrafficMode(mode);setRunChecklist(prev=>checklistFor(runKind,mode,runDispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);setRunError('');}} data-testid="select-traffic-violator"><option value="motor_vehicle">Motor vehicle</option><option value="pedestrian">Pedestrian</option><option value="bicycle">Bicycle</option><option value="other">Other</option></SearchableSelect></F>}
                 <F l="Run type / 10-code">
                   <div className="flex min-w-0">
                     <span className={radioCodePrefix} aria-hidden="true">10-</span>
-                    <input aria-label="Dispatched code without 10 prefix" className={radioCodeInput+(runKind==='traffic_stop'?' bg-muted':'')} value={dispatchedCode} onChange={e=>setDispatchedCode(normalizeRadioCode(e.target.value))} readOnly={runKind==='traffic_stop'} list="radio-code-list" placeholder="6 or 17A" data-testid="input-dispatched-code" />
+                    <input aria-label="Dispatched code without 10 prefix" className={radioCodeInput+(runKind==='traffic_stop'?' bg-muted':'')} value={dispatchedCode} onChange={e=>setDispatchedCode(normalizeRadioCode(e.target.value))} list="radio-code-list" placeholder="6 or 17A" data-testid="input-dispatched-code" />
                   </div>
                   <span className="text-xs text-muted-foreground">{runTypeCodeHelp(runKind)}{dispatchedCode?` ${RADIO_CODES[dispatchedCode]??'Unlisted code — confirm against approved code table'}`:''}</span>
                </F>

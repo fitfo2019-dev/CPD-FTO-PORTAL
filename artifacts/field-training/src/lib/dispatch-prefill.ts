@@ -24,16 +24,37 @@ export function applyDispatchPrefillValue(
 export function mapDispatchPrefillResponse(value: unknown): DispatchPrefill | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return;
   const root = value as Record<string, unknown>;
-  if (root.status !== "success" || typeof root.data !== "object" || root.data === null || Array.isArray(root.data)) return;
-  const data = root.data as Record<string, unknown>;
+  const metadata = root.metadata;
+  if (
+    root.status !== "success"
+    || typeof metadata !== "object"
+    || metadata === null
+    || Array.isArray(metadata)
+    || typeof (metadata as Record<string, unknown>).total_records !== "number"
+    || !Array.isArray(root.data)
+    || root.data.length > 1
+    || (metadata as Record<string, unknown>).total_records !== root.data.length
+  ) return;
+  if (root.data.length === 0) return {};
+  const data = root.data[0];
+  if (typeof data !== "object" || data === null || Array.isArray(data)) return;
+  const record = data as Record<string, unknown>;
   const result: DispatchPrefill = {};
-  if (typeof data.eventIngressAt === "string" && Number.isFinite(Date.parse(data.eventIngressAt))) {
-    result.eventIngressAt = data.eventIngressAt;
+  if (record.eventIngressAt !== undefined) {
+    if (typeof record.eventIngressAt !== "string" || !Number.isFinite(Date.parse(record.eventIngressAt))) return;
+    result.eventIngressAt = record.eventIngressAt;
   }
-  if (typeof data.incidentNumber === "string") result.incidentNumber = data.incidentNumber;
-  if (typeof data.location === "string") result.location = data.location;
-  if (typeof data.dispatchedCode === "string" && /^\d{1,3}[A-Za-z]?$/.test(data.dispatchedCode)) {
-    result.dispatchedCode = data.dispatchedCode.toUpperCase();
+  if (record.incidentNumber !== undefined) {
+    if (typeof record.incidentNumber !== "string" || record.incidentNumber.length > 120) return;
+    result.incidentNumber = record.incidentNumber;
+  }
+  if (record.location !== undefined) {
+    if (typeof record.location !== "string" || record.location.length > 200) return;
+    result.location = record.location;
+  }
+  if (record.dispatchedCode !== undefined) {
+    if (typeof record.dispatchedCode !== "string" || !/^\d{1,3}[A-Za-z]?$/.test(record.dispatchedCode)) return;
+    result.dispatchedCode = record.dispatchedCode.toUpperCase();
   }
   return result;
 }

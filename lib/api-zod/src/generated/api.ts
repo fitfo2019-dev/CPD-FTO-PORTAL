@@ -147,6 +147,49 @@ export const ListAuditLogsResponse = zod.object({
 
 
 /**
+ * Looks up one explicit event ID using the protected server-side adapter. This does not discover or poll active units.
+ * @summary Look up an approved dispatch event
+ */
+export const dispatchEventIngressBodyEventIdMax = 128;
+
+
+export const dispatchEventIngressBodyEventIdRegExp = new RegExp('^[A-Za-z0-9._:-]+$');
+
+
+export const DispatchEventIngressBody = zod.object({
+  "eventId": zod.string().min(1).max(dispatchEventIngressBodyEventIdMax).regex(dispatchEventIngressBodyEventIdRegExp)
+})
+
+export const dispatchEventIngressResponseMetadataTotalRecordsMin = 0;
+export const dispatchEventIngressResponseMetadataTotalRecordsMax = 1;
+
+export const dispatchEventIngressResponseDataItemIncidentNumberMax = 120;
+
+export const dispatchEventIngressResponseDataItemLocationMax = 200;
+
+export const dispatchEventIngressResponseDataItemDispatchedCodeMax = 8;
+
+
+export const dispatchEventIngressResponseDataItemDispatchedCodeRegExp = new RegExp('^\\d{1,3}[A-Z]?$');
+export const dispatchEventIngressResponseDataMax = 1;
+
+
+
+export const DispatchEventIngressResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(dispatchEventIngressResponseMetadataTotalRecordsMin).max(dispatchEventIngressResponseMetadataTotalRecordsMax)
+}),
+  "data": zod.array(zod.object({
+  "eventIngressAt": zod.coerce.date().optional(),
+  "incidentNumber": zod.string().max(dispatchEventIngressResponseDataItemIncidentNumberMax).optional(),
+  "location": zod.string().max(dispatchEventIngressResponseDataItemLocationMax).optional(),
+  "dispatchedCode": zod.string().max(dispatchEventIngressResponseDataItemDispatchedCodeMax).regex(dispatchEventIngressResponseDataItemDispatchedCodeRegExp).optional()
+})).max(dispatchEventIngressResponseDataMax)
+})
+
+
+/**
  * Returns the resource documents available to signed-in users. Every item maps to a server-side allowlisted file.
  * @summary List reference documents
  */
@@ -166,7 +209,7 @@ export const ListResourcesResponse = zod.object({
   "total_records": zod.number().int().min(listResourcesResponseMetadataTotalRecordsMin)
 }),
   "data": zod.array(zod.object({
-  "id": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud']),
+  "id": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-3-3-domestic-violence', 'dv-cpo-vs-tpo', 'dv-family-household-member-relationships', 'dv-feti-model', 'i-40-115-domestic-violence-lethality-screen', 'dv-power-and-control-wheel', 'dv-safety-plan-victims-page-1', 'dv-safety-plan-victims-page-2', 'dv-strangulation-assessment-card-v4', 'dv-strangulation-checklist', 'dv-strangulation-physiological-consequences', 'dv-types-of-abuse-worksheet-1', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud']),
   "title": zod.string().min(1).max(listResourcesResponseDataItemTitleMax),
   "file_type": zod.enum(['DOC', 'DOCX', 'PDF']),
   "description": zod.string().max(listResourcesResponseDataItemDescriptionMax),
@@ -180,7 +223,7 @@ export const ListResourcesResponse = zod.object({
  * @summary Download a reference document
  */
 export const DownloadResourceFileParams = zod.object({
-  "resourceId": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud'])
+  "resourceId": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-3-3-domestic-violence', 'dv-cpo-vs-tpo', 'dv-family-household-member-relationships', 'dv-feti-model', 'i-40-115-domestic-violence-lethality-screen', 'dv-power-and-control-wheel', 'dv-safety-plan-victims-page-1', 'dv-safety-plan-victims-page-2', 'dv-strangulation-assessment-card-v4', 'dv-strangulation-checklist', 'dv-strangulation-physiological-consequences', 'dv-types-of-abuse-worksheet-1', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud'])
 })
 
 export const DownloadResourceFileResponse = zod.unknown()
