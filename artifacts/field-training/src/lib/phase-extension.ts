@@ -30,8 +30,11 @@ export function normalizePhaseExtensionRequests(value:unknown):PhaseExtensionReq
       &&typeof item.requestingFtoBadge==='string'
       &&typeof item.requestingFtoName==='string'
       &&typeof item.createdAt==='string'
-      &&typeof item.recruitName==='string';
-  });
+      &&typeof item.recruitName==='string'
+      &&(item.status===undefined||['local_draft','pending','approved','denied'].includes(String(item.status)))
+      &&(item.reviewedAt===undefined||typeof item.reviewedAt==='string')
+      &&(item.appliedToLocalSchedule===undefined||typeof item.appliedToLocalSchedule==='boolean');
+  }).map(item=>({...item,status:item.status??'local_draft'}));
 }
 
 const addDays=(isoDate:string,days:number)=>new Date(Date.parse(`${isoDate}T12:00:00Z`)+days*24*60*60*1000).toISOString().slice(0,10);
@@ -91,4 +94,28 @@ export function denyPhaseExtension(workspace:Workspace,requestId:string):Workspa
     ...workspace,
     phaseExtensionRequests:workspace.phaseExtensionRequests.filter(item=>item.id!==requestId),
   };
+}
+
+/**
+ * Applies a server-approved request to this device's schedule once the matching
+ * phase folder is available. Approval status remains visible in the local vault.
+ */
+export function applyApprovedPhaseExtensions(workspace:Workspace):Workspace {
+  let next=workspace;
+  for(const request of next.phaseExtensionRequests) {
+    if(request.status!=='approved'||request.appliedToLocalSchedule)continue;
+    const staged=next.phaseExtensionRequests.some(item=>item.id===request.id)
+      ?next
+      :{...next,phaseExtensionRequests:[...next.phaseExtensionRequests,request]};
+    const updated=approvePhaseExtension(staged,request.id);
+    if(updated===staged)continue;
+    next={
+      ...updated,
+      phaseExtensionRequests:[
+        ...updated.phaseExtensionRequests.filter(item=>item.id!==request.id),
+        {...request,appliedToLocalSchedule:true},
+      ],
+    };
+  }
+  return next;
 }

@@ -6,7 +6,7 @@ import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-
 import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
 import { buildTimelineInterpolation, type TimelineInterpolation } from '@/lib/timeline-interpolation.js';
 import { createPhaseWeekRanges, getPhaseWeekNumber, getSundaySaturdayWeek } from '@/lib/training-calendar.js';
-import { approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests } from '@/lib/phase-extension.js';
+import { applyApprovedPhaseExtensions, approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests } from '@/lib/phase-extension.js';
 import { CURRENT_PACKET_INDEX_VERSION, migrateOperationalReferenceReviews, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
 
@@ -16,7 +16,7 @@ type VaultIntent = 'save' | 'restore' | null;
 interface Ctx {
   ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean;
   setRole(r: Role): void; upsertReport(r: Report): void; upsertWeeklyAcknowledgement(ack: WeeklyPacketAcknowledgement): void; deleteReport(id: string): void; toggleTask(id: string, by: string): void; setCaseFolder(folder: PhaseCaseFolder): void;
-  submitPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; resolvePhaseExtensionRequest(id:string,approve:boolean):Promise<void>;
+  submitPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; syncSharedPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; resolvePhaseExtensionRequest(id:string,approve:boolean):Promise<void>;
   upsertWeeklyPerformanceLog(log:WeeklyPerformanceLog):void; upsertSubstationOrientation(record:SubstationOrientationRecord):void;
   upsertFtoPhasePosting(posting:FtoPhasePosting):void; upsertFtoPhaseSignup(signup:FtoPhaseSignup):void; upsertCoverageRequest(request:CoverageRequest):void;
   upsertLawReviewRecord(record:LawReviewRecord):void; deleteLawReviewRecord(id:string):void;
@@ -420,7 +420,9 @@ export function WorkspaceProvider({
     const ftoDirectory = Array.isArray(savedWorkspace.ftoDirectory) ? savedWorkspace.ftoDirectory.filter(item=>isRecord(item)&&typeof item.badge==='string'&&typeof item.name==='string') : [];
     const assignments = Array.isArray(savedWorkspace.assignments) ? savedWorkspace.assignments.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&[1,2,3,4].includes(Number(item.phase))) : [];
     const tasks=Array.isArray(savedWorkspace.tasks)?savedWorkspace.tasks.filter(item=>isRecord(item)&&[1,2,3,4].includes(Number(item.phase))):[];
-    setWs({ ...workspaceWithoutChatHistory, packetIndexVersion:CURRENT_PACKET_INDEX_VERSION, role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests }); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(weeklyPerformanceLogs!==savedWeeklyPerformanceLogs||savedWorkspace.packetIndexVersion!==CURRENT_PACKET_INDEX_VERSION); setLockedNotice(false); setLockedWithUnsaved(false);
+    const restoredWorkspace={ ...workspaceWithoutChatHistory, packetIndexVersion:CURRENT_PACKET_INDEX_VERSION as Workspace['packetIndexVersion'], role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests };
+    const workspaceWithAppliedExtensions=applyApprovedPhaseExtensions(restoredWorkspace);
+    setWs(workspaceWithAppliedExtensions); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(workspaceWithAppliedExtensions!==restoredWorkspace||weeklyPerformanceLogs!==savedWeeklyPerformanceLogs||savedWorkspace.packetIndexVersion!==CURRENT_PACKET_INDEX_VERSION); setLockedNotice(false); setLockedWithUnsaved(false);
     setStoragePersistent(await requestPersistentStorage());
     await refreshPending();
   }, [previewOnly, refreshPending]);
@@ -462,13 +464,33 @@ export function WorkspaceProvider({
       const folders=w.phaseFolders??[];
       const index=folders.findIndex(existing=>sameCaseFolder(existing,caseFolder));
       const phaseFolders=index<0?[...folders,caseFolder]:folders.map((existing,i)=>i===index?caseFolder:existing);
-      return {...w,caseFolder,phaseFolders};
+      return applyApprovedPhaseExtensions({...w,caseFolder,phaseFolders});
     }),
     submitPhaseExtensionRequest:async(request)=>{
       if(wsRef.current.role!=='fto'||vault!=='unlocked')throw new Error('Unlock the local vault as the FTO before submitting a request.');
       await mutateAndPersist(w=>{
-        if((w.phaseExtensionRequests??[]).some(item=>sameExtensionTarget(item,request)))return w;
-        return {...w,phaseExtensionRequests:[...(w.phaseExtensionRequests??[]),request]};
+        const existing=w.phaseExtensionRequests.find(item=>sameExtensionTarget(item,request));
+        if(existing&&existing.id!==request.id&&existing.status!=='local_draft')return w;
+        const saved={...request,status:request.status??'local_draft'};
+        return {...w,phaseExtensionRequests:existing
+          ?w.phaseExtensionRequests.map(item=>item.id===existing.id?saved:item)
+          :[...w.phaseExtensionRequests,saved]};
+      });
+    },
+    syncSharedPhaseExtensionRequest:async(request)=>{
+      if(wsRef.current.role!=='fto'||vault!=='unlocked')return;
+      await mutateAndPersist(w=>{
+        const existing=w.phaseExtensionRequests.find(item=>item.id===request.id);
+        const synced={...request,status:request.status??'pending'};
+        if(existing?.status===synced.status&&(synced.status!=='approved'||existing.appliedToLocalSchedule))return w;
+        if(synced.status==='approved') {
+          const staged={...w,phaseExtensionRequests:existing
+            ?w.phaseExtensionRequests.map(item=>item.id===request.id?synced:item)
+            :[...w.phaseExtensionRequests,synced]};
+          return applyApprovedPhaseExtensions(staged);
+        }
+        if(!existing)return w;
+        return {...w,phaseExtensionRequests:w.phaseExtensionRequests.map(item=>item.id===request.id?synced:item)};
       });
     },
     resolvePhaseExtensionRequest:async(id,approve)=>{

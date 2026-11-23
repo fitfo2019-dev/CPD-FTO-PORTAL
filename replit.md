@@ -8,8 +8,8 @@ Read `PROJECT_MANIFEST.md`, `.replit-context.md`, and `HANDOVER_MANUAL.md` befor
 
 - `artifacts/api-server/` is the Express API server. Its secure-records endpoint is not a protected training-record service.
 - `artifacts/mockup-sandbox/` is the React/Vite component preview and reusable UI library.
-- `artifacts/field-training/` is the local-only Field Training Officer Portal; drafts are not shared or uploaded.
-- `lib/` contains shared API clients, OpenAPI definitions, generated schemas, and an unconnected database foundation.
+- `artifacts/field-training/` keeps training records and encrypted drafts on the device. Phase-extension requests are the only shared operational workflow currently connected.
+- `lib/` contains shared API clients, OpenAPI definitions, generated schemas, and the PostgreSQL schema; the API currently uses the database only for phase-extension requests and synthetic staging.
 
 ## Run & Operate
 
@@ -19,7 +19,7 @@ Read `PROJECT_MANIFEST.md`, `.replit-context.md`, and `HANDOVER_MANUAL.md` befor
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `AUDIT_ID_HMAC_KEY` for API audit pseudonymization. `DATABASE_URL` is used only by the separate database helper, not by current API routes.
+- Required env: `AUDIT_ID_HMAC_KEY` for API audit pseudonymization. `DATABASE_URL` is required for shared phase-extension request storage and synthetic staging.
 
 ## Stack
 
@@ -36,7 +36,7 @@ See `docs/PROJECT_STRUCTURE.md`. Portable SQL is in `database/migrations/001_fie
 
 ## Architecture decisions
 
-- The initial workspace contains no generated training records. User-entered records remain device-local; no protected report backend or department identity integration is connected.
+- The initial workspace contains no generated training records. Training reports remain device-local; phase-extension requests use authenticated API storage and require server-verified Clerk `publicMetadata.fieldreadyRole` values (`FTO` or `FTO_COORDINATOR`). Client role preview is not authorization.
 - Never claim CJIS compliance from framework choice, encryption, or hosting provider alone.
 - Preserve portability to standard government/on-premise PostgreSQL and self-hosted infrastructure.
 

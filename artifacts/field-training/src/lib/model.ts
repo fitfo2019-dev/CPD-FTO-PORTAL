@@ -617,6 +617,9 @@ export interface PhaseExtensionRequest {
   requestedWeeks: number;
   justification: string;
   createdAt: string;
+  status?: 'local_draft'|'pending'|'approved'|'denied';
+  reviewedAt?: string;
+  appliedToLocalSchedule?: boolean;
 }
 export type Shift = 'A-Co'|'B-Co'|'C-Co'|'DMW'|'EMW';
 export type Weekday = 0|1|2|3|4|5|6;

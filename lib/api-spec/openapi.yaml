@@ -384,8 +384,121 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /v1/phase-extension-requests:
+    get:
+      operationId: listPhaseExtensionRequests
+      tags: [phase-extensions]
+      summary: List phase extension requests available to the signed-in staff member
+      description: FTOs receive their own request statuses; FTO Coordinators receive pending requests. The server verifies the Clerk session and role metadata.
+      responses:
+        "200":
+          description: Authorized phase extension requests
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PhaseExtensionRequestsEnvelope" }
+        default:
+          description: Authentication, role, or storage service error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+    post:
+      operationId: submitPhaseExtensionRequest
+      tags: [phase-extensions]
+      summary: Submit a phase extension request as an FTO
+      description: The authenticated FTO identity and request timestamp are assigned by the server. Role preview values are ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PhaseExtensionRequestInput" }
+      responses:
+        "201":
+          description: Request stored for Coordinator review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PhaseExtensionRequestsEnvelope" }
+        default:
+          description: Authentication, role, validation, or storage service error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/phase-extension-requests/{id}/review:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 64, pattern: "^[A-Za-z0-9._:-]+$" }
+    post:
+      operationId: reviewPhaseExtensionRequest
+      tags: [phase-extensions]
+      summary: Approve or deny a pending request as an FTO Coordinator
+      description: The server verifies the signed-in Coordinator role and records the decision without trusting client role preview.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PhaseExtensionReviewInput" }
+      responses:
+        "200":
+          description: Request decision recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PhaseExtensionRequestsEnvelope" }
+        default:
+          description: Authentication, role, conflict, or storage service error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
 components:
   schemas:
+    PhaseExtensionRequestInput:
+      type: object
+      additionalProperties: false
+      required: [id, className, recruitName, recruitBadge, phase, phaseStartDate, requestingFtoName, requestingFtoBadge, extensionType, requestedWeeks, justification]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64, pattern: "^[A-Za-z0-9._:-]+$" }
+        className: { type: string, maxLength: 120 }
+        recruitName: { type: string, minLength: 1, maxLength: 120 }
+        recruitBadge: { type: string, minLength: 1, maxLength: 40 }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        phaseStartDate: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        requestingFtoName: { type: string, minLength: 1, maxLength: 120 }
+        requestingFtoBadge: { type: string, minLength: 1, maxLength: 40 }
+        extensionType: { type: string, enum: [training_weeks, limbo_period] }
+        requestedWeeks: { type: integer, minimum: 1, maximum: 52 }
+        justification: { type: string, minLength: 1, maxLength: 4000 }
+    PhaseExtensionRequest:
+      allOf:
+        - $ref: "#/components/schemas/PhaseExtensionRequestInput"
+        - type: object
+          required: [status, createdAt, reviewedAt]
+          properties:
+            status: { type: string, enum: [pending, approved, denied] }
+            createdAt: { type: string, format: date-time }
+            reviewedAt: { type: ["string", "null"], format: date-time }
+    PhaseExtensionReviewInput:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, deny] }
+    PhaseExtensionRequestsMetadata:
+      type: object
+      additionalProperties: false
+      required: [total_records, role]
+      properties:
+        total_records: { type: integer, minimum: 0 }
+        role: { type: string, enum: [FTO, FTO_COORDINATOR] }
+    PhaseExtensionRequestsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata: { $ref: "#/components/schemas/PhaseExtensionRequestsMetadata" }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/PhaseExtensionRequest" }
     StagingTrainingInput:
       type: object
       additionalProperties: false

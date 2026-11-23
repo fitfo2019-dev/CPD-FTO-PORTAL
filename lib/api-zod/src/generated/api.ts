@@ -544,3 +544,219 @@ export const DownloadResourceFileParams = zod.object({
 export const DownloadResourceFileResponse = zod.unknown()
 
 
+/**
+ * FTOs receive their own request statuses; FTO Coordinators receive pending requests. The server verifies the Clerk session and role metadata.
+ * @summary List phase extension requests available to the signed-in staff member
+ */
+export const listPhaseExtensionRequestsResponseMetadataTotalRecordsMin = 0;
+
+export const listPhaseExtensionRequestsResponseDataItemOneIdMax = 64;
+
+
+export const listPhaseExtensionRequestsResponseDataItemOneIdRegExp = new RegExp('^[A-Za-z0-9._:-]+$');
+export const listPhaseExtensionRequestsResponseDataItemOneClassNameMax = 120;
+
+export const listPhaseExtensionRequestsResponseDataItemOneRecruitNameMax = 120;
+
+export const listPhaseExtensionRequestsResponseDataItemOneRecruitBadgeMax = 40;
+
+export const listPhaseExtensionRequestsResponseDataItemOnePhaseMax = 4;
+
+export const listPhaseExtensionRequestsResponseDataItemOnePhaseStartDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const listPhaseExtensionRequestsResponseDataItemOneRequestingFtoNameMax = 120;
+
+export const listPhaseExtensionRequestsResponseDataItemOneRequestingFtoBadgeMax = 40;
+
+export const listPhaseExtensionRequestsResponseDataItemOneRequestedWeeksMax = 52;
+
+export const listPhaseExtensionRequestsResponseDataItemOneJustificationMax = 4000;
+
+
+
+export const ListPhaseExtensionRequestsResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(listPhaseExtensionRequestsResponseMetadataTotalRecordsMin),
+  "role": zod.enum(['FTO', 'FTO_COORDINATOR'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneIdMax).regex(listPhaseExtensionRequestsResponseDataItemOneIdRegExp),
+  "className": zod.string().max(listPhaseExtensionRequestsResponseDataItemOneClassNameMax),
+  "recruitName": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRecruitBadgeMax),
+  "phase": zod.number().int().min(1).max(listPhaseExtensionRequestsResponseDataItemOnePhaseMax),
+  "phaseStartDate": zod.string().regex(listPhaseExtensionRequestsResponseDataItemOnePhaseStartDateRegExp),
+  "requestingFtoName": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRequestingFtoNameMax),
+  "requestingFtoBadge": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRequestingFtoBadgeMax),
+  "extensionType": zod.enum(['training_weeks', 'limbo_period']),
+  "requestedWeeks": zod.number().int().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRequestedWeeksMax),
+  "justification": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneJustificationMax)
+}).and(zod.object({
+  "status": zod.enum(['pending', 'approved', 'denied']),
+  "createdAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable()
+})))
+})
+
+
+/**
+ * The authenticated FTO identity and request timestamp are assigned by the server. Role preview values are ignored.
+ * @summary Submit a phase extension request as an FTO
+ */
+export const submitPhaseExtensionRequestBodyIdMax = 64;
+
+
+export const submitPhaseExtensionRequestBodyIdRegExp = new RegExp('^[A-Za-z0-9._:-]+$');
+export const submitPhaseExtensionRequestBodyClassNameMax = 120;
+
+export const submitPhaseExtensionRequestBodyRecruitNameMax = 120;
+
+export const submitPhaseExtensionRequestBodyRecruitBadgeMax = 40;
+
+export const submitPhaseExtensionRequestBodyPhaseMax = 4;
+
+export const submitPhaseExtensionRequestBodyPhaseStartDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const submitPhaseExtensionRequestBodyRequestingFtoNameMax = 120;
+
+export const submitPhaseExtensionRequestBodyRequestingFtoBadgeMax = 40;
+
+export const submitPhaseExtensionRequestBodyRequestedWeeksMax = 52;
+
+export const submitPhaseExtensionRequestBodyJustificationMax = 4000;
+
+
+
+export const SubmitPhaseExtensionRequestBody = zod.object({
+  "id": zod.string().min(1).max(submitPhaseExtensionRequestBodyIdMax).regex(submitPhaseExtensionRequestBodyIdRegExp),
+  "className": zod.string().max(submitPhaseExtensionRequestBodyClassNameMax),
+  "recruitName": zod.string().min(1).max(submitPhaseExtensionRequestBodyRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(submitPhaseExtensionRequestBodyRecruitBadgeMax),
+  "phase": zod.number().int().min(1).max(submitPhaseExtensionRequestBodyPhaseMax),
+  "phaseStartDate": zod.string().regex(submitPhaseExtensionRequestBodyPhaseStartDateRegExp),
+  "requestingFtoName": zod.string().min(1).max(submitPhaseExtensionRequestBodyRequestingFtoNameMax),
+  "requestingFtoBadge": zod.string().min(1).max(submitPhaseExtensionRequestBodyRequestingFtoBadgeMax),
+  "extensionType": zod.enum(['training_weeks', 'limbo_period']),
+  "requestedWeeks": zod.number().int().min(1).max(submitPhaseExtensionRequestBodyRequestedWeeksMax),
+  "justification": zod.string().min(1).max(submitPhaseExtensionRequestBodyJustificationMax)
+})
+
+export const submitPhaseExtensionRequestResponseMetadataTotalRecordsMin = 0;
+
+export const submitPhaseExtensionRequestResponseDataItemOneIdMax = 64;
+
+
+export const submitPhaseExtensionRequestResponseDataItemOneIdRegExp = new RegExp('^[A-Za-z0-9._:-]+$');
+export const submitPhaseExtensionRequestResponseDataItemOneClassNameMax = 120;
+
+export const submitPhaseExtensionRequestResponseDataItemOneRecruitNameMax = 120;
+
+export const submitPhaseExtensionRequestResponseDataItemOneRecruitBadgeMax = 40;
+
+export const submitPhaseExtensionRequestResponseDataItemOnePhaseMax = 4;
+
+export const submitPhaseExtensionRequestResponseDataItemOnePhaseStartDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const submitPhaseExtensionRequestResponseDataItemOneRequestingFtoNameMax = 120;
+
+export const submitPhaseExtensionRequestResponseDataItemOneRequestingFtoBadgeMax = 40;
+
+export const submitPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax = 52;
+
+export const submitPhaseExtensionRequestResponseDataItemOneJustificationMax = 4000;
+
+
+
+export const SubmitPhaseExtensionRequestResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(submitPhaseExtensionRequestResponseMetadataTotalRecordsMin),
+  "role": zod.enum(['FTO', 'FTO_COORDINATOR'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneIdMax).regex(submitPhaseExtensionRequestResponseDataItemOneIdRegExp),
+  "className": zod.string().max(submitPhaseExtensionRequestResponseDataItemOneClassNameMax),
+  "recruitName": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRecruitBadgeMax),
+  "phase": zod.number().int().min(1).max(submitPhaseExtensionRequestResponseDataItemOnePhaseMax),
+  "phaseStartDate": zod.string().regex(submitPhaseExtensionRequestResponseDataItemOnePhaseStartDateRegExp),
+  "requestingFtoName": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRequestingFtoNameMax),
+  "requestingFtoBadge": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRequestingFtoBadgeMax),
+  "extensionType": zod.enum(['training_weeks', 'limbo_period']),
+  "requestedWeeks": zod.number().int().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax),
+  "justification": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneJustificationMax)
+}).and(zod.object({
+  "status": zod.enum(['pending', 'approved', 'denied']),
+  "createdAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable()
+})))
+})
+
+
+/**
+ * The server verifies the signed-in Coordinator role and records the decision without trusting client role preview.
+ * @summary Approve or deny a pending request as an FTO Coordinator
+ */
+export const reviewPhaseExtensionRequestPathIdMax = 64;
+
+
+export const reviewPhaseExtensionRequestPathIdRegExp = new RegExp('^[A-Za-z0-9._:-]+$');
+
+
+export const ReviewPhaseExtensionRequestParams = zod.object({
+  "id": zod.string().min(1).max(reviewPhaseExtensionRequestPathIdMax).regex(reviewPhaseExtensionRequestPathIdRegExp)
+})
+
+export const ReviewPhaseExtensionRequestBody = zod.object({
+  "decision": zod.enum(['approve', 'deny'])
+})
+
+export const reviewPhaseExtensionRequestResponseMetadataTotalRecordsMin = 0;
+
+export const reviewPhaseExtensionRequestResponseDataItemOneIdMax = 64;
+
+
+export const reviewPhaseExtensionRequestResponseDataItemOneIdRegExp = new RegExp('^[A-Za-z0-9._:-]+$');
+export const reviewPhaseExtensionRequestResponseDataItemOneClassNameMax = 120;
+
+export const reviewPhaseExtensionRequestResponseDataItemOneRecruitNameMax = 120;
+
+export const reviewPhaseExtensionRequestResponseDataItemOneRecruitBadgeMax = 40;
+
+export const reviewPhaseExtensionRequestResponseDataItemOnePhaseMax = 4;
+
+export const reviewPhaseExtensionRequestResponseDataItemOnePhaseStartDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const reviewPhaseExtensionRequestResponseDataItemOneRequestingFtoNameMax = 120;
+
+export const reviewPhaseExtensionRequestResponseDataItemOneRequestingFtoBadgeMax = 40;
+
+export const reviewPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax = 52;
+
+export const reviewPhaseExtensionRequestResponseDataItemOneJustificationMax = 4000;
+
+
+
+export const ReviewPhaseExtensionRequestResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(reviewPhaseExtensionRequestResponseMetadataTotalRecordsMin),
+  "role": zod.enum(['FTO', 'FTO_COORDINATOR'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneIdMax).regex(reviewPhaseExtensionRequestResponseDataItemOneIdRegExp),
+  "className": zod.string().max(reviewPhaseExtensionRequestResponseDataItemOneClassNameMax),
+  "recruitName": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRecruitBadgeMax),
+  "phase": zod.number().int().min(1).max(reviewPhaseExtensionRequestResponseDataItemOnePhaseMax),
+  "phaseStartDate": zod.string().regex(reviewPhaseExtensionRequestResponseDataItemOnePhaseStartDateRegExp),
+  "requestingFtoName": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRequestingFtoNameMax),
+  "requestingFtoBadge": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRequestingFtoBadgeMax),
+  "extensionType": zod.enum(['training_weeks', 'limbo_period']),
+  "requestedWeeks": zod.number().int().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax),
+  "justification": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneJustificationMax)
+}).and(zod.object({
+  "status": zod.enum(['pending', 'approved', 'denied']),
+  "createdAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable()
+})))
+})
+
+

@@ -1,20 +1,26 @@
 import * as React from 'react';
+import { useAuth } from '@clerk/react';
 import { Panel } from '@/components/bits.js';
 import { useWorkspace } from '@/state/workspace.js';
-import { PHASE_LENGTH_WEEKS, phaseLabel, uid, type PhaseExtensionRequest } from '@/lib/model.js';
+import { PHASE_LENGTH_WEEKS, phaseLabel, type PhaseExtensionRequest } from '@/lib/model.js';
 import { phaseExtensionRequestInputSchema } from '@/lib/phase-extension.js';
+import { listSharedPhaseExtensionRequests, PhaseExtensionApiError, reviewSharedPhaseExtensionRequest, submitSharedPhaseExtensionRequest } from '@/lib/phase-extension-api.js';
 import { useToast } from '@/hooks/use-toast.js';
 
 interface PhaseExtensionReviewViewProps {
   requests:readonly PhaseExtensionRequest[];
-  vaultUnlocked:boolean;
   onReview(id:string,approve:boolean):Promise<void>;
+  reviewingId?:string;
+  loading?:boolean;
+  error?:string|null;
 }
 
-export function PhaseExtensionReviewView({requests,vaultUnlocked,onReview}:PhaseExtensionReviewViewProps) {
-  if(!requests.length)return null;
+export function PhaseExtensionReviewView({requests,onReview,reviewingId,loading,error}:PhaseExtensionReviewViewProps) {
   return <Panel title={`Pending phase extension requests · ${requests.length}`} className="mb-4" id="panel-phase-extension-review">
-    <ul className="divide-y">
+    {error&&<p role="alert" className="border-b bg-destructive/5 p-4 text-sm text-destructive">{error}</p>}
+    {loading&&<p role="status" className="border-b p-4 text-sm text-muted-foreground">Loading shared requests…</p>}
+    {!loading&&!error&&!requests.length&&<p className="p-4 text-sm text-muted-foreground">No pending requests are available.</p>}
+    {!!requests.length&&<ul className="divide-y">
       {requests.map(request=><li key={request.id} className="grid gap-3 p-4" data-testid={`phase-extension-request-${request.id}`}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -26,62 +32,176 @@ export function PhaseExtensionReviewView({requests,vaultUnlocked,onReview}:Phase
         </div>
         <p className="whitespace-pre-wrap text-sm">{request.justification}</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={!vaultUnlocked} onClick={()=>void onReview(request.id,true)} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid={`button-approve-extension-${request.id}`}>Approve</button>
-          <button type="button" disabled={!vaultUnlocked} onClick={()=>void onReview(request.id,false)} className="min-h-10 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-deny-extension-${request.id}`}>Deny</button>
+          <button type="button" disabled={!!reviewingId} onClick={()=>void onReview(request.id,true)} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid={`button-approve-extension-${request.id}`}>{reviewingId===request.id?'Saving…':'Approve'}</button>
+          <button type="button" disabled={!!reviewingId} onClick={()=>void onReview(request.id,false)} className="min-h-10 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-deny-extension-${request.id}`}>Deny</button>
         </div>
       </li>)}
-    </ul>
-    <p className="border-t px-4 py-3 text-xs text-muted-foreground">{vaultUnlocked?'This review is saved in the encrypted workspace on this device. It does not notify or sync to another device.':'Unlock this device’s encrypted workspace to approve or deny requests.'}</p>
+    </ul>}
+    <p className="border-t px-4 py-3 text-xs text-muted-foreground">Requests and review decisions are stored by the authenticated agency service and are available across devices.</p>
   </Panel>;
 }
 
 export function PhaseExtensionPanel() {
-  const {ws,vault,submitPhaseExtensionRequest,resolvePhaseExtensionRequest}=useWorkspace();
+  const {ws,vault,submitPhaseExtensionRequest,syncSharedPhaseExtensionRequest}=useWorkspace();
+  const {getToken,isLoaded,isSignedIn}=useAuth();
   const {toast}=useToast();
   const [extensionType,setExtensionType]=React.useState<PhaseExtensionRequest['extensionType']>('training_weeks');
   const [requestedWeeks,setRequestedWeeks]=React.useState(1);
   const [justification,setJustification]=React.useState('');
-  const pending=ws.phaseExtensionRequests??[];
+  const [sharedRequests,setSharedRequests]=React.useState<PhaseExtensionRequest[]>([]);
+  const [loading,setLoading]=React.useState(false);
+  const [serviceError,setServiceError]=React.useState<string|null>(null);
+  const [serverRole,setServerRole]=React.useState<'FTO'|'FTO_COORDINATOR'|null>(null);
+  const [reviewingId,setReviewingId]=React.useState<string>();
+  const localRequests=ws.phaseExtensionRequests??[];
+
+  React.useEffect(()=>{
+    if(!isLoaded||!isSignedIn)return;
+    let active=true;
+    async function refresh() {
+      setLoading(true);
+      try {
+        const token=await getToken();
+        if(!token)throw new PhaseExtensionApiError('Sign in again to load shared requests.',401);
+        const result=await listSharedPhaseExtensionRequests(token);
+        if(!active)return;
+        setServerRole(result.role);
+        setSharedRequests(result.requests);
+        setServiceError(null);
+        if(ws.role==='fto'&&vault==='unlocked') {
+          for(const request of result.requests) {
+            if(request.status==='approved'||localRequests.some(item=>item.id===request.id)) {
+              await syncSharedPhaseExtensionRequest(request);
+            }
+          }
+        }
+      } catch(error) {
+        if(active)setServiceError(error instanceof Error?error.message:'Shared requests are unavailable.');
+      } finally {
+        if(active)setLoading(false);
+      }
+    }
+    void refresh();
+    const timer=window.setInterval(()=>void refresh(),30_000);
+    return ()=>{active=false;window.clearInterval(timer);};
+  },[getToken,isLoaded,isSignedIn,ws.role,vault]);
 
   async function reviewRequest(id:string,approve:boolean) {
+    setReviewingId(id);
     try {
-      await resolvePhaseExtensionRequest(id,approve);
+      const token=await getToken();
+      if(!token)throw new PhaseExtensionApiError('Sign in again to review this request.',401);
+      const reviewed=await reviewSharedPhaseExtensionRequest(token,id,approve);
+      setSharedRequests(current=>current.filter(request=>request.id!==id));
+      setServiceError(null);
       toast(approve
-        ?{title:'Extension approved',description:'The local phase timeline and saved reports have been updated.'}
-        :{title:'Request denied',description:'The pending local request was removed.'});
-    } catch {
-      toast({title:'Request could not be saved',description:'The encrypted workspace could not be updated.',variant:'destructive'});
+        ?{title:'Extension approved',description:`${reviewed.className} · ${reviewed.recruitName} can see the decision from their device.`}
+        :{title:'Request denied',description:`${reviewed.className} · ${reviewed.recruitName} can see the decision from their device.`});
+    } catch(error) {
+      const message=error instanceof Error?error.message:'The shared review service is unavailable.';
+      setServiceError(message);
+      toast({title:'Review could not be saved',description:message,variant:'destructive'});
+    } finally {
+      setReviewingId(undefined);
     }
+  }
+
+  if(ws.role==='fto_coordinator'&&serverRole==='FTO_COORDINATOR') {
+    return <PhaseExtensionReviewView requests={sharedRequests.filter(request=>request.status==='pending')} onReview={reviewRequest} reviewingId={reviewingId} loading={loading} error={serviceError}/>;
   }
 
   if(ws.role==='fto_coordinator') {
-    return <PhaseExtensionReviewView requests={pending} vaultUnlocked={vault==='unlocked'} onReview={reviewRequest}/>;
+    const message=serverRole==='FTO'
+      ?'This signed-in account has the FTO role. Coordinator review controls are not available.'
+      :serviceError??'Verifying Coordinator access…';
+    return <Panel title="Coordinator review access"><p role={serviceError?'alert':'status'} className="p-4 text-sm">{message}</p></Panel>;
   }
 
-  if(ws.role!=='fto'||!ws.caseFolder)return null;
+  if(ws.role!=='fto')return null;
+  if(serverRole==='FTO_COORDINATOR') {
+    return <Panel title="Coordinator account"><p role="status" className="p-4 text-sm">This signed-in account has Coordinator access. Switch to the Coordinator role view to review requests.</p></Panel>;
+  }
   const folder=ws.caseFolder;
-  const matchingPending=pending.filter(request=>request.recruitBadge.toLowerCase()===folder.recruitBadge.toLowerCase()
-    &&request.phase===folder.phase&&(request.className??'').toLowerCase()===(folder.className??'').toLowerCase());
+  const matchingPending=folder?[...sharedRequests,...localRequests].filter(request=>request.status!=='denied'&&request.status!=='approved'&&request.recruitBadge.toLowerCase()===folder.recruitBadge.toLowerCase()
+    &&request.phase===folder.phase&&(request.className??'').toLowerCase()===(folder.className??'').toLowerCase()):[];
+  const localDraft=matchingPending.find(request=>request.status==='local_draft');
+  const remotePending=matchingPending.some(request=>request.status==='pending');
+  const visibleRequests=[...sharedRequests,...localRequests.filter(request=>!sharedRequests.some(remote=>remote.id===request.id))]
+    .sort((left,right)=>right.createdAt.localeCompare(left.createdAt));
+  const statusPanel=visibleRequests.length>0&&<Panel title="Phase extension request status" className="mb-4" id="panel-phase-extension-status">
+    <ul className="divide-y">
+      {visibleRequests.map(request=><li key={request.id} className="grid gap-1 p-4" data-testid={`phase-extension-status-${request.id}`}>
+        <p className="font-semibold">{request.className} · {request.recruitName} #{request.recruitBadge} · {phaseLabel(request.phase)}</p>
+        <p className="text-sm">{request.extensionType==='limbo_period'?'Limbo period':'Training phase'} · {request.requestedWeeks} additional week{request.requestedWeeks===1?'':'s'}</p>
+        <p className="text-sm text-muted-foreground">{request.status==='local_draft'?'Saved on this device · not sent':request.status==='pending'?'Submitted · awaiting Coordinator review':request.status==='approved'?'Approved':'Denied'}</p>
+        {request.reviewedAt&&<time className="text-xs text-muted-foreground" dateTime={request.reviewedAt}>Reviewed {new Date(request.reviewedAt).toLocaleDateString()}</time>}
+        {request.status==='local_draft'&&<button type="button" onClick={()=>void retryDraft(request)} disabled={vault!=='unlocked'||!isLoaded||!isSignedIn||loading} className="mt-2 min-h-10 justify-self-start rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-retry-extension-${request.id}`}>Send saved request</button>}
+      </li>)}
+    </ul>
+  </Panel>;
+  if(!folder)return <>{serviceError&&<p role="status" className="mb-4 rounded border bg-accent/10 p-3 text-sm">{serviceError} Local drafts remain on this device.</p>}{statusPanel}</>;
+  const activeFolder=folder;
+
+  async function sendRequest(request:PhaseExtensionRequest) {
+    if(vault!=='unlocked')throw new Error('Unlock this device’s encrypted workspace first.');
+    if(!isLoaded||!isSignedIn)throw new PhaseExtensionApiError('Sign in with your approved staff account.',401);
+    if(!navigator.onLine) {
+      await submitPhaseExtensionRequest({...request,status:'local_draft'});
+      return 'offline';
+    }
+    const token=await getToken();
+    if(!token)throw new PhaseExtensionApiError('Sign in again to submit this request.',401);
+    let saved:PhaseExtensionRequest;
+    try {
+      saved=await submitSharedPhaseExtensionRequest(token,request);
+    } catch(error) {
+      if(error instanceof PhaseExtensionApiError&&(error.status===401||error.status===403||error.status===400||error.status===409))throw error;
+      await submitPhaseExtensionRequest({...request,status:'local_draft'});
+      return 'offline';
+    }
+    await submitPhaseExtensionRequest(saved);
+    setSharedRequests(current=>[saved,...current.filter(item=>item.id!==saved.id)]);
+    setServiceError(null);
+    return 'sent';
+  }
 
   async function submit(event:React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if(remotePending||localDraft)return;
     const valid=phaseExtensionRequestInputSchema.safeParse({extensionType,requestedWeeks,justification});
     if(!valid.success)return;
     const request:PhaseExtensionRequest={
-      id:uid(),className:folder.className??'',recruitName:folder.recruitName,recruitBadge:folder.recruitBadge,
-      phase:folder.phase,phaseStartDate:folder.phaseStartDate,requestingFtoName:folder.ftoName,requestingFtoBadge:folder.ftoBadge,
-      ...valid.data,createdAt:new Date().toISOString(),
+      id:crypto.randomUUID(),className:activeFolder.className??'',recruitName:activeFolder.recruitName,recruitBadge:activeFolder.recruitBadge,
+      phase:activeFolder.phase,phaseStartDate:activeFolder.phaseStartDate,requestingFtoName:activeFolder.ftoName,requestingFtoBadge:activeFolder.ftoBadge,
+      ...valid.data,createdAt:new Date().toISOString(),status:'pending',
     };
     try {
-      await submitPhaseExtensionRequest(request);
+      const outcome=await sendRequest(request);
       setJustification('');
-      toast({title:'Extension request saved locally',description:'You can continue the phase paperwork while the request is pending.'});
-    } catch {
-      toast({title:'Request could not be saved',description:'The encrypted workspace could not be updated.',variant:'destructive'});
+      toast(outcome==='sent'
+        ?{title:'Request sent for review',description:'The FTO Coordinator can review it from another device.'}
+        :{title:'Request saved on this device',description:'It has not been sent. Retry when the shared service is available.'});
+    } catch(error) {
+      const message=error instanceof Error?error.message:'The request could not be submitted.';
+      toast({title:'Request not submitted',description:message,variant:'destructive'});
     }
   }
 
-  return <Panel title="Request a phase extension" className="mb-4" id="panel-phase-extension-request">
+  async function retryDraft(request:PhaseExtensionRequest) {
+    try {
+      const outcome=await sendRequest(request);
+      if(outcome==='sent')toast({title:'Saved request sent',description:'The FTO Coordinator can review it from another device.'});
+      else toast({title:'Request is still saved locally',description:'It has not been sent yet.'});
+    } catch(error) {
+      const message=error instanceof Error?error.message:'The request could not be submitted.';
+      toast({title:'Request not submitted',description:message,variant:'destructive'});
+    }
+  }
+
+  return <>
+  {serviceError&&<p role="status" className="mb-4 rounded border bg-accent/10 p-3 text-sm">{serviceError} Local drafts remain on this device.</p>}
+  {statusPanel}
+  <Panel title="Request a phase extension" className="mb-4" id="panel-phase-extension-request">
     <form onSubmit={submit} className="grid gap-3 p-4">
       <p className="text-sm text-muted-foreground">{folder.className} · {folder.recruitName} #{folder.recruitBadge} · {phaseLabel(folder.phase)}. The standard duration is {PHASE_LENGTH_WEEKS[folder.phase]} weeks. A Coordinator must approve any requested extension.</p>
       <label className="grid gap-1 text-sm font-semibold">Extension type
@@ -96,9 +216,11 @@ export function PhaseExtensionPanel() {
       <label className="grid gap-1 text-sm font-semibold">Written justification
         <textarea required value={justification} onChange={event=>setJustification(event.target.value)} className="min-h-28 rounded border bg-card p-3 text-sm" data-testid="input-extension-justification"/>
       </label>
-      {matchingPending.length>0&&<p role="status" className="rounded border bg-muted/40 p-3 text-sm">A request is pending. You can continue phase paperwork while it is reviewed.</p>}
-      <button type="submit" disabled={vault!=='unlocked'||!justification.trim()||requestedWeeks<1||!Number.isInteger(requestedWeeks)||matchingPending.length>0} className="min-h-11 justify-self-start rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-submit-extension">Submit for Coordinator approval</button>
-      <p className="text-xs text-muted-foreground">{vault==='unlocked'?'Requests are stored in this device’s encrypted workspace. The Coordinator must review them on this device.':'Unlock this device’s encrypted workspace before submitting a request.'}</p>
+      {remotePending&&<p role="status" className="rounded border bg-muted/40 p-3 text-sm">A request is awaiting Coordinator review. You can continue phase paperwork while it is reviewed.</p>}
+      {localDraft&&<p role="status" className="rounded border bg-muted/40 p-3 text-sm">A request is saved only on this device. Use “Send saved request” above when the shared service is available.</p>}
+      <button type="submit" disabled={vault!=='unlocked'||!justification.trim()||requestedWeeks<1||!Number.isInteger(requestedWeeks)||remotePending||!!localDraft||!isLoaded||!isSignedIn||(!serverRole&&!serviceError&&loading)} className="min-h-11 justify-self-start rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-submit-extension">Submit for Coordinator approval</button>
+      <p className="text-xs text-muted-foreground">{vault==='unlocked'?'Requests are sent to the authenticated shared service. If it is offline, the request remains an unsent draft on this device.':'Unlock this device’s encrypted workspace before submitting a request.'}</p>
     </form>
-  </Panel>;
+  </Panel>
+  </>;
 }

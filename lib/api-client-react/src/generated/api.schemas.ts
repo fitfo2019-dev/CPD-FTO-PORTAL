@@ -5,6 +5,118 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type PhaseExtensionRequestInputExtensionType = typeof PhaseExtensionRequestInputExtensionType[keyof typeof PhaseExtensionRequestInputExtensionType];
+
+
+export const PhaseExtensionRequestInputExtensionType = {
+  training_weeks: 'training_weeks',
+  limbo_period: 'limbo_period',
+} as const;
+
+export interface PhaseExtensionRequestInput {
+  /**
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[A-Za-z0-9._:-]+$
+     */
+  id: string;
+  /** @maxLength 120 */
+  className: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  recruitName: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  recruitBadge: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  phaseStartDate: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  requestingFtoName: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  requestingFtoBadge: string;
+  extensionType: PhaseExtensionRequestInputExtensionType;
+  /**
+     * @minimum 1
+     * @maximum 52
+     */
+  requestedWeeks: number;
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
+  justification: string;
+}
+
+export type PhaseExtensionRequestStatus = typeof PhaseExtensionRequestStatus[keyof typeof PhaseExtensionRequestStatus];
+
+
+export const PhaseExtensionRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  denied: 'denied',
+} as const;
+
+export type PhaseExtensionRequest = PhaseExtensionRequestInput & ({
+  status: PhaseExtensionRequestStatus;
+  createdAt: string;
+  /** @nullable */
+  reviewedAt: string | null;
+});
+
+export type PhaseExtensionReviewInputDecision = typeof PhaseExtensionReviewInputDecision[keyof typeof PhaseExtensionReviewInputDecision];
+
+
+export const PhaseExtensionReviewInputDecision = {
+  approve: 'approve',
+  deny: 'deny',
+} as const;
+
+export interface PhaseExtensionReviewInput {
+  decision: PhaseExtensionReviewInputDecision;
+}
+
+export type PhaseExtensionRequestsMetadataRole = typeof PhaseExtensionRequestsMetadataRole[keyof typeof PhaseExtensionRequestsMetadataRole];
+
+
+export const PhaseExtensionRequestsMetadataRole = {
+  FTO: 'FTO',
+  FTO_COORDINATOR: 'FTO_COORDINATOR',
+} as const;
+
+export interface PhaseExtensionRequestsMetadata {
+  /** @minimum 0 */
+  total_records: number;
+  role: PhaseExtensionRequestsMetadataRole;
+}
+
+export type PhaseExtensionRequestsEnvelopeStatus = typeof PhaseExtensionRequestsEnvelopeStatus[keyof typeof PhaseExtensionRequestsEnvelopeStatus];
+
+
+export const PhaseExtensionRequestsEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export interface PhaseExtensionRequestsEnvelope {
+  status: PhaseExtensionRequestsEnvelopeStatus;
+  metadata: PhaseExtensionRequestsMetadata;
+  data: PhaseExtensionRequest[];
+}
+
 export type StagingTrainingInputStatus = typeof StagingTrainingInputStatus[keyof typeof StagingTrainingInputStatus];
 
 

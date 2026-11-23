@@ -5,7 +5,7 @@ import { isValidElement, type ReactElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PhaseExtensionReviewView } from '../components/phase-extension-panel.js';
 import { createEmptyWorkspace } from './empty-workspace.js';
-import { approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests, phaseExtensionRequestInputSchema } from './phase-extension.js';
+import { applyApprovedPhaseExtensions, approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests, phaseExtensionRequestInputSchema } from './phase-extension.js';
 import { OfflineStorage } from './offlineStorage.js';
 import type { PhaseCaseFolder, PhaseExtensionRequest, Workspace } from './model.js';
 import { createPhaseWeekRanges } from './training-calendar.js';
@@ -82,6 +82,19 @@ test('denial removes the pending request without changing phase dates',()=>{
   assert.equal(denied.phaseExtensionRequests.length,0);
 });
 
+test('shared approvals update the local timeline once and retain their status',()=>{
+  const workspace=createEmptyWorkspace();
+  workspace.caseFolder=folder;
+  workspace.phaseFolders=[folder];
+  workspace.phaseExtensionRequests=[{...request,status:'approved',reviewedAt:'2027-02-01T12:00:00.000Z'}];
+  const applied=applyApprovedPhaseExtensions(workspace);
+  assert.equal(applied.phaseFolders[0].phaseWeekRanges?.length,5);
+  assert.equal(applied.phaseExtensionRequests[0].status,'approved');
+  assert.equal(applied.phaseExtensionRequests[0].appliedToLocalSchedule,true);
+  const repeated=applyApprovedPhaseExtensions(applied);
+  assert.deepEqual(repeated.phaseFolders[0].phaseWeekRanges,applied.phaseFolders[0].phaseWeekRanges);
+});
+
 test('phase extension requests and approved ranges survive locking and restoring the vault',async()=>{
   const namespace=`phase-extension-${crypto.randomUUID()}`;
   const passphrase=new TextEncoder().encode('phase-extension-test-passphrase');
@@ -156,7 +169,7 @@ test('approved Limbo extensions preserve shifted ranges and extension count afte
   const restoredPending=await reviewVault.get<Workspace>('workspace');
   assert.ok(restoredPending);
   const restoredRequests=normalizePhaseExtensionRequests(restoredPending.phaseExtensionRequests);
-  assert.deepEqual(restoredRequests,[limboRequest]);
+  assert.deepEqual(restoredRequests,[{...limboRequest,status:'local_draft'}]);
   const pendingWorkspace={...restoredPending,phaseExtensionRequests:restoredRequests};
   const approved=approvePhaseExtension(pendingWorkspace,limboRequest.id);
   const initialRanges=folder.phaseWeekRanges!;
@@ -189,7 +202,7 @@ test('approved Limbo extensions preserve shifted ranges and extension count afte
   reopenedVault.lock();
 });
 
-test('vault-restored requests render in coordinator review and approve or deny actions resolve them',async()=>{
+test('legacy local request drafts remain unsent while shared pending requests expose Coordinator controls',async()=>{
   const namespace=`phase-extension-review-${crypto.randomUUID()}`;
   const passphrase=new TextEncoder().encode('phase-extension-review-test-passphrase');
   const initial=createEmptyWorkspace();
@@ -207,53 +220,25 @@ test('vault-restored requests render in coordinator review and approve or deny a
   const reopened=await coordinatorVault.get<Workspace>('workspace');
   assert.ok(reopened);
   const restoredRequests=normalizePhaseExtensionRequests(reopened.phaseExtensionRequests);
-  assert.deepEqual(restoredRequests,[request]);
-  let coordinatorWorkspace:Workspace={...reopened,phaseExtensionRequests:restoredRequests};
-  const review=(onReview:(id:string,approve:boolean)=>Promise<void>)=>PhaseExtensionReviewView({
-    requests:coordinatorWorkspace.phaseExtensionRequests,
-    vaultUnlocked:true,
-    onReview,
+  assert.deepEqual(restoredRequests,[{...request,status:'local_draft'}]);
+  const pendingSharedRequest={...request,status:'pending' as const};
+  let reviewedDecision:string|undefined;
+  const review=()=>PhaseExtensionReviewView({
+    requests:[pendingSharedRequest],
+    onReview:async(_id,approve)=>{reviewedDecision=approve?'approved':'denied';},
   });
 
-  const approveMarkup=renderToStaticMarkup(review(async(id,approve)=>{
-    coordinatorWorkspace=approve
-      ?approvePhaseExtension(coordinatorWorkspace,id)
-      :denyPhaseExtension(coordinatorWorkspace,id);
-  }));
+  const approveMarkup=renderToStaticMarkup(review());
   assert.match(approveMarkup,/Pending phase extension requests · 1/);
   assert.match(approveMarkup,/Example PO/);
   assert.match(approveMarkup,/Need one additional training week\./);
-  const approveButton=findByTestId(review(async(id,approve)=>{
-    coordinatorWorkspace=approve
-      ?approvePhaseExtension(coordinatorWorkspace,id)
-      :denyPhaseExtension(coordinatorWorkspace,id);
-  }),'button-approve-extension-extension-1');
+  const approveButton=findByTestId(review(),'button-approve-extension-extension-1');
   assert.ok(approveButton);
   assert.equal(approveButton.props.disabled,false);
   const approve=approveButton.props.onClick;
   assert.equal(typeof approve,'function');
   await (approve as () => void)();
-  assert.deepEqual(coordinatorWorkspace.phaseExtensionRequests,[]);
-  assert.equal(coordinatorWorkspace.phaseFolders[0].phaseWeekRanges?.length,5);
-
-  const deniedRequest={...request,id:'extension-denied'};
-  coordinatorWorkspace={...coordinatorWorkspace,phaseExtensionRequests:[deniedRequest]};
-  const rangesBeforeDenial=coordinatorWorkspace.phaseFolders[0].phaseWeekRanges;
-  const denyView=review(async(id,approve)=>{
-    coordinatorWorkspace=approve
-      ?approvePhaseExtension(coordinatorWorkspace,id)
-      :denyPhaseExtension(coordinatorWorkspace,id);
-  });
-  assert.ok(denyView);
-  const denyMarkup=renderToStaticMarkup(denyView);
-  assert.match(denyMarkup,/extension-denied/);
-  const denyButton=findByTestId(denyView,'button-deny-extension-extension-denied');
-  assert.ok(denyButton);
-  assert.equal(denyButton.props.disabled,false);
-  const deny=denyButton.props.onClick;
-  assert.equal(typeof deny,'function');
-  await (deny as () => void)();
-  assert.deepEqual(coordinatorWorkspace.phaseExtensionRequests,[]);
-  assert.deepEqual(coordinatorWorkspace.phaseFolders[0].phaseWeekRanges,rangesBeforeDenial);
+  assert.equal(reviewedDecision,'approved');
+  assert.deepEqual((await coordinatorVault.get<Workspace>('workspace'))?.phaseExtensionRequests,[request]);
   coordinatorVault.lock();
 });

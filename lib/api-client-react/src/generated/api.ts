@@ -34,6 +34,9 @@ import type {
   HealthEnvelope,
   MockLoginEnvelope,
   MockLoginInput,
+  PhaseExtensionRequestInput,
+  PhaseExtensionRequestsEnvelope,
+  PhaseExtensionReviewInput,
   ResourceCatalogEnvelope,
   SecureRecordsEnvelope,
   StagingAcknowledgementInput,
@@ -1314,4 +1317,285 @@ export function useDownloadResourceFile<TData = Awaited<ReturnType<typeof downlo
 
 
 
+
+export const getListPhaseExtensionRequestsUrl = () => {
+
+
+
+
+  return `/api/v1/phase-extension-requests`
+}
+
+/**
+ * FTOs receive their own request statuses; FTO Coordinators receive pending requests. The server verifies the Clerk session and role metadata.
+ * @summary List phase extension requests available to the signed-in staff member
+ */
+export const listPhaseExtensionRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<PhaseExtensionRequestsEnvelope> => {
+
+  return customFetch<PhaseExtensionRequestsEnvelope>(getListPhaseExtensionRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPhaseExtensionRequestsQueryKey = () => {
+    return [
+    `/api/v1/phase-extension-requests`
+    ] as const;
+    }
+
+
+export const getListPhaseExtensionRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPhaseExtensionRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPhaseExtensionRequests>>> = ({ signal }) => listPhaseExtensionRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListPhaseExtensionRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listPhaseExtensionRequests>>>
+export type ListPhaseExtensionRequestsQueryError = ErrorType<ApiError>
+
+
+export function useListPhaseExtensionRequests<TData = Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError = ErrorType<ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPhaseExtensionRequests>>,
+          TError,
+          Awaited<ReturnType<typeof listPhaseExtensionRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPhaseExtensionRequests<TData = Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPhaseExtensionRequests>>,
+          TError,
+          Awaited<ReturnType<typeof listPhaseExtensionRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPhaseExtensionRequests<TData = Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List phase extension requests available to the signed-in staff member
+ */
+
+export function useListPhaseExtensionRequests<TData = Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPhaseExtensionRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListPhaseExtensionRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitPhaseExtensionRequestUrl = () => {
+
+
+
+
+  return `/api/v1/phase-extension-requests`
+}
+
+/**
+ * The authenticated FTO identity and request timestamp are assigned by the server. Role preview values are ignored.
+ * @summary Submit a phase extension request as an FTO
+ */
+export const submitPhaseExtensionRequest = async (phaseExtensionRequestInput: PhaseExtensionRequestInput, options?: Parameters<typeof customFetch>[1]): Promise<PhaseExtensionRequestsEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PhaseExtensionRequestsEnvelope>(getSubmitPhaseExtensionRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(phaseExtensionRequestInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitPhaseExtensionRequestMutationKey = () => ['submitPhaseExtensionRequest'] as const;
+
+export const getSubmitPhaseExtensionRequestMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPhaseExtensionRequest>>, TError,SubmitPhaseExtensionRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitPhaseExtensionRequest>>, TError,SubmitPhaseExtensionRequestMutationVariables, TContext> => {
+
+const mutationKey = getSubmitPhaseExtensionRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitPhaseExtensionRequest>>, SubmitPhaseExtensionRequestMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitPhaseExtensionRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitPhaseExtensionRequestMutationResult = NonNullable<Awaited<ReturnType<typeof submitPhaseExtensionRequest>>>
+    export type SubmitPhaseExtensionRequestMutationBody = BodyType<PhaseExtensionRequestInput>
+    export type SubmitPhaseExtensionRequestMutationError = ErrorType<ApiError>
+    export type SubmitPhaseExtensionRequestMutationVariables = {data: BodyType<PhaseExtensionRequestInput>}
+
+    /**
+ * @summary Submit a phase extension request as an FTO
+ */
+export const useSubmitPhaseExtensionRequest = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPhaseExtensionRequest>>, TError,SubmitPhaseExtensionRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof submitPhaseExtensionRequest>>,
+        TError,
+        SubmitPhaseExtensionRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSubmitPhaseExtensionRequestMutationOptions(options), queryClient);
+    }
+
+export const getReviewPhaseExtensionRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/phase-extension-requests/${id}/review`
+}
+
+/**
+ * The server verifies the signed-in Coordinator role and records the decision without trusting client role preview.
+ * @summary Approve or deny a pending request as an FTO Coordinator
+ */
+export const reviewPhaseExtensionRequest = async (id: string,
+    phaseExtensionReviewInput: PhaseExtensionReviewInput, options?: Parameters<typeof customFetch>[1]): Promise<PhaseExtensionRequestsEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PhaseExtensionRequestsEnvelope>(getReviewPhaseExtensionRequestUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(phaseExtensionReviewInput)
+  }
+);}
+
+
+
+
+
+export const getReviewPhaseExtensionRequestMutationKey = () => ['reviewPhaseExtensionRequest'] as const;
+
+export const getReviewPhaseExtensionRequestMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewPhaseExtensionRequest>>, TError,ReviewPhaseExtensionRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewPhaseExtensionRequest>>, TError,ReviewPhaseExtensionRequestMutationVariables, TContext> => {
+
+const mutationKey = getReviewPhaseExtensionRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewPhaseExtensionRequest>>, ReviewPhaseExtensionRequestMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reviewPhaseExtensionRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewPhaseExtensionRequestMutationResult = NonNullable<Awaited<ReturnType<typeof reviewPhaseExtensionRequest>>>
+    export type ReviewPhaseExtensionRequestMutationBody = BodyType<PhaseExtensionReviewInput>
+    export type ReviewPhaseExtensionRequestMutationError = ErrorType<ApiError>
+    export type ReviewPhaseExtensionRequestMutationVariables = {id: string;data: BodyType<PhaseExtensionReviewInput>}
+
+    /**
+ * @summary Approve or deny a pending request as an FTO Coordinator
+ */
+export const useReviewPhaseExtensionRequest = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewPhaseExtensionRequest>>, TError,ReviewPhaseExtensionRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reviewPhaseExtensionRequest>>,
+        TError,
+        ReviewPhaseExtensionRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReviewPhaseExtensionRequestMutationOptions(options), queryClient);
+    }
 
