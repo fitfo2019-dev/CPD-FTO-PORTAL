@@ -18,6 +18,8 @@ The isolated, development-only PostgreSQL record API is documented in
 server-managed assignment scopes—not an extra developer password. It does not
 upload portal drafts or make the application approved for operational data.
 `pnpm test:staging` exercises synthetic database transactions and access denials.
+Run `pnpm test:field-training:regressions` to check phase, encrypted offline-storage,
+and editable dispatch-prefill behavior together.
 `pnpm run bundle:production` uses the agency-release compiler, which removes the
 staging router and rejects staging markers in the resulting executable.
 
