@@ -420,3 +420,17 @@ mtime_ms = 1795430771909
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/7bba6f29-b321-459c-b5a6-5ebcccc21689/97296445-959f-4a24-b272-7782886a090e"
 storage_version_token = "1795430797821798"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "yPFRrCYIsWSSus3iulQio"
+uri = "file://generated-artifacts/launch-readiness/columbus-handoff.html"
+type = "html"
+title = "Columbus launch readiness — final merged-source assessment"
+description = "Updated assessment of merged agency-storage and Vite-checker changes: 21 findings, 107 passing tests, corrected count batching, remaining byte-size/lifecycle risks, recovery evidence and agency release gates."
+logical_id = "5c531d2f-b3f4-48b0-9d62-130277b2eaf2"
+content_hash = "sha256:a89161cf9e4f7f6e5b140524382b2782a2ef11dc95db61798ba6696d5e01ac69"
+size = 106482
+mtime_ms = 1795443648214
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/5c531d2f-b3f4-48b0-9d62-130277b2eaf2/454ae943-9b38-4bb8-9c24-a2d35022408b"
+storage_version_token = "1795443685291920"
+content_type = "text/html"

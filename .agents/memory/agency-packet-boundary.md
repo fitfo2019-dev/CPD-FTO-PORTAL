@@ -11,7 +11,8 @@ from browser tokens or turn a local-save action into an upload.
 claims, complete daily packets and signed-role plus server-roster authorization.
 They require local editing without connectivity and approval/preview for UI changes.
 
-**How to apply:** Keep local saving independent of the network. Confirmed uploads seal
+**How to apply:** Keep local saving independent of the network. Use exact
+`local_draft_pending` and `synchronized_complete` statuses. Confirmed uploads seal
 the local packet, but must not invent electronic signatures or PO release.
 Do not claim a live agency integration without testing its actual configuration.
 
