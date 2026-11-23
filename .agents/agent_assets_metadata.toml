@@ -308,3 +308,59 @@ mtime_ms = 1795427600397
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/53770732-0f29-44f2-b2d6-4f0a761fe5c5/494eda97-ffd8-4489-8b32-d47f4290a93d"
 storage_version_token = "1795427777389359"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "_xpp7voNspQ81ChxJKak8"
+uri = "file://generated-artifacts/orientation-examples/example-a-individual.png"
+type = "image"
+title = "Example A — Individual checklist"
+description = "One Letter sheet, with a separate checkbox for each of the 82 original orientation items."
+logical_id = "aea679f9-4230-4c53-877b-66cee16cd8f8"
+content_hash = "sha256:e5d50e810cb4c0c18911194333b79f7e8c9904ea77811ebf6572258d3acc2364"
+size = 233334
+mtime_ms = 1795429465257
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/aea679f9-4230-4c53-877b-66cee16cd8f8/003c63f0-57ae-4db3-8be5-d74101712053"
+storage_version_token = "1795429520535916"
+content_type = "image/png"
+
+[[outputs]]
+id = "e2jRYb4Ji3hxpGrrr0dH2"
+uri = "file://generated-artifacts/orientation-examples/example-b-grouped.png"
+type = "image"
+title = "Example B — Related items combined"
+description = "One Letter sheet with 43 checkboxes. All 82 original items remain listed; safety-specific checks stay separate."
+logical_id = "930e8497-a225-4422-8c9a-95cec0ec3b2b"
+content_hash = "sha256:7af9688907a30acea5772e82fa1c4a7e733316b3b416b6e51d330ebfad6bcdbb"
+size = 232941
+mtime_ms = 1795429465673
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/930e8497-a225-4422-8c9a-95cec0ec3b2b/db4ab9b5-d35f-429e-87b4-6413895b172b"
+storage_version_token = "1795429521080641"
+content_type = "image/png"
+
+[[outputs]]
+id = "8JyTv9yftsQlp84ysHKnU"
+uri = "file://generated-artifacts/orientation-examples/example-c-grouped-revisit.png"
+type = "image"
+title = "Example C — Combined checklist with revisit notes"
+description = "The grouped checklist plus an Items to revisit table. Completion only—not a performance evaluation."
+logical_id = "d099dfc0-abab-4364-b9e6-3a1117def776"
+content_hash = "sha256:229546748d7497f74c903fffddb3cd6cc43787c491dc2d8443a23f026e874909"
+size = 237917
+mtime_ms = 1795429466141
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/d099dfc0-abab-4364-b9e6-3a1117def776/94c5a9ef-95b3-471d-a6a7-e69565941c3d"
+storage_version_token = "1795429521639750"
+content_type = "image/png"
+
+[[outputs]]
+id = "BW_VdwieJlcRpJuAlHK14"
+uri = "file://generated-artifacts/orientation-examples/Orientation-Checklist-Examples.pdf"
+type = "pdf"
+title = "Download all three example sheets"
+description = "Three-page PDF: one printable Letter-size example per page. Proposals only; the working application is unchanged."
+logical_id = "e7ae7663-dfbd-45f4-9d0f-fd76774ba158"
+content_hash = "sha256:d004d1be84e734cb599d7131bf6133f0bbd2a0ea151143f0c4eb4a1afe054da8"
+size = 157900
+mtime_ms = 1795429466401
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/e7ae7663-dfbd-45f4-9d0f-fd76774ba158/7babac0f-15c2-4378-9c8d-c779de6afa48"
+storage_version_token = "1795429522192200"
+content_type = "application/pdf"

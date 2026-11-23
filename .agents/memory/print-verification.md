@@ -9,16 +9,26 @@ Verify physical PDF sheets, not just visible page labels or the on-screen print 
 
 **How to apply:** For packet print changes, compare actual PDF page counts with the expected form references and inspect the final sheet for footer-only overflow. Include long narratives and explicit blank lines; short sample text does not expose these failures.
 
-Daily packet references must start with Reporting for Duty at Page 1 for each
-shift, followed by Substation Orientation on the first scheduled day of a new
-phase. Runs, conditional supplements, and continuations each advance the source
-page sequence without a fixed application page cap. Source coordinates and
-physical print pages must be checked together.
+The user approved a single-sheet Substation Orientation at Page 1 on Phase Day 1,
+with the first run at Page 2. Routine days still start with Reporting for Duty at
+Page 1. Treat this as the requested design, not proof the current packet engine
+already implements it. Runs, supplements and continuations advance the source
+page sequence without a fixed application page cap.
 
-**Why:** The user explicitly requested duty-first, shift-local folder numbering
-that can extend beyond Page 147 and restarts at Page 1 on the next training day.
+**Why:** The user explicitly approved the single-sheet redesign after reviewing
+the conflict between the old two-sheet orientation and the requested numbering.
 
 **How to apply:** Preserve existing historical citations rather than silently
 rewriting them when packet order changes. Require reference reconfirmation before
 using an older citation against a newly generated packet. A shift transition is
 not permission to delete encrypted records or change the vault's key lifecycle.
+
+Substation Orientation is a checklist for the FTO to go over with the PO, not a
+performance evaluation. Checkmarks record which orientation items were covered;
+uncovered items must not by themselves imply a performance rating or deficiency.
+
+**Why:** The user clarified: "for that page its just a checklist for fto to go over with po".
+
+**How to apply:** Keep orientation completion separate from daily run evaluation
+rules. Combining checklist items requires explicit approval of the proposed
+groupings; showing example sheets is not permission to change stored task states.
