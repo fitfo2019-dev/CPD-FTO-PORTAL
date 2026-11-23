@@ -728,10 +728,10 @@ components:
           additionalProperties: false
           required: [total_records]
           properties:
-            total_records: { type: integer, minimum: 0, maximum: 1 }
+            total_records: { type: integer, minimum: 0, maximum: 100 }
         data:
           type: array
-          maxItems: 1
+          maxItems: 100
           items: { $ref: "#/components/schemas/DispatchIncidentPrefill" }
     DispatchEventIngressInput:
       type: object

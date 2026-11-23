@@ -7,9 +7,10 @@ const incident={
   incidentNumber:'FICTIONAL-100',location:'Fictional location',dispatchedCode:'10-17A',
   eventIngressAt:'2026-11-23T14:00:00Z',
   dispatchedAt:'2026-11-23T13:00:00Z',clearedAt:'2026-11-23T23:00:00Z',
+  callerName:'FICTIONAL CALLER',callerPhone:'555-0100',callNotes:'FICTIONAL PRIVATE NOTES',
   units:[
-    {unit_number:'TEST-A',dispatched_at:'2026-11-23T14:01:00Z',cleared_at:'2026-11-23T15:00:00Z'},
-    {unit_number:'TEST-B',dispatched_at:'2026-11-23T14:05:00Z',cleared_at:'2026-11-23T16:00:00Z'},
+    {unit_number:'TEST-A',officerName:'FICTIONAL OFFICER A',dispatched_at:'2026-11-23T14:01:00Z',cleared_at:'2026-11-23T15:00:00Z'},
+    {unit_number:'TEST-B',officerName:'FICTIONAL OFFICER B',dispatched_at:'2026-11-23T14:05:00Z',cleared_at:'2026-11-23T16:00:00Z'},
   ],
 };
 test('each unit on a shared incident retains its own clock values and inherits common fields',()=>{
@@ -30,13 +31,13 @@ test('incident dispatch and clear times populate every PO run while unit-specifi
   assert.equal(shared[1].dispatchedAt,'2026-11-23T14:05:00.000Z');
   assert.equal(shared[1].clearedAt,'2026-11-23T15:30:00.000Z');
 });
-test('unit rows inherit shared incident clocks and unclear run kinds stay unset',()=>{
+test('unit rows inherit shared incident clocks; unitless times are not attributed to an officer',()=>{
   const [unit]=mapPatrolViewIncident({...incident,units:[{unitNumber:'TEST-C',runKind:'AMBIGUOUS'}]},'FICTIONAL-100');
   assert.equal(unit.dispatchedAt,'2026-11-23T13:00:00.000Z');
   assert.equal(unit.clearedAt,'2026-11-23T23:00:00.000Z');
   assert.equal(unit.runKind,undefined);
   const [shared]=mapPatrolViewIncident({incidentNumber:'FICTIONAL-100',dispatchedAt:incident.dispatchedAt},'FICTIONAL-100');
-  assert.equal(shared.dispatchedAt,incident.dispatchedAt);
+  assert.equal(shared.dispatchedAt,undefined);
 });
 test('rejects wrong incidents, invalid clocks and oversized unit lists',()=>{
   assert.throws(()=>mapPatrolViewIncident(incident,'OTHER-INCIDENT'),PatrolViewIntegrationError);
@@ -58,6 +59,10 @@ test('unconfigured incident lookup fails closed and machine authentication never
   });
   assert.equal(rows.length,1);
   assert.equal(rows[0].unitNumber,'TEST-B','only the caller’s own unit is returned');
+  assert.equal('officerName' in rows[0],false);
+  assert.equal('callerName' in rows[0],false);
+  assert.equal('callerPhone' in rows[0],false);
+  assert.equal('callNotes' in rows[0],false);
   await assert.rejects(fetchPatrolViewIncident('FICTIONAL-100','TEST-A',{
     PATROLVIEW_INCIDENT_LOOKUP_URL:'http://agency-adapter.invalid/{incidentNumber}',PATROLVIEW_API_TOKEN:'FICTIONAL',
   }),{code:'PATROLVIEW_NOT_CONFIGURED'});

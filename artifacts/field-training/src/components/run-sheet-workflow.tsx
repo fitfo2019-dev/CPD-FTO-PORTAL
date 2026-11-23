@@ -1,7 +1,7 @@
 import { Check, CircleDot, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils.js';
 import type { RunWorkflowStep } from '@/lib/run-workflow.js';
-import {RUN_CHECKLIST_ITEMS,RUN_SUPPLEMENT_CHECKLIST_ITEMS,type SupplementalRunForm} from '@/lib/model.js';
+import {RUN_CHECKLIST_ITEMS,RUN_SUPPLEMENT_CHECKLIST_ITEMS,type PrimaryRunForm,type SupplementalRunForm} from '@/lib/model.js';
 
 export type SheetState = 'reviewed' | 'needs_review';
 
@@ -9,8 +9,8 @@ export type SheetState = 'reviewed' | 'needs_review';
 export function sheetHasEdits(sheet: string, runKind: string, checklist: Record<string, boolean>, directiveReviews: Record<string, unknown>): boolean {
   const prefix = sheet === 'primary' ? 'task-' : `supp-${sheet}-`;
   const naKey = sheet === 'primary' ? 'na-task' : `na-supp-${sheet}`;
-  const form = sheet === 'primary' ? runKind : sheet;
-  const labels = sheet === 'primary' ? RUN_CHECKLIST_ITEMS[runKind] : RUN_SUPPLEMENT_CHECKLIST_ITEMS[sheet as SupplementalRunForm];
+  const form:PrimaryRunForm|SupplementalRunForm=sheet === 'primary' ? runKind as PrimaryRunForm : sheet as SupplementalRunForm;
+  const labels:readonly string[] = sheet === 'primary' ? RUN_CHECKLIST_ITEMS[runKind as PrimaryRunForm] : RUN_SUPPLEMENT_CHECKLIST_ITEMS[sheet as SupplementalRunForm];
   const changed = !!checklist[naKey]
     || Object.entries(checklist).some(([key, value]) => key.startsWith(prefix) && value === false)
     || !!directiveReviews[form];

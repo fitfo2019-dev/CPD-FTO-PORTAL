@@ -9,7 +9,7 @@
 export type DispatchIncidentEnvelopeMetadata = {
   /**
      * @minimum 0
-     * @maximum 1
+     * @maximum 100
      */
   total_records: number;
 };

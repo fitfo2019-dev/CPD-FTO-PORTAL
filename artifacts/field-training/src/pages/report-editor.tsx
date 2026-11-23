@@ -655,7 +655,7 @@ export default function ReportEditor() {
          </div>
          <div className="grid gap-4 p-4">
            <fieldset disabled={!editable} className="grid gap-4 sm:grid-cols-3">
-             <F l="Unit / cruiser assignment"><input value={r.reportingForDuty.cruiserId??r.reportingForDuty.unitNumber??''} maxLength={40} className={inp+' mono'} onChange={event=>set('reportingForDuty',{...r.reportingForDuty,unitNumber:event.target.value,cruiserId:event.target.value,reviewedAt:undefined})} placeholder="Enter assigned unit or cruiser" data-testid="input-unit-number"/></F>
+             <F l="Unit / cruiser assignment"><input value={r.reportingForDuty.cruiserId||r.reportingForDuty.unitNumber||''} maxLength={40} className={inp+' mono'} onChange={event=>set('reportingForDuty',{...r.reportingForDuty,unitNumber:event.target.value,cruiserId:event.target.value,reviewedAt:undefined})} placeholder="Enter assigned unit or cruiser" data-testid="input-unit-number"/></F>
               <F l="Shotgun Training"><select className={inp} value={r.reportingForDuty.shotgunTraining??''} onChange={event=>{const value=event.target.value;if(value==='Y'||value==='N')setShotgunTraining(value);}} data-testid="select-shotgun-training"><option value="" disabled>Select Y / N</option><option value="Y">Y</option><option value="N">N</option></select></F>
            </fieldset>
             {deficiencyEditor.groups.length>0&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.map(group=><button type="button" key={group.id} disabled={!editable||!group.reviewed} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
@@ -1027,7 +1027,7 @@ export default function ReportEditor() {
           <button type="button" disabled={EDITOR_STAGES[EDITOR_STAGES.length-1].id===stage} onClick={()=>{const i=EDITOR_STAGES.findIndex(item=>item.id===stage);setStage(EDITOR_STAGES[Math.min(EDITOR_STAGES.length-1,i+1)].id);window.scrollTo({top:0});}} className="inline-flex min-h-10 items-center gap-1 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-40" data-testid="button-stage-next">Next<ChevronRight className="h-4 w-4"/></button>
         </span>
       </div>
-      <NewRunDialog open={newRunOpen} defaultUnit={r.reportingForDuty?.cruiserId??r.reportingForDuty?.unitNumber??''} onCancel={()=>setNewRunOpen(false)} onConfirm={startNewRun}/>
+      <NewRunDialog open={newRunOpen} defaultUnit={r.reportingForDuty?.cruiserId||r.reportingForDuty?.unitNumber||''} onCancel={()=>setNewRunOpen(false)} onConfirm={startNewRun}/>
       <AlertDialog open={!!confirmAction} onOpenChange={open=>{if(!open)setConfirmAction(null);}}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>{confirmAction?.title}</AlertDialogTitle><AlertDialogDescription>{confirmAction?.body}</AlertDialogDescription></AlertDialogHeader>

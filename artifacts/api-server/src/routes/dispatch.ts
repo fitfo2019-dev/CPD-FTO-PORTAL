@@ -56,7 +56,7 @@ router.post("/v1/dispatch/incident-lookup",async(req,res):Promise<void>=>{
   if(!authorizeDispatch(req,res))return;
   const input=DispatchIncidentLookupBody.strict().safeParse(req.body);
   if(!input.success){
-    sendError(res,400,'INVALID_INCIDENT_LOOKUP','Enter a valid incident number and, when available, your unit number.');
+    sendError(res,400,'INVALID_INCIDENT_LOOKUP','Enter a valid incident number and unit / cruiser assignment.');
     return;
   }
   try{

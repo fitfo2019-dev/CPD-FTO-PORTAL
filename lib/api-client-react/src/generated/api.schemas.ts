@@ -437,7 +437,7 @@ export const DispatchIncidentEnvelopeStatus = {
 export type DispatchIncidentEnvelopeMetadata = {
   /**
      * @minimum 0
-     * @maximum 1
+     * @maximum 100
      */
   total_records: number;
 };
@@ -445,7 +445,7 @@ export type DispatchIncidentEnvelopeMetadata = {
 export interface DispatchIncidentEnvelope {
   status: DispatchIncidentEnvelopeStatus;
   metadata: DispatchIncidentEnvelopeMetadata;
-  /** @maxItems 1 */
+  /** @maxItems 100 */
   data: DispatchIncidentPrefill[];
 }
 

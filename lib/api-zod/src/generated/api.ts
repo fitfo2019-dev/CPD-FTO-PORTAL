@@ -395,7 +395,7 @@ export const DispatchIncidentLookupBody = zod.object({
 })
 
 export const dispatchIncidentLookupResponseMetadataTotalRecordsMin = 0;
-export const dispatchIncidentLookupResponseMetadataTotalRecordsMax = 1;
+export const dispatchIncidentLookupResponseMetadataTotalRecordsMax = 100;
 
 export const dispatchIncidentLookupResponseDataItemIncidentNumberMax = 120;
 
@@ -404,7 +404,7 @@ export const dispatchIncidentLookupResponseDataItemUnitNumberMax = 40;
 export const dispatchIncidentLookupResponseDataItemLocationMax = 200;
 
 export const dispatchIncidentLookupResponseDataItemDispatchedCodeRegExp = new RegExp('^\\d{1,3}[A-Z]?$');
-export const dispatchIncidentLookupResponseDataMax = 1;
+export const dispatchIncidentLookupResponseDataMax = 100;
 
 
 

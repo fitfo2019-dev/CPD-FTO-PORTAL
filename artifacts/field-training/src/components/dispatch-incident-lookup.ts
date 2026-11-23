@@ -20,7 +20,7 @@ export async function lookupDispatchIncident(incidentNumber: string, unitNumber:
   signal.addEventListener('abort', onAbort, { once: true });
   try {
     const raw = await dispatchIncidentLookup(
-      { incidentNumber, ...(unitNumber ? { unitNumber } : {}) },
+      { incidentNumber, unitNumber },
       { signal: timeout.signal, credentials: 'include' },
     );
     if (signal.aborted) return { status: 'aborted' };

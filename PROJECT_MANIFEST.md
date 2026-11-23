@@ -8,6 +8,8 @@ This workspace contains three artifacts: an Express API Server, a React/Vite Com
 
 The Field Training Officer Portal has sign-in and workflow views, but training records remain in an encrypted device-local vault. There is no connected training-record synchronization service, database-backed portal route, or configured department role-and-record-scope authorization policy. The isolated `AdminLogsDashboard` mockup uses development sample data; it is not a production audit console.
 
+The run editor presents one sheet at a time, with back/next navigation, linked quick-add forms, per-sheet checklist review, and a Save run action followed by a separate New run action. Incident lookup is initiated by the FTO, matches the editable Reporting for Duty unit/cruiser assignment, and returns only allowlisted run metrics for that unit. No live PatrolView JSON endpoint is configured; manual entry remains available.
+
 The XML-to-JSON Government System gateway is a planned architectural boundary only. No XML or binary integration is active. The secure-records API has a mock pathway and a live adapter, but no approved upstream endpoint or access grant is configured in this workspace.
 
 ## Workspace footprint and portability

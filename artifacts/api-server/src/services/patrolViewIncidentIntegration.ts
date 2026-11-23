@@ -47,7 +47,16 @@ export function mapPatrolViewIncident(payload:unknown,incidentNumber:string):Dis
     rows=single.units.map(unit=>{
       const detail=object(unit);
       if(!detail)return invalid();
-      return {...common,...(incidentDispatchedAt?{dispatchedAt:incidentDispatchedAt}:{}),...(incidentClearedAt?{clearedAt:incidentClearedAt}:{}),...detail};
+      const unitDispatchedAt=optionalTime(detail,'dispatchedAt','dispatched_at');
+      const unitClearedAt=optionalTime(detail,'clearedAt','cleared_at');
+      return {
+        ...common,
+        ...(incidentDispatchedAt?{dispatchedAt:incidentDispatchedAt}:{}),
+        ...(incidentClearedAt?{clearedAt:incidentClearedAt}:{}),
+        ...detail,
+        ...(unitDispatchedAt?{dispatchedAt:unitDispatchedAt}:{}),
+        ...(unitClearedAt?{clearedAt:unitClearedAt}:{}),
+      };
     });
   }else rows=Array.isArray(candidate)?candidate:single?[{
     ...single,...(incidentDispatchedAt?{dispatchedAt:incidentDispatchedAt}:{}),...(incidentClearedAt?{clearedAt:incidentClearedAt}:{}),
@@ -66,6 +75,8 @@ export function mapPatrolViewIncident(payload:unknown,incidentNumber:string):Dis
     // A dispatch code is not an approved classification. Unknown kinds stay ambiguous.
     const runKind=typeof suppliedKind==='string'&&RUN_TYPES.includes(suppliedKind as typeof RUN_TYPES[number])
       ?suppliedKind as typeof RUN_TYPES[number]:undefined;
+    // Whitelist only the approved run metrics. Never pass caller, officer, phone,
+    // narrative, notes, or any other upstream payload fields to the browser.
     return {...common,incidentNumber:common.incidentNumber,...(unitNumber?{unitNumber}:{}),
       ...(unitNumber&&dispatchedAt?{dispatchedAt}:{}),...(unitNumber&&clearedAt?{clearedAt}:{}),...(runKind?{runKind}:{})};
   });
