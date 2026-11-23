@@ -40,6 +40,7 @@ interface Ctx {
 }
 const C = createContext<Ctx | null>(null);
 const IDLE_MS = 15 * 60 * 1000;
+const SESSION_EXPIRY_MS = 15_000;
 const enc = (p: string) => new TextEncoder().encode(p);
 const migrateShift = (value: unknown): ReportShift => {
   if (typeof value === 'string' && SHIFTS.includes(value as Shift)) return value as Shift;
@@ -257,6 +258,7 @@ export function WorkspaceProvider({
   const wsRef = useRef(ws); wsRef.current = ws;
   const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
   const editorDirtyRef = useRef(editorDirty); editorDirtyRef.current = editorDirty;
+  const lockedWithUnsavedRef = useRef(lockedWithUnsaved); lockedWithUnsavedRef.current = lockedWithUnsaved;
   const vaultRef = useRef(vault); vaultRef.current = vault;
   const saveErrorRef = useRef(saveError); saveErrorRef.current = saveError;
   const syncing = useRef(false);
@@ -265,6 +267,7 @@ export function WorkspaceProvider({
   const sessionChannel = useRef<BroadcastChannel | null>(null);
   const sessionId = useRef('');
   const announceSession = useRef<() => void>(() => {});
+  const liveSessions = useRef<() => WorkspaceSessionStatus[]>(() => []);
   useEffect(() => () => { syncAbort.current?.abort(); storage.current.lock(); }, []);
 
   useEffect(() => { const on = () => setOnline(true), off = () => setOnline(false);
@@ -335,11 +338,24 @@ export function WorkspaceProvider({
         item.sessionId === next[index]?.sessionId && item.dirty === next[index]?.dirty
           && item.unlocked === next[index]?.unlocked) ? current : next);
     };
+    const pruneExpiredPeers = () => {
+      const cutoff = Date.now() - SESSION_EXPIRY_MS;
+      let changed = false;
+      for (const [id, peer] of peers) {
+        if (peer.seenAt < cutoff) {
+          peers.delete(id);
+          changed = true;
+        }
+      }
+      if (changed) publishPeers();
+      return [...peers.values()].map(({ sessionId: id, dirty: peerDirty, unlocked }) =>
+        ({ sessionId: id, dirty: peerDirty, unlocked }));
+    };
     const publishStatus = () => {
       channel.postMessage({
         type: 'status',
         sessionId: ownSessionId,
-        dirty: dirtyRef.current || editorDirtyRef.current,
+        dirty: dirtyRef.current || editorDirtyRef.current || lockedWithUnsavedRef.current,
         unlocked: vaultRef.current === 'unlocked',
         seenAt: Date.now(),
       } satisfies WorkspaceSessionMessage);
@@ -349,6 +365,11 @@ export function WorkspaceProvider({
       const message = event.data;
       if (!message || !('sessionId' in message) || message.sessionId === ownSessionId) return;
       if (message.type === 'status') {
+        if (message.seenAt < Date.now() - SESSION_EXPIRY_MS) {
+          peers.delete(message.sessionId);
+          publishPeers();
+          return;
+        }
         peers.set(message.sessionId, message);
         publishPeers();
         return;
@@ -372,26 +393,31 @@ export function WorkspaceProvider({
         setEpoch(value => value + 1);
       }
     };
+    liveSessions.current = pruneExpiredPeers;
     const heartbeat = window.setInterval(() => {
-      const cutoff = Date.now() - 15_000;
-      let changed = false;
-      for (const [id, peer] of peers) {
-        if (peer.seenAt < cutoff) {
-          peers.delete(id);
-          changed = true;
-        }
-      }
-      if (changed) publishPeers();
+      pruneExpiredPeers();
       publishStatus();
     }, 5_000);
+    const refreshOnWake = () => {
+      if (document.visibilityState === 'hidden') return;
+      pruneExpiredPeers();
+      publishStatus();
+    };
+    window.addEventListener('focus', refreshOnWake);
+    window.addEventListener('pageshow', refreshOnWake);
+    document.addEventListener('visibilitychange', refreshOnWake);
     publishStatus();
     return () => {
       window.clearInterval(heartbeat);
+      window.removeEventListener('focus', refreshOnWake);
+      window.removeEventListener('pageshow', refreshOnWake);
+      document.removeEventListener('visibilitychange', refreshOnWake);
       channel.postMessage({ type: 'close', sessionId: ownSessionId } satisfies WorkspaceSessionMessage);
       channel.close();
       sessionChannel.current = null;
       sessionId.current = '';
       announceSession.current = () => {};
+      liveSessions.current = () => [];
       setOtherSessions([]);
     };
   }, [previewOnly, storageNamespace]);
@@ -416,7 +442,9 @@ export function WorkspaceProvider({
       setLockedNotice(false);
       return;
     }
-    setLockedWithUnsaved(!!reason && (dirtyRef.current || editorDirtyRef.current || !!saveErrorRef.current));
+    const hasUnsavedWork = !!reason && (dirtyRef.current || editorDirtyRef.current || !!saveErrorRef.current);
+    lockedWithUnsavedRef.current = hasUnsavedWork;
+    setLockedWithUnsaved(hasUnsavedWork);
     storage.current.lock();
     setVault('none'); setRestored(false); setPending(0); setDirty(false); setEditorDirty(false); setSaveError(null);
     setWs(createEmptyWorkspace()); setEpoch(e => e + 1);
@@ -551,13 +579,14 @@ export function WorkspaceProvider({
     if (previewOnly) throw new Error('The UI test preview cannot overwrite saved workspaces.');
     if (vault !== 'unlocked') throw new Error('Unlock the local vault before overwriting another session.');
     if (editorDirtyRef.current) throw new Error('Save the open form before overwriting another session.');
-    if (!otherSessions.some(session => session.unlocked)) throw new Error('No other unlocked session is available to overwrite.');
+    const sessions = liveSessions.current();
+    if (!sessions.some(session => session.unlocked)) throw new Error('No other unlocked session is available to overwrite.');
     if (syncing.current) throw new Error('Wait for packet synchronization to finish.');
     await persist(wsRef.current, true);
     const ownSessionId = sessionId.current;
     if (ownSessionId) sessionChannel.current?.postMessage({ type: 'overwrite', sessionId: ownSessionId } satisfies WorkspaceSessionMessage);
     setOtherSessions([]);
-  }, [previewOnly, vault, otherSessions, persist]);
+  }, [previewOnly, vault, persist]);
 
   const syncPackets = useCallback(async () => {
     if (previewOnly) return;

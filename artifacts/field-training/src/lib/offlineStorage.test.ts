@@ -362,8 +362,9 @@ test('preview edits, autosave, sync, and reset never create device storage recor
     await act(async () => { root.unmount(); });
     root = createRoot(container);
     await act(async () => {
-      root.render(createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
-        createElement(Probe)));
+      root.render(createElement(WorkspaceProvider, {
+        storageNamespace: namespace, previewOnly: true, children: createElement(Probe),
+      }));
     });
     assert.ok(current);
     assert.equal(current!.ws.caseFolder?.recruitName, 'DEMO PO');
@@ -433,8 +434,9 @@ test('editing and synchronizing a preview packet never calls the agency upload A
   const root = createRoot(container);
   try {
     await act(async () => {
-      root.render(createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
-        createElement(Probe)));
+      root.render(createElement(WorkspaceProvider, {
+        storageNamespace: namespace, previewOnly: true, children: createElement(Probe),
+      }));
     });
     assert.ok(current);
     const previewPacket: Report = {
@@ -512,10 +514,12 @@ test('simultaneous preview workspaces isolate edits and never create device stor
   try {
     await act(async () => {
       root.render(createElement('div', null,
-        createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
-          createElement(Probe, { id: 'first' })),
-        createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
-          createElement(Probe, { id: 'second' })),
+        createElement(WorkspaceProvider, {
+          storageNamespace: namespace, previewOnly: true, children: createElement(Probe, { id: 'first' }),
+        }),
+        createElement(WorkspaceProvider, {
+          storageNamespace: namespace, previewOnly: true, children: createElement(Probe, { id: 'second' }),
+        }),
       ));
     });
 
@@ -582,10 +586,12 @@ test('saved sessions announce conflicts and an overwrite locks the stale tab', a
   try {
     await act(async () => {
       root.render(createElement('div', null,
-        createElement(WorkspaceProvider, { storageNamespace: namespace },
-          createElement(Probe, { id: 'first' })),
-        createElement(WorkspaceProvider, { storageNamespace: namespace },
-          createElement(Probe, { id: 'second' })),
+        createElement(WorkspaceProvider, {
+          storageNamespace: namespace, children: createElement(Probe, { id: 'first' }),
+        }),
+        createElement(WorkspaceProvider, {
+          storageNamespace: namespace, children: createElement(Probe, { id: 'second' }),
+        }),
       ));
     });
 
@@ -617,6 +623,119 @@ test('saved sessions announce conflicts and an overwrite locks the stale tab', a
   } finally {
     await act(async () => { root.unmount(); });
     dom.window.close();
+    for (const [key, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete (globalThis as Record<string, unknown>)[key];
+    }
+  }
+});
+
+test('waking refreshes locked unsaved presence and expires closed session conflicts', async () => {
+  const namespace = `saved-session-wake-${crypto.randomUUID()}`;
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { pretendToBeVisual: true });
+  const globalKeys = ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'IS_REACT_ACT_ENVIRONMENT', 'BroadcastChannel'];
+  const previous = new Map(globalKeys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const originalNow = Date.now;
+  let now = originalNow();
+  Date.now = () => now;
+
+  const channels = new Map<string, Set<TestBroadcastChannel>>();
+  class TestBroadcastChannel {
+    onmessage: ((event: MessageEvent) => void) | null = null;
+    constructor(readonly name: string) {
+      const peers = channels.get(name) ?? new Set<TestBroadcastChannel>();
+      peers.add(this);
+      channels.set(name, peers);
+    }
+    postMessage(data: unknown) {
+      for (const peer of channels.get(this.name) ?? []) {
+        if (peer !== this) peer.onmessage?.({ data } as MessageEvent);
+      }
+    }
+    close() {
+      channels.get(this.name)?.delete(this);
+    }
+  }
+  const testGlobals: Record<string, unknown> = {
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement,
+    Node: dom.window.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+    BroadcastChannel: TestBroadcastChannel,
+  };
+  for (const [key, value] of Object.entries(testGlobals)) {
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  }
+
+  const workspaces = new Map<string, ReturnType<typeof useWorkspace>>();
+  function Probe() {
+    workspaces.set('current', useWorkspace());
+    return null;
+  }
+  const channelName = `fieldready-workspace:${namespace}`;
+  const peer = new TestBroadcastChannel(channelName);
+  const closedPeer = new TestBroadcastChannel(channelName);
+  const peerMessages: Array<{ type: string; sessionId: string; dirty?: boolean; unlocked?: boolean }> = [];
+  peer.onmessage = event => peerMessages.push(event.data);
+  const container = dom.window.document.getElementById('root')!;
+  const root = createRoot(container);
+  try {
+    await act(async () => {
+      root.render(createElement(WorkspaceProvider, {
+        storageNamespace: namespace, children: createElement(Probe),
+      }));
+    });
+    await act(async () => {
+      await workspaces.get('current')!.setupAndSave('shared-test-passphrase');
+    });
+    await act(async () => {
+      closedPeer.postMessage({ type: 'status', sessionId: 'closed-tab', dirty: true, unlocked: true, seenAt: now });
+      closedPeer.close(); // simulate a tab that closed without sending a close notice
+    });
+    assert.ok(workspaces.get('current')!.otherSessions.some(session => session.sessionId === 'closed-tab'));
+
+    now += 16_000; // exceed the 15-second session expiry without delivering a heartbeat
+    await act(async () => {
+      await assert.rejects(workspaces.get('current')!.overwriteOtherSessions(), /No other unlocked session is available/);
+    });
+    await act(async () => {
+      dom.window.dispatchEvent(new dom.window.Event('focus'));
+    });
+    assert.equal(workspaces.get('current')!.otherSessions.some(session => session.sessionId === 'closed-tab'), false);
+    assert.equal(peerMessages.some(message => message.type === 'overwrite'), false);
+
+    await act(async () => {
+      workspaces.get('current')!.setCaseFolder({
+        ...createUiPreviewWorkspace().caseFolder!,
+        recruitName: 'UNSAVED BEFORE SLEEP',
+      });
+    });
+    await act(async () => {
+      workspaces.get('current')!.lockNow('idle');
+    });
+    assert.equal(workspaces.get('current')!.lockedWithUnsaved, true);
+
+    now += 16_000;
+    await act(async () => {
+      dom.window.dispatchEvent(new dom.window.Event('focus'));
+    });
+    const ownSessionId = peerMessages.find(message => message.type === 'status')?.sessionId;
+    assert.ok(ownSessionId);
+    assert.deepEqual(
+      peerMessages.filter(message => message.type === 'status' && message.sessionId === ownSessionId).at(-1),
+      { type: 'status', sessionId: ownSessionId, dirty: true, unlocked: false, seenAt: now },
+    );
+
+    await assert.rejects(workspaces.get('current')!.overwriteOtherSessions(), /Unlock the local vault/);
+    assert.equal(peerMessages.some(message => message.type === 'overwrite'), false);
+  } finally {
+    await act(async () => { root.unmount(); });
+    peer.close();
+    closedPeer.close();
+    dom.window.close();
+    Date.now = originalNow;
     for (const [key, descriptor] of previous) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete (globalThis as Record<string, unknown>)[key];
