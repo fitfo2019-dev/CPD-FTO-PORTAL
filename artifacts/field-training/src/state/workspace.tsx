@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, WorkspaceConflictError, type LocalChatDraft } from '@/lib/offlineStorage.js';
+import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, WorkspaceConflictError, type LocalChatDraft, type RecoverySnapshot } from '@/lib/offlineStorage.js';
 import { createEmptyWorkspace, createUiPreviewWorkspace } from '@/lib/empty-workspace.js';
 import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type PhaseExtensionRequest, type PhaseWeekRange, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
 import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography.js';
@@ -16,13 +16,29 @@ export type VaultState = 'none' | 'unlocked';
 export type PacketSyncState = 'idle' | 'uploading' | 'failed' | 'synchronized';
 type VaultIntent = 'save' | 'restore' | null;
 type WorkspaceSessionStatus = { sessionId: string; dirty: boolean; unlocked: boolean };
+type RecoverySnapshotInfo = Pick<RecoverySnapshot<Workspace>, 'id' | 'capturedAt' | 'expiresAt'> & {
+  reportCount: number;
+  taskCount: number;
+  assignmentCount: number;
+};
 type WorkspaceSessionMessage =
   | ({ type: 'status'; seenAt: number } & WorkspaceSessionStatus)
   | { type: 'close'; sessionId: string }
-  | { type: 'overwrite'; sessionId: string };
+  | { type: 'overwrite'; sessionId: string }
+  | { type: 'prepare-overwrite'; sessionId: string; requestId: string; targetSessionId: string }
+  | { type: 'recovery-ready'; sessionId: string; requestId: string; recoveryId?: string; error?: string };
+
+type PendingRecoveryRequest = {
+  remaining: Set<string>;
+  timer: number;
+  error?: string;
+  resolve(ids: string[]): void;
+  reject(error: Error): void;
+  recoveryIds: string[];
+};
 
 interface Ctx {
-  ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean; otherSessions: WorkspaceSessionStatus[]; overwrittenElsewhere: boolean;
+  ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean; otherSessions: WorkspaceSessionStatus[]; overwrittenElsewhere: boolean; recoverySnapshots: RecoverySnapshotInfo[]; recoverySyncReviewRequired: boolean;
   setRole(r: Role): void; upsertReport(r: Report): void; upsertWeeklyAcknowledgement(ack: WeeklyPacketAcknowledgement): void; deleteReport(id: string): void; toggleTask(id: string, by: string): void; setCaseFolder(folder: PhaseCaseFolder): void;
   submitPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; syncSharedPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; resolvePhaseExtensionRequest(id:string,approve:boolean):Promise<void>;
   upsertWeeklyPerformanceLog(log:WeeklyPerformanceLog):void; upsertSubstationOrientation(record:SubstationOrientationRecord):void;
@@ -31,7 +47,7 @@ interface Ctx {
   importRoster(ftos: FtoRosterEntry[], assignments: TrainingAssignment[]): void; upsertAssignment(assignment: TrainingAssignment): void;
   loadLocalChatDrafts(): Promise<LocalChatDraft[]>; saveLocalChatDraft(draft: LocalChatDraft): Promise<void>; deleteLocalChatDraft(id: string): Promise<void>;
   intent: VaultIntent; openVault(i: Exclude<VaultIntent, null>): void; closeVault(): void;
-  setupAndSave(pass: string): Promise<void>; unlockAndRestore(pass: string): Promise<void>; saveNow(): Promise<void>; overwriteOtherSessions(): Promise<void>; lockNow(reason?: string): void; dismissLockedNotice(): void; dismissOverwrittenElsewhere(): void;
+  setupAndSave(pass: string): Promise<void>; unlockAndRestore(pass: string): Promise<void>; saveNow(): Promise<void>; overwriteOtherSessions(): Promise<void>; refreshRecoverySnapshots(): Promise<void>; restoreRecoverySnapshot(id: string): Promise<void>; lockNow(reason?: string): void; dismissLockedNotice(): void; dismissOverwrittenElsewhere(): void;
   resetWorkspace(): void;
   syncPackets(): Promise<void>;
   packetSyncState: PacketSyncState; packetSyncError: string | null;
@@ -229,7 +245,7 @@ export function WorkspaceProvider({
   storageNamespace = 'fieldready-demo',
   previewOnly = false,
 }: {
-  children: ReactNode;
+  children?: ReactNode;
   storageNamespace?: string;
   previewOnly?: boolean;
 }) {
@@ -243,6 +259,8 @@ export function WorkspaceProvider({
   const [dirty, setDirty] = useState(false);
   const [otherSessions, setOtherSessions] = useState<WorkspaceSessionStatus[]>([]);
   const [overwrittenElsewhere, setOverwrittenElsewhere] = useState(false);
+  const [recoverySnapshots, setRecoverySnapshots] = useState<RecoverySnapshotInfo[]>([]);
+  const [recoverySyncReviewRequired, setRecoverySyncReviewRequired] = useState(false);
   const [previewChatDrafts, setPreviewChatDrafts] = useState<LocalChatDraft[]>([]);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [storagePersistent, setStoragePersistent] = useState<boolean | null>(null);
@@ -259,6 +277,7 @@ export function WorkspaceProvider({
   const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
   const editorDirtyRef = useRef(editorDirty); editorDirtyRef.current = editorDirty;
   const lockedWithUnsavedRef = useRef(lockedWithUnsaved); lockedWithUnsavedRef.current = lockedWithUnsaved;
+  const recoverySyncReviewRef = useRef(false);
   const vaultRef = useRef(vault); vaultRef.current = vault;
   const saveErrorRef = useRef(saveError); saveErrorRef.current = saveError;
   const syncing = useRef(false);
@@ -268,6 +287,7 @@ export function WorkspaceProvider({
   const sessionId = useRef('');
   const announceSession = useRef<() => void>(() => {});
   const liveSessions = useRef<() => WorkspaceSessionStatus[]>(() => []);
+  const recoveryRequests = useRef(new Map<string, PendingRecoveryRequest>());
   useEffect(() => () => { syncAbort.current?.abort(); storage.current.lock(); }, []);
 
   useEffect(() => { const on = () => setOnline(true), off = () => setOnline(false);
@@ -276,6 +296,51 @@ export function WorkspaceProvider({
   useEffect(() => { void persistentStorageStatus().then(setStoragePersistent); }, []);
 
   const refreshPending = useCallback(async () => { try { if (storage.current.isUnlocked) setPending(await storage.current.pendingCount()); } catch { /* ignore */ } }, []);
+
+  const refreshRecoverySnapshots = useCallback(async () => {
+    if (previewOnly || !storage.current.isUnlocked) {
+      setRecoverySnapshots([]);
+      return;
+    }
+    const snapshots = await storage.current.getRecoverySnapshots<Workspace>();
+    setRecoverySnapshots(snapshots.map(snapshot => ({
+      id: snapshot.id,
+      capturedAt: snapshot.capturedAt,
+      expiresAt: snapshot.expiresAt,
+      reportCount: snapshot.workspace.reports?.length ?? 0,
+      taskCount: snapshot.workspace.tasks?.length ?? 0,
+      assignmentCount: snapshot.workspace.assignments?.length ?? 0,
+    })));
+  }, [previewOnly]);
+
+  const requestRecoverySnapshots = useCallback((sessions: string[]) => {
+    if (!sessions.length) return Promise.resolve([] as string[]);
+    const channel = sessionChannel.current;
+    if (!channel) return Promise.reject(new Error('Session sharing is unavailable. Keep both tabs open and try again.'));
+    const requestId = crypto.randomUUID();
+    return new Promise<string[]>((resolve, reject) => {
+      const pending: PendingRecoveryRequest = {
+        remaining: new Set(sessions),
+        recoveryIds: [],
+        timer: 0,
+        resolve,
+        reject,
+      };
+      pending.timer = window.setTimeout(() => {
+        recoveryRequests.current.delete(requestId);
+        reject(new Error('Another tab did not prepare its recovery copy. No workspace was overwritten.'));
+      }, 5000);
+      recoveryRequests.current.set(requestId, pending);
+      for (const target of sessions) {
+        channel.postMessage({
+          type: 'prepare-overwrite',
+          sessionId: sessionId.current,
+          requestId,
+          targetSessionId: target,
+        } satisfies WorkspaceSessionMessage);
+      }
+    });
+  }, []);
 
   const persist = useCallback(async (w: Workspace, overwrite = false) => {
     if (previewOnly) return;
@@ -288,6 +353,10 @@ export function WorkspaceProvider({
       throw e;
     }
     setSaveError(null);
+    if (recoverySyncReviewRef.current) {
+      recoverySyncReviewRef.current = false;
+      setRecoverySyncReviewRequired(false);
+    }
     if (rev.current === at) setDirty(false);
     await refreshPending();
   }, [previewOnly, refreshPending]);
@@ -374,6 +443,44 @@ export function WorkspaceProvider({
         publishPeers();
         return;
       }
+      if (message.type === 'prepare-overwrite') {
+        if (message.targetSessionId !== ownSessionId) return;
+        void (async () => {
+          let recoveryId: string | undefined;
+          let error: string | undefined;
+          try {
+            if (vaultRef.current !== 'unlocked') throw new Error('The other tab is no longer unlocked.');
+            if (editorDirtyRef.current) throw new Error('Save or close the open form in the other tab before overwriting it.');
+            if (syncing.current) throw new Error('Wait for packet synchronization in the other tab before overwriting it.');
+            if (dirtyRef.current) {
+              recoveryId = await storage.current.saveRecoverySnapshot<Workspace>(wsRef.current, ownSessionId);
+            }
+          } catch (cause) {
+            error = cause instanceof Error ? cause.message : 'The other tab could not prepare a recovery copy.';
+          }
+          channel.postMessage({
+            type: 'recovery-ready',
+            sessionId: ownSessionId,
+            requestId: message.requestId,
+            ...(recoveryId ? { recoveryId } : {}),
+            ...(error ? { error } : {}),
+          } satisfies WorkspaceSessionMessage);
+        })();
+        return;
+      }
+      if (message.type === 'recovery-ready') {
+        const pending = recoveryRequests.current.get(message.requestId);
+        if (!pending || !pending.remaining.delete(message.sessionId)) return;
+        if (message.recoveryId) pending.recoveryIds.push(message.recoveryId);
+        if (message.error) pending.error ??= message.error;
+        if (pending.remaining.size === 0) {
+          window.clearTimeout(pending.timer);
+          recoveryRequests.current.delete(message.requestId);
+          if (pending.error) pending.reject(new Error(pending.error));
+          else pending.resolve(pending.recoveryIds);
+        }
+        return;
+      }
       peers.delete(message.sessionId);
       publishPeers();
       if (message.type === 'overwrite') {
@@ -387,6 +494,9 @@ export function WorkspaceProvider({
         setPending(0);
         setDirty(false);
         setEditorDirty(false);
+        setRecoverySnapshots([]);
+        setRecoverySyncReviewRequired(false);
+        recoverySyncReviewRef.current = false;
         setVault('none');
         setRestored(false);
         setWs(createEmptyWorkspace());
@@ -446,7 +556,8 @@ export function WorkspaceProvider({
     lockedWithUnsavedRef.current = hasUnsavedWork;
     setLockedWithUnsaved(hasUnsavedWork);
     storage.current.lock();
-    setVault('none'); setRestored(false); setPending(0); setDirty(false); setEditorDirty(false); setSaveError(null);
+    setVault('none'); setRestored(false); setPending(0); setDirty(false); setEditorDirty(false); setSaveError(null); setRecoverySnapshots([]);
+    setRecoverySyncReviewRequired(false); recoverySyncReviewRef.current = false;
     setWs(createEmptyWorkspace()); setEpoch(e => e + 1);
     if (reason) setLockedNotice(true);
   }, [previewOnly]);
@@ -564,10 +675,14 @@ export function WorkspaceProvider({
     const tasks=Array.isArray(savedWorkspace.tasks)?savedWorkspace.tasks.filter(item=>isRecord(item)&&[1,2,3,4].includes(Number(item.phase))):[];
     const restoredWorkspace={ ...workspaceWithoutChatHistory, packetIndexVersion:CURRENT_PACKET_INDEX_VERSION as Workspace['packetIndexVersion'], role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests };
     const workspaceWithAppliedExtensions=preserveProtectedPackets(restoredWorkspace,applyApprovedPhaseExtensions(restoredWorkspace));
+    const requiresSyncReview = await s.recoverySyncReviewRequired();
+    recoverySyncReviewRef.current = requiresSyncReview;
+    setRecoverySyncReviewRequired(requiresSyncReview);
     setWs(workspaceWithAppliedExtensions); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(workspaceWithAppliedExtensions!==restoredWorkspace||weeklyPerformanceLogs!==savedWeeklyPerformanceLogs||savedWorkspace.packetIndexVersion!==CURRENT_PACKET_INDEX_VERSION); setLockedNotice(false); setLockedWithUnsaved(false); setOverwrittenElsewhere(false);
     setStoragePersistent(await requestPersistentStorage());
     await refreshPending();
-  }, [previewOnly, refreshPending]);
+    await refreshRecoverySnapshots();
+  }, [previewOnly, refreshPending, refreshRecoverySnapshots]);
 
   const saveNow = useCallback(async () => {
     if (previewOnly) return;
@@ -579,17 +694,48 @@ export function WorkspaceProvider({
     if (previewOnly) throw new Error('The UI test preview cannot overwrite saved workspaces.');
     if (vault !== 'unlocked') throw new Error('Unlock the local vault before overwriting another session.');
     if (editorDirtyRef.current) throw new Error('Save the open form before overwriting another session.');
-    const sessions = liveSessions.current();
-    if (!sessions.some(session => session.unlocked)) throw new Error('No other unlocked session is available to overwrite.');
+    const sessionsToOverwrite = liveSessions.current().filter(session => session.unlocked);
+    if (!sessionsToOverwrite.length) throw new Error('No other unlocked session is available to overwrite.');
     if (syncing.current) throw new Error('Wait for packet synchronization to finish.');
+    try {
+      await requestRecoverySnapshots(sessionsToOverwrite.map(session => session.sessionId));
+    } catch (error) {
+      await refreshRecoverySnapshots();
+      throw error;
+    }
     await persist(wsRef.current, true);
+    await refreshRecoverySnapshots();
     const ownSessionId = sessionId.current;
     if (ownSessionId) sessionChannel.current?.postMessage({ type: 'overwrite', sessionId: ownSessionId } satisfies WorkspaceSessionMessage);
     setOtherSessions([]);
-  }, [previewOnly, vault, persist]);
+  }, [previewOnly, vault, persist, requestRecoverySnapshots, refreshRecoverySnapshots]);
+
+  const restoreRecoverySnapshot = useCallback(async (id: string) => {
+    if (previewOnly) throw new Error('The UI test preview cannot restore saved workspaces.');
+    if (vault !== 'unlocked') throw new Error('Unlock the local vault before restoring a recovery copy.');
+    if (syncing.current) throw new Error('Wait for packet synchronization to finish before restoring a recovery copy.');
+    const recovered = await storage.current.restoreRecoverySnapshot<Workspace>(
+      id,
+      (current, previous) => current ? preserveProtectedPackets(current, previous) : previous,
+    );
+    rev.current++;
+    wsRef.current = recovered;
+    setWs(recovered);
+    setDirty(false);
+    setSaveError(null);
+    setOverwrittenElsewhere(false);
+    recoverySyncReviewRef.current = true;
+    setRecoverySyncReviewRequired(true);
+    setEpoch(value => value + 1);
+    await refreshPending();
+    await refreshRecoverySnapshots();
+    announceSession.current();
+  }, [previewOnly, vault, refreshPending, refreshRecoverySnapshots]);
 
   const syncPackets = useCallback(async () => {
     if (previewOnly) return;
+    if (recoverySyncReviewRef.current)
+      throw new Error('Save the restored workspace locally before synchronizing packets.');
     if (vault !== 'unlocked' || !online || editorDirtyRef.current)
       throw new Error('Save open edits and unlock the online workspace before synchronizing.');
     if (syncing.current) throw new Error('Sync is already running.');
@@ -638,7 +784,7 @@ export function WorkspaceProvider({
   }, [previewOnly]);
 
   const value = useMemo<Ctx>(() => ({
-    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, previewOnly, otherSessions, overwrittenElsewhere,
+    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, previewOnly, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired,
     segTaskDirectory: SEG_TASK_DIRECTORY,
     getOperationalPacket: report => resolveOperationalPacket(
       report,
@@ -725,10 +871,10 @@ export function WorkspaceProvider({
     }),
     toggleTask: (id, by) => mutate(w => ({ ...w, tasks: w.tasks.map((t: Task) => t.id !== id ? t : t.done ? { ...t, done: false, by: undefined, at: undefined } : { ...t, done: true, by, at: new Date().toISOString() }) })),
     openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
-    setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, syncPackets, packetSyncState, packetSyncError, lockNow, dismissLockedNotice: () => setLockedNotice(false),
+    setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, packetSyncState, packetSyncError, lockNow, dismissLockedNotice: () => setLockedNotice(false),
     dismissOverwrittenElsewhere: () => setOverwrittenElsewhere(false),
     resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace(wsRef.current.role) : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setOverwrittenElsewhere(false); setEpoch(e => e + 1); },
-  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, otherSessions, overwrittenElsewhere, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
+  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

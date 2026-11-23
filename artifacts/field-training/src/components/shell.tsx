@@ -3,13 +3,14 @@ import { useClerk, useUser } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
-import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, BookOpen } from 'lucide-react';
+import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, BookOpen, Clock3, FileClock, RotateCcw, ShieldCheck } from 'lucide-react';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
 import { VaultDialog } from './vault-dialog.js';
 import { cn } from '@/lib/utils.js';
 import { useToast } from '@/hooks/use-toast.js';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog.js';
 
 type NavItem = { href: string; label: string; icon: typeof LayoutGrid };
 
@@ -65,6 +66,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [confirmLock, setConfirmLock] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
+  const [recoveryReviewOpen, setRecoveryReviewOpen] = useState(false);
+  const [restoringRecoveryId, setRestoringRecoveryId] = useState<string | null>(null);
   const [leavePage,setLeavePage]=useState<string|null>(null);
   const unsaved = w.dirty || w.editorDirty;
   const otherUnlockedSessions = w.otherSessions.filter(session => session.unlocked);
@@ -133,6 +136,36 @@ export function Shell({ children }: { children: ReactNode }) {
       await signOut({ redirectUrl: import.meta.env.BASE_URL || '/' });
     } catch {
       toast({ title: 'Sign out could not be completed', description: 'Your local workspace was cleared. Please try signing out again.', variant: 'destructive' });
+    }
+  }
+
+  async function onRestoreRecoverySnapshot(id: string) {
+    setRestoringRecoveryId(id);
+    try {
+      await w.restoreRecoverySnapshot(id);
+      setRecoveryReviewOpen(false);
+      toast({ title: 'Previous version restored locally', description: 'Agency-sync status was not changed.' });
+    } catch (error) {
+      toast({
+        title: 'Could not restore the previous version',
+        description: error instanceof Error ? error.message : 'The local workspace was not changed.',
+        variant: 'destructive',
+      });
+    } finally {
+      setRestoringRecoveryId(null);
+    }
+  }
+
+  async function openRecoveryReview() {
+    try {
+      await w.refreshRecoverySnapshots();
+      setRecoveryReviewOpen(true);
+    } catch (error) {
+      toast({
+        title: 'Could not review recovery copies',
+        description: error instanceof Error ? error.message : 'The local recovery list is unavailable.',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -258,9 +291,30 @@ export function Shell({ children }: { children: ReactNode }) {
       {w.overwrittenElsewhere && (
         <div role="alert" data-testid="notice-workspace-overwritten" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <ShieldAlert className="h-4 w-4" />
-          <span className="flex-1"><b>This workspace was replaced in another tab.</b> This tab was locked so stale edits cannot overwrite the newer saved version. Unlock to continue with the latest saved work.</span>
+          <span className="flex-1"><b>This workspace was replaced in another tab.</b> This tab was locked so stale edits cannot overwrite the newer saved version. Unlock to continue with the latest saved work or review a recovery copy. Recovery copies expire after 7 days and are deleted after restoration.</span>
           <button className="font-semibold underline" onClick={() => w.openVault('restore')} data-testid="button-restore-overwritten-workspace">Unlock latest saved work</button>
           <button className="text-muted-foreground" onClick={w.dismissOverwrittenElsewhere} data-testid="button-dismiss-overwritten-notice">Dismiss</button>
+        </div>
+      )}
+      {w.recoverySnapshots.length > 0 && (
+        <div role="note" data-testid="notice-recovery-snapshot" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-[#bad6ed] bg-[#f2f8fd] p-3 text-sm text-[#233b51]">
+          <FileClock className="h-5 w-5 shrink-0 text-[#075a9c]" />
+          <span className="min-w-0 flex-1">
+            <b>{w.recoverySnapshots.length} encrypted recovery {w.recoverySnapshots.length === 1 ? 'copy is' : 'copies are'} available.</b>
+            {' '}Each expires 7 days after capture and is deleted after restoration.
+          </span>
+          <button type="button" onClick={() => void openRecoveryReview()} data-testid="button-review-recovery-snapshot" className="min-h-9 rounded-sm border border-[#075a9c] px-3 font-semibold text-[#075a9c] underline hover:bg-white">
+            Review recovery {w.recoverySnapshots.length === 1 ? 'copy' : 'copies'}
+          </button>
+        </div>
+      )}
+      {w.recoverySyncReviewRequired && (
+        <div role="alert" data-testid="notice-recovery-sync-review" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-[#b77912] bg-[#fff8e8] p-3 text-sm text-[#382b14]">
+          <ShieldAlert className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1"><b>Restored work is saved only on this device.</b> Packet sync is paused until you save this version locally, so existing agency-sync operations remain unchanged.</span>
+          <button type="button" onClick={() => void onSave()} data-testid="button-save-restored-workspace" className="min-h-9 rounded-sm border border-[#8a5a00] px-3 font-semibold underline">
+            Save restored version locally
+          </button>
         </div>
       )}
       {showSessionConflict && (
@@ -299,6 +353,56 @@ export function Shell({ children }: { children: ReactNode }) {
         ))}
       </nav>
       <VaultDialog />
+      <Dialog open={recoveryReviewOpen} onOpenChange={setRecoveryReviewOpen}>
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto" data-testid="dialog-recovery-snapshot">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><FileClock className="h-5 w-5 text-primary" />Review the previous version</DialogTitle>
+            <DialogDescription>This encrypted copy was saved before another tab replaced the workspace. Choose a version to restore.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {w.recoverySnapshots.map(snapshot => (
+              <section key={snapshot.id} className="rounded-sm border border-border p-3" data-testid="recovery-snapshot-item">
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Captured</div>
+                    <div className="mt-1 font-semibold">{new Date(snapshot.capturedAt).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contents</div>
+                    <div className="mt-1 font-semibold">{snapshot.reportCount} daily {snapshot.reportCount === 1 ? 'record' : 'records'} · {snapshot.taskCount} tasks · {snapshot.assignmentCount} assignments</div>
+                  </div>
+                </div>
+                <div className="mt-3 rounded-sm border border-[#bad6ed] bg-[#f2f8fd] p-3 text-sm leading-5 text-[#233b51]">
+                  <div className="flex gap-2">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#075a9c]" />
+                    <p>Restoring replaces the current local workspace. It does not upload records or change agency-sync status.</p>
+                  </div>
+                </div>
+                <p className="mt-3 flex gap-2 text-sm leading-5 text-muted-foreground">
+                  <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>Expires {new Date(snapshot.expiresAt).toLocaleString()}, or is deleted sooner after restoration.</span>
+                </p>
+                {(w.dirty || w.editorDirty) && (
+                  <p className="mt-3 text-sm font-semibold text-destructive">Save current changes before restoring this version.</p>
+                )}
+                <button
+                  type="button"
+                  disabled={w.dirty || w.editorDirty || restoringRecoveryId !== null}
+                  onClick={() => void onRestoreRecoverySnapshot(snapshot.id)}
+                  data-testid="button-restore-recovery-snapshot"
+                  className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-sm bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {restoringRecoveryId === snapshot.id ? 'Restoring…' : 'Restore this version'}
+                </button>
+              </section>
+            ))}
+            {w.recoverySnapshots.length === 0 && (
+              <p className="text-sm text-muted-foreground">No recovery copies are available. Expired copies are deleted automatically.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       <AlertDialog open={confirmLock} onOpenChange={setConfirmLock}>
         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Lock with unsaved changes?</AlertDialogTitle><AlertDialogDescription>{w.editorDirty ? 'An open report has edits that were not saved to the workspace. ' : ''}{w.dirty ? 'Workspace changes have not finished saving to the vault. ' : ''}Locking clears them from this screen and they cannot be recovered.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel data-testid="button-lock-cancel">Keep working</AlertDialogCancel><AlertDialogAction data-testid="button-lock-discard" onClick={() => w.lockNow()}>Discard and lock</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
@@ -308,7 +412,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Overwrite the other session?</AlertDialogTitle>
             <AlertDialogDescription>
-              This saves this tab’s workspace over the other tab’s changes, then locks the other tab. Any unsaved edits there—including an open form—will be lost and cannot be recovered. This only changes the encrypted local workspace on this device; it does not upload to the agency service.
+              Before replacing the other tab, the portal saves its unsaved workspace as an encrypted recovery copy on this device. The copy expires after 7 days or is deleted after restoration. If the other tab has an open unsaved form or is synchronizing packets, the overwrite will not proceed. This only changes local workspace data; it does not upload to the agency service.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

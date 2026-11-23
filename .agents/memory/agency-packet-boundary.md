@@ -15,6 +15,16 @@ They require local editing without connectivity and approval/preview for UI chan
 the local packet, but must not invent electronic signatures or PO release.
 Do not claim a live agency integration without testing its actual configuration.
 
+Tab-overwrite recovery copies are encrypted device-local data, separate from the
+agency sync queue. Restoring one replaces only the local workspace record and
+preserves protected synchronized or uncertain packets.
+
+**Why:** The user requires recovery of accidental local overwrites without
+changing agency-sync state or turning recovery into an upload.
+
+**How to apply:** Capture a peer's unsaved workspace before locking it; expire
+recovery copies after seven days and delete them after a successful restore.
+
 Each substation has one physical network jack for 15 FTOs; per-upload wired
 connections are impractical. The upload design must support an agency-approved
 shared Wi-Fi or remote-access route rather than requiring each FTO to plug in.

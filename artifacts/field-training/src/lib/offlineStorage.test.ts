@@ -253,6 +253,64 @@ test('workspace revision checks block stale session writes unless explicitly ove
   assert.equal((await first.get<{ note: string }>('workspace'))?.note, 'confirmed overwrite version');
 });
 
+test('recovery snapshots restore local work without changing the agency sync queue', async () => {
+  const { namespace, vault } = createVault();
+  await vault.unlock(passphrase);
+  const report = { id: 'p1', syncStatus: 'local_draft_pending', narrative: 'same queued packet' };
+  await vault.saveWorkspace({ reports: [report], note: 'saved base' });
+  let originalOperationId = '';
+  await assert.rejects(vault.syncPacketBatch(async changes => {
+    originalOperationId = changes[0].operationId;
+    throw new Error('keep this packet queued');
+  }), /keep this packet queued/);
+
+  const recoveryId = await vault.saveRecoverySnapshot(
+    { reports: [report], note: 'work from the tab that will be replaced' },
+    'replaced-session',
+  );
+  const reopened = new OfflineStorage(namespace);
+  await reopened.unlock(passphrase);
+  await reopened.saveWorkspace({ reports: [report], note: 'workspace after overwrite' }, { overwrite: true });
+  assert.equal(await reopened.pendingCount(), 1);
+  assert.equal((await reopened.getLocalOnlyDrafts<{ id: string }>()).length, 0);
+
+  const recovered = await reopened.restoreRecoverySnapshot<{ reports: typeof report[]; note: string }>(recoveryId);
+  assert.equal(recovered.note, 'work from the tab that will be replaced');
+  assert.equal((await reopened.get<{ note: string }>('workspace'))?.note, recovered.note);
+  assert.equal(await reopened.pendingCount(), 1);
+  assert.equal(await reopened.recoverySyncReviewRequired(), true);
+  assert.equal((await reopened.getRecoverySnapshots()).length, 0);
+
+  await reopened.syncPacketBatch(async changes => {
+    assert.equal(changes[0].operationId, originalOperationId);
+    assert.deepEqual(changes[0].value, report);
+    return [{ id: 'p1', operation_id: originalOperationId, server_version: 1, sync_status: 'synchronized_complete' }];
+  });
+  assert.equal(await reopened.pendingCount(), 0);
+});
+
+test('expired recovery snapshots are removed and cannot be restored', async () => {
+  const { vault } = createVault();
+  await vault.unlock(passphrase);
+  const originalNow = Date.now;
+  let now = 1_000;
+  Date.now = () => now;
+  let recoveryId: string;
+  try {
+    recoveryId = await vault.saveRecoverySnapshot({ reports: [], note: 'expired' }, 'old-session');
+  } finally {
+    Date.now = originalNow;
+  }
+  now += 8 * 24 * 60 * 60 * 1000;
+  Date.now = () => now;
+  try {
+    await assert.rejects(vault.restoreRecoverySnapshot(recoveryId!), /expired and was deleted/);
+    assert.equal((await vault.getRecoverySnapshots()).length, 0);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
 test('a save interrupted by locking leaves the prior committed record and queue intact', async () => {
   const { namespace, vault } = createVault();
   await vault.unlock(passphrase);
@@ -608,6 +666,15 @@ test('saved sessions announce conflicts and an overwrite locks the stale tab', a
     assert.ok(workspaces.get('first')!.otherSessions.some(session => session.unlocked && session.dirty));
     assert.ok(workspaces.get('second')!.otherSessions.some(session => session.unlocked && session.dirty));
 
+    await act(async () => { workspaces.get('second')!.setEditorDirty(true); });
+    await act(async () => {
+      await assert.rejects(workspaces.get('first')!.overwriteOtherSessions(), /Save or close the open form/);
+    });
+    assert.equal(workspaces.get('second')!.vault, 'unlocked');
+    assert.equal(workspaces.get('first')!.recoverySnapshots.length, 0);
+    await act(async () => { workspaces.get('second')!.setEditorDirty(false); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
+
     await act(async () => {
       await workspaces.get('first')!.overwriteOtherSessions();
       await new Promise(resolve => setTimeout(resolve, 40));
@@ -615,11 +682,21 @@ test('saved sessions announce conflicts and an overwrite locks the stale tab', a
     assert.equal(workspaces.get('first')!.dirty, false);
     assert.equal(workspaces.get('second')!.vault, 'none');
     assert.equal(workspaces.get('second')!.overwrittenElsewhere, true);
+    assert.equal(workspaces.get('first')!.recoverySnapshots.length, 1);
 
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 850)); });
     await act(async () => { await workspaces.get('second')!.unlockAndRestore('shared-test-passphrase'); });
     assert.equal(workspaces.get('second')!.ws.caseFolder?.recruitName, 'FIRST SESSION EDIT');
     assert.equal(workspaces.get('second')!.overwrittenElsewhere, false);
+    assert.equal(workspaces.get('second')!.recoverySnapshots.length, 1);
+    const recoveryId = workspaces.get('second')!.recoverySnapshots[0]!.id;
+    await act(async () => { await workspaces.get('second')!.restoreRecoverySnapshot(recoveryId); });
+    assert.equal(workspaces.get('second')!.ws.caseFolder?.recruitName, 'SECOND SESSION EDIT');
+    assert.equal(workspaces.get('second')!.recoverySnapshots.length, 0);
+    assert.equal(workspaces.get('second')!.recoverySyncReviewRequired, true);
+    await assert.rejects(workspaces.get('second')!.syncPackets(), /Save the restored workspace locally/);
+    await act(async () => { await workspaces.get('second')!.saveNow(); });
+    assert.equal(workspaces.get('second')!.recoverySyncReviewRequired, false);
   } finally {
     await act(async () => { root.unmount(); });
     dom.window.close();
