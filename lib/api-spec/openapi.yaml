@@ -19,6 +19,105 @@ tags:
   - name: resources
     description: Clerk-authenticated reference document catalog and downloads
 paths:
+  /v1/staging/training-records:
+    get:
+      operationId: listStagingTrainingRecords
+      summary: List authorized synthetic training records
+      description: Development-only isolated staging. Never uploads device drafts or serves operational records.
+      responses:
+        "200":
+          description: Scoped synthetic records
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+    post:
+      operationId: createStagingTrainingRecord
+      summary: Create a synthetic record within an active FTO assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StagingTrainingInput" }
+      responses:
+        "201":
+          description: Synthetic record committed with audit event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/training-records/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getStagingTrainingRecord
+      summary: Read one authorized synthetic record
+      responses:
+        "200":
+          description: Scoped synthetic record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+    put:
+      operationId: updateStagingTrainingRecord
+      summary: Version-checked FTO synthetic record update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StagingTrainingUpdate" }
+      responses:
+        "200":
+          description: Record and audit committed atomically
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/training-records/{id}/acknowledgement:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: acknowledgeStagingTrainingRecord
+      summary: PO acknowledges their own submitted synthetic record version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StagingAcknowledgementInput" }
+      responses:
+        "200":
+          description: Acknowledgement and audit committed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
   /healthz:
     get:
       operationId: healthCheck
@@ -262,6 +361,66 @@ paths:
                 $ref: "#/components/schemas/ApiError"
 components:
   schemas:
+    StagingTrainingInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, assignment_id, record_date, narrative, status, synthetic]
+      properties:
+        operation_id: { type: string, format: uuid }
+        assignment_id: { type: string, format: uuid }
+        record_date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        narrative: { type: string, maxLength: 4000 }
+        status: { type: string, enum: [draft, submitted] }
+        synthetic: { type: boolean, enum: [true] }
+    StagingTrainingUpdate:
+      type: object
+      additionalProperties: false
+      required: [operation_id, base_version, narrative, status, synthetic]
+      properties:
+        operation_id: { type: string, format: uuid }
+        base_version: { type: integer, minimum: 1 }
+        narrative: { type: string, maxLength: 4000 }
+        status: { type: string, enum: [draft, submitted] }
+        synthetic: { type: boolean, enum: [true] }
+    StagingAcknowledgementInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, base_version, acknowledged]
+      properties:
+        operation_id: { type: string, format: uuid }
+        base_version: { type: integer, minimum: 1 }
+        acknowledged: { type: boolean, enum: [true] }
+    StagingTrainingRecord:
+      type: object
+      additionalProperties: false
+      required: [id, assignment_id, record_date, phase, narrative, status, version, acknowledged_version, synthetic]
+      properties:
+        id: { type: string, format: uuid }
+        assignment_id: { type: string, format: uuid }
+        record_date: { type: string }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        narrative: { type: string, maxLength: 4000 }
+        status: { type: string, enum: [draft, submitted] }
+        version: { type: integer, minimum: 1 }
+        acknowledged_version: { type: [integer, "null"], minimum: 1 }
+        synthetic: { type: boolean, enum: [true] }
+    StagingTrainingEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records, environment]
+          properties:
+            total_records: { type: integer, minimum: 0, maximum: 100 }
+            environment: { type: string, enum: [SYNTHETIC_STAGING] }
+        data:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/StagingTrainingRecord" }
     HealthStatus:
       type: object
       properties:

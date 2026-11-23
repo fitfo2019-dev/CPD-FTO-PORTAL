@@ -6,3 +6,4 @@
 - [Activity statistics](manual-statistics.md) — preserve legacy manual totals; new reviewed runs use requested clearance multipliers without duplicate counting.
 - [Print verification](print-verification.md) — verify physical PDF sheets; named-page wrappers and fixed heights can create unlabeled overflow.
 - [Run record boundaries](run-record-boundaries.md) — generate narrative drafts only after explicit checklist review; keep run evidence separate from ratings.
+- [Developer staging boundary](developer-staging-boundary.md) — fictional staging needs a separate password and must stay out of the IT delivery.
