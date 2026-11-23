@@ -78,6 +78,7 @@ export default function ReportEditor() {
   const [arrestMade, setArrestMade] = useState(false);
   const [transported, setTransported] = useState(false);
   const [transportDestination, setTransportDestination] = useState('');
+  const [transportDestinationType, setTransportDestinationType] = useState<TrainingRun['transportDestinationType']>();
   const [arrestProcessRequired, setArrestProcessRequired] = useState(false);
   const [oviProcessed, setOviProcessed] = useState(false);
   const [narrativeAdditionRequired, setNarrativeAdditionRequired] = useState(false);
@@ -96,14 +97,17 @@ export default function ReportEditor() {
     const occurredAt=parseRunDateTime(runDateTimeText);
     if (!r || !occurredAt || (!editingRunId && !Object.entries(runChecklist).some(([key, value]) => !value && /^(task-|supp-)/.test(key)))) return undefined;
     return {
+      clearanceRulesVersion:editingRunId?r?.runs.find(run=>run.id===editingRunId)?.clearanceRulesVersion:1,
       id: editingRunId ?? runDraftId, occurredAt,
       runKind, isDispatched: runDispatched, trafficMode, arrestMade,
       transportedAfterArrest: arrestMade && transported, arrestProcessRequired,
       transportDestination:arrestMade&&transported?transportDestination.trim()||undefined:undefined,
+      transportDestinationType:arrestMade&&transported?transportDestinationType:undefined,
+      clearanceCode,
       oviProcessed, narrativeAdditionRequired, checklist: runChecklist, narrative: runNarrative,
       formStatus: runNarrative.trim() ? 'complete' : 'in_progress',
     };
-  }, [r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, arrestProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runNarrative]);
+  }, [r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, transportDestinationType, clearanceCode, arrestProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runNarrative]);
   const deficiencyEditor = useDeficiencyEditor(r, setR, getOperationalPacket, candidateRun, r?.status === 'draft' && ws.role === 'fto');
   const parsedDate = parseDateDMY(dateText);
   const dateWeekday = parsedDate ? getWeekdayIndex(parsedDate) : undefined;
@@ -127,7 +131,7 @@ export default function ReportEditor() {
   const baseline = useMemo(() => JSON.stringify(existing ?? null), [existing]);
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
-  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== SITUATION_FOUND_NA || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || arrestProcessRequired || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
+  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== SITUATION_FOUND_NA || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestProcessRequired || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
   const isDirty = !!r && (JSON.stringify(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
   useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
@@ -174,6 +178,10 @@ export default function ReportEditor() {
     }
   };
   const setRating = (c: typeof CATEGORIES[number], patch: Partial<Report['ratings'][typeof c]>) => {
+    if(r?.notApplicableCategories?.includes(c)&&!deficiencyEditor.groups.some(group=>group.category===c)&&patch.rating) {
+      toast({title:'Category is not applicable',description:'The current shift record marks this category as not applicable.',variant:'destructive'});
+      return;
+    }
     if(patch.rating&&r?.deficiencySafetyLocks?.includes(c)&&patch.rating!=='UA') {
       toast({title:'Officer Safety UA is locked for this day',description:'This rating cannot be cleared or changed on the current daily report.',variant:'destructive'});
       return;
@@ -190,6 +198,26 @@ export default function ReportEditor() {
     const checklist={...(r.reportingForDuty?.checklist??{})};
     group?.items.forEach(item=>{if(notApplicable)checklist[item.key]=false;});
     set('reportingForDuty',{...(r.reportingForDuty??emptyReportingForDutyRecord()),checklist,notApplicable:{...(r.reportingForDuty?.notApplicable??{}),[section]:notApplicable},reviewedAt:undefined});
+  };
+  const setShotgunTraining=(value:'Y'|'N')=>{
+    setR(current=>{
+      if(!current)return current;
+      const categories=new Set(current.notApplicableCategories??[]);
+      if(value==='N')categories.add('resourceEquipmentUsage');
+      else categories.delete('resourceEquipmentUsage');
+      const hasEquipmentDeficiency=current.checklistDeficiencies?.some(group=>group.category==='resourceEquipmentUsage')===true;
+      const ratings={...current.ratings,resourceEquipmentUsage:{
+        ...current.ratings.resourceEquipmentUsage,
+        ...(!hasEquipmentDeficiency?{rating:'' as Rating,justification:''}:{}),
+      }};
+      return {
+        ...current,
+        ratingsReviewedAt:undefined,
+        ratings,
+        notApplicableCategories:[...categories],
+        reportingForDuty:{...current.reportingForDuty,shotgunTraining:value,reviewedAt:undefined},
+      };
+    });
   };
   const clearDutyGroup = (section:string) => {
     if(!r)return;
@@ -230,8 +258,23 @@ export default function ReportEditor() {
     },prior);
   const setArrestState = (value:boolean) => {
     setArrestMade(value);
-    if(!value){setTransported(false);setTransportDestination('');setArrestProcessRequired(false);}
-    setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,value,value&&transported,oviProcessed,narrativeAdditionRequired,prev,value&&arrestProcessRequired));
+    const nextTransported=value;
+    if(value){setTransported(true);setClearanceCode('3V');}
+    if(!value){
+      setTransported(false);setTransportDestination('');setTransportDestinationType(undefined);setArrestProcessRequired(false);
+      if(clearanceCode==='3V')setClearanceCode('');
+    }
+    setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,value,nextTransported,oviProcessed,narrativeAdditionRequired,prev,value&&arrestProcessRequired));
+    setRunChecklistReviewed(false);
+  };
+  const setTransportState=(value:boolean)=>{
+    setTransported(value);
+    if(!value){
+      setTransportDestination('');
+      setTransportDestinationType(undefined);
+      if(arrestMade&&clearanceCode!=='1V')setClearanceCode('1V');
+    }
+    setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,value,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));
     setRunChecklistReviewed(false);
   };
 
@@ -248,8 +291,10 @@ export default function ReportEditor() {
     }
     const activityError=runActivityValidationError({
       runKind,dispatchedCode,clearanceCode,activityFlags,arrestMade,
+      clearanceRulesVersion:editingRunId?r.runs.find(run=>run.id===editingRunId)?.clearanceRulesVersion:1,
       transportedAfterArrest:arrestMade&&transported,
       transportDestination,
+      transportDestinationType,
     });
     if(activityError){setRunError(activityError);return;}
     if (!runChecklistReviewed) {
@@ -274,6 +319,7 @@ export default function ReportEditor() {
       incidentNumber: incidentNumber.trim() || undefined,
       location: runLocation.trim() || undefined,
       transportDestination:arrestMade&&transported?transportDestination.trim():undefined,
+      transportDestinationType:arrestMade&&transported?transportDestinationType:undefined,
       occurredAt: localRunDateTime,
       runKind, isDispatched: runDispatched, trafficMode, arrestMade,
       activityFlags:{...activityFlags}, dispatchedCode, situationFoundCode, clearanceCode,
@@ -309,7 +355,7 @@ export default function ReportEditor() {
     setChargeText('');
     setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunDispatched(true); setRunError(''); runReviewConfirmedRef.current = false;
     setIncidentNumber(''); setRunLocation(''); generatedNarrativeRef.current = '';
-    setTrafficMode('none'); setArrestMade(false); setTransported(false); setTransportDestination(''); setArrestProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
+    setTrafficMode('none'); setArrestMade(false); setTransported(false); setTransportDestination(''); setTransportDestinationType(undefined); setArrestProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
     setActivityFlags({}); setDispatchedCode(''); setSituationFoundCode(SITUATION_FOUND_NA); setClearanceCode('');
     setRunNarrative(''); setRunChecklist(newRunChecklist('call_for_service')); setDirectiveReviews({}); setRunReviewOpen(false); setRunChecklistReviewed(false);
   };
@@ -325,7 +371,7 @@ export default function ReportEditor() {
     setTrafficMode(run.trafficMode); setArrestMade(run.arrestMade);
     setActivityFlags(run.activityFlags ?? {}); setDispatchedCode(run.runKind==='traffic_stop'?'6':run.dispatchedCode ?? DEFAULT_RUN_TYPE_CODES[run.runKind] ?? '');
     setSituationFoundCode(run.situationFoundCode ?? ''); setClearanceCode(run.clearanceCode ?? '');
-    setTransported(run.transportedAfterArrest); setTransportDestination(run.transportDestination??''); setArrestProcessRequired(!!run.arrestProcessRequired); setOviProcessed(run.oviProcessed);
+    setTransported(run.transportedAfterArrest); setTransportDestination(run.transportDestination??''); setTransportDestinationType(run.transportDestinationType); setArrestProcessRequired(!!run.arrestProcessRequired); setOviProcessed(run.oviProcessed);
     setNarrativeAdditionRequired(run.narrativeAdditionRequired);
     setDirectiveReviews(run.directiveReviews??{});
     setRunNarrative(run.narrative); setRunChecklist(run.checklist ?? {}); setRunReviewOpen(false); setRunChecklistReviewed(false);
@@ -434,7 +480,7 @@ export default function ReportEditor() {
          <div className="grid gap-4 p-4">
            <fieldset disabled={!editable} className="grid gap-4 sm:grid-cols-2">
              <F l="Cruiser ID"><input value={r.reportingForDuty.cruiserId??''} maxLength={80} className={inp} onChange={event=>set('reportingForDuty',{...r.reportingForDuty,cruiserId:event.target.value,reviewedAt:undefined})} data-testid="input-cruiser-id"/></F>
-             <F l="Shotgun Training"><select className={inp} value={r.reportingForDuty.shotgunTraining??''} onChange={event=>{const value=event.target.value;if(value==='Y'||value==='N')set('reportingForDuty',{...r.reportingForDuty,shotgunTraining:value,reviewedAt:undefined});}} data-testid="select-shotgun-training"><option value="" disabled>Select Y / N</option><option value="Y">Y</option><option value="N">N</option></select></F>
+              <F l="Shotgun Training"><select className={inp} value={r.reportingForDuty.shotgunTraining??''} onChange={event=>{const value=event.target.value;if(value==='Y'||value==='N')setShotgunTraining(value);}} data-testid="select-shotgun-training"><option value="" disabled>Select Y / N</option><option value="Y">Y</option><option value="N">N</option></select></F>
            </fieldset>
             {deficiencyEditor.groups.length>0&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.map(group=><button type="button" key={group.id} disabled={!editable||!group.reviewed} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded border bg-muted/20 p-3">
@@ -496,15 +542,17 @@ export default function ReportEditor() {
                    <span className="text-xs text-muted-foreground">{situationFoundCode===SITUATION_FOUND_NA?'Defaults to N/A; change it when a situation-found 10-code applies.':situationFoundCode ? RADIO_CODES[situationFoundCode] ?? 'Unlisted code — confirm against approved code table' : 'Enter the applicable code or N/A.'}</span>
                </F>
                <datalist id="radio-code-list">{Object.entries(RADIO_CODES).map(([code,label])=><option key={code} value={code}>{label}</option>)}</datalist>
-                   <F l="Clearance code"><SearchableSelect className={inp} value={clearanceCode} onChange={e=>{const code=e.target.value as typeof clearanceCode;setClearanceCode(code);if(code==='3V')setArrestState(true);}} data-testid="select-clearance-code"><option value="">Not recorded</option>{CLEARANCE_CODES.map(item=><option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}</SearchableSelect></F>
-                   {clearanceCode==='3V'&&<p className="rounded border border-accent/40 bg-accent/5 p-2 text-xs sm:col-span-2">3V ordinarily means an arrest was made. Record the arrest facts and select U-10.100 Reports only if the report was completed. If no arrest occurred, correct the clearance code and related statistics before saving.</p>}
+                    <F l="Clearance code"><SearchableSelect className={inp} value={clearanceCode} onChange={e=>{const code=e.target.value as typeof clearanceCode;setClearanceCode(code);if(code==='3V')setArrestState(true);}} data-testid="select-clearance-code"><option value="">Not recorded</option>{CLEARANCE_CODES.map(item=><option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}</SearchableSelect></F>
+                    {clearanceCode==='3V'&&<p className="rounded border border-accent/40 bg-accent/5 p-2 text-xs sm:col-span-2">3V records an arrest with transport. Selecting it opens the transport fields. If no transport occurred, clear Transported after arrest to use 1V. If no arrest occurred, correct the clearance code and related statistics before saving.</p>}
+                    {arrestMade&&!transported&&clearanceCode==='1V'&&<p className="rounded border bg-muted/30 p-2 text-xs sm:col-span-2">No transport occurred. This arrest run is recorded as 1V; use 3V only when transport was completed.</p>}
           {(clearanceCode==='1V')&&<p className="rounded border bg-primary/5 p-2 text-xs sm:col-span-2">{runKind==='traffic_stop'?'For a 10-6 Traffic Stop, select Solve Citation/Summons* below when applicable. Do not select PremierOne Reports or Axon Reports. This is guidance only; no statistic is prefilled.':runKind==='traffic_crash'?'Select Accident Reports below only when a crash report was completed; a crash report is not a PremierOne Report. No statistic is prefilled.':'Select PremierOne Reports below only when that report was completed. No statistic is prefilled from the clearance code.'}</p>}
                   {runKind==='traffic_stop'&&clearanceCode==='3V'&&<p className="rounded border bg-primary/5 p-2 text-xs sm:col-span-2">For a 10-6 Traffic Stop, select Solve Citation/Summons* below when applicable. Do not select PremierOne Reports or Axon Reports. No statistic is prefilled.</p>}
             </fieldset>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={arrestMade} onChange={e=>setArrestState(e.target.checked)} data-testid="checkbox-arrest-made" />Arrest made</label>
               {clearanceCode==='3V'&&<F l="Criminal charges · one per line"><textarea disabled={!editable} rows={3} className={inp} value={chargeText} onChange={event=>setChargeText(event.target.value)} data-testid="input-criminal-charges"/></F>}
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable || !arrestMade} checked={transported} onChange={e=>{const value=e.target.checked;setTransported(value);if(!value)setTransportDestination('');setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,value,oviProcessed,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);}} data-testid="checkbox-transported" />Transported after arrest</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable || !arrestMade} checked={transported} onChange={e=>setTransportState(e.target.checked)} data-testid="checkbox-transported" />Transported after arrest</label>
+              {arrestMade&&transported&&<F l="Transport destination type"><SearchableSelect disabled={!editable} className={inp} value={transportDestinationType??''} onChange={event=>{const value=event.target.value as TrainingRun['transportDestinationType'];setTransportDestinationType(value||undefined);setRunChecklistReviewed(false);setRunError('');}} data-testid="select-transport-destination-type"><option value="">Select destination</option><option value="Jail">Jail</option><option value="HQ">HQ</option><option value="Clerks">Clerks</option></SearchableSelect></F>}
               {arrestMade&&transported&&<F l="Actual transport destination"><input disabled={!editable} className={inp} maxLength={200} value={transportDestination} onChange={event=>{setTransportDestination(event.target.value);setRunChecklistReviewed(false);setRunError('');}} placeholder="Enter the destination that actually occurred" data-testid="input-transport-destination"/></F>}
               {arrestMade&&!transported&&<label title="Use for payout arrests or when the arrestee is remanded to another jurisdiction; transported arrests add the form automatically." className="flex items-start gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={arrestProcessRequired} onChange={e=>{const value=e.target.checked;setArrestProcessRequired(value);setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,prev,value));setRunChecklistReviewed(false);}} data-testid="checkbox-arrest-process-required" />Arrest Process required · payout / transfer</label>}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={oviProcessed} onChange={e=>{const value=e.target.checked;setOviProcessed(value);setRunChecklist(prev=>checklistFor(runKind,trafficMode,runDispatched,arrestMade,transported,value,narrativeAdditionRequired,prev,arrestProcessRequired));setRunChecklistReviewed(false);}} data-testid="checkbox-ovi-processed" />OVI processing occurred</label>
@@ -640,7 +688,9 @@ export default function ReportEditor() {
                       <p className="mt-1 text-[10px] leading-4 text-muted-foreground">Manual: {item.manualReference}</p>
                     </div>
                     <div role="radiogroup" aria-label={CATEGORY_LABEL[c]} className="grid h-fit grid-cols-5 gap-1 self-start">
-                      {RATINGS.map(code => {
+                      {r.notApplicableCategories?.includes(c)&&!deficiencyEditor.groups.some(group=>group.category===c)&&v.rating!=='UA'
+                        ? <span role="status" className="seg-rating-choice col-span-5 flex h-9 items-center justify-center rounded-sm border bg-muted text-xs font-bold" data-testid={`rating-${c}-na`}>N/A · Not applicable</span>
+                        : RATINGS.map(code => {
                         const rtRestricted=code==='RT' && isRtRestricted(c);
                         return <button
                           key={code}

@@ -25,3 +25,26 @@ authored text, permit named-category overrides, consolidate source tasks, and
 never assert coaching or elapsed training time merely from an unchecked box.
 Respect explicit Not Applicable groups and Limbo no-ratings rules. Do not
 retroactively reinterpret historical saved checklists without an explicit edit.
+
+Applicable unchecked tasks project UA immediately, but the FTO articulation
+editor must not open until the associated checklist review is explicitly
+confirmed. Unreviewed daily records do not affect weekly rating counts or the
+category's weekly A ceiling; only reviewed, non-Limbo summaries count.
+
+**Why:** The task must have an immediate deficiency marker, while narrative
+articulation still depends on an explicit FTO review and weekly totals should not
+be affected by unfinished daily records.
+
+**How to apply:** Preserve the immediate UA projection and gate the articulation
+editor on the checklist review state. Keep weekly counts and ceilings scoped to
+reviewed, non-Limbo reports.
+
+When Shotgun Training is `N`, Resource/Equipment Usage is marked not applicable
+outside the five rating values. A concrete checklist deficiency in that category
+still takes precedence over the N/A marker and remains UA.
+
+**Why:** The requested N/A state describes applicability, not a sixth rating;
+it must not erase an observed checklist failure.
+
+**How to apply:** Keep N/A as separate report applicability metadata, exclude it
+from weekly rating counts, and retain any recorded deficiency as UA evidence.

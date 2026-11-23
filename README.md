@@ -67,16 +67,33 @@ confirmations require reconfirmation after the duty-first migration; historical
 text and training time are preserved. See `HANDOVER_MANUAL.md`, section 11, for
 the exact page scope. Section 12 documents the named-category UA rules, FTO
 override dialog, consolidated source-linked articulations, and four-tab
-four-tab monthly exporter, styled after the supplied U-10.174 reference with
+monthly exporter, styled after the supplied U-10.174 reference with
 three category panels, four activity blocks, metadata, comments, and legend.
-It preserves the 30-category data model. More than four source weeks is rejected without
-dropping dates. New reviewed runs use versioned clearance multipliers; legacy
-manual totals are not silently migrated. Legal-document payloads remain local
-drafts, not completed or filed forms.
+It preserves the 30-category data model. Unchecked tasks project UA immediately,
+but the grouped articulation editor opens only after explicit checklist review;
+weekly counts use reviewed, non-Limbo summaries. More than four source weeks or
+an out-of-range record stops export rather than merging weeks or dropping dates.
+New reviewed runs use versioned clearance multipliers; legacy manual totals are
+not silently migrated. A 3V run requires a recorded arrest, and an actual
+transport destination type (Jail, HQ, or Clerks) plus the actual destination is
+required for a transported arrest. Selecting Arrest Made or 3V preselects
+transport; if no transport occurred, the FTO can clear that flag and the run
+uses 1V. A 4V run adds no automatic activity counts. Legal-document payloads
+remain local drafts, not completed or filed forms. Shotgun Training `N` marks
+Resource/Equipment Usage as not applicable outside the five-value rating
+system; it is excluded from weekly rating counts unless a recorded deficiency
+exists.
 The 15-week phase calendar applies Limbo windows and blocks rating review on
 Limbo days. Officer Safety UA remains locked for the affected category for that
 day. Week 15 release recommendations and automatic next-phase assignment
 creation are not yet provided.
+
+The authoritative phase registry is
+`artifacts/field-training/src/config/phaseConfiguration.ts`. It defines the
+approved 4/4/4/3 week schedule, derives program-week starts, and contains
+offline developer instructions. Phase IV remains three weeks unless formally
+approved; after approval, an agency developer can edit the Phase IV `weeks`
+value and run `pnpm typecheck` followed by `pnpm run build`.
 
 ### Agency-managed monorepo startup
 

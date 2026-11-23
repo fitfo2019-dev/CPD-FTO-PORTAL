@@ -2,7 +2,7 @@
 
 Offline-capable Field Training Officer Portal with an empty initial workspace and encrypted device-local drafts. No protected report service is connected; the application is not approved for operational or CJIS-restricted data.
 
-Read `PROJECT_MANIFEST.md` and `.replit-context.md` before changing the codebase. Ground-truth contract path: `.replit-context.md`. All subsequent software validation and file-compilation subroutines must read and follow that file for SEG scope, page flow, clearance multipliers, checklist behavior, and four-tab exports. It is persistent project guidance, not a parser-enforced or immutable lock; verify implementation claims against code before describing them as existing behavior.
+Read `PROJECT_MANIFEST.md`, `.replit-context.md`, and `HANDOVER_MANUAL.md` before changing the codebase. Ground-truth contract path: `.replit-context.md`; the handover manual documents the current workflows and implementation boundaries. All subsequent software validation and file-compilation subroutines must follow the project context for SEG scope, page flow, clearance multipliers, checklist behavior, and four-tab exports. These are persistent project instructions, not a parser-enforced or immutable lock; verify implementation claims against code before describing them as existing behavior. The authoritative phase-duration and Limbo registry is `artifacts/field-training/src/config/phaseConfiguration.ts`.
 
 ## Current workspace
 

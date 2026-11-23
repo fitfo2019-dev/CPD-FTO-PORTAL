@@ -125,6 +125,22 @@ test('Officer Safety UA remains locked for the day after its checklist task is r
   assert.deepEqual(limbo.deficiencySafetyLocks,[]);
 });
 
+test('Shotgun Training N/A excludes Resource Equipment from ratings unless a real deficiency exists',()=>{
+  const notApplicable={...base(),ratingsReviewedAt:'2026-11-09T17:00:00Z',
+    notApplicableCategories:['resourceEquipmentUsage' as const],
+    ratings:{...defaultRatings(),resourceEquipmentUsage:{...defaultRatings().resourceEquipmentUsage,rating:'A' as const}},
+  };
+  assert.equal(weeklyRatingCount([notApplicable],'resourceEquipmentUsage','A'),0);
+  assert.equal(weeklyRatingCount([notApplicable],'resourceEquipmentUsage','UA'),0);
+  const deficiency={...notApplicable,ratings:{...notApplicable.ratings,
+    resourceEquipmentUsage:{...notApplicable.ratings.resourceEquipmentUsage,rating:'UA' as const}},
+    checklistDeficiencies:[{id:'equipment-failure',category:'resourceEquipmentUsage' as const,
+      tasks:[{id:'task',label:'Use required equipment'}],narrative:'Observed equipment task failure.'}],
+  };
+  assert.equal(weeklyRatingCount([deficiency],'resourceEquipmentUsage','UA'),1);
+  assert.equal(weeklyRatingCount([deficiency],'resourceEquipmentUsage','A'),0);
+});
+
 test('multiple failed checks in one safety category on one run count once, separate runs count independently',()=>{
   const first=failingRun('safety-first');
   const second=failingRun('safety-second');
@@ -148,7 +164,8 @@ test('distinct incidents remain distinct weekly evidence, with no fabricated tra
 });
 
 test('clearance multipliers and distinct complaint payloads are versioned, deterministic, and reversible',()=>{
-  const arrest={...run(),clearanceRulesVersion:1 as const,clearanceCode:'3V' as const,arrestMade:true,
+  const arrest={...run(),clearanceRulesVersion:1 as const,clearanceCode:'3V' as const,arrestMade:true,transportedAfterArrest:true,
+    transportDestination:'Fictional Jail',transportDestinationType:'Jail' as const,
     charges:[{id:'charge-1',description:'Fictional charge one'},{id:'charge-2',description:'Fictional charge two'}]};
   const counts=clearanceDerivedActivityCounts([arrest]);
   for(const key of ['u10100Reports','premierOneReports','prisonersSlated','pcAffidavits'] as const)assert.equal(counts[key],1);

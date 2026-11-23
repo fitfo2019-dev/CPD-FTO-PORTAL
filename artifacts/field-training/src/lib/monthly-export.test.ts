@@ -56,7 +56,7 @@ function makeReport(id: string, overrides: Partial<Report> = {}): Report {
   };
 }
 
-test('monthly workbook includes every calendar week without leaking incident details', () => {
+test('monthly workbook renders four supplied weekly ranges without leaking incident details', () => {
   const weekOne = makeReport('week-one', {
     phaseWeek: 1,
     ratingsReviewedAt: '2026-11-01T18:00:00.000Z',
@@ -200,6 +200,15 @@ test('phase ranges exceeding four weeks do not merge extension records into a di
     makeReport('extension-week',{date:'2027-01-31',activity:{...emptyDailyActivitySummary(),trafficStops:6},phaseWeek:5}),
   ];
   assert.throws(()=>buildMonthlyWorkbook(reports,'2027-01',phaseWeekRanges),/more than four Sunday–Saturday weeks/);
+});
+
+test('weekly export rejects malformed or nonconsecutive source ranges',()=>{
+  const report=makeReport('range-gap',{date:'2026-11-01'});
+  const ranges=[
+    {startDate:'2026-11-01',endDate:'2026-11-07'},
+    {startDate:'2026-11-09',endDate:'2026-11-15'},
+  ];
+  assert.throws(()=>buildMonthlyWorkbook([report],'2026-11',ranges),/gap or overlap/);
 });
 
 test('export boundary validates the exact approved categories and count types without type assertions', () => {

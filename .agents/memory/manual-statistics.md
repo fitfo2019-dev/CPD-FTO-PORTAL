@@ -11,6 +11,28 @@ complaint counts. This supersedes the earlier blanket prohibition on code-driven
 counts for those new runs, not for legacy saved accounting. Run activity flags
 remain separate explicit selections.
 
+The 3V multiplier applies only when the run records an arrest; 4V records the
+timeline only and contributes no automatic activity counts. A newly recorded
+transported arrest requires the actual destination before save.
+
+For the user's current workflow, an arrest/3V record must be transported to
+Jail, HQ, or Clerks; if no such transport occurs, use 1V instead of 3V.
+
+**Why:** The user clarified that a 3V or recorded arrest requires transport and
+that an arrest without transport should be recorded as 1V.
+
+**How to apply:** When Arrest Made or 3V is selected, guide the FTO to a
+transport destination. If the transport did not happen, allow the truthful 1V
+path rather than saving a contradictory 3V/non-transport combination.
+
+**Why:** The user defined 3V as “Arrest Made” and 4V as timeline-only, so a
+clearance code must not create activity evidence that contradicts the recorded
+run facts.
+
+**How to apply:** Gate arrest counters and generated document drafts on the
+recorded arrest fact, keep 4V out of automatic totals, and require a factual
+destination for new transported-arrest records without rewriting legacy data.
+
 The user requires categorical performance ratings only; do not introduce
 numerical performance scores. Numeric values are appropriate for factual
 activity totals and counts of categorical selections, not as a performance

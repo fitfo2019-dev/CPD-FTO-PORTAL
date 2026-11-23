@@ -9,7 +9,7 @@ import { useWorkspace } from '@/state/workspace.js';
 import { CATEGORY_GROUPS, DAILY_ACTIVITY_FIELDS, PHASE_PROGRAM_WEEK_START, phaseAssignmentLabel, RATINGS, SEG_CATEGORIES, RATING_LEGEND, RUN_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, PRIMARY_RUN_FORMS, SUPPLEMENTAL_RUN_FORMS, requiredSupplementalForms } from '@/lib/model.js';
 import { formatDateDMY, getPhaseWeekNumber, getSundaySaturdayWeek } from '@/lib/training-calendar.js';
 import { activityTotals } from '@/lib/run-activity.js';
-import { weeklyRatingCount } from '@/lib/weekly-rating-counts.js';
+import { categoryIsNotApplicable, weeklyRatingCount } from '@/lib/weekly-rating-counts.js';
 import { ACTIVITY_MANUAL_DEFINITIONS, SEG_MANUAL_DEFINITIONS, WEEKLY_ACTIVITY_SUMMARY_DEFINITION, WEEKLY_RATING_SUMMARY_DEFINITION } from '@/lib/weekly-summary-manual-definitions.js';
 
 export default function WeeklySummaryPage() {
@@ -133,7 +133,7 @@ export default function WeeklySummaryPage() {
                           reference={SEG_MANUAL_DEFINITIONS[key].reference}
                           className="weekly-category-definition-trigger"
                         >
-                          {label}
+                          {label}{reports.some(report=>categoryIsNotApplicable(report,key))?' · N/A':''}
                         </ManualDefinitionTooltip>
                       </th>
                       {RATINGS.map(rating => (
@@ -156,7 +156,7 @@ export default function WeeklySummaryPage() {
                       reference={SEG_MANUAL_DEFINITIONS[key].reference}
                       className="weekly-category-definition-trigger"
                     >
-                      {label}
+                       {label}{reports.some(report=>categoryIsNotApplicable(report,key))?' · N/A':''}
                     </ManualDefinitionTooltip>
                   </h4>
                   <div className="weekly-rating-mobile-counts">

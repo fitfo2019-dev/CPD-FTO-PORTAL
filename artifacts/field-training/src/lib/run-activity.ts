@@ -1,8 +1,12 @@
 import { emptyDailyActivitySummary, type ActivityKey, type DailyActivitySummary, type Report, type TrainingRun } from './model.js';
 
-export function runActivityValidationError(run:Pick<TrainingRun,'runKind'|'dispatchedCode'|'clearanceCode'|'activityFlags'|'arrestMade'|'transportedAfterArrest'|'transportDestination'>):string|undefined {
+export function runActivityValidationError(run:Pick<TrainingRun,'runKind'|'dispatchedCode'|'clearanceCode'|'activityFlags'|'arrestMade'|'transportedAfterArrest'|'transportDestination'|'transportDestinationType'|'clearanceRulesVersion'>):string|undefined {
   if(run.clearanceCode==='3V'&&!run.arrestMade) return '3V means Arrest Made. Correct the clearance code or record the arrest that occurred.';
+  if(run.clearanceRulesVersion===1&&run.clearanceCode==='3V'&&!run.transportedAfterArrest) return '3V requires a recorded transport. If no transport occurred, use 1V.';
+  if(run.clearanceRulesVersion===1&&run.arrestMade&&run.transportedAfterArrest&&run.clearanceCode!=='3V') return 'A transported arrest must use 3V.';
+  if(run.clearanceRulesVersion===1&&run.arrestMade&&!run.transportedAfterArrest&&run.clearanceCode!=='1V') return 'An arrest without transport must use 1V.';
   if(run.transportedAfterArrest&&!run.transportDestination?.trim()) return 'Record the actual destination before confirming transport after arrest.';
+  if(run.clearanceRulesVersion===1&&run.transportedAfterArrest&&!run.transportDestinationType) return 'Select Jail, HQ, or Clerks as the transport destination type.';
   if(run.runKind==='traffic_stop'&&run.dispatchedCode==='6'&&['1V','3V'].includes(run.clearanceCode??'')&&run.activityFlags?.premierOneReports) {
     return 'A 10-6 Traffic Stop with 1V or 3V must not count as a PremierOne/Axon report. Clear PremierOne Reports; select Solve Citation/Summons* only when applicable.';
   }
@@ -30,7 +34,7 @@ export function clearanceDerivedActivityCounts(runs: TrainingRun[]): DailyActivi
       if (run.activityFlags?.trafficCitations) counts.trafficCitations++;
       else if (run.runKind === 'traffic_stop' || run.activityFlags?.solveCitationSummons) counts.solveCitationSummons++;
       else counts.premierOneReports++;
-    } else if (run.clearanceCode === '3V' && run.arrestMade) {
+    } else if (run.clearanceCode === '3V' && run.arrestMade && run.transportedAfterArrest) {
       counts.u10100Reports++;
       counts.prisonersSlated++;
       counts.premierOneReports++;
@@ -44,7 +48,7 @@ export function clearanceDerivedActivityCounts(runs: TrainingRun[]): DailyActivi
 }
 
 export function buildClearanceDocuments(run: TrainingRun): NonNullable<TrainingRun['generatedDocuments']> {
-  if (run.clearanceRulesVersion !== 1 || run.clearanceCode !== '3V' || !run.arrestMade) return [];
+  if (run.clearanceRulesVersion !== 1 || run.clearanceCode !== '3V' || !run.arrestMade || !run.transportedAfterArrest) return [];
   return [
     { id: `${run.id}:U-10.100`, kind: 'U-10.100' },
     { id: `${run.id}:Probable-Cause-Affidavit`, kind: 'Probable Cause Affidavit' },

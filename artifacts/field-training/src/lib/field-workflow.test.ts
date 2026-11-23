@@ -390,7 +390,7 @@ test('only explicitly selected related activity counts on completed and reviewed
   const traffic={...run('traffic','1V'),activityFlags:{solveCitationSummons:true}};
   assert.equal(traffic.dispatchedCode,'6');
   assert.equal(runActivityValidationError(traffic),undefined);
-  assert.match(runActivityValidationError({...traffic,clearanceCode:'3V',arrestMade:true,activityFlags:{premierOneReports:true}})??'',/1V or 3V/);
+  assert.match(runActivityValidationError({...traffic,clearanceCode:'3V',arrestMade:true,transportedAfterArrest:true,transportDestination:'Fictional Jail',transportDestinationType:'Jail',activityFlags:{premierOneReports:true}})??'',/1V or 3V/);
   const trafficOnlyCounts=runDerivedActivityCounts([traffic]);
   assert.equal(trafficOnlyCounts.solveCitationSummons,1);
   assert.equal(trafficOnlyCounts.premierOneReports,0);
@@ -423,11 +423,16 @@ test('transport requires the actual destination and clearance totals are not dup
   const base={...run('arrest-3v','3V'),clearanceRulesVersion:1 as const,runKind:'call_for_service' as const,arrestMade:true,
     charges:[{id:'charge-1',description:'Fictional charge'}]};
   assert.match(runActivityValidationError({...base,transportedAfterArrest:true})??'',/actual destination/);
-  assert.equal(runActivityValidationError({...base,transportedAfterArrest:true,transportDestination:'Fictional intake location'}),undefined);
-  assert.equal(runActivityValidationError({...base,arrestMade:false}),/3V means Arrest Made. Correct the clearance code or record the arrest that occurred./);
+  assert.match(runActivityValidationError({...base,transportedAfterArrest:true,transportDestination:'Fictional intake location'})??'',/Jail, HQ, or Clerks/);
+  assert.equal(runActivityValidationError({...base,transportedAfterArrest:true,transportDestination:'Fictional intake location',transportDestinationType:'Jail'}),undefined);
+  assert.match(runActivityValidationError({...base,arrestMade:false})??'',/3V means Arrest Made. Correct the clearance code or record the arrest that occurred./);
+  assert.match(runActivityValidationError({...base,transportedAfterArrest:false})??'',/3V requires a recorded transport/);
+  assert.match(runActivityValidationError({...base,clearanceCode:'2V',transportedAfterArrest:false})??'',/arrest without transport must use 1V/i);
+  assert.equal(runActivityValidationError({...base,clearanceCode:'1V',transportedAfterArrest:false}),undefined);
+  assert.match(runActivityValidationError({...base,clearanceCode:'1V',transportedAfterArrest:true,transportDestination:'Fictional Jail',transportDestinationType:'Jail'})??'',/transported arrest must use 3V/i);
 
   const invalid3v={...base,arrestMade:false};
-  const counted3v={...base,activityFlags:{}};
+  const counted3v={...base,transportedAfterArrest:true,transportDestination:'Fictional Jail',transportDestinationType:'Jail' as const,activityFlags:{}};
   const values=activityTotals({activity:emptyDailyActivitySummary(),runs:[invalid3v,counted3v]});
   assert.equal(values.u10100Reports,1);
   assert.equal(values.prisonersSlated,1);
@@ -440,6 +445,12 @@ test('transport requires the actual destination and clearance totals are not dup
     runs:[counted3v],
   });
   assert.equal(visibleTotals.u10100Reports,1);
+
+  const sourceReport=seedReports()[0];
+  const versionedTransport={...base,transportedAfterArrest:true,transportDestination:undefined};
+  assert.ok(validateReport({...sourceReport,runs:[versionedTransport]}).includes('Record the actual destination for each transported arrest'));
+  const legacyTransport={...versionedTransport,clearanceRulesVersion:undefined};
+  assert.ok(!validateReport({...sourceReport,runs:[legacyTransport]}).includes('Record the actual destination for each transported arrest'));
 });
 
 test('run activity flags add no totals unless the FTO explicitly selects them',()=>{

@@ -99,8 +99,11 @@ export function PrintableDailyLog({ report, dayReference, packet:providedPacket 
                     return <td key={`group-${blockIndex}-${entry.group}`} colSpan={6} className="print-rating-group-cell">{SEG_RATING_GROUP_LABELS[entry.group] ?? entry.group}</td>;
                   }
                   const { key, label } = entry.item;
+                  const notApplicable=report.notApplicableCategories?.includes(key)===true
+                    && !report.checklistDeficiencies?.some(group=>group.category===key)
+                    && report.ratings[key]?.rating!=='UA';
                   return [
-                    <td key={`category-${blockIndex}-${key}`} className="print-rating-label-cell">{label}</td>,
+                    <td key={`category-${blockIndex}-${key}`} className="print-rating-label-cell">{label}{notApplicable?' (N/A)':''}</td>,
                     ...RATINGS.map(rating => (
                       <td key={`rating-${blockIndex}-${key}-${rating}`} className="print-rating-cell">
                         <span className={report.ratings[key]?.rating === rating ? 'is-selected' : ''} aria-label={report.ratings[key]?.rating === rating ? `Selected ${rating}` : 'Not selected'} />

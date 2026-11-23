@@ -3,15 +3,17 @@ import {
   CATEGORIES,
   DAILY_ACTIVITY_FIELDS,
   PRIMARY_RUN_FORMS,
+  PHASES,
   RATINGS,
   SUPPLEMENTAL_RUN_FORMS,
   type Report,
+  type Phase,
   type SubstationOrientationRecord,
   type WeeklyPacketAcknowledgement,
   type WeeklyPerformanceLog,
 } from './model.js';
 
-const phaseSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+const phaseSchema = z.custom<Phase>(value=>Number.isInteger(value)&&PHASES.includes(value as Phase),'Phase must be configured in the phase registry');
 const ratingSchema = z.enum([...RATINGS, '']);
 const reportShiftSchema = z.enum(['A-Co', 'B-Co', 'C-Co', 'DMW', 'EMW', 'Day', 'Swing', 'Night']);
 const booleanRecordSchema = z.record(z.string(), z.boolean());
@@ -68,6 +70,7 @@ const trainingRunSchema = z.object({
   incidentNumber: z.string().optional(),
   location: z.string().optional(),
   transportDestination: z.string().max(200).optional(),
+  transportDestinationType: z.enum(['Jail','HQ','Clerks']).optional(),
   endedAt: z.string().optional(),
   occurredAt: z.string(),
   runKind: z.enum(PRIMARY_RUN_FORMS.map(form => form.key)),
@@ -109,6 +112,7 @@ const reportSchema = z.object({
   deficiencyPriorRatings:z.partialRecord(categorySchema,ratingEntrySchema).optional(),
   deficiencyGeneratedText:z.partialRecord(categorySchema,z.string()).optional(),
   deficiencySafetyLocks:z.array(categorySchema).optional(),
+  notApplicableCategories:z.array(categorySchema).optional(),
   checklistDeficiencies:z.array(z.object({
     id:z.string(),runId:z.string().optional(),category:categorySchema,narrative:z.string(),
     tasks:z.array(z.object({id:z.string(),label:z.string(),reference:z.string().optional()})),

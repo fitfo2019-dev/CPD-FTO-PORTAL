@@ -138,15 +138,23 @@ with an explicit error if a month or phase schedule needs more than four ranges,
 or a saved record lies outside them; source weeks are never combined or silently
 omitted. New, reviewed run records use versioned clearance multipliers; legacy
 records retain manual accounting. A transported arrest requires its actual
-destination on a new versioned run. Changing the shift date keeps a valid
-entered run time aligned and never fills a missing time with a fabricated
-default. Cruiser ID and the required Y/N Shotgun Training flag are saved in the
-existing encrypted workspace. `3V` charge payloads are local drafts, not filed
-or completed legal forms. See `HANDOVER_MANUAL.md`, section 12.
+destination type (Jail, HQ, or Clerks) and actual destination on a new versioned
+run. Selecting Arrest Made or 3V preselects transport; if no transport occurred,
+the FTO can clear it and the arrest run is recorded as 1V. Changing the shift
+date keeps a valid entered run time aligned and never fills a missing time with
+a fabricated default. Cruiser ID and the required Y/N Shotgun Training flag are
+saved in the existing encrypted workspace. Shotgun Training `N` marks
+Resource/Equipment Usage as not applicable outside the rating values and
+excludes it from weekly rating counts unless a recorded deficiency exists.
+`3V` charge payloads are local drafts, not filed or completed legal forms. See
+`HANDOVER_MANUAL.md`, section 12.
 The 15-week calendar uses phase lengths 4/4/4/3 and Limbo timing of one full
 Phase I week, two Phase II workdays, then one Phase III/IV workday. Limbo allows
 checklists and activity capture but no SEG ratings. Week 15 release/termination
 recommendation and automatic phase-assignment creation are not implemented.
+`artifacts/field-training/src/config/phaseConfiguration.ts` is the authoritative
+phase-length/Limbo registry; program-week starts are derived from its ordered
+entries. Phase IV remains three weeks until formal approval.
 Officer Safety deficiencies latch UA for their named category for the rest of
 that daily report, even if the source task is rechecked; Limbo ratings stay
 suppressed.

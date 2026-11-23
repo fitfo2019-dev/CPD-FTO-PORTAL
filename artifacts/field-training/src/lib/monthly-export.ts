@@ -8,7 +8,7 @@ import { filterReportsForMonth } from './monthly-summary.js';
 import { validateReportsForExport } from './export-validation.js';
 import { activityTotals } from './run-activity.js';
 import { formatDateMDY, getSundaySaturdayWeek } from './training-calendar.js';
-import { weeklyRatingCount } from './weekly-rating-counts.js';
+import { categoryIsNotApplicable, weeklyRatingCount } from './weekly-rating-counts.js';
 import { spreadsheetText } from './spreadsheet-text.js';
 import type { PhaseWeekRange } from './model.js';
 
@@ -50,7 +50,7 @@ function buildCategoryPanel(week:Report[], groups:readonly string[]):PanelRow[] 
     panel.push({kind:'group',cells:[SEG_RATING_GROUP_LABELS[group]??group,...Array(7).fill('')]});
     panel.push({kind:'header',cells:['Performance category','','',...RATINGS]});
     for(const category of categories)panel.push({
-      kind:'category',cells:[category.label,'','',...RATINGS.map(rating=>weeklyRatingCount(week,category.key,rating))],
+      kind:'category',cells:[`${category.label}${week.some(report=>categoryIsNotApplicable(report,category.key))?' · N/A':''}`,'','',...RATINGS.map(rating=>weeklyRatingCount(week,category.key,rating))],
     });
   }
   return panel;
@@ -76,6 +76,25 @@ function buildWeeklyTabRanges(monthKey:string,phaseWeekRanges?:readonly PhaseWee
       const next=new Date(`${start}T12:00:00Z`);
       next.setUTCDate(next.getUTCDate()+7);
       start=next.toISOString().slice(0,10);
+    }
+  }
+  for(const [index,range] of sourceRanges.entries()) {
+    const start=new Date(`${range.startDate}T12:00:00Z`);
+    const end=new Date(`${range.endDate}T12:00:00Z`);
+    const expectedEnd=new Date(start);
+    expectedEnd.setUTCDate(expectedEnd.getUTCDate()+6);
+    if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())
+      ||start.toISOString().slice(0,10)!==range.startDate
+      ||end.toISOString().slice(0,10)!==range.endDate
+      ||expectedEnd.toISOString().slice(0,10)!==range.endDate) {
+      throw new MonthlyWorkbookRangeError('The saved weekly ranges are invalid. No records were merged or omitted.');
+    }
+    if(index>0) {
+      const expectedStart=new Date(`${sourceRanges[index-1].endDate}T12:00:00Z`);
+      expectedStart.setUTCDate(expectedStart.getUTCDate()+1);
+      if(expectedStart.toISOString().slice(0,10)!==range.startDate) {
+        throw new MonthlyWorkbookRangeError('The saved weekly ranges contain a gap or overlap. No records were merged or omitted.');
+      }
     }
   }
   if(sourceRanges.length>4)throw new MonthlyWorkbookRangeError('This month spans more than four Sunday–Saturday weeks. Export stopped; no source weeks were combined or omitted.');

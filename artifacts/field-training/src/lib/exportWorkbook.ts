@@ -27,7 +27,7 @@ import { activityTotals } from './run-activity.js';
 import { validateClassWorkbookInputs } from './export-validation.js';
 import { resolveOperationalPacket } from './operational-state-machine.js';
 import { spreadsheetText } from './spreadsheet-text.js';
-import { weeklyRatingCount } from './weekly-rating-counts.js';
+import { categoryIsNotApplicable, effectiveCategoryRating, weeklyRatingCount } from './weekly-rating-counts.js';
 import { collectDeficiencies } from './seg-deficiencies.js';
 import { buildClearanceDocuments } from './run-activity.js';
 
@@ -40,7 +40,7 @@ const sheet = (rows: (string | number)[][]) => XLSX.utils.aoa_to_sheet(rows);
 const ratingCounts = (reports: Report[]) =>
   Object.fromEntries(RATINGS.map(rating => [
     rating,
-    reports.filter(report=>!!report.ratingsReviewedAt&&!report.limboDay).reduce((total, report) => total + CATEGORIES.filter(category => report.ratings[category]?.rating === rating).length, 0),
+    reports.filter(report=>!!report.ratingsReviewedAt&&!report.limboDay).reduce((total, report) => total + CATEGORIES.filter(category => effectiveCategoryRating(report,category) === rating).length, 0),
   ])) as Record<Exclude<Rating, ''>, number>;
 const assignmentValue = (report: Report) => phaseAssignmentLabel(report.ftoAssignment, report.shift);
 
@@ -220,7 +220,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
   ]];
   const runRows: (string | number)[][] = [[
     'Probationary Officer', 'Badge', 'Date', 'Shift', 'FTO Assignment', 'Run time', 'Primary form', 'Additional forms', 'Form status',
-    'Dispatched', 'Arrest made', 'Transported after arrest', 'Transport destination', 'OVI processed', 'Traffic violator', 'Run narrative',
+    'Dispatched', 'Arrest made', 'Transported after arrest', 'Transport destination type', 'Transport destination', 'OVI processed', 'Traffic violator', 'Run narrative',
     'Incident number', 'Run location', 'Run ended',
     'Run type 10-code', 'Run type description — public reference', 'Situation found 10-code', 'Situation description — public reference',
     'Clearance code', 'Clearance description — public reference', 'Solve Citation/Summons*', 'Related activity/forms', 'Source log ID', 'Run ID', 'Class',
@@ -259,10 +259,10 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
 
     for (const key of report.limboDay ? [] : CATEGORIES) {
       const entry=report.ratings[key];
-      const rating = entry?.rating as Rating | undefined;
+      const rating = categoryIsNotApplicable(report,key) ? 'N/A' : entry?.rating as Rating | undefined;
       if (!rating) continue;
       const label = CATEGORY_LABEL[key as keyof typeof CATEGORY_LABEL] ?? key;
-      const definition = RATING_LEGEND.find(item => item.code === rating)?.label ?? '';
+      const definition = rating==='N/A'?'Not applicable':RATING_LEGEND.find(item => item.code === rating)?.label ?? '';
       ratingRows.push([
         safeText(report.recruitName), safeText(report.recruitBadge), formatDateDMY(report.date),
          `Phase ${report.phase}`, safeText(report.shift), safeText(assignmentValue(report)), safeText(label), rating, definition,
@@ -317,7 +317,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
          safeText(report.shift), safeText(assignmentValue(report)), safeText(formatDateTimeMDY(run.occurredAt)), safeText(primary?.label ?? 'Unassigned primary form'),
         supplements.map(form => form.formNumber ? `${form.label} (${form.formNumber})` : form.label).join('; '),
         safeText(run.formStatus), run.isDispatched ? 'Yes' : 'No', run.arrestMade ? 'Yes' : 'No',
-         run.transportedAfterArrest ? 'Yes' : 'No', safeText(run.transportDestination ?? ''), run.oviProcessed ? 'Yes' : 'No', safeText(run.trafficMode),
+          run.transportedAfterArrest ? 'Yes' : 'No', safeText(run.transportDestinationType ?? ''), safeText(run.transportDestination ?? ''), run.oviProcessed ? 'Yes' : 'No', safeText(run.trafficMode),
         safeText(run.narrative),
         safeText(run.incidentNumber??''),safeText(run.location??''),safeText(run.endedAt?formatDateTimeMDY(run.endedAt):''),
         run.dispatchedCode ? `10-${safeText(run.dispatchedCode)}` : '', safeText(RADIO_CODES[run.dispatchedCode ?? ''] ?? ''),

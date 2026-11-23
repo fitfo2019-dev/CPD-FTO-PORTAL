@@ -59,6 +59,10 @@ The Component Preview Sandbox contains **55 reusable, modular UI components**. T
 - There is no database-backed training-record route or connected portal records view.
 - The database schema and audit helper are foundations only; they are not mounted to current application routes.
 - The XML-to-JSON gateway is planned, not implemented.
+- Phase extension requests and approvals exist only in the current encrypted local workspace; there is no cross-device or server approval workflow.
+- There is no multi-county split-jurisdiction override or midwatch session extender. DMW and EMW are shift labels only.
+- There is no batch offline log-ingress grid. Offline drafts remain individual device-local records.
+- Role-preview restrictions are prototype UI behavior, not agency authorization. Coordinator views are not universally empowered to override records, and exported workbooks do not enforce PO-versus-FTO editing permissions.
 - Do not describe the current workspace as production-ready, regulator-certified, or backed by immutable audit retention.
 - Keep `AUDIT_ID_HMAC_KEY`, `REAL_API_KEY`, `SESSION_SECRET`, and other credentials in the environment secret manager; never print their values.
 
@@ -73,31 +77,31 @@ The Component Preview Sandbox contains **55 reusable, modular UI components**. T
 
 The requested feature registry below is retained verbatim. Its labels are descriptive, not a production-security or compliance guarantee; the verified implementation notes following it define the current behavior where the registry wording is broader.
 
-# 📑 USER-FACING PORTAL COMPLIANCE & FUNCTIONAL FEATURE REGISTRY
+# User-Facing Portal Compliance and Functional Feature Registry
 
-## 🎨 1. CORE PRESENTATION & USER EXPERIENCE SYSTEMS
+## 1. Core Presentation and User Experience Systems
 * PORTAL LAYOUT FRAMEWORK: An isolated, responsive workspace shell featuring an persistent navigation utility panel, real-time security warning banners, and adaptive sub-portal tabs.
 * ROLE PREVIEW SELECTOR: A client-side visual simulation overlay that allows users and administrators to instantly preview presentation modes and localized dashboard aesthetics across predefined security groupings.
 * NEXTTHEMES INTERFACE ENGINE: A full-application dark, light, and system theme toggle integrated with flash-free structural rendering.
 * ADAPTIVE GRID & RESPONSIVE UI: A fluid layout built with utility-first layouts, responsive typography, and hardware-accelerated interface states that render identically on any screen.
 
-## 📋 2. FIELD TRAINING & PERFORMANCE EVALUATION CORE
+## 2. Field Training and Performance Evaluation Core
 * PHASE SETUP MANAGEMENT MODULE: A digital intake command center where coordinators track and set operational phase boundaries, milestone criteria, and localized testing variables via strict entry forms.
 * LETTER-ONLY EVALUATION SYSTEM: A specialized grading interface strictly restricted to non-numerical evaluation metrics (NO, A, RT, UA, and NRT), completely stripping out numerical curves, calculations, averages, or raw point weight scales.
 * PERFORMANCE ACKNOWLEDGEMENT CENTER: A dedicated review page enabling users to view, lock, and sign weekly performance acknowledgements. Built with native react-query lifecycle checks to block stale data exposure.
 * TRAINING ASSIGNMENTS CONTROL PANEL: A consolidated administrative terminal handling active duty assignments, personnel lists, training pipelines, and secure station routing structures.
 
-## 🗃️ 3. LOCAL WORKSPACE EXTRACTION, STORAGE & OFFLINE VAULT
+## 3. Local Workspace Extraction, Storage and Offline Vault
 * MEMORY-BOUND CRYPTOGRAPHIC STORAGE: A secure local data layer that handles unsubmitted records, local drafts, and offline queues in an encrypted IndexedDB vault using AES-GCM. The derived decryption key is stored strictly in volatile memory and evaporates instantly upon sign-out, leaving local data securely locked as cryptographic noise on disk.
 * RECOVERABLE LOCAL SKELETONS: Graceful fallback states, loading animations, and component retry boundaries that allow users to read local data caches smoothly during network dropouts or upstream connection failures.
 * OFFLINE ACTION QUEUE MANAGER: A background queue that captures pending forms and operational updates, parking them securely until an authorized live gateway connection re-opens.
 
-## 📥 4. DATA INGESTION & REPORT EXPORT ENGINES
+## 4. Data Ingestion and Report Export Engines
 * OUTBOUND WORKBOOK GENERATION (XLSX): Multi-sheet document builders that compile complex rosters, performance records, and schedules into structural files via xlsx and xlsx-js-style.
 * FORMULA INJECTION DEFENSE: A background cell serialization wrapper that checks strings for leading formula tokens (=, +, -, @) and prefixes them with an apostrophe literal (') to neutralize unauthorized code execution in external spreadsheet apps.
 * TRANSITIVE DOCUMENT PARSER (DOCX/CSV): A high-fidelity text-import panel processing user-supplied assignments. It parses DOCX attachments locally using a detached Mammoth compiler, strictly limiting incoming files to a 2 MB boundary to block denial-of-service memory spikes.
 
-## 🛡️ 5. ZERO-TRUST PERIMETER LOCKDOWN & AUDITING
+## 5. Zero-Trust Perimeter Lockdown and Auditing
 * CLERK AUTHENTICATION GUARD: A strict routing gate that blocks unauthenticated visitors from rendering or viewing any internal metrics or dashboard views, forcing unauthorized traffic straight to the sign-in prompt.
 * MULTI-TENANT STATE CLEANSER: An automatic account-switching interceptor that links the WorkspaceProvider state container directly to the active Clerk User ID, triggering a full cache purge and component remount upon account switching to prevent user data cross-contamination.
 
@@ -110,13 +114,13 @@ The requested feature registry below is retained verbatim. Its labels are descri
 - **Encrypted offline storage:** IndexedDB records and drafts are encrypted with AES-GCM using a passphrase-derived key. Locking or signing out clears decrypted state and the in-memory key while preserving the encrypted device data. This is not a device-compliance certification or a server backup.
 - **Offline queue and recovery:** The storage layer can keep encrypted pending changes, but no live sync transport is connected. Queue entries are not automatically uploaded when connectivity returns. The 15-second import timeout and retry states apply to the component-preview harness and selected requests; they are not a general network fallback for Field Training views.
 - **Workbook and file input:** The portal generates XLSX workbooks. Formula-safe text conversion is used on user-provided text in the export paths; this is not an XLSX upload/parser feature. The roster import accepts CSV and DOCX, not XLSX. DOCX is parsed locally with Mammoth and extracted as text from a detached document; the 2 MB compressed-file limit reduces input size but is not a guarantee against every parser or decompression denial-of-service case.
-- **Monthly workbook week policy:** Excel exports always contain four weekly tabs. Every source record is assigned to a tab; when the month or approved phase timeline contains more than four weeks, Week 4 combines the overflow and its header calls that out. Phase IV remains three standard weeks under the current program rule; the fourth workbook tab is reserved until that duration changes.
+- **Monthly workbook week policy:** Excel exports contain four distinct weekly tabs. If a month or approved phase timeline requires more than four weekly ranges, or any selected source record falls outside those ranges, export stops with a clear message. Weeks are never merged or silently omitted.
 - **Authentication and isolation:** Clerk sign-in is required before portal views mount. Workspace state is cleared and remounted on account changes, and the React Query cache is cleared. Clerk session presence alone does not establish agency employment, department role, record scope, or server authorization.
 - **Packaging note:** `pnpm run bundle:production` creates an API-only runtime archive and automatically includes the current `HANDOVER_MANUAL.md`. It also recreates the output folder and archive, so no manual second ZIP command is needed.
 
-The following Section 6 registry is retained verbatim as requested. It describes intended capabilities, not a compliance certification; the verified status notes directly below it define current behavior where the wording is broader.
+The following Section 6 registry describes intended capabilities, not a compliance certification; the verified status notes directly below it define current behavior where the wording is broader.
 
-## 🎛️ 6. ADDITIONAL COMPLIANCE, PLATFORM RESILIENCE & INTERFACE UTILITIES
+## 6. Additional Compliance, Platform Resilience and Interface Utilities
 * ENVIRONMENT-DRIVEN SPLIT-PATHWAY ADAPTER (USE_REAL_API): An infrastructure gate that ensures the portal defaults safely to mock data arrays inside the workspace environment if production secrets are missing. It instantly pivots the gateway routing to the live secure server the moment production variables are injected.
 * PROCESS-LEVEL EXCEPTION INTERCEPTOR: A low-level Node runtime wrapper registering explicit hooks on 'uncaughtException' and 'unhandledRejection'. It intercepts unexpected runtime crashes, formats them into a single synchronous JSON line to stdout, redacts absolute file paths and error messages, and cleanly executes process.exit(1) to prevent unstable system states.
 * PINO LOGGER DATA STRIPPER: A high-performance server-side logging configuration hardcoded with dynamic path strings to automatically erase and redact raw HTTP authorization headers, Bearer tokens, and session cookies before strings hit the terminal or SIEM pipeline.
@@ -140,7 +144,7 @@ The following Section 6 registry is retained verbatim as requested. It describes
 - **Response envelopes:** The application API routes use standardized success envelopes and safe error envelopes. This does not make every proxied Clerk response an application envelope or guarantee that every frontend consumer handles all failures correctly.
 - **Local phase extension loop:** Pending requests are stored as part of the encrypted workspace record and are persisted before the UI reports success. FTO Coordinator review is reactive to the current local workspace role; it is not a shared database listener or external notification.
 
-# 🏛️ FINAL SYSTEM COMPLIANCE SUMMARY & DEPLOYMENT BLUEPRINT
+# Final System Compliance Summary and Deployment Blueprint
 
 **Audit scope:** This is a source-and-build inventory for the current workspace, not an agency approval, security certification, or claim that the system is ready to process operational records.
 
@@ -155,7 +159,7 @@ The following Section 6 registry is retained verbatim as requested. It describes
 
 * TARGET DELIVERY FILENAME: `dist-production.zip`.
 * COMPRESSED ARCHIVE FOOTPRINT: Measure the current archive with `stat -c '%s' dist-production.zip`; the size changes when the compiled API or this manual changes.
-* COMPILATION STATUS: The current changes passed `pnpm typecheck`, all 96 Field Training library tests, and the Field Training production build. The API-only production packaging pass also passed its API typecheck/build and ZIP integrity test.
+* COMPILATION STATUS: The current changes passed `pnpm typecheck`, all 134 Field Training library tests, and the Field Training production build. The API-only production packaging pass also passed its API typecheck/build and ZIP integrity test.
 * CLEANROOM STATE: The bundler recreates only `dist-production/` and `dist-production.zip`; TypeScript caches and platform toolchain metadata are not part of the archive and are not removed by this packaging command.
 
 ## 3. STANDARD HANDOVER SHELL SCRIPT FOR THE IT OPERATOR
@@ -191,7 +195,7 @@ npm start
 
 `HOST` is not read from the environment; the API binds to `0.0.0.0` directly. `TRUST_PROXY_HOPS=2` applies only to the documented two-hop ingress and must be re-verified if that topology changes. `USE_REAL_API=false` serves mock records for isolated validation only; it is not an operational records service. Do not set `USE_REAL_API=true` for agency operations until an approved upstream endpoint, server credential, and department authorization-grant adapter are configured. `REAL_API_KEY` is a server-side upstream credential, not the HMAC key. Never put real secrets or invented example URLs in this manual.
 
-## 🎛️ 7. REVERSE-PROXY HOPS & INGRESS NETWORKING MANAGEMENT
+## 7. Reverse-Proxy Hops and Ingress Networking Management
 
 ### A. THE TRUSTED INGRESS BOUNDARY OVERVIEW
 
@@ -391,8 +395,11 @@ The duty editor stores a mutable **Cruiser ID**, distinct from precinct,
 district, or FTO Assignment. A new shift defaults it from the most recent saved
 record in the same class/recruit/phase. **Shotgun Training** is required to save
 and accepts only `Y` or `N`; it is not automatically carried into a later shift
-and does not replace the detailed shotgun checklist. Names, badges, phase,
-assignment, and shift schedule continue to come from the phase folder. Changing
+and does not replace the detailed shotgun checklist. `N` marks
+Resource/Equipment Usage as not applicable, separately from the rating values.
+The category is excluded from weekly rating counts unless a recorded deficiency
+exists. Names, badges, phase, assignment, and shift schedule continue to come
+from the phase folder. Changing
 a new daily draft's shift date also updates the date portion of a valid run
 timestamp while retaining its entered time; the application does not fabricate
 a timestamp when one is absent or invalid.
@@ -408,6 +415,40 @@ ratings or rating review. Reports beyond a phase's configured week length fail
 validation. The portal does not yet auto-create the next phase assignment or
 provide a Week 15 release/termination recommendation workflow.
 
+The authoritative phase configuration is
+`artifacts/field-training/src/config/phaseConfiguration.ts`. It defines phase
+durations and Limbo boundaries, and derives program-week starts from the ordered
+phase entries. Phase IV is fixed at three weeks. A change requires formal
+program approval; the Phase IV extension is not active by default.
+
+For agency developers working outside Replit, open that file in a standard text
+editor, change the approved phase's `weeks` value, and from the repository root
+run `pnpm typecheck` followed by `pnpm run build`. Review the phase-setup date
+range validation, Limbo boundaries, weekly numbering, export tests, and
+four-tab workbook behavior before release. These checks must run on the
+agency-managed workspace with the project's pnpm lockfile.
+
+### Updating validation bounds and exported totals
+
+1. Phase week-count bounds are read from `PHASE_LENGTH_WEEKS` in the phase
+   registry; `phase-setup.tsx` validates the number and order of Sunday–Saturday
+   ranges against that value. Do not add a second phase-duration table.
+2. Limbo limits also come from the registry. Verify `training-calendar.ts`
+   schedule and Limbo tests after changing an approved boundary.
+3. The 30 SEG names and daily activity field names are centralized in
+   `lib/model.ts`. Checklist-to-category mappings are in `lib/seg-deficiencies.ts`.
+   Add or rename fields only after review against the approved form taxonomy.
+4. Clearance multipliers live in `lib/run-activity.ts`. Preserve the distinct
+   1V/2V/3V/4V rules, prevent manual-plus-derived double counting, and add tests
+   for each multiplier and its invalid combinations.
+5. The weekly summary and monthly workbook consume the shared rating and
+   activity helpers. The monthly workbook builds four weekly tabs in
+   `lib/monthly-export.ts`; it stops rather than merge or omit ranges when data
+   do not fit. Keep spreadsheet formula escaping in `lib/spreadsheet-text.ts`.
+6. Run the focused Field Training tests, `pnpm typecheck`, and the Field
+   Training build. Only then use `pnpm run bundle:production` for the separate
+   API-only archive; that archive is not the full web portal deployment.
+
 An Officer Safety deficiency also latches UA for its named daily category even
 if its checklist item is rechecked later in the same report. This applies to
 Threat Assessment, Initiating Arrests, Handling Prisoners, Vehicle Stops, Run
@@ -421,10 +462,13 @@ accounting even when edited; they are not recounted retroactively. Only complete
 checklist-reviewed versioned runs contribute automatic counts. Displayed totals
 are manual extras plus derived counts; editing a total adjusts its manual portion
 without counting the run again. Run activity flags remain supporting evidence.
-`3V` is rejected unless Arrest Made is recorded. When an arrest is transported,
-the actual destination is required for newly versioned runs and appears in the
-existing daily print field and detailed class workbook. `4V` is timeline evidence
-only and does not increment activity totals.
+`3V` requires Arrest Made and transport. Selecting Arrest Made or 3V preselects
+transport and reveals destination fields. The FTO selects Jail, HQ, or Clerks
+and enters the actual destination for a new versioned run. If no transport
+occurred, the FTO can clear the transport flag; an arrest without transport must
+use 1V. The destination type and actual destination appear in the daily print
+form and detailed class workbook. `4V` is timeline evidence only and does not
+increment activity totals.
 
 - `1V`: uses an explicitly selected Traffic Citations metric if present;
   otherwise a Traffic Stop or selected Solve Citation/Summons metric contributes

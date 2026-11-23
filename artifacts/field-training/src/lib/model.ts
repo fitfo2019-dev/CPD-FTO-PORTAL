@@ -1,5 +1,23 @@
 import { isValidAssignment } from './cpd-geography.js';
 import { SUBMITTED_PRIMARY_CHECKLISTS, SUBMITTED_SUPPLEMENTAL_CHECKLISTS } from './manual-form-checklists.js';
+import {
+  PHASE_CONFIGURATION,
+  PHASE_LENGTH_WEEKS,
+  PHASE_LIMBO_FULL_WEEKS,
+  PHASE_LIMBO_WORKDAYS,
+  PHASE_PROGRAM_WEEK_START,
+  TOTAL_TRAINING_WEEKS,
+  type PhaseId,
+} from '../config/phaseConfiguration.js';
+
+export {
+  PHASE_CONFIGURATION,
+  PHASE_LENGTH_WEEKS,
+  PHASE_LIMBO_FULL_WEEKS,
+  PHASE_LIMBO_WORKDAYS,
+  PHASE_PROGRAM_WEEK_START,
+  TOTAL_TRAINING_WEEKS,
+};
 
 export const SEG_CATEGORIES = [
   { key:'dutyReadiness', label:'Report/Prepared for Duty', group:'Duty Readiness', definition:'Arrive on time in a neat, clean uniform; be groomed, equipped, and fit to assume duties. Participate in roll call, review Division material, and inspect the cruiser and equipment under Patrol SOP.', manualReference:'SEGs 1–2 · Appearance/Equipment; Roll Call/Cruiser Inspection' },
@@ -419,6 +437,7 @@ export interface TrainingRun {
   incidentNumber?: string;
   location?: string;
   transportDestination?: string;
+  transportDestinationType?: 'Jail'|'HQ'|'Clerks';
   endedAt?: string;
   occurredAt: string;
   runKind: PrimaryRunForm;
@@ -564,14 +583,9 @@ export const normalizePreviewRole = (value: unknown): Role => {
   return ROLES.includes(value as Role) ? value as Role : 'po';
 };
 export const canViewClass = (role: Role) => role === 'fto' || role === 'fto_coordinator';
-export type Phase = 1|2|3|4;
-export const PHASES: Phase[] = [1,2,3,4];
+export type Phase = PhaseId;
+export const PHASES: Phase[] = PHASE_CONFIGURATION.map(({ phase }) => phase);
 export const phaseLabel = (p: Phase) => 'Phase ' + p;
-export const PHASE_LENGTH_WEEKS: Record<Phase,number> = { 1:4, 2:4, 3:4, 4:3 };
-export const PHASE_PROGRAM_WEEK_START: Record<Phase,number> = { 1:1, 2:5, 3:9, 4:13 };
-export const PHASE_LIMBO_FULL_WEEKS: readonly Phase[] = [1];
-// Phase I is handled as a full week above; 0 means no separate day-count rule.
-export const PHASE_LIMBO_WORKDAYS: Record<Phase,number> = { 1:0, 2:2, 3:1, 4:1 };
 export interface PhaseWeekRange {
   startDate: string;
   endDate: string;
@@ -807,6 +821,7 @@ export interface Report {
   deficiencyPriorRatings?: Partial<Record<Category, RatingEntry>>;
   deficiencyGeneratedText?: Partial<Record<Category, string>>;
   deficiencySafetyLocks?: Category[];
+  notApplicableCategories?: Category[];
   ftoAssignment?: string;
   className?: string;
   phaseWeek?: number;
@@ -880,7 +895,11 @@ export function validateReport(r: Report): string[] {
   if (r.deficiencyAutomationEnabled && !r.limboDay && r.checklistDeficiencies?.some(group=>!group.narrative.trim())) errs.push('Every checklist deficiency requires an FTO articulation');
   if (r.reportingForDuty.shotgunTraining !== undefined && !['Y','N'].includes(r.reportingForDuty.shotgunTraining)) errs.push('Shotgun Training must be Y or N');
   for(const run of r.runs??[]) {
+    if(run.clearanceRulesVersion===1&&run.clearanceCode==='3V'&&!run.arrestMade) errs.push('3V means Arrest Made; correct the clearance code or record the arrest that occurred');
     if(run.clearanceRulesVersion===1&&run.transportedAfterArrest&&!run.transportDestination?.trim()) errs.push('Record the actual destination for each transported arrest');
+    if(run.clearanceRulesVersion===1&&run.transportedAfterArrest&&!run.transportDestinationType) errs.push('Select Jail, HQ, or Clerks for each transported arrest');
+    if(run.clearanceRulesVersion===1&&run.clearanceCode==='3V'&&!run.transportedAfterArrest) errs.push('3V requires a recorded transport; use 1V when no transport occurred');
+    if(run.clearanceRulesVersion===1&&run.arrestMade&&!run.transportedAfterArrest&&run.clearanceCode!=='1V') errs.push('An arrest without transport must use 1V');
     if(run.transportDestination&&run.transportDestination.length>200) errs.push('Transport destination must be 200 characters or fewer');
   }
   const req: [keyof Report, string][] = [['date','Shift date'],['shift','Shift'],['recruitName','Recruit name'],['recruitBadge','Recruit badge'],['ftoName','FTO name'],['ftoBadge','FTO badge']];
