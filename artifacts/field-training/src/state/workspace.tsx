@@ -450,7 +450,8 @@ export function WorkspaceProvider({
   }, [previewOnly, vault, persist]);
 
   const syncPackets = useCallback(async () => {
-    if (previewOnly || vault !== 'unlocked' || !online || editorDirtyRef.current)
+    if (previewOnly) return;
+    if (vault !== 'unlocked' || !online || editorDirtyRef.current)
       throw new Error('Save open edits and unlock the online workspace before synchronizing.');
     if (syncing.current) throw new Error('Sync is already running.');
     syncing.current = true;

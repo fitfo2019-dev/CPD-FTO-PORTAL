@@ -1,7 +1,11 @@
 import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { JSDOM } from 'jsdom';
 import { OfflineStorage } from './offlineStorage.js';
+import { WorkspaceProvider, useWorkspace } from '../state/workspace.js';
 
 const encoder = new TextEncoder();
 const passphrase = encoder.encode('local-test-passphrase');
@@ -243,4 +247,97 @@ test('locking clears access to the unlocked key', async () => {
   vault.lock();
   assert.equal(vault.isUnlocked, false);
   await assert.rejects(vault.get('workspace'), /Unlock the local vault/);
+});
+
+test('preview edits, autosave, sync, and reset never create device storage records', async () => {
+  const namespace = `preview-only-${crypto.randomUUID()}`;
+  const databaseName = `fieldready-vault-${namespace}`;
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { pretendToBeVisual: true });
+  const globalKeys = ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'IS_REACT_ACT_ENVIRONMENT'];
+  const previous = new Map(globalKeys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const testGlobals: Record<string, unknown> = {
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement,
+    Node: dom.window.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  };
+  for (const [key, value] of Object.entries(testGlobals)) {
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  }
+
+  let current: ReturnType<typeof useWorkspace> | undefined;
+  function Probe() {
+    current = useWorkspace();
+    return null;
+  }
+
+  const container = dom.window.document.getElementById('root')!;
+  const root = createRoot(container);
+  try {
+    await act(async () => {
+      root.render(createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
+        createElement(Probe)));
+    });
+    assert.ok(current);
+    assert.equal(current.dirty, false);
+
+    await act(async () => {
+      current!.setCaseFolder({ ...current!.ws.caseFolder!, recruitName: 'PREVIEW EDIT ONLY' });
+      await current!.saveNow();
+    });
+    assert.equal(current!.ws.caseFolder?.recruitName, 'PREVIEW EDIT ONLY');
+
+    await act(async () => {
+      await current!.submitPhaseExtensionRequest({
+        id: 'preview-extension',
+        className: 'UI TEST ONLY',
+        recruitName: 'PREVIEW EDIT ONLY',
+        recruitBadge: 'DEMO-PO',
+        phase: 3,
+        phaseStartDate: '2026-11-16',
+        requestingFtoName: 'DEMO FTO',
+        requestingFtoBadge: 'DEMO-FTO',
+        extensionType: 'training_weeks',
+        requestedWeeks: 1,
+        justification: 'Preview-only test request',
+        createdAt: new Date().toISOString(),
+      });
+      await current!.saveLocalChatDraft({
+        id: 'preview-chat',
+        sender: 'Preview user',
+        body: 'Memory only',
+        createdAt: new Date().toISOString(),
+      });
+    });
+    assert.equal(current!.ws.phaseExtensionRequests[0]?.id, 'preview-extension');
+    assert.equal(current!.dirty, true);
+    assert.equal((await current!.loadLocalChatDrafts()).length, 1);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 850));
+    });
+    await act(async () => { await current!.syncPackets(); });
+    assert.deepEqual(await indexedDB.databases().then(databases =>
+      databases.filter(database => database.name === databaseName)), []);
+
+    const previousEpoch = current!.epoch;
+    await act(async () => { current!.resetWorkspace(); });
+    assert.ok(current!.epoch > previousEpoch);
+    assert.equal(current!.ws.caseFolder?.recruitName, 'DEMO PO');
+    assert.equal(current!.dirty, false);
+    assert.deepEqual(await current!.loadLocalChatDrafts(), []);
+
+    await act(async () => { await current!.syncPackets(); });
+    assert.deepEqual(await indexedDB.databases().then(databases =>
+      databases.filter(database => database.name === databaseName)), []);
+  } finally {
+    await act(async () => { root.unmount(); });
+    dom.window.close();
+    for (const [key, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete (globalThis as Record<string, unknown>)[key];
+    }
+  }
 });
