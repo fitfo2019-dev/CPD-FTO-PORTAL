@@ -4,7 +4,8 @@ import test from 'node:test';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { JSDOM } from 'jsdom';
-import { OfflineStorage } from './offlineStorage.js';
+import { OfflineStorage, WorkspaceConflictError } from './offlineStorage.js';
+import { createUiPreviewWorkspace } from './empty-workspace.js';
 import {
   emptyDailyActivitySummary,
   emptyRatings,
@@ -229,6 +230,27 @@ test('concurrent local saves serialize and preserve the final record', async () 
   ]);
   assert.deepEqual(await vault.get('workspace'), { latest: 'second completed write' });
   assert.equal(await vault.pendingCount(), 2);
+});
+
+test('workspace revision checks block stale session writes unless explicitly overwritten', async () => {
+  const namespace = `workspace-conflict-${crypto.randomUUID()}`;
+  const first = new OfflineStorage(namespace);
+  await first.unlock(passphrase);
+  await first.saveWorkspace({ reports: [], note: 'starting version' });
+
+  const second = new OfflineStorage(namespace);
+  await second.unlock(passphrase);
+  assert.equal((await second.get<{ note: string }>('workspace'))?.note, 'starting version');
+
+  await first.saveWorkspace({ reports: [], note: 'first session version' });
+  await assert.rejects(
+    second.saveWorkspace({ reports: [], note: 'stale second session version' }),
+    WorkspaceConflictError,
+  );
+  assert.equal((await first.get<{ note: string }>('workspace'))?.note, 'first session version');
+
+  await second.saveWorkspace({ reports: [], note: 'confirmed overwrite version' }, { overwrite: true });
+  assert.equal((await first.get<{ note: string }>('workspace'))?.note, 'confirmed overwrite version');
 });
 
 test('a save interrupted by locking leaves the prior committed record and queue intact', async () => {
@@ -458,5 +480,146 @@ test('editing and synchronizing a preview packet never calls the agency upload A
     }
     if (previousFetch) Object.defineProperty(globalThis, 'fetch', previousFetch);
     else delete (globalThis as Record<string, unknown>).fetch;
+  }
+});
+
+test('simultaneous preview workspaces isolate edits and never create device storage records', async () => {
+  const namespace = `preview-isolation-${crypto.randomUUID()}`;
+  const databaseName = `fieldready-vault-${namespace}`;
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { pretendToBeVisual: true });
+  const globalKeys = ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'IS_REACT_ACT_ENVIRONMENT'];
+  const previous = new Map(globalKeys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const testGlobals: Record<string, unknown> = {
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement,
+    Node: dom.window.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  };
+  for (const [key, value] of Object.entries(testGlobals)) {
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  }
+
+  const workspaces = new Map<string, ReturnType<typeof useWorkspace>>();
+  function Probe({ id }: { id: string }) {
+    workspaces.set(id, useWorkspace());
+    return null;
+  }
+
+  const container = dom.window.document.getElementById('root')!;
+  const root = createRoot(container);
+  try {
+    await act(async () => {
+      root.render(createElement('div', null,
+        createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
+          createElement(Probe, { id: 'first' })),
+        createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
+          createElement(Probe, { id: 'second' })),
+      ));
+    });
+
+    const first = workspaces.get('first')!;
+    const second = workspaces.get('second')!;
+    assert.ok(first && second);
+    assert.equal(first.ws.caseFolder?.recruitName, 'DEMO PO');
+    assert.equal(second.ws.caseFolder?.recruitName, 'DEMO PO');
+    assert.notEqual(first.ws, second.ws);
+    assert.deepEqual(await indexedDB.databases().then(databases =>
+      databases.filter(database => database.name === databaseName)), []);
+
+    await act(async () => {
+      first.setCaseFolder({ ...first.ws.caseFolder!, recruitName: 'FIRST PREVIEW EDIT' });
+    });
+
+    assert.equal(workspaces.get('first')!.ws.caseFolder?.recruitName, 'FIRST PREVIEW EDIT');
+    assert.equal(workspaces.get('second')!.ws.caseFolder?.recruitName, 'DEMO PO');
+    assert.equal(workspaces.get('first')!.dirty, true);
+    assert.equal(workspaces.get('second')!.dirty, false);
+
+    // Allow the unlocked-preview autosave timer to run; it must remain memory-only.
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 850));
+    });
+    assert.equal(workspaces.get('second')!.ws.caseFolder?.recruitName, 'DEMO PO');
+    assert.deepEqual(await indexedDB.databases().then(databases =>
+      databases.filter(database => database.name === databaseName)), []);
+  } finally {
+    await act(async () => { root.unmount(); });
+    dom.window.close();
+    for (const [key, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete (globalThis as Record<string, unknown>)[key];
+    }
+  }
+});
+
+test('saved sessions announce conflicts and an overwrite locks the stale tab', async () => {
+  const namespace = `saved-session-conflict-${crypto.randomUUID()}`;
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { pretendToBeVisual: true });
+  const globalKeys = ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'IS_REACT_ACT_ENVIRONMENT'];
+  const previous = new Map(globalKeys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const testGlobals: Record<string, unknown> = {
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement,
+    Node: dom.window.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  };
+  for (const [key, value] of Object.entries(testGlobals)) {
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  }
+
+  const workspaces = new Map<string, ReturnType<typeof useWorkspace>>();
+  function Probe({ id }: { id: string }) {
+    workspaces.set(id, useWorkspace());
+    return null;
+  }
+
+  const container = dom.window.document.getElementById('root')!;
+  const root = createRoot(container);
+  try {
+    await act(async () => {
+      root.render(createElement('div', null,
+        createElement(WorkspaceProvider, { storageNamespace: namespace },
+          createElement(Probe, { id: 'first' })),
+        createElement(WorkspaceProvider, { storageNamespace: namespace },
+          createElement(Probe, { id: 'second' })),
+      ));
+    });
+
+    await act(async () => { await workspaces.get('first')!.setupAndSave('shared-test-passphrase'); });
+    await act(async () => { await workspaces.get('second')!.unlockAndRestore('shared-test-passphrase'); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
+
+    const startingFolder = createUiPreviewWorkspace().caseFolder!;
+    await act(async () => {
+      workspaces.get('first')!.setCaseFolder({ ...startingFolder, recruitName: 'FIRST SESSION EDIT' });
+      workspaces.get('second')!.setCaseFolder({ ...startingFolder, recruitName: 'SECOND SESSION EDIT' });
+    });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
+    assert.ok(workspaces.get('first')!.otherSessions.some(session => session.unlocked && session.dirty));
+    assert.ok(workspaces.get('second')!.otherSessions.some(session => session.unlocked && session.dirty));
+
+    await act(async () => {
+      await workspaces.get('first')!.overwriteOtherSessions();
+      await new Promise(resolve => setTimeout(resolve, 40));
+    });
+    assert.equal(workspaces.get('first')!.dirty, false);
+    assert.equal(workspaces.get('second')!.vault, 'none');
+    assert.equal(workspaces.get('second')!.overwrittenElsewhere, true);
+
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 850)); });
+    await act(async () => { await workspaces.get('second')!.unlockAndRestore('shared-test-passphrase'); });
+    assert.equal(workspaces.get('second')!.ws.caseFolder?.recruitName, 'FIRST SESSION EDIT');
+    assert.equal(workspaces.get('second')!.overwrittenElsewhere, false);
+  } finally {
+    await act(async () => { root.unmount(); });
+    dom.window.close();
+    for (const [key, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete (globalThis as Record<string, unknown>)[key];
+    }
   }
 });

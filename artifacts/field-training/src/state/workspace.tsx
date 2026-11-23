@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, type LocalChatDraft } from '@/lib/offlineStorage.js';
+import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, WorkspaceConflictError, type LocalChatDraft } from '@/lib/offlineStorage.js';
 import { createEmptyWorkspace, createUiPreviewWorkspace } from '@/lib/empty-workspace.js';
 import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type PhaseExtensionRequest, type PhaseWeekRange, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
 import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography.js';
@@ -15,9 +15,14 @@ import { preserveProtectedPackets } from '@/lib/protected-packets.js';
 export type VaultState = 'none' | 'unlocked';
 export type PacketSyncState = 'idle' | 'uploading' | 'failed' | 'synchronized';
 type VaultIntent = 'save' | 'restore' | null;
+type WorkspaceSessionStatus = { sessionId: string; dirty: boolean; unlocked: boolean };
+type WorkspaceSessionMessage =
+  | ({ type: 'status'; seenAt: number } & WorkspaceSessionStatus)
+  | { type: 'close'; sessionId: string }
+  | { type: 'overwrite'; sessionId: string };
 
 interface Ctx {
-  ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean;
+  ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean; otherSessions: WorkspaceSessionStatus[]; overwrittenElsewhere: boolean;
   setRole(r: Role): void; upsertReport(r: Report): void; upsertWeeklyAcknowledgement(ack: WeeklyPacketAcknowledgement): void; deleteReport(id: string): void; toggleTask(id: string, by: string): void; setCaseFolder(folder: PhaseCaseFolder): void;
   submitPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; syncSharedPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; resolvePhaseExtensionRequest(id:string,approve:boolean):Promise<void>;
   upsertWeeklyPerformanceLog(log:WeeklyPerformanceLog):void; upsertSubstationOrientation(record:SubstationOrientationRecord):void;
@@ -26,7 +31,7 @@ interface Ctx {
   importRoster(ftos: FtoRosterEntry[], assignments: TrainingAssignment[]): void; upsertAssignment(assignment: TrainingAssignment): void;
   loadLocalChatDrafts(): Promise<LocalChatDraft[]>; saveLocalChatDraft(draft: LocalChatDraft): Promise<void>; deleteLocalChatDraft(id: string): Promise<void>;
   intent: VaultIntent; openVault(i: Exclude<VaultIntent, null>): void; closeVault(): void;
-  setupAndSave(pass: string): Promise<void>; unlockAndRestore(pass: string): Promise<void>; saveNow(): Promise<void>; lockNow(reason?: string): void; dismissLockedNotice(): void;
+  setupAndSave(pass: string): Promise<void>; unlockAndRestore(pass: string): Promise<void>; saveNow(): Promise<void>; overwriteOtherSessions(): Promise<void>; lockNow(reason?: string): void; dismissLockedNotice(): void; dismissOverwrittenElsewhere(): void;
   resetWorkspace(): void;
   syncPackets(): Promise<void>;
   packetSyncState: PacketSyncState; packetSyncError: string | null;
@@ -235,6 +240,8 @@ export function WorkspaceProvider({
   const [restored, setRestored] = useState(previewOnly);
   const [pending, setPending] = useState(0);
   const [dirty, setDirty] = useState(false);
+  const [otherSessions, setOtherSessions] = useState<WorkspaceSessionStatus[]>([]);
+  const [overwrittenElsewhere, setOverwrittenElsewhere] = useState(false);
   const [previewChatDrafts, setPreviewChatDrafts] = useState<LocalChatDraft[]>([]);
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [storagePersistent, setStoragePersistent] = useState<boolean | null>(null);
@@ -250,9 +257,14 @@ export function WorkspaceProvider({
   const wsRef = useRef(ws); wsRef.current = ws;
   const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
   const editorDirtyRef = useRef(editorDirty); editorDirtyRef.current = editorDirty;
+  const vaultRef = useRef(vault); vaultRef.current = vault;
   const saveErrorRef = useRef(saveError); saveErrorRef.current = saveError;
   const syncing = useRef(false);
   const syncAbort = useRef<AbortController | null>(null);
+  const saveTimer = useRef<number | undefined>(undefined);
+  const sessionChannel = useRef<BroadcastChannel | null>(null);
+  const sessionId = useRef('');
+  const announceSession = useRef<() => void>(() => {});
   useEffect(() => () => { syncAbort.current?.abort(); storage.current.lock(); }, []);
 
   useEffect(() => { const on = () => setOnline(true), off = () => setOnline(false);
@@ -262,11 +274,16 @@ export function WorkspaceProvider({
 
   const refreshPending = useCallback(async () => { try { if (storage.current.isUnlocked) setPending(await storage.current.pendingCount()); } catch { /* ignore */ } }, []);
 
-  const persist = useCallback(async (w: Workspace) => {
+  const persist = useCallback(async (w: Workspace, overwrite = false) => {
     if (previewOnly) return;
     const at = rev.current;
-    try { await storage.current.saveWorkspace<Workspace>(w); }
-    catch (e) { setSaveError(e instanceof Error ? e.message : 'Local save failed'); throw e; }
+    try { await storage.current.saveWorkspace<Workspace>(w, { overwrite }); }
+    catch (e) {
+      setSaveError(e instanceof WorkspaceConflictError
+        ? 'Another session saved a newer version. Your edits are still on screen; review the session warning before saving again.'
+        : e instanceof Error ? e.message : 'Local save failed');
+      throw e;
+    }
     setSaveError(null);
     if (rev.current === at) setDirty(false);
     await refreshPending();
@@ -297,13 +314,89 @@ export function WorkspaceProvider({
   },[persist,vault]);
 
   // autosave when vault unlocked
-  const saveTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (vault !== 'unlocked' || !dirty) return;
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => { persist(wsRef.current).catch(() => { /* surfaced via saveError banner */ }); }, 800);
     return () => window.clearTimeout(saveTimer.current);
   }, [ws, vault, dirty, persist]);
+
+  useEffect(() => {
+    if (previewOnly || typeof BroadcastChannel === 'undefined') return;
+    const channel = new BroadcastChannel(`fieldready-workspace:${storageNamespace}`);
+    const ownSessionId = crypto.randomUUID();
+    const peers = new Map<string, WorkspaceSessionStatus & { seenAt: number }>();
+    sessionChannel.current = channel;
+    sessionId.current = ownSessionId;
+    const publishPeers = () => {
+      const next = [...peers.values()].map(({ sessionId: id, dirty: peerDirty, unlocked }) =>
+        ({ sessionId: id, dirty: peerDirty, unlocked }));
+      setOtherSessions(current => current.length === next.length && current.every((item, index) =>
+        item.sessionId === next[index]?.sessionId && item.dirty === next[index]?.dirty
+          && item.unlocked === next[index]?.unlocked) ? current : next);
+    };
+    const publishStatus = () => {
+      channel.postMessage({
+        type: 'status',
+        sessionId: ownSessionId,
+        dirty: dirtyRef.current || editorDirtyRef.current,
+        unlocked: vaultRef.current === 'unlocked',
+        seenAt: Date.now(),
+      } satisfies WorkspaceSessionMessage);
+    };
+    announceSession.current = publishStatus;
+    channel.onmessage = (event: MessageEvent<WorkspaceSessionMessage>) => {
+      const message = event.data;
+      if (!message || !('sessionId' in message) || message.sessionId === ownSessionId) return;
+      if (message.type === 'status') {
+        peers.set(message.sessionId, message);
+        publishPeers();
+        return;
+      }
+      peers.delete(message.sessionId);
+      publishPeers();
+      if (message.type === 'overwrite') {
+        window.clearTimeout(saveTimer.current);
+        syncAbort.current?.abort();
+        storage.current.lock();
+        setOverwrittenElsewhere(true);
+        setLockedNotice(false);
+        setLockedWithUnsaved(false);
+        setSaveError(null);
+        setPending(0);
+        setDirty(false);
+        setEditorDirty(false);
+        setVault('none');
+        setRestored(false);
+        setWs(createEmptyWorkspace());
+        setEpoch(value => value + 1);
+      }
+    };
+    const heartbeat = window.setInterval(() => {
+      const cutoff = Date.now() - 15_000;
+      let changed = false;
+      for (const [id, peer] of peers) {
+        if (peer.seenAt < cutoff) {
+          peers.delete(id);
+          changed = true;
+        }
+      }
+      if (changed) publishPeers();
+      publishStatus();
+    }, 5_000);
+    publishStatus();
+    return () => {
+      window.clearInterval(heartbeat);
+      channel.postMessage({ type: 'close', sessionId: ownSessionId } satisfies WorkspaceSessionMessage);
+      channel.close();
+      sessionChannel.current = null;
+      sessionId.current = '';
+      announceSession.current = () => {};
+      setOtherSessions([]);
+    };
+  }, [previewOnly, storageNamespace]);
+
+  useEffect(() => { announceSession.current(); }, [dirty, editorDirty, vault]);
 
   const lockNow = useCallback((reason?: string) => {
     syncAbort.current?.abort();
@@ -352,7 +445,7 @@ export function WorkspaceProvider({
     try { await persist(w); } catch (e) { s.lock(); throw e; }
     setWs(w); setVault('unlocked'); setRestored(true);
     setStoragePersistent(await requestPersistentStorage());
-    setLockedWithUnsaved(false); setLockedNotice(false);
+    setLockedWithUnsaved(false); setLockedNotice(false); setOverwrittenElsewhere(false);
   }, [persist, previewOnly]);
 
   const unlockAndRestore = useCallback(async (pass: string) => {
@@ -443,7 +536,7 @@ export function WorkspaceProvider({
     const tasks=Array.isArray(savedWorkspace.tasks)?savedWorkspace.tasks.filter(item=>isRecord(item)&&[1,2,3,4].includes(Number(item.phase))):[];
     const restoredWorkspace={ ...workspaceWithoutChatHistory, packetIndexVersion:CURRENT_PACKET_INDEX_VERSION as Workspace['packetIndexVersion'], role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests };
     const workspaceWithAppliedExtensions=preserveProtectedPackets(restoredWorkspace,applyApprovedPhaseExtensions(restoredWorkspace));
-    setWs(workspaceWithAppliedExtensions); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(workspaceWithAppliedExtensions!==restoredWorkspace||weeklyPerformanceLogs!==savedWeeklyPerformanceLogs||savedWorkspace.packetIndexVersion!==CURRENT_PACKET_INDEX_VERSION); setLockedNotice(false); setLockedWithUnsaved(false);
+    setWs(workspaceWithAppliedExtensions); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(workspaceWithAppliedExtensions!==restoredWorkspace||weeklyPerformanceLogs!==savedWeeklyPerformanceLogs||savedWorkspace.packetIndexVersion!==CURRENT_PACKET_INDEX_VERSION); setLockedNotice(false); setLockedWithUnsaved(false); setOverwrittenElsewhere(false);
     setStoragePersistent(await requestPersistentStorage());
     await refreshPending();
   }, [previewOnly, refreshPending]);
@@ -453,6 +546,18 @@ export function WorkspaceProvider({
     if (vault !== 'unlocked') { setIntent('save'); return; }
     await persist(wsRef.current);
   }, [previewOnly, vault, persist]);
+
+  const overwriteOtherSessions = useCallback(async () => {
+    if (previewOnly) throw new Error('The UI test preview cannot overwrite saved workspaces.');
+    if (vault !== 'unlocked') throw new Error('Unlock the local vault before overwriting another session.');
+    if (editorDirtyRef.current) throw new Error('Save the open form before overwriting another session.');
+    if (!otherSessions.some(session => session.unlocked)) throw new Error('No other unlocked session is available to overwrite.');
+    if (syncing.current) throw new Error('Wait for packet synchronization to finish.');
+    await persist(wsRef.current, true);
+    const ownSessionId = sessionId.current;
+    if (ownSessionId) sessionChannel.current?.postMessage({ type: 'overwrite', sessionId: ownSessionId } satisfies WorkspaceSessionMessage);
+    setOtherSessions([]);
+  }, [previewOnly, vault, otherSessions, persist]);
 
   const syncPackets = useCallback(async () => {
     if (previewOnly) return;
@@ -504,7 +609,7 @@ export function WorkspaceProvider({
   }, [previewOnly]);
 
   const value = useMemo<Ctx>(() => ({
-    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, previewOnly,
+    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, previewOnly, otherSessions, overwrittenElsewhere,
     segTaskDirectory: SEG_TASK_DIRECTORY,
     getOperationalPacket: report => resolveOperationalPacket(
       report,
@@ -591,9 +696,10 @@ export function WorkspaceProvider({
     }),
     toggleTask: (id, by) => mutate(w => ({ ...w, tasks: w.tasks.map((t: Task) => t.id !== id ? t : t.done ? { ...t, done: false, by: undefined, at: undefined } : { ...t, done: true, by, at: new Date().toISOString() }) })),
     openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
-    setupAndSave, unlockAndRestore, saveNow, syncPackets, packetSyncState, packetSyncError, lockNow, dismissLockedNotice: () => setLockedNotice(false),
-    resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace(wsRef.current.role) : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setEpoch(e => e + 1); },
-  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
+    setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, syncPackets, packetSyncState, packetSyncError, lockNow, dismissLockedNotice: () => setLockedNotice(false),
+    dismissOverwrittenElsewhere: () => setOverwrittenElsewhere(false),
+    resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace(wsRef.current.role) : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setOverwrittenElsewhere(false); setEpoch(e => e + 1); },
+  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, otherSessions, overwrittenElsewhere, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

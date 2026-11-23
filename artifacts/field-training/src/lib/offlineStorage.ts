@@ -5,6 +5,14 @@
  */
 type Envelope = { id: string; iv: ArrayBuffer; ciphertext: ArrayBuffer };
 type VaultMeta = { id: "vault"; salt: ArrayBuffer };
+type WorkspaceRevision = { id: "workspace-revision"; revision: number };
+
+export class WorkspaceConflictError extends Error {
+  constructor() {
+    super("Another session saved a newer workspace. Review the session conflict before saving again.");
+    this.name = "WorkspaceConflictError";
+  }
+}
 
 export async function persistentStorageStatus(): Promise<boolean | null> {
   if (typeof navigator === "undefined" || typeof navigator.storage?.persisted !== "function") return null;
@@ -60,6 +68,7 @@ export class OfflineStorage {
   private database?: Promise<IDBDatabase>;
   private operations: Promise<unknown> = Promise.resolve();
   private syncing = false;
+  private workspaceRevision = 0;
 
   constructor(private readonly namespace: string) {}
   get isUnlocked() { return !!this.key; }
@@ -146,9 +155,42 @@ export class OfflineStorage {
     if (!this.key || epoch !== this.epoch) throw new Error("Vault session expired.");
   }
 
+  private async advanceWorkspaceRevision(
+    tx: IDBTransaction,
+    done: Promise<void>,
+    expectedRevision: number,
+  ): Promise<number> {
+    const current = await request<WorkspaceRevision | undefined>(
+      tx.objectStore("meta").get("workspace-revision"),
+    );
+    const currentRevision = current?.revision ?? 0;
+    if (currentRevision !== expectedRevision) {
+      tx.abort();
+      await done.catch(() => {});
+      throw new WorkspaceConflictError();
+    }
+    const nextRevision = currentRevision + 1;
+    tx.objectStore("meta").put({ id: "workspace-revision", revision: nextRevision });
+    return nextRevision;
+  }
+
   async get<T>(id: string): Promise<T | undefined> {
     const { key, epoch } = this.session();
-    const envelope = await this.read<Envelope>("records", id);
+    let envelope: Envelope | undefined;
+    if (id === "workspace") {
+      const db = await this.db();
+      const tx = db.transaction(["records", "meta"], "readonly");
+      const done = complete(tx);
+      const [record, revision] = await Promise.all([
+        request<Envelope | undefined>(tx.objectStore("records").get(id)),
+        request<WorkspaceRevision | undefined>(tx.objectStore("meta").get("workspace-revision")),
+      ]);
+      await done;
+      envelope = record;
+      this.workspaceRevision = revision?.revision ?? 0;
+    } else {
+      envelope = await this.read<Envelope>("records", id);
+    }
     const value = envelope ? await this.open<T>(key, envelope) : undefined;
     this.assertActive(epoch);
     return value;
@@ -187,13 +229,21 @@ export class OfflineStorage {
    * Legacy workspace queue entries are never sent by syncPacketBatch(). */
   saveWorkspace<T extends { reports: Array<{ id: string; syncStatus?: string; serverVersion?: number; syncAttemptPending?: boolean }> }>(
     workspace: T,
+    options: { overwrite?: boolean } = {},
   ): Promise<void> {
     const { key, epoch } = this.session();
     const snapshot = structuredClone(workspace);
     const run = this.operations.catch(() => {}).then(async () => {
       this.assertActive(epoch);
       const db = await this.db();
-      const savedEnvelope = await this.read<Envelope>("records", "workspace");
+      const snapshotTx = db.transaction(["records", "meta"], "readonly");
+      const snapshotDone = complete(snapshotTx);
+      const [savedEnvelope, revision] = await Promise.all([
+        request<Envelope | undefined>(snapshotTx.objectStore("records").get("workspace")),
+        request<WorkspaceRevision | undefined>(snapshotTx.objectStore("meta").get("workspace-revision")),
+      ]);
+      await snapshotDone;
+      const baseRevision = revision?.revision ?? 0;
       const saved = savedEnvelope ? await this.open<T>(key, savedEnvelope) : undefined;
       // A delayed autosave cannot overwrite a server-confirmed sealed packet.
       for (const sealed of saved?.reports ?? []) {
@@ -238,8 +288,13 @@ export class OfflineStorage {
       }
       const record = await this.seal(key, "workspace", snapshot);
       this.assertActive(epoch);
-      const tx = db.transaction(["records", "sync_queue"], "readwrite");
+      const tx = db.transaction(["records", "sync_queue", "meta"], "readwrite");
       const done = complete(tx);
+      const nextRevision = await this.advanceWorkspaceRevision(
+        tx,
+        done,
+        options.overwrite ? baseRevision : this.workspaceRevision,
+      );
       tx.objectStore("records").put(record);
       // Old whole-workspace operations are local-only legacy entries; removing
       // them is safe because their latest snapshot remains encrypted in records.
@@ -248,6 +303,7 @@ export class OfflineStorage {
       }
       for (const envelope of envelopes) tx.objectStore("sync_queue").put(envelope);
       await done;
+      this.workspaceRevision = nextRevision;
     });
     this.operations = run;
     return run;
@@ -277,11 +333,13 @@ export class OfflineStorage {
         this.seal(key, packet.id, { ...changes[index], attempted: true })));
       const guardedWorkspace = await this.seal(key, "workspace", attemptedWorkspace);
       this.assertActive(epoch);
-      const attemptedTx = db.transaction(["records", "sync_queue"], "readwrite");
+      const attemptedTx = db.transaction(["records", "sync_queue", "meta"], "readwrite");
       const attemptDone = complete(attemptedTx);
+      const attemptedRevision = await this.advanceWorkspaceRevision(attemptedTx, attemptDone, this.workspaceRevision);
       attemptedTx.objectStore("records").put(guardedWorkspace);
       for (const entry of attemptedEntries) attemptedTx.objectStore("sync_queue").put(entry);
       await attemptDone;
+      this.workspaceRevision = attemptedRevision;
       const receipts = await transport(changes);
       this.assertActive(epoch);
       if (receipts.length !== changes.length || new Set(receipts.map(item => item.id)).size !== changes.length ||
@@ -302,11 +360,13 @@ export class OfflineStorage {
       }) };
       const sealed = await this.seal(key, "workspace", next);
       this.assertActive(epoch);
-      const tx = db.transaction(["records", "sync_queue"], "readwrite");
+      const tx = db.transaction(["records", "sync_queue", "meta"], "readwrite");
       const done = complete(tx);
+      const nextRevision = await this.advanceWorkspaceRevision(tx, done, this.workspaceRevision);
       tx.objectStore("records").put(sealed);
       for (const packet of packets) tx.objectStore("sync_queue").delete(packet.id);
       await done;
+      this.workspaceRevision = nextRevision;
       return next as T;
     }).finally(() => { this.syncing = false; });
     this.operations = run;

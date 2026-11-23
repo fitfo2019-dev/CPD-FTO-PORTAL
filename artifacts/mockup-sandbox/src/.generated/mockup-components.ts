@@ -6,6 +6,7 @@ export const modules: ModuleMap = {
   "./components/mockups/PacketReviewPreview.tsx": () => import("../components/mockups/PacketReviewPreview.tsx"),
   "./components/mockups/ResourceLibraryPreview.tsx": () => import("../components/mockups/ResourceLibraryPreview.tsx"),
   "./components/mockups/RoleWorkspacePreview.tsx": () => import("../components/mockups/RoleWorkspacePreview.tsx"),
+  "./components/mockups/SavedSessionConflictAlert.tsx": () => import("../components/mockups/SavedSessionConflictAlert.tsx"),
   "./components/mockups/investigator/WarningTriage.tsx": () => import("../components/mockups/investigator/WarningTriage.tsx"),
   "./components/mockups/operations/AuditPulse.tsx": () => import("../components/mockups/operations/AuditPulse.tsx"),
   "./components/mockups/packet-upload/PacketUploadPreview.tsx": () => import("../components/mockups/packet-upload/PacketUploadPreview.tsx"),

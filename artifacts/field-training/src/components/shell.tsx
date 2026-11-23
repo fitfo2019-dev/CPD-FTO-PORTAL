@@ -3,7 +3,7 @@ import { useClerk, useUser } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
-import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, Users, FolderOpen, ClipboardList, BookOpen } from 'lucide-react';
+import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, BookOpen } from 'lucide-react';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
@@ -64,8 +64,13 @@ export function Shell({ children }: { children: ReactNode }) {
   const { signOut } = useClerk();
   const { toast } = useToast();
   const [confirmLock, setConfirmLock] = useState(false);
+  const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [leavePage,setLeavePage]=useState<string|null>(null);
   const unsaved = w.dirty || w.editorDirty;
+  const otherUnlockedSessions = w.otherSessions.filter(session => session.unlocked);
+  const otherDirtySessions = otherUnlockedSessions.filter(session => session.dirty);
+  const showSessionConflict = !w.previewOnly && otherUnlockedSessions.length > 0
+    && (unsaved || otherDirtySessions.length > 0);
   const requestLock = () => unsaved ? setConfirmLock(true) : w.lockNow();
   const requestRestore = () => {
     if (unsaved && !window.confirm('Unsaved workspace changes will be replaced when saved work is restored. Continue?')) return;
@@ -250,6 +255,29 @@ export function Shell({ children }: { children: ReactNode }) {
       {w.saveError && (
         <div role="alert" data-testid="notice-save-error" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive"><ShieldAlert className="h-4 w-4" /><span className="flex-1"><b>Local save failed.</b> Changes on screen are NOT stored. {w.saveError}</span><button className="font-semibold underline" onClick={onSave} data-testid="button-retry-save">Retry save</button></div>
       )}
+      {w.overwrittenElsewhere && (
+        <div role="alert" data-testid="notice-workspace-overwritten" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          <ShieldAlert className="h-4 w-4" />
+          <span className="flex-1"><b>This workspace was replaced in another tab.</b> This tab was locked so stale edits cannot overwrite the newer saved version. Unlock to continue with the latest saved work.</span>
+          <button className="font-semibold underline" onClick={() => w.openVault('restore')} data-testid="button-restore-overwritten-workspace">Unlock latest saved work</button>
+          <button className="text-muted-foreground" onClick={w.dismissOverwrittenElsewhere} data-testid="button-dismiss-overwritten-notice">Dismiss</button>
+        </div>
+      )}
+      {showSessionConflict && (
+        <div role="alert" aria-live="polite" data-testid="notice-session-conflict" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-[#b77912] bg-[#fff8e8] p-3 text-sm text-[#382b14]">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-[#8a5a00]" />
+          <span className="min-w-0 flex-1">
+            <b>{unsaved && otherDirtySessions.length ? 'Two sessions have unsaved changes.' : otherDirtySessions.length ? 'Another session has unsaved changes.' : 'This workspace is open in another session.'}</b>
+            <span className="block mt-1">{otherUnlockedSessions.length} other tab{otherUnlockedSessions.length === 1 ? ' is' : 's are'} open{otherDirtySessions.length ? `; ${otherDirtySessions.length} has unsaved edits` : ''}. Saving over another tab replaces its current workspace. Both sessions stay on this device; no agency upload occurs.</span>
+            {w.editorDirty && <span className="block mt-1 font-semibold">Save the open form before choosing an overwrite.</span>}
+          </span>
+          {w.dirty && !w.editorDirty && w.vault === 'unlocked' && (
+            <button type="button" onClick={() => setConfirmOverwrite(true)} data-testid="button-overwrite-other-session" className="h-9 rounded-sm border border-destructive bg-destructive px-3 text-sm font-semibold text-destructive-foreground hover:opacity-90">
+              Overwrite other session
+            </button>
+          )}
+        </div>
+      )}
       {w.lockedNotice && (
         <div className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-accent bg-accent/10 p-3 text-sm" data-testid="notice-locked">
           <Lock className="h-4 w-4" /><span className="flex-1">{w.lockedWithUnsaved ? 'Locked after 15 minutes of inactivity. Unsaved form edits may have been lost; unlock to recover the last successful encrypted save.' : 'Locked after 15 minutes of inactivity. Decrypted data was cleared from this screen; local changes are not displayed.'}</span>
@@ -274,6 +302,30 @@ export function Shell({ children }: { children: ReactNode }) {
       <AlertDialog open={confirmLock} onOpenChange={setConfirmLock}>
         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Lock with unsaved changes?</AlertDialogTitle><AlertDialogDescription>{w.editorDirty ? 'An open report has edits that were not saved to the workspace. ' : ''}{w.dirty ? 'Workspace changes have not finished saving to the vault. ' : ''}Locking clears them from this screen and they cannot be recovered.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel data-testid="button-lock-cancel">Keep working</AlertDialogCancel><AlertDialogAction data-testid="button-lock-discard" onClick={() => w.lockNow()}>Discard and lock</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={confirmOverwrite} onOpenChange={setConfirmOverwrite}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Overwrite the other session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This saves this tab’s workspace over the other tab’s changes, then locks the other tab. Any unsaved edits there—including an open form—will be lost and cannot be recovered. This only changes the encrypted local workspace on this device; it does not upload to the agency service.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-overwrite-session">Keep both tabs open</AlertDialogCancel>
+            <AlertDialogAction data-testid="button-confirm-overwrite-session" onClick={async event => {
+              event.preventDefault();
+              try {
+                await w.overwriteOtherSessions();
+                setConfirmOverwrite(false);
+                toast({ title: 'Saved locally', description: 'The other tab was locked and must unlock to continue.' });
+              } catch (error) {
+                setConfirmOverwrite(false);
+                toast({ title: 'Could not overwrite the other session', description: error instanceof Error ? error.message : 'Your local work was not replaced.', variant: 'destructive' });
+              }
+            }}>Overwrite other session</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={leavePage!==null} onOpenChange={open=>{if(!open)setLeavePage(null);}}>
         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Keep this shift sheet?</AlertDialogTitle><AlertDialogDescription>An open report or run has unsaved edits. Stay on this page and finish or save the draft before leaving. If you leave, those open edits will not be kept.</AlertDialogDescription></AlertDialogHeader>
