@@ -50,22 +50,29 @@ it must not erase an observed checklist failure.
 from weekly rating counts, and retain any recorded deficiency as UA evidence.
 
 Run event time (call aired or initiated) is distinct from dispatch and cleared
-times. The incident lookup occurs only after the FTO enters an incident number
-and explicitly starts it. Use the editable Unit / cruiser assignment from
-Reporting for Duty to match the FTO/PO's own unit. Each PO may query the same
-incident independently; never consume a shared incident record or return another
-unit's row. Apply incident-wide times to that unit when supplied; unit-specific
-times take precedence. Keep all prefilled values editable and require review.
-Never infer a primary form from a 10-code; an absent or ambiguous type needs an
-explicit FTO choice. Manual entry remains available. The uploaded PatrolView
-screen is a visual example, not an API contract, and no live feed is configured.
+times. Look up only after an FTO enters an incident number and starts the request.
+Match against the editable unit/cruiser assignment saved at phase start. Each PO
+can query the same incident: return only that unit's row, copy shared incident
+metrics into every matching unit result, and prefer that unit's own dispatch and
+clear times. Never import officer identity, caller contact, or narrative details.
+The editable fields are date/time, dispatch/clear times, dispatched code,
+structured address, city/state/ZIP, zone, cruiser district, and clearance code.
+Situation Found starts blank. Suggest only the existing unique form mappings:
+code 17 to Domestic Incident and code 4 to Traffic Crash; code 6 is ambiguous
+between two traffic-stop forms and needs FTO choice. Unmapped codes use Call for
+Service unless the FTO selects another form. A 3V clearance triggers the
+existing arrest/transport workflow; codes alone do not infer other actions.
+The user-uploaded PatrolView screen remains a visual example rather than an API
+contract, and no live feed is configured.
 
-**Why:** The user specified explicit incident-number lookup, editable cruiser/
-assignment matching, multiple POs on a shared incident, dispatch and clear times,
-and FTO review/type selection. The real upstream JSON contract is still pending.
+**Why:** The user clarified that each PO has an independently assigned cruiser
+but can share a run, and specified the incident metrics to import without officer
+details. They also required code-only entry, FTO editing, a blank Situation Found
+default, and FTO choice for ambiguous codes.
 
-**How to apply:** Query only on FTO action; match incident plus the entered
-assigned unit on the server, return only that unit's record, preserve shared and
-unit-specific time semantics, and allow manual fallback. Do not enable live
-access until agency IT validates the upstream endpoint, JSON mapping, credentials,
-and authorization allowlist.
+**How to apply:** Keep dispatch access FTO-initiated; exact-match incident and
+assigned unit while repeating only approved shared metrics on each result. Keep
+Tab behavior accessible and let Enter explicitly open the selected form. Do not
+expand the 10-code-to-form/add-on crosswalk beyond verified mappings without an
+approved source; keep live access disabled until agency IT approves the endpoint,
+field semantics, credentials, and authorization allowlist.

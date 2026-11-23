@@ -5,10 +5,18 @@ export type PatrolViewConfig = {
 };
 
 export type DispatchEventPrefill = {
+  eventDate?: string;
   eventIngressAt?: string;
   incidentNumber?: string;
   location?: string;
+  locationAddress?: string;
+  locationCity?: string;
+  locationState?: string;
+  locationZip?: string;
+  zone?: string;
+  cruiserDistrict?: string;
   dispatchedCode?: string;
+  clearanceCode?: "" | "1V" | "2V" | "3V" | "4V";
 };
 
 export type PatrolViewFailureCode =
@@ -156,6 +164,16 @@ export function mapPatrolViewEvent(payload: unknown): DispatchEventPrefill {
     eventIngressAt = timestamp.toISOString();
   }
 
+  const rawDate = optionalText(data, ["eventDate", "event_date", "incidentDate", "incident_date", "date"], 32, "incident date");
+  let eventDate: string | undefined;
+  if (rawDate) {
+    const parsedDate = new Date(`${rawDate}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== rawDate) {
+      throw new PatrolViewIntegrationError("PATROLVIEW_INVALID_RESPONSE", 502, "The approved dispatch adapter returned an invalid incident date.");
+    }
+    eventDate = rawDate;
+  }
+
   const incidentNumber = optionalText(
     data,
     ["incidentNumber", "incident_number"],
@@ -168,6 +186,19 @@ export function mapPatrolViewEvent(payload: unknown): DispatchEventPrefill {
     200,
     "location",
   );
+  const locationAddress = optionalText(data, ["locationAddress", "location_address", "streetAddress", "street_address", "address"], 200, "street address");
+  const locationCity = optionalText(data, ["locationCity", "location_city", "city"], 80, "city");
+  const rawState = optionalText(data, ["locationState", "location_state", "state"], 8, "state");
+  const locationState = rawState?.toUpperCase();
+  if (locationState && !/^[A-Z]{2}$/.test(locationState)) {
+    throw new PatrolViewIntegrationError("PATROLVIEW_INVALID_RESPONSE", 502, "The approved dispatch adapter returned an invalid state.");
+  }
+  const locationZip = optionalText(data, ["locationZip", "location_zip", "zipCode", "zip_code", "zip"], 10, "ZIP code");
+  if (locationZip && !/^\d{5}(?:-\d{4})?$/.test(locationZip)) {
+    throw new PatrolViewIntegrationError("PATROLVIEW_INVALID_RESPONSE", 502, "The approved dispatch adapter returned an invalid ZIP code.");
+  }
+  const zone = optionalText(data, ["zone", "zoneName", "zone_name"], 40, "zone");
+  const cruiserDistrict = optionalText(data, ["cruiserDistrict", "cruiser_district"], 40, "cruiser district");
   const rawCode = optionalText(
     data,
     ["dispatchedCode", "dispatched_code", "tenCode", "ten_code"],
@@ -177,7 +208,7 @@ export function mapPatrolViewEvent(payload: unknown): DispatchEventPrefill {
   let dispatchedCode: string | undefined;
   if (rawCode) {
     const normalized = rawCode.replace(/^10[\s-]*/i, "").toUpperCase();
-    if (!/^\d{1,3}[A-Z]?$/.test(normalized)) {
+    if (!/^\d{1,3}[A-Z]{0,2}$/.test(normalized)) {
       throw new PatrolViewIntegrationError(
         "PATROLVIEW_INVALID_RESPONSE",
         502,
@@ -187,11 +218,25 @@ export function mapPatrolViewEvent(payload: unknown): DispatchEventPrefill {
     dispatchedCode = normalized;
   }
 
+  const rawClearance = optionalText(data, ["clearanceCode", "clearance_code"], 8, "clearance code");
+  const clearanceCode = rawClearance?.toUpperCase();
+  if (clearanceCode && !["1V", "2V", "3V", "4V"].includes(clearanceCode)) {
+    throw new PatrolViewIntegrationError("PATROLVIEW_INVALID_RESPONSE", 502, "The approved dispatch adapter returned an unsupported clearance code.");
+  }
+
   return {
+    ...(eventDate ? { eventDate } : {}),
     ...(eventIngressAt ? { eventIngressAt } : {}),
     ...(incidentNumber ? { incidentNumber } : {}),
     ...(location ? { location } : {}),
+    ...(locationAddress ? { locationAddress } : {}),
+    ...(locationCity ? { locationCity } : {}),
+    ...(locationState ? { locationState } : {}),
+    ...(locationZip ? { locationZip } : {}),
+    ...(zone ? { zone } : {}),
+    ...(cruiserDistrict ? { cruiserDistrict } : {}),
     ...(dispatchedCode ? { dispatchedCode } : {}),
+    ...(clearanceCode ? { clearanceCode: clearanceCode as DispatchEventPrefill["clearanceCode"] } : {}),
   };
 }
 

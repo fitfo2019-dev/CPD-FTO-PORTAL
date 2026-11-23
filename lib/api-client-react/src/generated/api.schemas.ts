@@ -393,17 +393,15 @@ export interface DispatchIncidentLookupInput {
   unitNumber: string;
 }
 
-export type DispatchIncidentPrefillRunKind = typeof DispatchIncidentPrefillRunKind[keyof typeof DispatchIncidentPrefillRunKind];
+export type DispatchIncidentPrefillClearanceCode = typeof DispatchIncidentPrefillClearanceCode[keyof typeof DispatchIncidentPrefillClearanceCode];
 
 
-export const DispatchIncidentPrefillRunKind = {
-  call_for_service: 'call_for_service',
-  self_initiated: 'self_initiated',
-  domestic_incident: 'domestic_incident',
-  traffic_crash: 'traffic_crash',
-  traffic_stop: 'traffic_stop',
-  high_risk_stop: 'high_risk_stop',
-  building_search: 'building_search',
+export const DispatchIncidentPrefillClearanceCode = {
+  '': '',
+  '1V': '1V',
+  '2V': '2V',
+  '3V': '3V',
+  '4V': '4V',
 } as const;
 
 export interface DispatchIncidentPrefill {
@@ -417,14 +415,27 @@ export interface DispatchIncidentPrefill {
      * @maxLength 40
      */
   unitNumber?: string;
+  eventDate?: string;
   eventIngressAt?: string;
   dispatchedAt?: string;
   clearedAt?: string;
   /** @maxLength 200 */
   location?: string;
-  /** @pattern ^\d{1,3}[A-Z]?$ */
+  /** @maxLength 200 */
+  locationAddress?: string;
+  /** @maxLength 80 */
+  locationCity?: string;
+  /** @pattern ^[A-Z]{2}$ */
+  locationState?: string;
+  /** @pattern ^\d{5}(?:-\d{4})?$ */
+  locationZip?: string;
+  /** @maxLength 40 */
+  zone?: string;
+  /** @maxLength 40 */
+  cruiserDistrict?: string;
+  /** @pattern ^\d{1,3}[A-Z]{0,2}$ */
   dispatchedCode?: string;
-  runKind?: DispatchIncidentPrefillRunKind;
+  clearanceCode?: DispatchIncidentPrefillClearanceCode;
 }
 
 export type DispatchIncidentEnvelopeStatus = typeof DispatchIncidentEnvelopeStatus[keyof typeof DispatchIncidentEnvelopeStatus];
@@ -458,17 +469,42 @@ export interface DispatchEventIngressInput {
   eventId: string;
 }
 
+export type DispatchEventPrefillClearanceCode = typeof DispatchEventPrefillClearanceCode[keyof typeof DispatchEventPrefillClearanceCode];
+
+
+export const DispatchEventPrefillClearanceCode = {
+  '': '',
+  '1V': '1V',
+  '2V': '2V',
+  '3V': '3V',
+  '4V': '4V',
+} as const;
+
 export interface DispatchEventPrefill {
+  eventDate?: string;
   eventIngressAt?: string;
   /** @maxLength 120 */
   incidentNumber?: string;
   /** @maxLength 200 */
   location?: string;
+  /** @maxLength 200 */
+  locationAddress?: string;
+  /** @maxLength 80 */
+  locationCity?: string;
+  /** @pattern ^[A-Z]{2}$ */
+  locationState?: string;
+  /** @pattern ^\d{5}(?:-\d{4})?$ */
+  locationZip?: string;
+  /** @maxLength 40 */
+  zone?: string;
+  /** @maxLength 40 */
+  cruiserDistrict?: string;
   /**
      * @maxLength 8
-     * @pattern ^\d{1,3}[A-Z]?$
+     * @pattern ^\d{1,3}[A-Z]{0,2}$
      */
   dispatchedCode?: string;
+  clearanceCode?: DispatchEventPrefillClearanceCode;
 }
 
 export interface DispatchEventIngressMetadata {

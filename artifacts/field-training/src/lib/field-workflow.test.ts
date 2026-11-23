@@ -5,7 +5,7 @@ import { buildClassWorkbook } from './exportWorkbook.js';
 import { CATEGORIES, PHASES, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, SEG_CATEGORIES, DEFAULT_NO_CATEGORIES, DAILY_DUTY_CHECKLIST, defaultReportingForDutyRecord, defaultRatings, emptyRatings, emptyDailyActivitySummary, evaluationProgress, canViewClass, isTechnicalRole, requiredSupplementalForms, newRunChecklist, hasRunChecklistEdits, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, validateReport, type TrainingRun, type WeeklyPerformanceLogEntry } from './model.js';
 import { createEmptyWorkspace } from './empty-workspace.js';
 import { seedReports } from './seed.js';
-import { BUILDING_SEARCH_DISPATCH_CODES, DEFAULT_RUN_TYPE_CODES, SITUATION_FOUND_NA, formatRadioCode, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode, isEligibleCitationSummons, RADIO_CODES, RADIO_CODE_SOURCE_LABEL } from './radio-codes.js';
+import { BUILDING_SEARCH_DISPATCH_CODES, DEFAULT_RUN_TYPE_CODES, SITUATION_FOUND_NA, formatRadioCode, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode, isEligibleCitationSummons, RADIO_CODES, RADIO_CODE_SOURCE_LABEL, suggestRunTypeFromDispatchedCode } from './radio-codes.js';
 import { currentDateTimeMDY, formatDateEntryMDY, formatDateTimeEntryMDY, splitDateTimeEntryMDY, getNextReportDate, getPhaseScheduleInfo } from './training-calendar.js';
 import { activityTotals, manualActivityEntryForTotal, runActivityValidationError, runDerivedActivityCounts } from './run-activity.js';
 import { cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, isValidAssignment } from './cpd-geography.js';
@@ -81,7 +81,7 @@ test('run source metadata appears in Excel without interpreting user input as a 
   }];
   const workbook=buildClassWorkbook([report]);
   const rows=XLSX.utils.sheet_to_json<(string|number)[]>(workbook.Sheets['Run Forms'],{header:1});
-  for(const [label,value] of [['Incident number',"'=INCIDENT"],['Run location',"'=LOCATION"]]){
+  for(const [label,value] of [['Incident number',"'=INCIDENT"],['Street address',"'=LOCATION"]]){
     assert.equal(rows[1][rows[0].indexOf(label)],value);
   }
   assert.ok(rows[1][rows[0].indexOf('Run ended')]);
@@ -335,8 +335,9 @@ test('code suffixes and eligible traffic citation/summons runs are classified', 
   assert.equal(isValidRadioCode('43S'),true);
   assert.equal(isValidRadioCode('XYZ'),false);
   assert.equal(normalizeSituationFoundCode('N/A'),SITUATION_FOUND_NA);
+  assert.equal(normalizeSituationFoundCode(''),'');
   assert.equal(isValidSituationFoundCode(SITUATION_FOUND_NA),true);
-  assert.equal(isValidSituationFoundCode(''),false);
+  assert.equal(isValidSituationFoundCode(''),true);
   assert.equal(formatRadioCode(SITUATION_FOUND_NA),'N/A');
   assert.equal(isEligibleCitationSummons({runKind:'traffic_stop',clearanceCode:'1V'}),true);
   assert.equal(isEligibleCitationSummons({runKind:'traffic_stop',clearanceCode:'3V'}),true);
@@ -354,6 +355,14 @@ test('official 2026 Patrol SOP code labels replace outdated scanner descriptions
   assert.equal(RADIO_CODES['40E'], 'Recovered Property - Evidence Technician');
   assert.equal(RADIO_CODES['42E'], 'Electronic Satellite Robbery Alert');
   assert.equal(RADIO_CODES['43S'], 'Shots Fired/ShotSpotter®');
+});
+
+test('dispatch-code form suggestions open only unique verified primary forms',()=>{
+  assert.deepEqual(suggestRunTypeFromDispatchedCode('17'),{status:'mapped',runKind:'domestic_incident'});
+  assert.deepEqual(suggestRunTypeFromDispatchedCode('10-17'),{status:'mapped',runKind:'domestic_incident'});
+  assert.deepEqual(suggestRunTypeFromDispatchedCode('4'),{status:'mapped',runKind:'traffic_crash'});
+  assert.deepEqual(suggestRunTypeFromDispatchedCode('6'),{status:'ambiguous',runKinds:['traffic_stop','high_risk_stop']});
+  assert.deepEqual(suggestRunTypeFromDispatchedCode('27'),{status:'default',runKind:'call_for_service'});
 });
 
 test('run type and incident flags surface matching official directive references',()=>{

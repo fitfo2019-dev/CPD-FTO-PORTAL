@@ -5,6 +5,8 @@ import {fetchPatrolViewJson,PatrolViewIntegrationError} from './patrolViewIntegr
 
 const incident={
   incidentNumber:'FICTIONAL-100',location:'Fictional location',dispatchedCode:'10-17A',
+  eventDate:'2026-11-23',locationAddress:'100 Fictional Street',locationCity:'Fictional City',
+  locationState:'OH',locationZip:'43215',zone:'TEST-ZONE',cruiserDistrict:'TEST-DISTRICT',clearanceCode:'3V',
   eventIngressAt:'2026-11-23T14:00:00Z',
   dispatchedAt:'2026-11-23T13:00:00Z',clearedAt:'2026-11-23T23:00:00Z',
   callerName:'FICTIONAL CALLER',callerPhone:'555-0100',callNotes:'FICTIONAL PRIVATE NOTES',
@@ -22,7 +24,17 @@ test('each unit on a shared incident retains its own clock values and inherits c
   assert.equal(rows[1].clearedAt,'2026-11-23T16:00:00.000Z');
   assert.equal(rows[1].location,'Fictional location');
   assert.equal(rows[1].dispatchedCode,'17A');
-  assert.equal(rows[0].runKind,undefined,'Never classify a run solely from a dispatched code');
+  assert.equal(rows[1].eventDate,'2026-11-23');
+  assert.equal(rows[1].locationAddress,'100 Fictional Street');
+  assert.equal(rows[1].locationCity,'Fictional City');
+  assert.equal(rows[1].locationState,'OH');
+  assert.equal(rows[1].locationZip,'43215');
+  assert.equal(rows[1].zone,'TEST-ZONE');
+  assert.equal(rows[1].cruiserDistrict,'TEST-DISTRICT');
+  assert.equal(rows[1].clearanceCode,'3V');
+  assert.equal('runKind' in rows[0],false,'Run type is selected from local verified mappings, not copied from upstream');
+  assert.equal('officerName' in rows[0],false);
+  assert.equal('callerName' in rows[0],false);
 });
 test('incident dispatch and clear times populate every PO run while unit-specific times override them',()=>{
   const shared=mapPatrolViewIncident({incidentNumber:'FICTIONAL-100',dispatchTime:'2026-11-23T14:00:00Z',clearTime:'2026-11-23T15:30:00Z',units:[{unitNumber:'TEST-A'},{unitNumber:'TEST-B',dispatchedAt:'2026-11-23T14:05:00Z'}]},'FICTIONAL-100');
@@ -35,13 +47,15 @@ test('unit rows inherit shared incident clocks; unitless times are not attribute
   const [unit]=mapPatrolViewIncident({...incident,units:[{unitNumber:'TEST-C',runKind:'AMBIGUOUS'}]},'FICTIONAL-100');
   assert.equal(unit.dispatchedAt,'2026-11-23T13:00:00.000Z');
   assert.equal(unit.clearedAt,'2026-11-23T23:00:00.000Z');
-  assert.equal(unit.runKind,undefined);
+  assert.equal('runKind' in unit,false);
   const [shared]=mapPatrolViewIncident({incidentNumber:'FICTIONAL-100',dispatchedAt:incident.dispatchedAt},'FICTIONAL-100');
   assert.equal(shared.dispatchedAt,undefined);
 });
 test('rejects wrong incidents, invalid clocks and oversized unit lists',()=>{
   assert.throws(()=>mapPatrolViewIncident(incident,'OTHER-INCIDENT'),PatrolViewIntegrationError);
   assert.throws(()=>mapPatrolViewIncident({...incident,units:[{unitNumber:'TEST-A',dispatchedAt:'yesterday'}]},'FICTIONAL-100'),PatrolViewIntegrationError);
+  assert.throws(()=>mapPatrolViewIncident({...incident,eventDate:'2026-02-30'},'FICTIONAL-100'),PatrolViewIntegrationError);
+  assert.throws(()=>mapPatrolViewIncident({...incident,clearanceCode:'ARREST'},'FICTIONAL-100'),PatrolViewIntegrationError);
   assert.throws(()=>mapPatrolViewIncident({...incident,units:Array.from({length:101},()=>({unitNumber:'TEST'}))},'FICTIONAL-100'),PatrolViewIntegrationError);
   assert.throws(()=>mapPatrolViewIncident({status:'error',data:incident},'FICTIONAL-100'),PatrolViewIntegrationError);
 });

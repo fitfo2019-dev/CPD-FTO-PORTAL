@@ -376,7 +376,7 @@ export const ListAuditLogsResponse = zod.object({
 
 
 /**
- * Returns normalized incident/unit candidates from an agency-configured adapter. No polling, no classification from codes, and no automatic review or activity counts.
+ * Returns allowlisted shared incident metrics only after the entered incident and assigned unit match. Unit-specific times are retained; officer details are excluded.
  * @summary Look up an incident explicitly entered by the FTO
  */
 export const dispatchIncidentLookupBodyIncidentNumberMax = 120;
@@ -403,7 +403,17 @@ export const dispatchIncidentLookupResponseDataItemUnitNumberMax = 40;
 
 export const dispatchIncidentLookupResponseDataItemLocationMax = 200;
 
-export const dispatchIncidentLookupResponseDataItemDispatchedCodeRegExp = new RegExp('^\\d{1,3}[A-Z]?$');
+export const dispatchIncidentLookupResponseDataItemLocationAddressMax = 200;
+
+export const dispatchIncidentLookupResponseDataItemLocationCityMax = 80;
+
+export const dispatchIncidentLookupResponseDataItemLocationStateRegExp = new RegExp('^[A-Z]{2}$');
+export const dispatchIncidentLookupResponseDataItemLocationZipRegExp = new RegExp('^\\d{5}(?:-\\d{4})?$');
+export const dispatchIncidentLookupResponseDataItemZoneMax = 40;
+
+export const dispatchIncidentLookupResponseDataItemCruiserDistrictMax = 40;
+
+export const dispatchIncidentLookupResponseDataItemDispatchedCodeRegExp = new RegExp('^\\d{1,3}[A-Z]{0,2}$');
 export const dispatchIncidentLookupResponseDataMax = 100;
 
 
@@ -416,12 +426,19 @@ export const DispatchIncidentLookupResponse = zod.object({
   "data": zod.array(zod.object({
   "incidentNumber": zod.string().min(1).max(dispatchIncidentLookupResponseDataItemIncidentNumberMax),
   "unitNumber": zod.string().min(1).max(dispatchIncidentLookupResponseDataItemUnitNumberMax).optional(),
+  "eventDate": zod.coerce.date().optional(),
   "eventIngressAt": zod.coerce.date().optional(),
   "dispatchedAt": zod.coerce.date().optional(),
   "clearedAt": zod.coerce.date().optional(),
   "location": zod.string().max(dispatchIncidentLookupResponseDataItemLocationMax).optional(),
+  "locationAddress": zod.string().max(dispatchIncidentLookupResponseDataItemLocationAddressMax).optional(),
+  "locationCity": zod.string().max(dispatchIncidentLookupResponseDataItemLocationCityMax).optional(),
+  "locationState": zod.string().regex(dispatchIncidentLookupResponseDataItemLocationStateRegExp).optional(),
+  "locationZip": zod.string().regex(dispatchIncidentLookupResponseDataItemLocationZipRegExp).optional(),
+  "zone": zod.string().max(dispatchIncidentLookupResponseDataItemZoneMax).optional(),
+  "cruiserDistrict": zod.string().max(dispatchIncidentLookupResponseDataItemCruiserDistrictMax).optional(),
   "dispatchedCode": zod.string().regex(dispatchIncidentLookupResponseDataItemDispatchedCodeRegExp).optional(),
-  "runKind": zod.enum(['call_for_service', 'self_initiated', 'domestic_incident', 'traffic_crash', 'traffic_stop', 'high_risk_stop', 'building_search']).optional()
+  "clearanceCode": zod.enum(['', '1V', '2V', '3V', '4V']).optional()
 })).max(dispatchIncidentLookupResponseDataMax)
 })
 
@@ -447,10 +464,20 @@ export const dispatchEventIngressResponseDataItemIncidentNumberMax = 120;
 
 export const dispatchEventIngressResponseDataItemLocationMax = 200;
 
+export const dispatchEventIngressResponseDataItemLocationAddressMax = 200;
+
+export const dispatchEventIngressResponseDataItemLocationCityMax = 80;
+
+export const dispatchEventIngressResponseDataItemLocationStateRegExp = new RegExp('^[A-Z]{2}$');
+export const dispatchEventIngressResponseDataItemLocationZipRegExp = new RegExp('^\\d{5}(?:-\\d{4})?$');
+export const dispatchEventIngressResponseDataItemZoneMax = 40;
+
+export const dispatchEventIngressResponseDataItemCruiserDistrictMax = 40;
+
 export const dispatchEventIngressResponseDataItemDispatchedCodeMax = 8;
 
 
-export const dispatchEventIngressResponseDataItemDispatchedCodeRegExp = new RegExp('^\\d{1,3}[A-Z]?$');
+export const dispatchEventIngressResponseDataItemDispatchedCodeRegExp = new RegExp('^\\d{1,3}[A-Z]{0,2}$');
 export const dispatchEventIngressResponseDataMax = 1;
 
 
@@ -461,10 +488,18 @@ export const DispatchEventIngressResponse = zod.object({
   "total_records": zod.number().int().min(dispatchEventIngressResponseMetadataTotalRecordsMin).max(dispatchEventIngressResponseMetadataTotalRecordsMax)
 }),
   "data": zod.array(zod.object({
+  "eventDate": zod.coerce.date().optional(),
   "eventIngressAt": zod.coerce.date().optional(),
   "incidentNumber": zod.string().max(dispatchEventIngressResponseDataItemIncidentNumberMax).optional(),
   "location": zod.string().max(dispatchEventIngressResponseDataItemLocationMax).optional(),
-  "dispatchedCode": zod.string().max(dispatchEventIngressResponseDataItemDispatchedCodeMax).regex(dispatchEventIngressResponseDataItemDispatchedCodeRegExp).optional()
+  "locationAddress": zod.string().max(dispatchEventIngressResponseDataItemLocationAddressMax).optional(),
+  "locationCity": zod.string().max(dispatchEventIngressResponseDataItemLocationCityMax).optional(),
+  "locationState": zod.string().regex(dispatchEventIngressResponseDataItemLocationStateRegExp).optional(),
+  "locationZip": zod.string().regex(dispatchEventIngressResponseDataItemLocationZipRegExp).optional(),
+  "zone": zod.string().max(dispatchEventIngressResponseDataItemZoneMax).optional(),
+  "cruiserDistrict": zod.string().max(dispatchEventIngressResponseDataItemCruiserDistrictMax).optional(),
+  "dispatchedCode": zod.string().max(dispatchEventIngressResponseDataItemDispatchedCodeMax).regex(dispatchEventIngressResponseDataItemDispatchedCodeRegExp).optional(),
+  "clearanceCode": zod.enum(['', '1V', '2V', '3V', '4V']).optional()
 })).max(dispatchEventIngressResponseDataMax)
 })
 

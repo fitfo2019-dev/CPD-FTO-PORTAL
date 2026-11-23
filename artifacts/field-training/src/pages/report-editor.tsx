@@ -97,12 +97,17 @@ export default function ReportEditor() {
   const [runTimeText, setRunTimeText] = useState('');
   const [incidentNumber, setIncidentNumber] = useState('');
   const [runLocation, setRunLocation] = useState('');
+  const [runLocationCity, setRunLocationCity] = useState('');
+  const [runLocationState, setRunLocationState] = useState('');
+  const [runLocationZip, setRunLocationZip] = useState('');
+  const [runZone, setRunZone] = useState('');
+  const [runCruiserDistrict, setRunCruiserDistrict] = useState('');
   const [runError, setRunError] = useState('');
   const [runDispatched, setRunDispatched] = useState(true);
   const [trafficMode, setTrafficMode] = useState<TrainingRun['trafficMode']>('none');
   const [activityFlags, setActivityFlags] = useState<Partial<Record<ActivityKey,boolean>>>({});
   const [dispatchedCode, setDispatchedCode] = useState('');
-  const [situationFoundCode, setSituationFoundCode] = useState(SITUATION_FOUND_NA);
+  const [situationFoundCode, setSituationFoundCode] = useState('');
   const [clearanceCode, setClearanceCode] = useState<NonNullable<TrainingRun['clearanceCode']>>('');
   const [chargeText, setChargeText] = useState('');
   const [arrestMade, setArrestMade] = useState(false);
@@ -167,6 +172,8 @@ export default function ReportEditor() {
   const workflowDraft: RunWorkflowDraft = {
     ...runMeta, checklist: runChecklist, directiveReviews, narrative: runNarrative,
     incidentNumber: incidentNumber.trim() || undefined, location: runLocation.trim() || undefined,
+    locationCity:runLocationCity.trim()||undefined,locationState:runLocationState.trim()||undefined,locationZip:runLocationZip.trim()||undefined,
+    incidentZone:runZone.trim()||undefined,incidentCruiserDistrict:runCruiserDistrict.trim()||undefined,
     unitNumber:runUnitNumber.trim()||undefined,
     dispatchedAt:parseRunDateTime(runDispatchedAtText)??runDispatchedAtText,
     endedAt:parseRunDateTime(runClearedAtText)??runClearedAtText,
@@ -193,7 +200,7 @@ export default function ReportEditor() {
   const baseline = useMemo(() => JSON.stringify(existing ?? null), [existing]);
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
-  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== SITUATION_FOUND_NA || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
+  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== '' || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runLocationCity.trim() !== '' || runLocationState.trim() !== '' || runLocationZip.trim() !== '' || runZone.trim() !== '' || runCruiserDistrict.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
   const isDirty = !!r && (JSON.stringify(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
   useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
@@ -386,6 +393,11 @@ export default function ReportEditor() {
       id: previous?.id ?? runDraftId,
       incidentNumber: incidentNumber.trim() || undefined,
       location: runLocation.trim() || undefined,
+      locationCity:runLocationCity.trim()||undefined,
+      locationState:runLocationState.trim()||undefined,
+      locationZip:runLocationZip.trim()||undefined,
+      incidentZone:runZone.trim()||undefined,
+      incidentCruiserDistrict:runCruiserDistrict.trim()||undefined,
       unitNumber: runUnitNumber.trim() || undefined,
       dispatchedAt: dispatchedAtIso,
       endedAt: clearedAtIso ?? (runClearedAtText.trim() ? previous?.endedAt : undefined),
@@ -429,9 +441,9 @@ export default function ReportEditor() {
     setChargeText('');
     setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunTimeText(''); setRunDispatched(true); setRunError('');
     setRunStep('details'); setSheetReviews({}); setLegacyReviewSheets(null); setRunUnitNumber(''); setRunDispatchedAtText(''); setRunClearedAtText('');
-    setIncidentNumber(''); setRunLocation(''); generatedNarrativeRef.current = '';
+    setIncidentNumber(''); setRunLocation(''); setRunLocationCity(''); setRunLocationState(''); setRunLocationZip(''); setRunZone(''); setRunCruiserDistrict(''); generatedNarrativeRef.current = '';
     setTrafficMode('none'); setArrestMade(false); setTransported(false); setTransportDestination(''); setTransportDestinationType(undefined); setArrestProcessRequired(false); setBuildingSearchRequired(false); setOviProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
-    setActivityFlags({}); setDispatchedCode(''); setSituationFoundCode(SITUATION_FOUND_NA); setClearanceCode('');
+    setActivityFlags({}); setDispatchedCode(''); setSituationFoundCode(''); setClearanceCode('');
     setRunNarrative(''); setRunChecklist(newRunChecklist('call_for_service')); setDirectiveReviews({}); 
   };
   const editRun = (run: TrainingRun) => {
@@ -441,7 +453,9 @@ export default function ReportEditor() {
     setEditingRunId(run.id); setRunKind(run.runKind);
     setRunStep('details'); setRunError('');
     setRunUnitNumber(run.unitNumber ?? ''); setRunDispatchedAtText(run.dispatchedAt ? formatDateTimeMDY(run.dispatchedAt) : ''); setRunClearedAtText(run.endedAt ? formatDateTimeMDY(run.endedAt) : '');
-    setIncidentNumber(run.incidentNumber ?? ''); setRunLocation(run.location ?? ''); generatedNarrativeRef.current = '';
+    setIncidentNumber(run.incidentNumber ?? ''); setRunLocation(run.location ?? '');
+    setRunLocationCity(run.locationCity??'');setRunLocationState(run.locationState??'');setRunLocationZip(run.locationZip??'');
+    setRunZone(run.incidentZone??'');setRunCruiserDistrict(run.incidentCruiserDistrict??'');generatedNarrativeRef.current = '';
     const occurredAt = new Date(run.occurredAt);
     const localDateTime = new Date(occurredAt.getTime() - occurredAt.getTimezoneOffset() * 60000).toISOString();
     const localRunDateTime=`${formatDateDMY(localDateTime.slice(0,10))} ${localDateTime.slice(11,16)}`;
@@ -470,9 +484,14 @@ export default function ReportEditor() {
     const dispatched = kind==='call_for_service'?true:kind==='self_initiated'?false:true;
     const mode: TrainingRun['trafficMode'] = kind==='traffic_stop'?'motor_vehicle':'none';
     setRunKind(kind); setRunDispatched(dispatched); setTrafficMode(mode);
-    setRunChecklist(checklistForMetadata({ runKind:kind, trafficMode:mode, isDispatched:dispatched, arrestMade:false, transportedAfterArrest:false, arrestProcessRequired:false, buildingSearchRequired:false, oviProcessed:false, oviProcessRequired:false, narrativeAdditionRequired:false }, {}));
-    setIncidentNumber(seed.incidentNumber); setRunLocation(seed.location); setRunUnitNumber(seed.unitNumber);
-    setDispatchedCode(kind==='traffic_stop'?'6':normalizeRadioCode(seed.dispatchedCode)||(DEFAULT_RUN_TYPE_CODES[kind]??''));
+    const importedArrest=seed.clearanceCode==='3V';
+    setRunChecklist(checklistForMetadata({ runKind:kind, trafficMode:mode, isDispatched:dispatched, arrestMade:importedArrest, transportedAfterArrest:importedArrest, arrestProcessRequired:importedArrest, buildingSearchRequired:false, oviProcessed:false, oviProcessRequired:false, narrativeAdditionRequired:false }, {}));
+    setIncidentNumber(seed.incidentNumber); setRunLocation(seed.location); setRunLocationCity(seed.locationCity); setRunLocationState(seed.locationState); setRunLocationZip(seed.locationZip);
+    setRunZone(seed.zone); setRunCruiserDistrict(seed.cruiserDistrict); setRunUnitNumber(seed.unitNumber);
+    setDispatchedCode(normalizeRadioCode(seed.dispatchedCode)||(DEFAULT_RUN_TYPE_CODES[kind]??''));
+    setSituationFoundCode(normalizeSituationFoundCode(seed.situationFoundCode));
+    setClearanceCode(seed.clearanceCode);
+    setArrestMade(importedArrest);setTransported(importedArrest);setArrestProcessRequired(importedArrest);
     const occurred = splitDateTimeEntryMDY(seed.occurredAtText);
     if (occurred.date) { setRunDateTimeText(seed.occurredAtText); setRunTimeText(occurred.time); }
     setRunDispatchedAtText(seed.dispatchedAtText); setRunClearedAtText(seed.clearedAtText);
@@ -490,7 +509,8 @@ export default function ReportEditor() {
     const dispatched=next==='call_for_service'?true:next==='self_initiated'?false:runDispatched;
     const mode:TrainingRun['trafficMode']=next==='traffic_stop'?'motor_vehicle':'none';
     const previousKind = runKind;
-    setRunKind(next);setRunDispatched(dispatched);setTrafficMode(mode);setDispatchedCode(DEFAULT_RUN_TYPE_CODES[next]??'');setSituationFoundCode(SITUATION_FOUND_NA);
+    setRunKind(next);setRunDispatched(dispatched);setTrafficMode(mode);
+    setDispatchedCode(current=>current||DEFAULT_RUN_TYPE_CODES[next]||'');
     // Primary task indices mean different things per form: reset them; keep supplement answers.
     setRunChecklist(prev=>checklistForMetadata({...runMeta,runKind:next,trafficMode:mode,isDispatched:dispatched},Object.fromEntries(Object.entries(prev).filter(([key])=>!key.startsWith('task-')&&key!=='na-task'))));
     setDirectiveReviews(current=>{const copy={...current};delete copy[previousKind];return copy;});
@@ -723,7 +743,12 @@ export default function ReportEditor() {
                  <F l="Unit / cruiser assignment"><input className={inp+' mono'} value={runUnitNumber} onChange={event=>setRunUnitNumber(event.target.value)} maxLength={40} placeholder="Assigned unit or cruiser" data-testid="input-run-unit-number" /></F>
                  <F l="Dispatched at · MM/DD/YYYY HH:MM"><input className={inp+' mono'} value={runDispatchedAtText} onChange={event=>setRunDispatchedAtText(event.target.value)} maxLength={16} placeholder="Optional" data-testid="input-run-dispatched-at" /></F>
                  <F l="Cleared at · MM/DD/YYYY HH:MM"><input className={inp+' mono'} value={runClearedAtText} onChange={event=>setRunClearedAtText(event.target.value)} maxLength={16} placeholder="Optional" data-testid="input-run-cleared-at" /></F>
-                 <F l="Location"><input className={inp} value={runLocation} onChange={event=>setRunLocation(event.target.value)} maxLength={200} data-testid="input-run-location" /></F>
+                 <F l="Street address"><input className={inp} value={runLocation} onChange={event=>setRunLocation(event.target.value)} maxLength={200} data-testid="input-run-location" /></F>
+                 <F l="City"><input className={inp} value={runLocationCity} onChange={event=>setRunLocationCity(event.target.value)} maxLength={80} data-testid="input-run-city" /></F>
+                 <F l="State"><input className={inp} value={runLocationState} onChange={event=>setRunLocationState(event.target.value.toUpperCase())} maxLength={2} data-testid="input-run-state" /></F>
+                 <F l="ZIP code"><input className={inp} value={runLocationZip} onChange={event=>setRunLocationZip(event.target.value)} maxLength={10} data-testid="input-run-zip" /></F>
+                 <F l="Zone"><input className={inp} value={runZone} onChange={event=>setRunZone(event.target.value)} maxLength={40} data-testid="input-run-zone" /></F>
+                 <F l="Cruiser district"><input className={inp} value={runCruiserDistrict} onChange={event=>setRunCruiserDistrict(event.target.value)} maxLength={40} data-testid="input-run-cruiser-district" /></F>
                 {runKind==='traffic_stop' && <F l="Traffic violator"><SearchableSelect className={inp} value={trafficMode==='none'?'motor_vehicle':trafficMode} onChange={e=>{const mode=e.target.value as TrainingRun['trafficMode'];setTrafficMode(mode);recompute({trafficMode:mode});setRunError('');}} data-testid="select-traffic-violator"><option value="motor_vehicle">Motor vehicle</option><option value="pedestrian">Pedestrian</option><option value="bicycle">Bicycle</option><option value="other">Other</option></SearchableSelect></F>}
                 <F l="Run type / 10-code">
                   <div className="flex min-w-0">
@@ -733,8 +758,8 @@ export default function ReportEditor() {
                   <span className="text-xs text-muted-foreground">{runTypeCodeHelp(runKind)}{dispatchedCode?` ${RADIO_CODES[dispatchedCode]??'Unlisted code — confirm against approved code table'}`:''}</span>
                </F>
                 <F l="Situation found code">
-                   <div className="flex min-w-0">{situationFoundCode!==SITUATION_FOUND_NA&&<span className={radioCodePrefix} aria-hidden="true">10-</span>}<input aria-label="Situation found code or N/A" className={radioCodeInput} value={situationFoundCode} onChange={e=>setSituationFoundCode(normalizeSituationFoundCode(e.target.value))} list="radio-code-list" placeholder="N/A" data-testid="input-situation-found-code" /></div>
-                   <span className="text-xs text-muted-foreground">{situationFoundCode===SITUATION_FOUND_NA?'Defaults to N/A; change it when a situation-found 10-code applies.':situationFoundCode ? RADIO_CODES[situationFoundCode] ?? 'Unlisted code — confirm against approved code table' : 'Enter the applicable code or N/A.'}</span>
+                    <div className="flex min-w-0">{situationFoundCode&&situationFoundCode!==SITUATION_FOUND_NA&&<span className={radioCodePrefix} aria-hidden="true">10-</span>}<input aria-label="Situation found code" className={radioCodeInput} value={situationFoundCode} onChange={e=>setSituationFoundCode(normalizeSituationFoundCode(e.target.value))} list="radio-code-list" placeholder="Optional" data-testid="input-situation-found-code" /></div>
+                    <span className="text-xs text-muted-foreground">{situationFoundCode===SITUATION_FOUND_NA?'N/A was recorded explicitly.':situationFoundCode ? RADIO_CODES[situationFoundCode] ?? 'Unlisted code — confirm against approved code table' : 'Blank by default. Enter only the code when the situation found differs.'}</span>
                </F>
                <datalist id="radio-code-list">{Object.entries(RADIO_CODES).map(([code,label])=><option key={code} value={code}>{label}</option>)}</datalist>
                     <F l="Clearance code"><SearchableSelect className={inp} value={clearanceCode} onChange={e=>{const code=e.target.value as typeof clearanceCode;setClearanceCode(code);if(code==='3V')setArrestState(true);}} data-testid="select-clearance-code"><option value="">Not recorded</option>{CLEARANCE_CODES.map(item=><option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}</SearchableSelect></F>

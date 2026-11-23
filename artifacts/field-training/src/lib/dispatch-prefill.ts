@@ -1,10 +1,16 @@
-import type {PrimaryRunForm} from './model.js';
-
 export type DispatchPrefill = {
+  eventDate?: string;
   eventIngressAt?: string;
   incidentNumber?: string;
   location?: string;
+  locationAddress?: string;
+  locationCity?: string;
+  locationState?: string;
+  locationZip?: string;
+  zone?: string;
+  cruiserDistrict?: string;
   dispatchedCode?: string;
+  clearanceCode?: ''|'1V'|'2V'|'3V'|'4V';
 };
 
 export type DispatchIncidentPrefill=DispatchPrefill & {
@@ -12,10 +18,17 @@ export type DispatchIncidentPrefill=DispatchPrefill & {
   unitNumber?:string;
   dispatchedAt?:string;
   clearedAt?:string;
-  runKind?:PrimaryRunForm;
 };
-const dispatchRunTypes:readonly string[]=['call_for_service','self_initiated','domestic_incident','traffic_crash','traffic_stop','high_risk_stop','building_search'];
 const normalizedUnit=(value:string)=>value.trim().toUpperCase().replace(/\s+/g,' ');
+const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE_TIME=/(?:Z|[+-]\d{2}:\d{2})$/i;
+
+function validOptionalText(record:Record<string,unknown>,key:string,max:number,pattern?:RegExp):string|undefined|false {
+  const value=record[key];
+  if(value===undefined)return;
+  if(typeof value!=='string'||value.trim().length>max|| (pattern&&!pattern.test(value.trim())))return false;
+  return value.trim()||undefined;
+}
 
 /** Reject malformed envelopes rather than silently selecting a partial result. */
 export function mapDispatchIncidentResponse(value:unknown):DispatchIncidentPrefill[]|undefined {
@@ -36,12 +49,11 @@ export function mapDispatchIncidentResponse(value:unknown):DispatchIncidentPrefi
     for(const key of ['dispatchedAt','clearedAt'] as const){
       const time=record[key];
       if(time===undefined)continue;
-      if(typeof time!=='string'||!/(?:Z|[+-]\d{2}:\d{2})$/i.test(time)||!Number.isFinite(Date.parse(time)))return;
+      if(typeof time!=='string'||!ISO_DATE_TIME.test(time)||!Number.isFinite(Date.parse(time)))return;
       // Unit-specific clock values require a unit association.
       if(row.unitNumber)row[key]=new Date(time).toISOString();
     }
     if(row.dispatchedAt&&row.clearedAt&&Date.parse(row.clearedAt)<Date.parse(row.dispatchedAt))return;
-    if(typeof record.runKind==='string'&&dispatchRunTypes.includes(record.runKind))row.runKind=record.runKind as PrimaryRunForm;
     result.push(row);
   }
   return result;
@@ -69,6 +81,12 @@ export type DispatchPrefillDraft = {
   runTimeText: string;
   incidentNumber: string;
   runLocation: string;
+  runLocationCity?: string;
+  runLocationState?: string;
+  runLocationZip?: string;
+  runZone?: string;
+  runCruiserDistrict?: string;
+  clearanceCode?: DispatchPrefill['clearanceCode'];
   dispatchedCode: string;
 };
 
@@ -99,9 +117,28 @@ export function mapDispatchPrefillResponse(value: unknown): DispatchPrefill | un
   if (typeof data !== "object" || data === null || Array.isArray(data)) return;
   const record = data as Record<string, unknown>;
   const result: DispatchPrefill = {};
+  for(const [key,max,pattern] of [
+    ['location',200,undefined],
+    ['locationAddress',200,undefined],
+    ['locationCity',80,undefined],
+    ['locationState',2,/^[A-Z]{2}$/],
+    ['locationZip',10,/^\d{5}(?:-\d{4})?$/],
+    ['zone',40,undefined],
+    ['cruiserDistrict',40,undefined],
+  ] as const) {
+    const value=validOptionalText(record,key,max,pattern);
+    if(value===false)return;
+    if(value!==undefined)Object.assign(result,{[key]:value});
+  }
+  if(record.eventDate!==undefined) {
+    if(typeof record.eventDate!=='string'||!ISO_DATE.test(record.eventDate))return;
+    const parsedDate=new Date(`${record.eventDate}T00:00:00.000Z`);
+    if(!Number.isFinite(parsedDate.getTime())||parsedDate.toISOString().slice(0,10)!==record.eventDate)return;
+    result.eventDate=record.eventDate;
+  }
   if (record.eventIngressAt !== undefined) {
-    if (typeof record.eventIngressAt !== "string" || !Number.isFinite(Date.parse(record.eventIngressAt))) return;
-    result.eventIngressAt = record.eventIngressAt;
+    if (typeof record.eventIngressAt !== "string" || !ISO_DATE_TIME.test(record.eventIngressAt) || !Number.isFinite(Date.parse(record.eventIngressAt))) return;
+    result.eventIngressAt = new Date(record.eventIngressAt).toISOString();
   }
   if (record.incidentNumber !== undefined) {
     if (typeof record.incidentNumber !== "string" || record.incidentNumber.length > 120) return;
@@ -112,8 +149,12 @@ export function mapDispatchPrefillResponse(value: unknown): DispatchPrefill | un
     result.location = record.location;
   }
   if (record.dispatchedCode !== undefined) {
-    if (typeof record.dispatchedCode !== "string" || !/^\d{1,3}[A-Za-z]?$/.test(record.dispatchedCode)) return;
-    result.dispatchedCode = record.dispatchedCode.toUpperCase();
+    if (typeof record.dispatchedCode !== "string" || !/^(?:10[\s-]*)?\d{1,3}[A-Za-z]{0,2}$/.test(record.dispatchedCode.trim())) return;
+    result.dispatchedCode = record.dispatchedCode.trim().replace(/^10[\s-]*/i,'').toUpperCase();
+  }
+  if(record.clearanceCode!==undefined) {
+    if(!['','1V','2V','3V','4V'].includes(record.clearanceCode as string))return;
+    result.clearanceCode=record.clearanceCode as DispatchPrefill['clearanceCode'];
   }
   return result;
 }
@@ -144,8 +185,20 @@ export function applyDispatchPrefill(
     runLocation: applyDispatchPrefillValue(
       current.runLocation,
       initial.runLocation,
-      prefill.location,
+      prefill.locationAddress??prefill.location,
     ),
+    ...(current.runLocationCity!==undefined||initial.runLocationCity!==undefined||prefill.locationCity!==undefined
+      ?{runLocationCity:applyDispatchPrefillValue(current.runLocationCity??'',initial.runLocationCity??'',prefill.locationCity)}:{}),
+    ...(current.runLocationState!==undefined||initial.runLocationState!==undefined||prefill.locationState!==undefined
+      ?{runLocationState:applyDispatchPrefillValue(current.runLocationState??'',initial.runLocationState??'',prefill.locationState)}:{}),
+    ...(current.runLocationZip!==undefined||initial.runLocationZip!==undefined||prefill.locationZip!==undefined
+      ?{runLocationZip:applyDispatchPrefillValue(current.runLocationZip??'',initial.runLocationZip??'',prefill.locationZip)}:{}),
+    ...(current.runZone!==undefined||initial.runZone!==undefined||prefill.zone!==undefined
+      ?{runZone:applyDispatchPrefillValue(current.runZone??'',initial.runZone??'',prefill.zone)}:{}),
+    ...(current.runCruiserDistrict!==undefined||initial.runCruiserDistrict!==undefined||prefill.cruiserDistrict!==undefined
+      ?{runCruiserDistrict:applyDispatchPrefillValue(current.runCruiserDistrict??'',initial.runCruiserDistrict??'',prefill.cruiserDistrict)}:{}),
+    ...(current.clearanceCode!==undefined||initial.clearanceCode!==undefined||prefill.clearanceCode!==undefined
+      ?{clearanceCode:current.clearanceCode===initial.clearanceCode?prefill.clearanceCode??current.clearanceCode:current.clearanceCode}:{}),
     dispatchedCode: applyDispatchPrefillValue(
       current.dispatchedCode,
       initial.dispatchedCode,

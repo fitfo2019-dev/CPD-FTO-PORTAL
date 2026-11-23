@@ -2,18 +2,26 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, RotateCw, PenLine } from 'lucide-react';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { PRIMARY_RUN_FORMS, type PrimaryRunForm } from '@/lib/model.js';
-import { formatDateTimeMDY } from '@/lib/training-calendar.js';
+import { formatDateDMY, formatDateTimeMDY } from '@/lib/training-calendar.js';
 import { lookupDispatchIncident } from '@/components/dispatch-incident-lookup.js';
 import type { DispatchIncidentPrefill } from '@/lib/dispatch-prefill.js';
+import { CLEARANCE_CODES, isValidRadioCode, isValidSituationFoundCode, normalizeRadioCode, normalizeSituationFoundCode, RADIO_CODES, suggestRunTypeFromDispatchedCode } from '@/lib/radio-codes.js';
 
 export type NewRunSeed = {
   incidentNumber: string;
   unitNumber: string;
   location: string;
+  locationCity: string;
+  locationState: string;
+  locationZip: string;
+  zone: string;
+  cruiserDistrict: string;
   occurredAtText: string;
   dispatchedAtText: string;
   clearedAtText: string;
   dispatchedCode: string;
+  situationFoundCode: string;
+  clearanceCode: ''|'1V'|'2V'|'3V'|'4V';
   runKind: PrimaryRunForm;
   fromDispatch: boolean;
 };
@@ -33,10 +41,17 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
   const [failure, setFailure] = useState('');
   const [fromDispatch, setFromDispatch] = useState(false);
   const [location, setLocation] = useState('');
+  const [locationCity, setLocationCity] = useState('');
+  const [locationState, setLocationState] = useState('');
+  const [locationZip, setLocationZip] = useState('');
+  const [zone, setZone] = useState('');
+  const [cruiserDistrict, setCruiserDistrict] = useState('');
   const [occurred, setOccurred] = useState('');
   const [dispatchedAt, setDispatchedAt] = useState('');
   const [clearedAt, setClearedAt] = useState('');
   const [code, setCode] = useState('');
+  const [situationFoundCode, setSituationFoundCode] = useState('');
+  const [clearanceCode, setClearanceCode] = useState<NewRunSeed['clearanceCode']>('');
   const [kind, setKind] = useState<PrimaryRunForm | ''>('');
   const abortRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
@@ -52,25 +67,76 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
     setFromDispatch(true);
     setIncident(p.incidentNumber);
     if (p.unitNumber) setUnit(p.unitNumber);
-    setLocation(p.location ?? '');
-    setOccurred(p.eventIngressAt ? formatDateTimeMDY(p.eventIngressAt) : '');
+    setLocation(p.locationAddress ?? p.location ?? '');
+    setLocationCity(p.locationCity ?? '');
+    setLocationState(p.locationState ?? '');
+    setLocationZip(p.locationZip ?? '');
+    setZone(p.zone ?? '');
+    setCruiserDistrict(p.cruiserDistrict ?? '');
+    setOccurred(p.eventIngressAt ? formatDateTimeMDY(p.eventIngressAt) : p.eventDate ? formatDateDMY(p.eventDate) : '');
     setDispatchedAt(p.dispatchedAt ? formatDateTimeMDY(p.dispatchedAt) : '');
     setClearedAt(p.clearedAt ? formatDateTimeMDY(p.clearedAt) : '');
-    setCode(p.dispatchedCode ?? '');
-    // Only an explicit runKind from the record is used; it is never guessed from the 10-code.
-    setKind(p.runKind ?? '');
+    setCode(normalizeRadioCode(p.dispatchedCode ?? ''));
+    setSituationFoundCode('');
+    setClearanceCode(p.clearanceCode ?? '');
+    const suggestion=suggestRunTypeFromDispatchedCode(p.dispatchedCode ?? '');
+    setKind(suggestion.status==='ambiguous'?'':suggestion.runKind);
     setConfirmed(false);
     setPhase('review');
+  };
+
+  const updateDispatchedCode = (value:string) => {
+    const normalized=normalizeRadioCode(value);
+    setFailure('');
+    setCode(normalized);
+    const suggestion=suggestRunTypeFromDispatchedCode(normalized);
+    setKind(suggestion.status==='ambiguous'?'':suggestion.runKind);
+  };
+
+  const submitReviewedRun = (keyboardConfirmation = false) => {
+    if (!kind || (!confirmed && !keyboardConfirmation)) return;
+    if(!isValidRadioCode(code)||!isValidSituationFoundCode(situationFoundCode)){
+      setFailure('Enter a valid dispatched or situation-found code using digits and optional letters.');
+      return;
+    }
+    if(locationState&&!/^[A-Z]{2}$/.test(locationState)){
+      setFailure('Enter a two-letter state abbreviation or leave State blank.');
+      return;
+    }
+    if(locationZip&&!/^\d{5}(?:-\d{4})?$/.test(locationZip)){
+      setFailure('Enter a 5-digit ZIP code, an optional 4-digit extension, or leave ZIP blank.');
+      return;
+    }
+    setFailure('');
+    onConfirm({
+      incidentNumber: incident.trim(),
+      unitNumber: unit.trim(),
+      location: location.trim(),
+      locationCity: locationCity.trim(),
+      locationState: locationState.trim(),
+      locationZip: locationZip.trim(),
+      zone: zone.trim(),
+      cruiserDistrict: cruiserDistrict.trim(),
+      occurredAtText: occurred.trim(),
+      dispatchedAtText: dispatchedAt.trim(),
+      clearedAtText: clearedAt.trim(),
+      dispatchedCode: code.trim(),
+      situationFoundCode: situationFoundCode.trim(),
+      clearanceCode,
+      runKind: kind,
+      fromDispatch,
+    });
   };
 
   useEffect(() => {
     if (!open) return;
     setPhase('ask'); setIncident(''); setUnit(defaultUnit); setFailure(''); setFromDispatch(false);
-    setLocation(''); setOccurred(''); setDispatchedAt(''); setClearedAt(''); setCode(''); setKind('');
+    setLocation(''); setLocationCity(''); setLocationState(''); setLocationZip(''); setZone(''); setCruiserDistrict('');
+    setOccurred(''); setDispatchedAt(''); setClearedAt(''); setCode(''); setSituationFoundCode(''); setClearanceCode(''); setKind('');
     setCandidates([]); setPicked(null); setConfirmed(false);
     return () => cancelPending();
   }, [open, defaultUnit,cancelPending]);
-  useEffect(()=>{setConfirmed(false);},[incident,unit,location,occurred,dispatchedAt,clearedAt,code,kind]);
+  useEffect(()=>{setConfirmed(false);setFailure('');},[incident,unit,location,locationCity,locationState,locationZip,zone,cruiserDistrict,occurred,dispatchedAt,clearedAt,code,situationFoundCode,clearanceCode,kind]);
 
   const runLookup = async () => {
     const inc = incident.trim(); const un = unit.trim();
@@ -88,7 +154,7 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
     else if (result.status === 'choose') { setCandidates(result.matches); setChooseReason(result.reason); setPicked(null); setPhase('choose'); }
     else { setFailure(result.status === 'empty' ? `No dispatch record for incident ${inc} on unit ${un} was found.` : result.message); setPhase('failed'); }
   };
-  const manual = () => { cancelPending(); setFromDispatch(false); setConfirmed(false); setPhase('review'); };
+  const manual = () => { cancelPending(); setFromDispatch(false); setFailure(''); setConfirmed(false); setPhase('review'); };
 
   return <AlertDialog open={open} onOpenChange={next => { if (!next) { cancelPending(); onCancel(); } }}>
     <AlertDialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto" data-testid="dialog-new-run">
@@ -122,20 +188,31 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
       </div>}
 
       {phase === 'review' && <div className="grid gap-3 sm:grid-cols-2">
+        {failure&&<div role="alert" className="rounded border border-warn/60 bg-warn/10 p-3 text-sm sm:col-span-2">{failure}</div>}
         <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Primary run type · required</span>
-          <select className={inp} value={kind} onChange={e => setKind(e.target.value as PrimaryRunForm)} data-testid="select-new-run-kind">
+          <select className={inp} value={kind} onChange={e => {setFailure('');setKind(e.target.value as PrimaryRunForm);}} data-testid="select-new-run-kind">
             <option value="" disabled>Select the primary form</option>
             {PRIMARY_RUN_FORMS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
           </select>
-          {!kind && <span className="text-xs text-muted-foreground">The 10-code alone does not decide the form. Choose it.</span>}
+          {code==='6'&&<span className="text-xs text-muted-foreground">10-6 can use Traffic Stop or High Risk Traffic Stop. Choose the correct primary form.</span>}
+          {code&&code!=='6'&&<span className="text-xs text-muted-foreground">The form suggestion is based only on the dispatched code; review and change it when the actual run requires another form.</span>}
+          {!kind && <span className="text-xs text-muted-foreground">Choose the primary form to continue.</span>}
         </label>
         <label className="block space-y-1"><span className="label-caps">Incident / run number</span><input className={inp + ' mono'} value={incident} maxLength={120} onChange={e => setIncident(e.target.value)} data-testid="input-review-incident" /></label>
         <label className="block space-y-1"><span className="label-caps">Unit / cruiser assignment</span><input className={inp + ' mono'} value={unit} maxLength={40} onChange={e => setUnit(e.target.value)} data-testid="input-review-unit" /></label>
-        <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Location</span><input className={inp} value={location} maxLength={200} onChange={e => setLocation(e.target.value)} data-testid="input-review-location" /></label>
-        <label className="block space-y-1"><span className="label-caps">Run date and time</span><input className={inp + ' mono'} value={occurred} placeholder="MM/DD/YYYY HH:MM" onChange={e => setOccurred(e.target.value)} data-testid="input-review-occurred" /></label>
-        <label className="block space-y-1"><span className="label-caps">10-code</span><input className={inp + ' mono uppercase'} value={code} placeholder="6 or 17A" onChange={e => setCode(e.target.value.toUpperCase())} data-testid="input-review-code" /></label>
+        <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Street address</span><input className={inp} value={location} maxLength={200} onChange={e => setLocation(e.target.value)} data-testid="input-review-location" /></label>
+        <label className="block space-y-1"><span className="label-caps">City</span><input className={inp} value={locationCity} maxLength={80} onChange={e => setLocationCity(e.target.value)} data-testid="input-review-city" /></label>
+        <label className="block space-y-1"><span className="label-caps">State</span><input className={inp} value={locationState} maxLength={2} onChange={e => setLocationState(e.target.value.toUpperCase())} data-testid="input-review-state" /></label>
+        <label className="block space-y-1"><span className="label-caps">ZIP code</span><input className={inp} value={locationZip} maxLength={10} onChange={e => setLocationZip(e.target.value)} data-testid="input-review-zip" /></label>
+        <label className="block space-y-1"><span className="label-caps">Zone</span><input className={inp} value={zone} maxLength={40} onChange={e => setZone(e.target.value)} data-testid="input-review-zone" /></label>
+        <label className="block space-y-1"><span className="label-caps">Cruiser district</span><input className={inp} value={cruiserDistrict} maxLength={40} onChange={e => setCruiserDistrict(e.target.value)} data-testid="input-review-cruiser-district" /></label>
+        <label className="block space-y-1"><span className="label-caps">Incident date / event time</span><input className={inp + ' mono'} value={occurred} placeholder="MM/DD/YYYY HH:MM" onChange={e => setOccurred(e.target.value)} data-testid="input-review-occurred" /></label>
+        <label className="block space-y-1"><span className="label-caps">Dispatched 10-code · enter code only</span><input className={inp + ' mono uppercase'} value={code} placeholder="17 or 17A" onChange={e => updateDispatchedCode(e.target.value)} onKeyDown={e => { if(e.key==='Enter'){e.preventDefault();if(!kind){setFailure('This code is ambiguous. Select the correct primary form before continuing.');return;}submitReviewedRun(true);} }} list="new-run-radio-code-list" data-testid="input-review-code" /><span className="text-xs text-muted-foreground">{code?`10-${code} · ${code==='6'?'requires a form choice':(RADIO_CODES[code]??'unlisted code; confirm against the approved code table')}`:'Enter the dispatched code without the 10- prefix.'} Press Enter to open the selected form; Tab moves to the next field.</span></label>
+        <label className="block space-y-1"><span className="label-caps">Situation found 10-code · optional</span><input className={inp + ' mono uppercase'} value={situationFoundCode} placeholder="Leave blank if not applicable" onChange={e => setSituationFoundCode(normalizeSituationFoundCode(e.target.value))} list="new-run-radio-code-list" data-testid="input-review-situation-found-code" /></label>
+        <datalist id="new-run-radio-code-list">{Object.entries(RADIO_CODES).map(([value,label])=><option key={value} value={value}>{label}</option>)}</datalist>
         <label className="block space-y-1"><span className="label-caps">Dispatched at</span><input className={inp + ' mono'} value={dispatchedAt} placeholder="MM/DD/YYYY HH:MM" onChange={e => setDispatchedAt(e.target.value)} data-testid="input-review-dispatched-at" /></label>
         <label className="block space-y-1"><span className="label-caps">Cleared at</span><input className={inp + ' mono'} value={clearedAt} placeholder="MM/DD/YYYY HH:MM" onChange={e => setClearedAt(e.target.value)} data-testid="input-review-cleared-at" /></label>
+        <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Clearance code · optional if dispatch provides it</span><select className={inp} value={clearanceCode} onChange={e => setClearanceCode(e.target.value as NewRunSeed['clearanceCode'])} data-testid="select-review-clearance-code"><option value="">Not recorded</option>{CLEARANCE_CODES.map(item=><option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}</select></label>
         <label className="flex items-start gap-2 rounded border bg-muted/30 p-2 text-sm sm:col-span-2"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} data-testid="checkbox-new-run-reviewed" /><span>I reviewed these details{fromDispatch ? ' returned by dispatch' : ''} and corrected anything that was wrong.</span></label>
       </div>}
 
@@ -145,7 +222,7 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
         {phase === 'choose' && <button type="button" disabled={picked === null} onClick={() => { const c = picked !== null ? candidates[picked] : undefined; if (c) applyMatch(c); }} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-use-candidate">Use selected record</button>}
         {phase === 'failed' && <button type="button" onClick={() => void runLookup()} className="inline-flex min-h-10 items-center gap-1.5 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-new-run-retry"><RotateCw className="h-4 w-4" />Retry</button>}
         {(phase === 'ask' || phase === 'loading') && <button type="button" disabled={!incident.trim() || !unit.trim() || phase === 'loading'} onClick={() => void runLookup()} className="inline-flex min-h-10 items-center gap-1.5 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-lookup"><Search className="h-4 w-4" />Look up</button>}
-        {phase === 'review' && <button type="button" disabled={!kind || !confirmed} onClick={() => kind && confirmed && onConfirm({ incidentNumber: incident.trim(), unitNumber: unit.trim(), location: location.trim(), occurredAtText: occurred.trim(), dispatchedAtText: dispatchedAt.trim(), clearedAtText: clearedAt.trim(), dispatchedCode: code.trim(), runKind: kind, fromDispatch })} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-confirm">Open run sheet</button>}
+        {phase === 'review' && <button type="button" disabled={!kind || !confirmed} onClick={() => submitReviewedRun()} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-confirm">Open run sheet</button>}
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>;

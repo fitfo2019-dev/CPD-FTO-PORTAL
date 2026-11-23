@@ -221,7 +221,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
   const runRows: (string | number)[][] = [[
     'Probationary Officer', 'Badge', 'Date', 'Shift', 'FTO Assignment', 'Run time', 'Primary form', 'Additional forms', 'Form status',
     'Dispatched', 'Arrest made', 'Transported after arrest', 'Transport destination type', 'Transport destination', 'OVI processed', 'Traffic violator', 'Run narrative',
-    'Incident number', 'Run location', 'Run ended',
+    'Incident number', 'Unit / cruiser', 'Street address', 'City', 'State', 'ZIP code', 'Incident zone', 'Incident cruiser district', 'Dispatched at', 'Run ended',
     'Run type 10-code', 'Run type description — public reference', 'Situation found 10-code', 'Situation description — public reference',
     'Clearance code', 'Clearance description — public reference', 'Solve Citation/Summons*', 'Related activity/forms', 'Source log ID', 'Run ID', 'Class',
   ]];
@@ -319,9 +319,11 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
         safeText(run.formStatus), run.isDispatched ? 'Yes' : 'No', run.arrestMade ? 'Yes' : 'No',
           run.transportedAfterArrest ? 'Yes' : 'No', safeText(run.transportDestinationType ?? ''), safeText(run.transportDestination ?? ''), run.oviProcessed ? 'Yes' : 'No', safeText(run.trafficMode),
         safeText(run.narrative),
-        safeText(run.incidentNumber??''),safeText(run.location??''),safeText(run.endedAt?formatDateTimeMDY(run.endedAt):''),
+        safeText(run.incidentNumber??''),safeText(run.unitNumber??''),safeText(run.location??''),safeText(run.locationCity??''),
+        safeText(run.locationState??''),safeText(run.locationZip??''),safeText(run.incidentZone??''),safeText(run.incidentCruiserDistrict??''),
+        safeText(run.dispatchedAt?formatDateTimeMDY(run.dispatchedAt):''),safeText(run.endedAt?formatDateTimeMDY(run.endedAt):''),
         run.dispatchedCode ? `10-${safeText(run.dispatchedCode)}` : '', safeText(RADIO_CODES[run.dispatchedCode ?? ''] ?? ''),
-        safeText(formatRadioCode(run.situationFoundCode,'N/A')), safeText(RADIO_CODES[run.situationFoundCode ?? ''] ?? ''),
+        safeText(formatRadioCode(run.situationFoundCode,'')), safeText(RADIO_CODES[run.situationFoundCode ?? ''] ?? ''),
         safeText(run.clearanceCode), safeText(CLEARANCE_CODES.find(item=>item.code===run.clearanceCode)?.label),
          run.activityFlags?.solveCitationSummons ? 'Yes' : '',
         DAILY_ACTIVITY_FIELDS.filter(item=>run.activityFlags?.[item.key]).map(item=>item.label).join('; '),

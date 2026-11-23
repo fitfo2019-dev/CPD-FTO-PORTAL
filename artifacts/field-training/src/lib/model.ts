@@ -441,6 +441,11 @@ export interface TrainingRun {
   unitNumber?: string;
   dispatchedAt?: string;
   location?: string;
+  locationCity?: string;
+  locationState?: string;
+  locationZip?: string;
+  incidentZone?: string;
+  incidentCruiserDistrict?: string;
   transportDestination?: string;
   transportDestinationType?: 'Jail'|'HQ'|'Clerks';
   endedAt?: string;

@@ -1,12 +1,10 @@
 import {fetchPatrolViewJson,mapPatrolViewEvent,PatrolViewIntegrationError,type PatrolViewConfig,type DispatchEventPrefill} from './patrolViewIntegration.js';
 
-const RUN_TYPES=['call_for_service','self_initiated','domestic_incident','traffic_crash','traffic_stop','high_risk_stop','building_search'] as const;
 export type DispatchIncidentPrefill=DispatchEventPrefill & {
   incidentNumber:string;
   unitNumber?:string;
   dispatchedAt?:string;
   clearedAt?:string;
-  runKind?:typeof RUN_TYPES[number];
 };
 function object(value:unknown):Record<string,unknown>|undefined {
   return value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:undefined;
@@ -71,14 +69,10 @@ export function mapPatrolViewIncident(payload:unknown,incidentNumber:string):Dis
     const dispatchedAt=optionalTime(source,'dispatchedAt','dispatched_at');
     const clearedAt=optionalTime(source,'clearedAt','cleared_at');
     if(dispatchedAt&&clearedAt&&Date.parse(clearedAt)<Date.parse(dispatchedAt))return invalid();
-    const suppliedKind=source.runKind??source.run_kind;
-    // A dispatch code is not an approved classification. Unknown kinds stay ambiguous.
-    const runKind=typeof suppliedKind==='string'&&RUN_TYPES.includes(suppliedKind as typeof RUN_TYPES[number])
-      ?suppliedKind as typeof RUN_TYPES[number]:undefined;
     // Whitelist only the approved run metrics. Never pass caller, officer, phone,
     // narrative, notes, or any other upstream payload fields to the browser.
     return {...common,incidentNumber:common.incidentNumber,...(unitNumber?{unitNumber}:{}),
-      ...(unitNumber&&dispatchedAt?{dispatchedAt}:{}),...(unitNumber&&clearedAt?{clearedAt}:{}),...(runKind?{runKind}:{})};
+      ...(unitNumber&&dispatchedAt?{dispatchedAt}:{}),...(unitNumber&&clearedAt?{clearedAt}:{})};
   });
 }
 
@@ -105,7 +99,7 @@ export async function fetchPatrolViewIncident(
   }
   const records=mapPatrolViewIncident(await fetchPatrolViewJson(endpoint,token,fetchImpl),incidentNumber);
   const normalize=(value:string)=>value.trim().toUpperCase().replace(/\s+/g,' ');
-  // Do not disclose other units' rows to the caller. Each FTO/PO looks up the
-  // shared incident independently and receives only its assigned-unit record.
+  // Shared incident fields are repeated into each matching unit's row. Keep
+  // unit-specific times scoped to the assigned unit; never return officer data.
   return records.filter(record=>record.unitNumber&&normalize(record.unitNumber)===normalize(unitNumber));
 }

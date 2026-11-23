@@ -942,7 +942,7 @@ export const getDispatchIncidentLookupUrl = () => {
 }
 
 /**
- * Returns normalized incident/unit candidates from an agency-configured adapter. No polling, no classification from codes, and no automatic review or activity counts.
+ * Returns allowlisted shared incident metrics only after the entered incident and assigned unit match. Unit-specific times are retained; officer details are excluded.
  * @summary Look up an incident explicitly entered by the FTO
  */
 export const dispatchIncidentLookup = async (dispatchIncidentLookupInput: DispatchIncidentLookupInput, options?: Parameters<typeof customFetch>[1]): Promise<DispatchIncidentEnvelope> => {

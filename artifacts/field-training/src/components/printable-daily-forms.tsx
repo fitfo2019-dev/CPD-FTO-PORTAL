@@ -30,6 +30,14 @@ import { buildOperationalPacket, type OperationalPacket } from '@/lib/operationa
 import { DIVISION_DIRECTIVE_SOURCE_REVISION } from '@/lib/division-directives.js';
 import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
 
+function formattedRunLocation(run:TrainingRun):string {
+  const cityStateZip=[run.locationCity,[run.locationState,run.locationZip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return [run.location,cityStateZip].filter(Boolean).join(', ')||'Not recorded';
+}
+function formattedIncidentArea(run:TrainingRun):string {
+  return [run.incidentZone&&`Zone ${run.incidentZone}`,run.incidentCruiserDistrict&&`Cruiser district ${run.incidentCruiserDistrict}`].filter(Boolean).join(' · ')||'Not recorded';
+}
+
 export function PrintableDailyForms({ report,orientation,dayReference,packet:providedPacket }: { report:Report;orientation?:SubstationOrientationRecord;dayReference?:TrainingFolderDayReference;packet?:OperationalPacket }) {
   const packet = providedPacket ?? buildOperationalPacket(report, { orientation, dayReference });
   const orientationReference = packet.pages.find(page => page.kind === 'orientation')?.reference;
@@ -113,11 +121,14 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
     <People report={report}/>
     <div className="print-run-fields">
       <Field label="Incident number" value={run.incidentNumber||'Not recorded'}/>
-      <Field label="Location" value={run.location||'Not recorded'}/>
+      <Field label="Unit / cruiser" value={run.unitNumber||'Not recorded'}/>
+      <Field label="Location" value={formattedRunLocation(run)}/>
+      <Field label="Zone / cruiser district" value={formattedIncidentArea(run)}/>
       <Field label="Run started" value={formatDateTimeMDY(run.occurredAt)}/>
+      <Field label="Dispatched at" value={run.dispatchedAt?formatDateTimeMDY(run.dispatchedAt):'Not recorded'}/>
       <Field label="Run ended" value={run.endedAt?formatDateTimeMDY(run.endedAt):'Not recorded'}/>
       <Field label="Run type / 10-code" value={run.dispatchedCode?`10-${run.dispatchedCode}${code?` · ${code}`:''}`:'—'}/>
-      <Field label="Situation found / 10-code" value={`${formatRadioCode(run.situationFoundCode,'N/A')}${situation?` · ${situation}`:''}`}/>
+      <Field label="Situation found / 10-code" value={`${formatRadioCode(run.situationFoundCode,'')}${situation?` · ${situation}`:''}`}/>
       <Field label="Clearance code" value={run.clearanceCode?`${run.clearanceCode}${clearance?` · ${clearance.label}`:''}`:'—'}/>
       <Field label="Dispatched" value={run.isDispatched?'Yes':'No'}/>
       {trafficStop&&<Field label="Traffic violator" value={run.trafficMode.replace('_',' ')||'—'}/>}
@@ -140,7 +151,10 @@ function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{
     <People report={report}/>
     <div className="print-run-fields">
       <Field label="Incident number" value={run.incidentNumber||'Not recorded'}/>
-      <Field label="Location" value={run.location||'Not recorded'}/>
+      <Field label="Unit / cruiser" value={run.unitNumber||'Not recorded'}/>
+      <Field label="Location" value={formattedRunLocation(run)}/>
+      <Field label="Zone / cruiser district" value={formattedIncidentArea(run)}/>
+      <Field label="Dispatched at" value={run.dispatchedAt?formatDateTimeMDY(run.dispatchedAt):'Not recorded'}/>
       <Field label="Run ended" value={run.endedAt?formatDateTimeMDY(run.endedAt):'Not recorded'}/>
       <Field label="Primary run" value={PRIMARY_RUN_FORMS.find(item=>item.key===run.runKind)?.label||run.runKind}/>
       <Field label="Arrest made" value={run.arrestMade?'Yes':'No'}/>

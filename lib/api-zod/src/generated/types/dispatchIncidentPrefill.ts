@@ -5,7 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { DispatchIncidentPrefillRunKind } from './dispatchIncidentPrefillRunKind';
+import type { DispatchIncidentPrefillClearanceCode } from './dispatchIncidentPrefillClearanceCode';
 
 export interface DispatchIncidentPrefill {
   /**
@@ -18,12 +18,25 @@ export interface DispatchIncidentPrefill {
      * @maxLength 40
      */
   unitNumber?: string;
+  eventDate?: Date;
   eventIngressAt?: Date;
   dispatchedAt?: Date;
   clearedAt?: Date;
   /** @maxLength 200 */
   location?: string;
-  /** @pattern ^\d{1,3}[A-Z]?$ */
+  /** @maxLength 200 */
+  locationAddress?: string;
+  /** @maxLength 80 */
+  locationCity?: string;
+  /** @pattern ^[A-Z]{2}$ */
+  locationState?: string;
+  /** @pattern ^\d{5}(?:-\d{4})?$ */
+  locationZip?: string;
+  /** @maxLength 40 */
+  zone?: string;
+  /** @maxLength 40 */
+  cruiserDistrict?: string;
+  /** @pattern ^\d{1,3}[A-Z]{0,2}$ */
   dispatchedCode?: string;
-  runKind?: DispatchIncidentPrefillRunKind;
+  clearanceCode?: DispatchIncidentPrefillClearanceCode;
 }

@@ -134,7 +134,27 @@ export function isEligibleCitationSummons(run:{runKind:string;clearanceCode?:str
 export const normalizeRadioCode = (value: string) => value.toUpperCase().replace(/^10[\s-]+/, '').replace(/[^0-9A-Z]/g, '').slice(0, 5);
 export const isValidRadioCode = (value: string) => value === '' || /^\d{1,3}[A-Z]{0,2}$/.test(value);
 export const normalizeSituationFoundCode = (value:string) => value.trim().toUpperCase()==='N/A' ? SITUATION_FOUND_NA : normalizeRadioCode(value);
-export const isValidSituationFoundCode = (value:string) => value===SITUATION_FOUND_NA || (value!==''&&isValidRadioCode(value));
+export const isValidSituationFoundCode = (value:string) => value===''||value===SITUATION_FOUND_NA||isValidRadioCode(value);
+
+/**
+ * Suggest a primary form only when the registered code mapping is unique.
+ * Code 6 intentionally remains ambiguous between the two traffic-stop forms.
+ * All other dispatched codes use the general Call for Service form unless the
+ * FTO chooses a dedicated form.
+ */
+export function suggestRunTypeFromDispatchedCode(value:string):
+  |{status:'mapped';runKind:PrimaryRunForm}
+  |{status:'ambiguous';runKinds:PrimaryRunForm[]}
+  |{status:'default';runKind:'call_for_service'} {
+  const code=normalizeRadioCode(value);
+  const runKinds=Object.entries(DEFAULT_RUN_TYPE_CODES)
+    .filter(([,mappedCode])=>mappedCode===code)
+    .map(([runKind])=>runKind as PrimaryRunForm);
+  const uniqueRunKinds=Array.from(new Set(runKinds));
+  if(uniqueRunKinds.length===1)return {status:'mapped',runKind:uniqueRunKinds[0]};
+  if(uniqueRunKinds.length>1)return {status:'ambiguous',runKinds:uniqueRunKinds};
+  return {status:'default',runKind:'call_for_service'};
+}
 export const formatRadioCode = (value?:string, emptyValue='—') => {
   if(!value)return emptyValue;
   return value===SITUATION_FOUND_NA ? SITUATION_FOUND_NA : `10-${value}`;

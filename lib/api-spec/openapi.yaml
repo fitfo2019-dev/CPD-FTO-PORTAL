@@ -217,7 +217,7 @@ paths:
       operationId: dispatchIncidentLookup
       tags: [dispatch]
       summary: Look up an incident explicitly entered by the FTO
-      description: Returns normalized incident/unit candidates from an agency-configured adapter. No polling, no classification from codes, and no automatic review or activity counts.
+      description: Returns allowlisted shared incident metrics only after the entered incident and assigned unit match. Unit-specific times are retained; officer details are excluded.
       requestBody:
         required: true
         content:
@@ -709,14 +709,21 @@ components:
       properties:
         incidentNumber: { type: string, minLength: 1, maxLength: 120 }
         unitNumber: { type: string, minLength: 1, maxLength: 40 }
+        eventDate: { type: string, format: date }
         eventIngressAt: { type: string, format: date-time }
         dispatchedAt: { type: string, format: date-time }
         clearedAt: { type: string, format: date-time }
         location: { type: string, maxLength: 200 }
-        dispatchedCode: { type: string, pattern: "^\\d{1,3}[A-Z]?$" }
-        runKind:
+        locationAddress: { type: string, maxLength: 200 }
+        locationCity: { type: string, maxLength: 80 }
+        locationState: { type: string, pattern: "^[A-Z]{2}$" }
+        locationZip: { type: string, pattern: "^\\d{5}(?:-\\d{4})?$" }
+        zone: { type: string, maxLength: 40 }
+        cruiserDistrict: { type: string, maxLength: 40 }
+        dispatchedCode: { type: string, pattern: "^\\d{1,3}[A-Z]{0,2}$" }
+        clearanceCode:
           type: string
-          enum: [call_for_service, self_initiated, domestic_incident, traffic_crash, traffic_stop, high_risk_stop, building_search]
+          enum: ["", "1V", "2V", "3V", "4V"]
     DispatchIncidentEnvelope:
       type: object
       additionalProperties: false
@@ -747,6 +754,9 @@ components:
       type: object
       additionalProperties: false
       properties:
+        eventDate:
+          type: string
+          format: date
         eventIngressAt:
           type: string
           format: date-time
@@ -756,10 +766,31 @@ components:
         location:
           type: string
           maxLength: 200
+        locationAddress:
+          type: string
+          maxLength: 200
+        locationCity:
+          type: string
+          maxLength: 80
+        locationState:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        locationZip:
+          type: string
+          pattern: "^\\d{5}(?:-\\d{4})?$"
+        zone:
+          type: string
+          maxLength: 40
+        cruiserDistrict:
+          type: string
+          maxLength: 40
         dispatchedCode:
           type: string
           maxLength: 8
-          pattern: "^\\d{1,3}[A-Z]?$"
+          pattern: "^\\d{1,3}[A-Z]{0,2}$"
+        clearanceCode:
+          type: string
+          enum: ["", "1V", "2V", "3V", "4V"]
     DispatchEventIngressMetadata:
       type: object
       additionalProperties: false
