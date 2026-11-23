@@ -11,7 +11,7 @@ import { useWorkspace } from '@/state/workspace.js';
 import { CPD_GEOGRAPHY, cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, cpdPrecinctsForZone } from '@/lib/cpd-geography.js';
 import { assignmentToCaseFolder, TrainingAssignmentsPanel } from '@/components/training-assignments-panel.js';
 import { PHASES, PHASE_LENGTH_WEEKS, SHIFTS, SHIFT_LABEL, WEEKDAYS, phaseLabel, type Phase, type PhaseCaseFolder, type Shift, type TrainingAssignment, type Weekday } from '@/lib/model.js';
-import { createPhaseWeekRanges, currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getSundaySaturdayWeek, parseDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
+import { createPhaseWeekRanges, currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getCaseFolderWeekRanges, getSundaySaturdayWeek, parseDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
 import { useToast } from '@/hooks/use-toast.js';
 
 const DAY_VALUES=[0,1,2,3,4,5,6] as const;
@@ -30,6 +30,7 @@ const setupSchema=z.object({
   ftoBadge:z.string().trim().min(1,'Enter the regularly assigned FTO badge.'),
   phase:z.enum(['1','2','3','4']),
   phaseStartDate:z.string().refine(value=>!!parseDateDMY(value),'Enter a valid date as MM/DD/YYYY.'),
+  scheduledWeeks:z.number().int().min(1),
   phaseWeekRanges:z.array(phaseWeekRangeSchema),
   shift:z.string().refine(value=>SHIFTS.includes(value as Shift),'Select a Columbus shift.'),
   zone:z.string().min(1,'Select a zone.'),
@@ -44,9 +45,8 @@ const setupSchema=z.object({
   if(SHIFTS.includes(shift)&&value.daysOff.length!==requiredDaysOff(shift)) {
     context.addIssue({code:'custom',path:['daysOff'],message:`Select exactly ${requiredDaysOff(shift)} days off for ${shift}.`});
   }
-  const phase=Number(value.phase) as Phase;
-  if(value.phaseWeekRanges.length<PHASE_LENGTH_WEEKS[phase]) {
-    context.addIssue({code:'custom',path:['phaseWeekRanges'],message:`Enter all ${PHASE_LENGTH_WEEKS[phase]} scheduled phase week ranges.`});
+  if(value.phaseWeekRanges.length<value.scheduledWeeks) {
+    context.addIssue({code:'custom',path:['phaseWeekRanges'],message:`Enter all ${value.scheduledWeeks} scheduled phase week ranges.`});
   }
   const ranges=value.phaseWeekRanges.map(range=>({start:parseDateDMY(range.startDate),end:parseDateDMY(range.endDate)}));
   ranges.forEach((range,index)=>{
@@ -77,12 +77,14 @@ const textInput='h-11 w-full rounded border bg-card px-3 text-sm';
 const selectInput='h-11 w-full rounded border bg-card px-3 text-sm';
 function valuesFromFolder(folder:PhaseCaseFolder,ftos:{badge:string;name:string}[]=[]):SetupValues {
   const assignedFto=ftos.find(item=>item.badge.toLowerCase()===folder.ftoBadge.toLowerCase());
+  const phaseWeekRanges=getCaseFolderWeekRanges(folder);
   return {
     assignmentId:folder.assignmentId??'',className:folder.className??'',recruitName:folder.recruitName,recruitBadge:folder.recruitBadge,
     ftoName:assignedFto?.name??folder.ftoName,ftoBadge:assignedFto?.badge??folder.ftoBadge,phase:String(folder.phase) as SetupValues['phase'],
-    phaseStartDate:formatDateDMY(folder.phaseStartDate),shift:folder.shift,zone:folder.zone,precinct:folder.precinct,
+    phaseStartDate:formatDateDMY(folder.phaseStartDate),scheduledWeeks:folder.scheduledWeeks??phaseWeekRanges.length,
+    shift:folder.shift,zone:folder.zone,precinct:folder.precinct,
     ftoAssignment:folder.ftoAssignment??'',daysOff:folder.daysOff,
-    phaseWeekRanges:(folder.phaseWeekRanges?.length?folder.phaseWeekRanges:createPhaseWeekRanges(folder.phase,folder.phaseStartDate))
+    phaseWeekRanges:phaseWeekRanges
       .map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),
   };
 }
@@ -92,7 +94,9 @@ function valuesFromAssignment(assignment:TrainingAssignment,ftos:{badge:string;n
   return {
     assignmentId:assignment.id,className:assignment.className,recruitName:assignment.recruitName,recruitBadge:assignment.recruitBadge,
     ftoName:linked.ftoName,ftoBadge:linked.ftoBadge,phase:String(assignment.phase) as SetupValues['phase'],
-    phaseStartDate:formatDateDMY(assignment.phaseStartDate),shift:assignment.shift??saved?.shift??'',
+    phaseStartDate:saved?.phaseStartDate??formatDateDMY(assignment.phaseStartDate),
+    scheduledWeeks:saved?.scheduledWeeks??PHASE_LENGTH_WEEKS[assignment.phase],
+    shift:assignment.shift??saved?.shift??'',
     zone:assignment.zone??saved?.zone??'',precinct:assignment.precinct??saved?.precinct??'',
     ftoAssignment:assignment.ftoAssignment??saved?.ftoAssignment??'',
     daysOff:assignment.daysOff?.length?assignment.daysOff:saved?.daysOff??[],
@@ -115,7 +119,7 @@ export default function PhaseSetupPage() {
     if(activeFolder) return valuesFromFolder(activeFolder,ws.ftoDirectory);
     return {assignmentId:'',className:'',recruitName:'',recruitBadge:'',ftoName:'',ftoBadge:'',
       phase:'1',
-      phaseStartDate:'',phaseWeekRanges:[],shift:'',zone:'',precinct:'',ftoAssignment:'',daysOff:[]};
+      phaseStartDate:'',scheduledWeeks:PHASE_LENGTH_WEEKS[1],phaseWeekRanges:[],shift:'',zone:'',precinct:'',ftoAssignment:'',daysOff:[]};
   },[ws.caseFolder,ws.phaseFolders,ws.assignments,ws.ftoDirectory]);
   const form=useForm<SetupValues>({resolver:zodResolver(setupSchema),defaultValues:defaults,mode:'onChange'});
   useEffect(()=>{if(!form.formState.isDirty)form.reset(defaults);},[defaults,form.formState.isDirty,form.reset]);
@@ -160,6 +164,7 @@ export default function PhaseSetupPage() {
       assignmentId:values.assignmentId||undefined,className:values.className.trim(),recruitName:values.recruitName.trim(),
       recruitBadge:values.recruitBadge.trim(),ftoName:values.ftoName.trim(),ftoBadge:values.ftoBadge.trim(),
       phase:Number(values.phase) as Phase,phaseStartDate,shift:values.shift as Shift,
+      scheduledWeeks:values.scheduledWeeks,
       phaseWeekRanges:values.phaseWeekRanges.map(range=>({startDate:parseDateDMY(range.startDate)!,endDate:parseDateDMY(range.endDate)!})),
       zone:values.zone,precinct:values.precinct,
       cruiserDistrict:cruiserDistrictForFtoAssignment(values.zone,values.precinct,values.ftoAssignment,values.shift)??'',
@@ -216,15 +221,17 @@ export default function PhaseSetupPage() {
             <Field label="Phase" error={fieldError('phase')}>{canManageAssignment?<SearchableSelect {...form.register('phase')} value={phaseValue} className={selectInput} onChange={event=>{
               const selectedPhase=event.target.value as SetupValues['phase'];
               form.setValue('phase',selectedPhase,{shouldDirty:true,shouldValidate:true});
+              const scheduledWeeks=PHASE_LENGTH_WEEKS[Number(selectedPhase) as Phase];
+              form.setValue('scheduledWeeks',scheduledWeeks,{shouldDirty:true,shouldValidate:true});
               const start=parseDateDMY(form.getValues('phaseStartDate'));
-              if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(selectedPhase) as Phase,start).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});
+              if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(selectedPhase) as Phase,start,0,scheduledWeeks).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});
             }} data-testid="select-phase">{PHASES.map(value=><option key={value} value={String(value)}>{phaseLabel(value)}</option>)}</SearchableSelect>:<input {...form.register('phase')} className={textInput} readOnly data-testid="select-phase"/>}</Field>
             <Field label="Phase start date · MM/DD/YYYY" error={fieldError('phaseStartDate')}><input {...form.register('phaseStartDate')} className={textInput} inputMode="text" placeholder="MM/DD/YYYY" readOnly={!canManageAssignment} onChange={event=>{
               const value=formatDateEntryMDY(event.target.value);
               form.setValue('phaseStartDate',value,{shouldDirty:true,shouldValidate:true});
               const start=parseDateDMY(value);
-              if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(phaseValue) as Phase,start).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});
-            }} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const value=currentDateTimeMDY().date;form.setValue('phaseStartDate',value,{shouldDirty:true,shouldValidate:true});const start=parseDateDMY(value);if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(phaseValue) as Phase,start).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});}}} data-testid="input-phase-start"/>{canManageAssignment&&<span className="text-xs font-normal text-muted-foreground">Type digits for automatic MM/DD/YYYY formatting. Enter ? then press Enter for today.</span>}</Field>
+              if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(phaseValue) as Phase,start,0,form.getValues('scheduledWeeks')).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});
+            }} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const value=currentDateTimeMDY().date;form.setValue('phaseStartDate',value,{shouldDirty:true,shouldValidate:true});const start=parseDateDMY(value);if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(phaseValue) as Phase,start,0,form.getValues('scheduledWeeks')).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});}}} data-testid="input-phase-start"/>{canManageAssignment&&<span className="text-xs font-normal text-muted-foreground">Type digits for automatic MM/DD/YYYY formatting. Enter ? then press Enter for today.</span>}</Field>
             <fieldset className="grid gap-3 rounded-sm border bg-muted/20 p-4">
               <legend className="px-2 text-sm font-bold">Phase week dates · Sunday–Saturday</legend>
               {phaseWeekRanges.map((range,index)=><div key={index} className="grid gap-3 sm:grid-cols-2">

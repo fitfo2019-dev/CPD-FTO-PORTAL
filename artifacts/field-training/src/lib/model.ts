@@ -740,6 +740,7 @@ export interface PhaseCaseFolder {
   ftoAssignment?: string;
   daysOff: Weekday[];
   phaseStartDate: string;
+  scheduledWeeks?: number;
   phaseWeekRanges?: PhaseWeekRange[];
   limboExtensionWeeks?: number;
   openedAt: string;

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createPhaseWeekRanges, getPhaseEndDate, getPhaseScheduleInfo, getPhaseWeekNumber } from './training-calendar.js';
+import { createPhaseWeekRanges, getCaseFolderWeekRanges, getPhaseEndDate, getPhaseScheduleInfo, getPhaseWeekNumber } from './training-calendar.js';
+import { PHASE_LENGTH_WEEKS } from './model.js';
 
 test('phase end dates use complete Sunday–Saturday training weeks',()=>{
   assert.equal(getPhaseEndDate(1,'2026-01-04'),'2026-01-31');
@@ -18,6 +19,21 @@ test('phase week boundaries support approved training-week extensions',()=>{
   assert.deepEqual(ranges[5],{startDate:'2027-02-07',endDate:'2027-02-13'});
   assert.equal(getPhaseWeekNumber('2027-02-10','2027-01-03',ranges),6);
   assert.equal(getPhaseWeekNumber('2027-02-14','2027-01-03',ranges),undefined);
+});
+
+test('existing folders keep their saved schedule while new folders use the current standard',()=>{
+  const start='2027-01-03';
+  const existingRanges=createPhaseWeekRanges(4,start,0,2);
+  const existingFolder={phase:4 as const,phaseStartDate:start,scheduledWeeks:2,phaseWeekRanges:existingRanges};
+  const retainedRanges=getCaseFolderWeekRanges(existingFolder);
+  const newRecruitRanges=createPhaseWeekRanges(4,start);
+
+  assert.equal(PHASE_LENGTH_WEEKS[4],3);
+  assert.equal(retainedRanges.length,2);
+  assert.deepEqual(retainedRanges,existingRanges);
+  assert.equal(newRecruitRanges.length,PHASE_LENGTH_WEEKS[4]);
+  assert.equal(getPhaseWeekNumber('2027-01-16',start,retainedRanges),2);
+  assert.equal(getPhaseWeekNumber('2027-01-17',start,retainedRanges),undefined);
 });
 
 test('limbo extensions keep the first configured phase range in limbo',()=>{

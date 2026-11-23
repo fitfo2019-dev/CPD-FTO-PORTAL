@@ -100,10 +100,10 @@ export function getTrainingWeekNumber(isoDate: string, phaseStartDate: string): 
   return Math.floor(elapsedDays / 7) + 1;
 }
 
-export function createPhaseWeekRanges(phase:Phase,phaseStartDate:string,additionalWeeks=0):PhaseWeekRange[] {
+export function createPhaseWeekRanges(phase:Phase,phaseStartDate:string,additionalWeeks=0,scheduledWeeks=PHASE_LENGTH_WEEKS[phase]):PhaseWeekRange[] {
   const firstWeek=getSundaySaturdayWeek(phaseStartDate);
   if(!firstWeek)return [];
-  const weekCount=PHASE_LENGTH_WEEKS[phase]+Math.max(0,Math.floor(additionalWeeks));
+  const weekCount=Math.max(1,Math.floor(scheduledWeeks))+Math.max(0,Math.floor(additionalWeeks));
   return Array.from({length:weekCount},(_,index)=>{
     const start=new Date(`${firstWeek.start}T12:00:00Z`);
     start.setUTCDate(start.getUTCDate()+index*7);
@@ -111,6 +111,12 @@ export function createPhaseWeekRanges(phase:Phase,phaseStartDate:string,addition
     end.setUTCDate(end.getUTCDate()+6);
     return {startDate:start.toISOString().slice(0,10),endDate:end.toISOString().slice(0,10)};
   });
+}
+
+/** Resolve a case folder from its saved schedule, not the current program standard. */
+export function getCaseFolderWeekRanges(folder:Pick<PhaseCaseFolder,'phase'|'phaseStartDate'|'scheduledWeeks'|'phaseWeekRanges'>):PhaseWeekRange[] {
+  if(folder.phaseWeekRanges?.length)return folder.phaseWeekRanges;
+  return createPhaseWeekRanges(folder.phase,folder.phaseStartDate,0,folder.scheduledWeeks);
 }
 
 export function getPhaseWeekNumber(isoDate:string,phaseStartDate:string,phaseWeekRanges?:readonly PhaseWeekRange[]):number|undefined {

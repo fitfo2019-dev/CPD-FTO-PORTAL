@@ -49,7 +49,7 @@ export function approvePhaseExtension(workspace:Workspace,requestId:string):Work
     ??(workspace.caseFolder&&matchesRequest(request,workspace.caseFolder)?workspace.caseFolder:undefined);
   if(!target)return workspace;
 
-  const ranges:PhaseWeekRange[]=[...(target.phaseWeekRanges?.length?target.phaseWeekRanges:createPhaseWeekRanges(target.phase,target.phaseStartDate))];
+  const ranges:PhaseWeekRange[]=[...(target.phaseWeekRanges?.length?target.phaseWeekRanges:createPhaseWeekRanges(target.phase,target.phaseStartDate,0,target.scheduledWeeks))];
   let limboExtensionWeeks=target.limboExtensionWeeks??0;
   if(request.extensionType==='training_weeks') {
     const lastEnd=ranges.at(-1)?.endDate;

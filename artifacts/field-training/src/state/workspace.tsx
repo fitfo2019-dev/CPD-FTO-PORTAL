@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, type LocalChatDraft } from '@/lib/offlineStorage.js';
 import { createEmptyWorkspace, createUiPreviewWorkspace } from '@/lib/empty-workspace.js';
-import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type PhaseExtensionRequest, type PhaseWeekRange, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
+import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type PhaseExtensionRequest, type PhaseWeekRange, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
 import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography.js';
 import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
 import { buildTimelineInterpolation, type TimelineInterpolation } from '@/lib/timeline-interpolation.js';
@@ -184,7 +184,15 @@ function migrateCaseFolder(value:unknown):PhaseCaseFolder|undefined {
     ftoAssignment:typeof raw.ftoAssignment==='string'?raw.ftoAssignment:'',
     daysOff:(Array.isArray(raw.daysOff)?raw.daysOff:[]).filter((day):day is Weekday=>Number.isInteger(day)&&day>=0&&day<=6),
     phaseStartDate,
-    phaseWeekRanges:savedRanges.length?savedRanges:createPhaseWeekRanges(phase as PhaseCaseFolder['phase'],phaseStartDate),
+    scheduledWeeks:Number.isInteger(raw.scheduledWeeks)&&Number(raw.scheduledWeeks)>0
+      ?Number(raw.scheduledWeeks)
+      :savedRanges.length||PHASE_LENGTH_WEEKS[phase as PhaseCaseFolder['phase']],
+    phaseWeekRanges:savedRanges.length?savedRanges:createPhaseWeekRanges(
+      phase as PhaseCaseFolder['phase'],phaseStartDate,0,
+      Number.isInteger(raw.scheduledWeeks)&&Number(raw.scheduledWeeks)>0
+        ?Number(raw.scheduledWeeks)
+        :PHASE_LENGTH_WEEKS[phase as PhaseCaseFolder['phase']],
+    ),
     limboExtensionWeeks:Number.isInteger(raw.limboExtensionWeeks)&&Number(raw.limboExtensionWeeks)>0?Number(raw.limboExtensionWeeks):0,
     openedAt:typeof raw.openedAt==='string'?raw.openedAt:'',
   };
