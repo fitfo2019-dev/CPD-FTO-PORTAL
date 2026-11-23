@@ -6,8 +6,10 @@ import { agencyIdentityFromClaims, type AgencyIdentity } from "../src/security/a
 import { createTrainingPacketsRouter, safePacketTree, PACKET_SEG_KEYS } from "../src/routes/training-packets.js";
 import { createAgencyPacketStore, PacketError } from "../src/lib/agency-packet-store.js";
 import { CATEGORIES } from "../../field-training/src/lib/model.js";
+import { CompletePacketInput } from "../src/lib/packet-contract.js";
 
 const fto: AgencyIdentity = { id: "verified-fto", badge: "1234", role: "FTO" };
+const audit = { requestId: crypto.randomUUID(), clientIp: "192.0.2.1" };
 
 test("signed agency claims require explicit verification and valid badge; browser assignment claims do not authorize", () => {
   const before = { role: process.env.AGENCY_ROLE_CLAIM_PATH, badge: process.env.AGENCY_BADGE_CLAIM_PATH,
@@ -31,6 +33,21 @@ test("signed agency claims require explicit verification and valid badge; browse
 
 test("packet category keys match the portal's exact 30-category contract", () => {
   assert.deepEqual(PACKET_SEG_KEYS, CATEGORIES);
+});
+test("the generated-contract bridge preserves complete report details rather than stripping them", () => {
+  const report = {
+    id: "packet-1", date: "2026-11-23", phase: 1, className: "test",
+    recruitName: "Test PO", recruitBadge: "99", ftoName: "Test FTO", ftoBadge: "1234",
+    runs: [], activity: {}, reportingForDuty: {}, ratings: {}, narrative: "full narrative",
+    remedial: "", recruitComments: "", status: "draft", signatures: {}, shift: "A-Co",
+    zone: "1", precinct: "1", cruiserDistrict: "11", createdAt: "", updatedAt: "",
+    checklistDeficiencies: [{ category: "dutyReadiness", narrative: "Preserve this evidence" }],
+  };
+  const result = CompletePacketInput.parse({ packets: [
+    { operation_id: crypto.randomUUID(), base_version: 0, report },
+  ] });
+  assert.deepEqual(result.packets[0].report.checklistDeficiencies, report.checklistDeficiencies);
+  assert.equal(result.packets[0].report.date, report.date);
 });
 test("packet tree rejects prototype pollution, deep nesting and non-JSON values without damaging ordinary prose", () => {
   assert.equal(safePacketTree(JSON.parse('{"__proto__":{"admin":true}}')), false);
@@ -88,7 +105,7 @@ test("roster denial rolls back the batch and never inserts packet contents", asy
   };
   const pool = { async connect() { return client; } } as unknown as pg.Pool;
   const store = createAgencyPacketStore(pool);
-  await assert.rejects(store.sync(fto, [{
+  await assert.rejects(store.sync(fto, audit, [{
     operation_id: crypto.randomUUID(), base_version: 0,
     report: { id: "packet-1", date: "2026-11-23", phase: 1, className: "test", recruitBadge: "99", ftoBadge: "1234" },
   }]), error => error instanceof PacketError && error.status === 403);
@@ -102,8 +119,10 @@ test("coordinator read scope is specific to its server roster identity, never a 
     async query(sql: string, parameters?: unknown[]) { calls.push({ sql, parameters }); return { rows: [] }; }, release() {},
   };
   const pool = { async connect() { return client; } } as unknown as pg.Pool;
-  await createAgencyPacketStore(pool).read({ ...fto, role: "FTO_COORDINATOR" });
+  await createAgencyPacketStore(pool).read({ ...fto, role: "FTO_COORDINATOR" }, audit);
   const read = calls.find(call => call.sql.includes("FROM agency_training.packets"));
-  assert.ok(read?.sql.includes("a.coordinator_id = $2"));
-  assert.deepEqual(read?.parameters?.slice(0, 3), ["FTO_COORDINATOR", fto.id, fto.badge]);
+  assert.ok(read?.sql.includes("a.coordinator_id_hash = $2"));
+  assert.equal(read?.parameters?.[0], "FTO_COORDINATOR");
+  assert.match(String(read?.parameters?.[1]), /^[a-f0-9]{64}$/);
+  assert.match(String(read?.parameters?.[2]), /^[a-f0-9]{64}$/);
 });

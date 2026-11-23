@@ -20,7 +20,7 @@ export function agencyIdentityFromClaims(id: string, claims: unknown): AgencyIde
   if (claimAt(claims, process.env.AGENCY_VERIFIED_CLAIM_PATH) !== true) return null;
   const role = claimAt(claims, process.env.AGENCY_ROLE_CLAIM_PATH);
   const badge = claimAt(claims, process.env.AGENCY_BADGE_CLAIM_PATH);
-  if (!["PO", "FTO", "FTO_COORDINATOR"].includes(String(role)) ||
+  if (typeof role !== "string" || !["PO", "FTO", "FTO_COORDINATOR"].includes(role) ||
     typeof badge !== "string" || !/^[A-Za-z0-9-]{1,40}$/.test(badge) ||
     !id || id.length > 256) return null;
   return { id, badge, role: role as AgencyRole };

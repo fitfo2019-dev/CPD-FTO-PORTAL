@@ -10,6 +10,7 @@ import { applyApprovedPhaseExtensions, approvePhaseExtension, denyPhaseExtension
 import { CURRENT_PACKET_INDEX_VERSION, migrateOperationalReferenceReviews, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
 import { uploadPacketBatch } from '@/lib/training-packet-sync.js';
+import { preserveProtectedPackets } from '@/lib/protected-packets.js';
 
 export type VaultState = 'none' | 'unlocked';
 type VaultIntent = 'save' | 'restore' | null;
@@ -57,7 +58,7 @@ function normalizeReportingForDuty(value: unknown) {
 }
 
 function upsertReportAndWeeklyUaLog(workspace:Workspace, inputReport:Report):Workspace {
-  if (workspace.reports.some(item => item.id === inputReport.id && item.syncStatus === 'synchronized_complete')) {
+  if (workspace.reports.some(item => item.id === inputReport.id && (item.syncStatus === 'synchronized_complete' || item.syncAttemptPending))) {
     throw new Error('This packet has been synchronized and is sealed. Request an authorized correction.');
   }
   inputReport = { ...inputReport, syncStatus: 'local_draft_pending', serverVersion: 0 };
@@ -279,11 +280,11 @@ export function WorkspaceProvider({
 
   const mutate = useCallback((fn: (w: Workspace) => Workspace) => {
     if (syncing.current) throw new Error('Wait for packet synchronization to finish.');
-    rev.current++; setWs(w => reconcileOperationalReferences(w, fn(w))); setDirty(true);
+    rev.current++; setWs(w => preserveProtectedPackets(w, reconcileOperationalReferences(w, fn(w)))); setDirty(true);
   }, []);
   const mutateAndPersist = useCallback(async (fn:(w:Workspace)=>Workspace) => {
     if (syncing.current) throw new Error('Wait for packet synchronization to finish.');
-    const next=reconcileOperationalReferences(wsRef.current,fn(wsRef.current));
+    const next=preserveProtectedPackets(wsRef.current,reconcileOperationalReferences(wsRef.current,fn(wsRef.current)));
     rev.current++;
     wsRef.current=next;
     setWs(next);
@@ -361,7 +362,7 @@ export function WorkspaceProvider({
     let restoredCaseFolder: PhaseCaseFolder | undefined;
     try {
       migratedReports = data.reports.filter(saved=>[1,2,3,4].includes(Number(saved.phase))).map(saved => {
-        if (saved.syncStatus === 'synchronized_complete') return saved;
+        if (saved.syncStatus === 'synchronized_complete' || saved.syncAttemptPending) return saved;
         const raw = saved as Report & { beat?: unknown; ratings?: unknown };
         const { beat: _oldAreaField, ...reportWithoutOldField } = raw;
         const geography = migrateGeography(raw);
@@ -436,7 +437,7 @@ export function WorkspaceProvider({
     const assignments = Array.isArray(savedWorkspace.assignments) ? savedWorkspace.assignments.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&[1,2,3,4].includes(Number(item.phase))) : [];
     const tasks=Array.isArray(savedWorkspace.tasks)?savedWorkspace.tasks.filter(item=>isRecord(item)&&[1,2,3,4].includes(Number(item.phase))):[];
     const restoredWorkspace={ ...workspaceWithoutChatHistory, packetIndexVersion:CURRENT_PACKET_INDEX_VERSION as Workspace['packetIndexVersion'], role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests };
-    const workspaceWithAppliedExtensions=applyApprovedPhaseExtensions(restoredWorkspace);
+    const workspaceWithAppliedExtensions=preserveProtectedPackets(restoredWorkspace,applyApprovedPhaseExtensions(restoredWorkspace));
     setWs(workspaceWithAppliedExtensions); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(workspaceWithAppliedExtensions!==restoredWorkspace||weeklyPerformanceLogs!==savedWeeklyPerformanceLogs||savedWorkspace.packetIndexVersion!==CURRENT_PACKET_INDEX_VERSION); setLockedNotice(false); setLockedWithUnsaved(false);
     setStoragePersistent(await requestPersistentStorage());
     await refreshPending();
@@ -464,7 +465,13 @@ export function WorkspaceProvider({
       if (next) { wsRef.current = next; setWs(next); setEpoch(value => value + 1); }
       await refreshPending();
     } catch (error) {
-      if (!controller.signal.aborted) setSaveError('Packet sync failed. The encrypted local drafts remain on this device.');
+      if (!controller.signal.aborted) {
+        const guarded = await storage.current.get<Workspace>('workspace');
+        if (guarded && !controller.signal.aborted) {
+          wsRef.current = guarded; setWs(guarded); setEpoch(value => value + 1);
+        }
+        setSaveError('Packet sync was not confirmed. Its exact saved snapshot is protected until retry confirms the outcome.');
+      }
       throw error;
     } finally { syncing.current = false; syncAbort.current = null; }
   }, [previewOnly, vault, online, persist, refreshPending]);
@@ -559,7 +566,7 @@ export function WorkspaceProvider({
       upsertLawReviewRecord:(record)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).some(item=>item.id===record.id)?w.lawReviewRecords.map(item=>item.id===record.id?record:item):[record,...(w.lawReviewRecords??[])]})),
       deleteLawReviewRecord:(id)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).filter(item=>item.id!==id)})),
     deleteReport: (id) => mutate(w => {
-      if (w.reports.some(r => r.id === id && r.syncStatus === 'synchronized_complete'))
+      if (w.reports.some(r => r.id === id && (r.syncStatus === 'synchronized_complete' || r.syncAttemptPending)))
         throw new Error('Synchronized packets cannot be deleted locally.');
       return { ...w, reports: w.reports.filter(r => r.id !== id) };
     }),

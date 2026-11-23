@@ -1,5 +1,95 @@
 # Handover Manual
 
+## Agency packet storage and offline-first sync — implementation boundary
+
+The portal continues to save locally in its passphrase-encrypted IndexedDB
+vault without requiring a network request. New daily reports initialize
+`syncStatus: local_draft_pending`. Workspace saves atomically retain the local
+workspace and replace each pending packet's encrypted queue snapshot. Whole
+workspaces, local rosters and chat drafts are never sent through the packet
+transport. Failed requests and incomplete acknowledgements retain the queue.
+Unchanged retries reuse their operation IDs.
+Before the first network attempt, the queue and saved workspace atomically
+mark that snapshot as awaiting reconciliation. Vault restoration skips
+normalization of that protected snapshot, and later saves cannot replace its
+operation ID or contents. An unconfirmed attempt temporarily blocks editing
+that packet until retry resolves the server outcome; it is not proof that the
+upload failed. The pending upload interface must explain this before sending.
+
+The new `WorkspaceProvider.syncPackets()` operation is an explicit, abortable,
+15-second upload hook. **It is not connected to a visible upload button yet.**
+“Save locally” still only saves locally. Per the required approval process,
+upload/confirmation controls and shared-record views need a preview and user
+approval before integration. Automatic sync is intentionally disabled:
+`navigator.onLine` does not establish a trusted city-network connection.
+
+### Agency deployment configuration
+
+Packet storage uses a separate, agency-managed PostgreSQL connection:
+
+- `AGENCY_PACKET_SYNC_ENABLED=true` explicitly enables the adapter; absent/false
+  leaves it unavailable without breaking local saves.
+- `AGENCY_DATABASE_URL` is the agency DBA-provided PostgreSQL connection string,
+  with the agency's TLS certificate verification settings.
+- `AGENCY_ROLE_CLAIM_PATH`, `AGENCY_BADGE_CLAIM_PATH`, and
+  `AGENCY_VERIFIED_CLAIM_PATH` identify dot-separated fields in the
+  **server-verified Clerk session claims**. The verified field must be boolean
+  `true`; the role must be exactly `PO`, `FTO`, or `FTO_COORDINATOR`.
+  IT must provision these claims from its approved agency identity source.
+- `AUDIT_ID_HMAC_KEY` is the existing centralized audit HMAC key.
+- Set `CLERK_TELEMETRY_DISABLED=true` on the agency server to disable SDK
+  telemetry and its non-JSON development-instance startup notice. The isolated
+  production-package smoke test uses this setting to verify JSONL-only stdout.
+
+Enabling packet sync with missing configuration aborts server startup. Requests
+without verified agency claims fail closed. The browser's role selector,
+badge inputs and assignment arrays never establish permission. This adapter
+does not replace the agency IdP, prove MFA, or configure identity federation.
+The existing generic `DATABASE_URL` and synthetic schema are not reused.
+
+The DBA must review and apply `migrations/agency-training.sql` from the API
+distribution using an administrative deployment identity. Do not apply it to
+the synthetic staging database. Populate `agency_training.assignments` from
+the trusted roster process: phase/date bounds, class, names, deterministic
+HMAC hashes of the Clerk subject IDs and badges, and the class coordinator's
+identity hash. Use the existing `hashUserIdentifier()` utility and the same
+HMAC key; do not store a different salt. Each FTO upload must match exactly one
+active roster entry by verified FTO identity/badge, PO badge, class, phase and
+record date. No matching or ambiguous assignment returns 403.
+
+`POST /api/v1/training-packets/sync` commits at most 100 complete packet
+snapshots in a single transaction, with a bounded 2 MB body. It binds packet
+IDs to the matching server assignment. The assigned FTO is the only uploader.
+Already committed packets accept only exact operation/content retries; other
+attempts return 409. A successful receipt atomically seals the encrypted local
+packet as `synchronized_complete` and records its server version. Locking or
+signing out aborts the client request and clears access to the in-memory key.
+If the server committed before disconnection, retry resolves through the
+idempotent receipt; the client never assumes a timeout means “not committed.”
+
+`GET /api/v1/training-packets` and `GET /api/v1/training-packets/:id`
+read only the signed-in identity's assignment scope. FTOs see their assignments;
+coordinators see only assignments whose coordinator identity hash matches.
+PO reads additionally require the server-owned `released_to_po` flag.
+That flag defaults false; **the PO release/signature workflow is not
+implemented in this pass**. Uploading does not create electronic signatures,
+validate client-provided signature blocks, or authorize PO release.
+
+Database packet events record request IDs and HMAC-pseudonymized actor/IP
+identities; request middleware also emits the existing JSONL audit stream.
+Give the runtime DB role only the documented SELECT/INSERT permissions, no
+schema ownership or UPDATE/DELETE/TRUNCATE permissions. The trusted roster and
+PO-release administration process uses a separate identity. The agency remains
+responsible for retention, immutable SIEM storage, database encryption and
+backups. Changing the HMAC key requires a coordinated roster-hash migration.
+
+The agency database and signed claim mappings are not configured here. Tests
+exercise authorization and transaction behavior with an injected store/client
+and encrypted vault behavior with IndexedDB emulation; they do not certify a
+live agency database. Validate the migration, runtime grants, concurrency and
+identity mappings on agency staging before enabling operational uploads.
+The production ZIP remains **API-only**, not a complete portal deployment.
+
 ## Verified synthetic staging and source-recovery boundary
 
 The unused extra developer-password gate has been removed. Normal Clerk

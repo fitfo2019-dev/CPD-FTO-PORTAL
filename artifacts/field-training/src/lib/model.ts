@@ -833,6 +833,8 @@ export interface ChecklistDeficiencyGroup {
 export interface Report {
   syncStatus?: 'local_draft_pending' | 'synchronized_complete';
   serverVersion?: number;
+  /** An attempted upload must be reconciled before its immutable snapshot changes. */
+  syncAttemptPending?: boolean;
   id: string; date: string; shiftStartTime?: string; shift: ReportShift; phase: Phase; zone: string; precinct: string; cruiserDistrict: string;
   deficiencyAutomationEnabled?: boolean;
   deficiencyOverrides?: Record<string, Category>;

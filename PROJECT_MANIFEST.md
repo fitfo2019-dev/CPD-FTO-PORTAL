@@ -6,7 +6,16 @@
 
 This workspace contains three artifacts: an Express API Server, a React/Vite Component Preview Sandbox, and the Field Training Officer Portal. `callbox\pv3` exists on the internal server, but its source and runtime are outside this workspace.
 
-The Field Training Officer Portal has sign-in and workflow views, but training records remain in an encrypted device-local vault. There is no connected training-record synchronization service, database-backed portal route, or configured department role-and-record-scope authorization policy. The isolated `AdminLogsDashboard` mockup uses development sample data; it is not a production audit console.
+The Field Training Officer Portal has sign-in and workflow views; training records remain in an encrypted device-local vault by default. Agency packet API routes and encrypted sync hooks now exist, gated off until an agency-managed PostgreSQL connection, verified signed identity claim mappings and trusted assignment roster are configured. There is no visible upload control or shared-record screen yet. “Save locally” does not upload. The isolated `AdminLogsDashboard` mockup uses development sample data; it is not a production audit console.
+
+Packet routes are `/api/v1/training-packets`, `/api/v1/training-packets/:id`,
+`/api/v1/training-packets/sync`, and `/api/v1/training-packets/sync-readiness`.
+Only a server-verified FTO with a matching agency roster assignment may upload.
+Batch commits are transactional, exact retries are idempotent, and successful
+client acknowledgements seal local packets. PO reads require server-controlled
+release, whose workflow is still pending. The SQL migration is included in the
+API-only distribution. See `HANDOVER_MANUAL.md` for all `AGENCY_*` configuration
+keys, database grants and verification limits.
 
 The run editor presents one sheet at a time, with back/next navigation, linked quick-add forms, per-sheet checklist review, and a Save run action followed by a separate New run action. FTO-initiated incident lookup matches the editable unit/cruiser assignment recorded at phase start. Each matching unit receives shared incident metrics plus its own dispatch/clear times; officer identity information is never imported. Prefill is limited to incident date/time, dispatched/cleared times, dispatched 10-code, structured location, zone, cruiser district, and clearance code when available. All returned values remain editable. Situation Found is blank by default. Existing unique code mappings suggest 17 → Domestic Incident and 4 → Traffic Crash; 6 is ambiguous and requires a form choice. Other codes use Call for Service unless the FTO changes the form. A 3V clearance attaches Arrest Process and the existing transport workflow; dispatch codes do not infer OVI or building-search actions. No live PatrolView JSON endpoint is configured; manual entry remains available.
 

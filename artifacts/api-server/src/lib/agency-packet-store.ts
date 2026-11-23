@@ -22,11 +22,11 @@ type Assignment = { id: string; fto_name: string; fto_badge_hash: string;
   po_name: string; po_badge_hash: string; class_name: string; phase: number };
 
 // All identifiers are constants; all external values are parameterized.
-const authorizedScope = `(a.active AND (
+const authorizedScope = `(a.active AND pa.active AND (
   ($1 = 'FTO' AND a.fto_id_hash = $2 AND a.fto_badge_hash = $3) OR
   ($1 = 'PO' AND a.po_id_hash = $2 AND a.po_badge_hash = $3
-    AND p.report->>'status' IN ('fto_signed','recruit_signed','locked')) OR
-  ($1 = 'FTO_COORDINATOR' AND a.coordinator_id = $2)))`;
+    AND p.released_to_po = true) OR
+  ($1 = 'FTO_COORDINATOR' AND a.coordinator_id_hash = $2)))`;
 const identityHash = (identity: AgencyIdentity) => hashUserIdentifier(identity.id);
 const badgeHash = (identity: AgencyIdentity) => hashUserIdentifier(identity.badge);
 const digestJson = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -76,12 +76,12 @@ export function createAgencyPacketStore(pool: pg.Pool) {
              FROM agency_training.assignments
              WHERE active AND fto_id_hash=$1 AND fto_badge_hash=$2
                AND po_badge_hash=$3 AND class_name=$4 AND phase=$5
-               AND $6::date BETWEEN starts_on AND ends_on FOR SHARE`,
+               AND $6::date BETWEEN starts_on AND ends_on`,
             [identityHash(identity), badgeHash(identity), hashUserIdentifier(report.recruitBadge),
               report.className, report.phase, report.date],
           );
           const assignment = assignmentResult.rows[0];
-          if (!assignment || hashUserIdentifier(report.ftoBadge) !== assignment.fto_badge_hash ||
+          if (assignmentResult.rows.length !== 1 || !assignment || hashUserIdentifier(report.ftoBadge) !== assignment.fto_badge_hash ||
             hashUserIdentifier(report.recruitBadge) !== assignment.po_badge_hash || report.phase !== assignment.phase ||
             report.className !== assignment.class_name) throw new PacketError(403, "PACKET_ASSIGNMENT_REQUIRED");
           const digest = digestJson(report);
@@ -98,16 +98,9 @@ export function createAgencyPacketStore(pool: pg.Pool) {
             continue;
           }
           if (change.base_version !== 0) throw new PacketError(409, "PACKET_VERSION_CONFLICT");
-          const signedReport = {
-            ...report, status: "fto_signed", syncStatus: "synchronized_complete",
-            serverVersion: 1, ftoName: assignment.fto_name, ftoBadge: identity.badge,
-            recruitName: assignment.po_name,
-            signatures: {
-              ...((report.signatures && typeof report.signatures === "object") ? report.signatures : {}),
-              fto: { name: assignment.fto_name, badge: identity.badge,
-                at: new Date().toISOString(), method: "account" },
-            },
-          };
+          // Uploading seals a snapshot; it does NOT create a signature, verify
+          // caller-supplied signature fields or authorize release to the PO.
+          const savedReport = { ...report };
           await client.query(
             `INSERT INTO agency_training.packet_assignments (packet_id, assignment_id, record_date)
              VALUES ($1,$2,$3)`,
@@ -117,7 +110,7 @@ export function createAgencyPacketStore(pool: pg.Pool) {
             `INSERT INTO agency_training.packets
              (id, assignment_id, record_date, phase, operation_id, content_hash, report)
              VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`,
-            [report.id, assignment.id, report.date, report.phase, change.operation_id, digest, JSON.stringify(signedReport)],
+            [report.id, assignment.id, report.date, report.phase, change.operation_id, digest, JSON.stringify(savedReport)],
           );
           await client.query(
             `INSERT INTO agency_training.packet_events

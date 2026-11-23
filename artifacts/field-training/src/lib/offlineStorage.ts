@@ -26,6 +26,7 @@ export type PendingChange<T = unknown> = {
   value: T;
   baseVersion: number;
   clientTimestamp: string;
+  attempted?: boolean;
 };
 export type SyncResult =
   | { status: "accepted"; operationId: string; version: number }
@@ -184,7 +185,7 @@ export class OfflineStorage {
 
   /** Local workspace and latest per-packet queue entries commit together.
    * Legacy workspace queue entries are never sent by syncPacketBatch(). */
-  saveWorkspace<T extends { reports: Array<{ id: string; syncStatus?: string; serverVersion?: number }> }>(
+  saveWorkspace<T extends { reports: Array<{ id: string; syncStatus?: string; serverVersion?: number; syncAttemptPending?: boolean }> }>(
     workspace: T,
   ): Promise<void> {
     const { key, epoch } = this.session();
@@ -206,6 +207,22 @@ export class OfflineStorage {
       for (const envelope of queued) {
         if (envelope.id.startsWith("packet:")) previous.set(envelope.id, await this.open<PendingChange>(key, envelope));
       }
+      // Once transmission is attempted, even a timeout cannot prove that the
+      // server did not commit. Keep its exact snapshot and operation ID.
+      for (const [id, change] of previous) {
+        if (!change.attempted) continue;
+        const original = change.value as T["reports"][number];
+        const candidate = snapshot.reports.find(report => `packet:${report.id}` === id);
+        if (!candidate) {
+          snapshot.reports.push({ ...original, syncAttemptPending: true });
+          continue;
+        }
+        const { syncAttemptPending: _guard, ...content } = candidate;
+        if (JSON.stringify(content) !== JSON.stringify(change.value)) {
+          throw new Error("Reconcile the attempted packet upload before changing its saved contents.");
+        }
+        candidate.syncAttemptPending = true;
+      }
       const envelopes: Envelope[] = [];
       const ids = new Set<string>();
       for (const report of snapshot.reports) {
@@ -213,7 +230,7 @@ export class OfflineStorage {
         const id = `packet:${report.id}`;
         ids.add(id);
         const prior = previous.get(id);
-        const change = prior && JSON.stringify(prior.value) === JSON.stringify(report) ? prior : {
+        const change = prior && (prior.attempted || JSON.stringify(prior.value) === JSON.stringify(report)) ? prior : {
           operationId: crypto.randomUUID(), recordId: report.id, value: report,
           baseVersion: report.serverVersion ?? 0, clientTimestamp: new Date().toISOString(),
         };
@@ -238,7 +255,7 @@ export class OfflineStorage {
 
   /** One server transaction, followed by one local acknowledgement transaction.
    * No queue deletion or local sealing occurs on partial/malformed receipts. */
-  syncPacketBatch<T extends { reports: Array<{ id: string; syncStatus?: string; serverVersion?: number }> }>(
+  syncPacketBatch<T extends { reports: Array<{ id: string; syncStatus?: string; serverVersion?: number; syncAttemptPending?: boolean }> }>(
     transport: (changes: PendingChange[]) => Promise<PacketBatchReceipt[]>,
   ): Promise<T | undefined> {
     if (this.syncing) return Promise.reject(new Error("Sync is already running."));
@@ -248,9 +265,23 @@ export class OfflineStorage {
       this.assertActive(epoch);
       const db = await this.db();
       const envelopes = await request<Envelope[]>(db.transaction("sync_queue").objectStore("sync_queue").getAll());
-      const packets = envelopes.filter(item => item.id.startsWith("packet:"));
+      const packets = envelopes.filter(item => item.id.startsWith("packet:")).slice(0, 100);
       if (!packets.length) return undefined;
       const changes = await Promise.all(packets.map(item => this.open<PendingChange>(key, item)));
+      const workspaceEnvelope = await this.read<Envelope>("records", "workspace");
+      if (!workspaceEnvelope) throw new Error("The saved local workspace is unavailable.");
+      const before = await this.open<T>(key, workspaceEnvelope);
+      const attemptedWorkspace = { ...before, reports: before.reports.map(report =>
+        changes.some(change => change.recordId === report.id) ? { ...report, syncAttemptPending: true } : report) };
+      const attemptedEntries = await Promise.all(packets.map((packet, index) =>
+        this.seal(key, packet.id, { ...changes[index], attempted: true })));
+      const guardedWorkspace = await this.seal(key, "workspace", attemptedWorkspace);
+      this.assertActive(epoch);
+      const attemptedTx = db.transaction(["records", "sync_queue"], "readwrite");
+      const attemptDone = complete(attemptedTx);
+      attemptedTx.objectStore("records").put(guardedWorkspace);
+      for (const entry of attemptedEntries) attemptedTx.objectStore("sync_queue").put(entry);
+      await attemptDone;
       const receipts = await transport(changes);
       this.assertActive(epoch);
       if (receipts.length !== changes.length || new Set(receipts.map(item => item.id)).size !== changes.length ||
@@ -264,8 +295,10 @@ export class OfflineStorage {
       const workspace = await this.open<T>(key, envelope);
       const next = { ...workspace, reports: workspace.reports.map(report => {
         const receipt = receipts.find(item => item.id === report.id);
-        return receipt ? { ...report, syncStatus: "synchronized_complete" as const,
-          serverVersion: receipt.server_version } : report;
+        if (!receipt) return report;
+        const original = changes.find(change => change.recordId === report.id)!.value as T["reports"][number];
+        return { ...original, syncStatus: "synchronized_complete" as const,
+          serverVersion: receipt.server_version, syncAttemptPending: false };
       }) };
       const sealed = await this.seal(key, "workspace", next);
       this.assertActive(epoch);

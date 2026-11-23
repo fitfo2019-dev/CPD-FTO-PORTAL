@@ -1,3 +1,14 @@
+# Agency packet sync implementation
+
+Encrypted local saves remain available offline and do not upload. The new
+packet API and explicit sync hook require agency configuration and a
+server-held assignment roster; they are disabled by default. Upload controls
+and shared-record UI are not integrated pending a preview and approval.
+See `HANDOVER_MANUAL.md` → “Agency packet storage and offline-first sync” for
+`AGENCY_PACKET_SYNC_ENABLED`, `AGENCY_DATABASE_URL`, signed claim mappings,
+the DBA-reviewed migration, permissions, retry semantics and remaining work.
+The generated `dist-production.zip` is an API-only package, not the full portal.
+
 # Project Setup and Agency Handover
 
 ## Synthetic access verification and recovery copies

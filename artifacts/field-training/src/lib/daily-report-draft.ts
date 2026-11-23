@@ -21,6 +21,7 @@ export function createDailyReportDraft(folder:PhaseCaseFolder,date:string,prior?
     reportingForDuty:{...defaultReportingForDutyRecord(),cruiserId:prior?.reportingForDuty?.cruiserId},
     deficiencyAutomationEnabled:true,ratings:schedule.limboDay?emptyRatings():defaultRatings(),
     phaseWeek:schedule.phaseWeek,limboDay:schedule.limboDay,narrative:'',remedial:'',recruitComments:'',
+    syncStatus:'local_draft_pending',serverVersion:0,
     status:'draft',signatures:{},createdAt:now,updatedAt:now,
   };
 }

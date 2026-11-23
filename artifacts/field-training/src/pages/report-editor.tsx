@@ -223,7 +223,7 @@ export default function ReportEditor() {
 
   if (!r) return <div className="py-20 text-center"><div className="mono text-5xl font-bold text-muted-foreground">{isNew ? <Lock className="mx-auto h-10 w-10" /> : '404'}</div><p className="mt-2">{isNew ? ws.caseFolder ? 'Complete the shift schedule and valid Zone → Precinct → FTO Assignment in phase setup before starting this shift.' : 'Complete phase setup before starting a shift.' : 'Report not found.'}</p><Link href={isNew ? '/phase-setup' : '/reports'} className="underline font-semibold mt-3 inline-block">{isNew ? 'Open phase setup' : 'Back to saved records'}</Link></div>;
 
-  const locked = r.status === 'locked' || r.syncStatus === 'synchronized_complete';
+  const locked = r.status === 'locked' || r.syncStatus === 'synchronized_complete' || r.syncAttemptPending === true;
   const editable = !locked && r.status === 'draft' && ws.role === 'fto';
   const commentsEditable = !locked && r.status === 'fto_signed' && ws.role === 'po';
   const set = <K extends keyof Report>(k: K, v: Report[K]) => setR(x => x && ({ ...x, deficiencyAutomationEnabled:k==='reportingForDuty'?true:x.deficiencyAutomationEnabled, ratingsReviewedAt: undefined, [k]: v }));

@@ -81,6 +81,44 @@ test('locking the vault during packet transmission cannot restore plaintext or a
   assert.equal(await vault.pendingCount(), 1);
 });
 
+test('a lost response after server commit can be reconciled after vault reopening without replacing the operation or snapshot', async () => {
+  const { namespace, vault } = createVault();
+  await vault.unlock(passphrase);
+  const workspace = { reports: [{ id: 'p1', syncStatus: 'local_draft_pending',
+    narrative: 'Exact originally committed snapshot' }] };
+  await vault.saveWorkspace(workspace);
+  let committed: { operationId: string; serialized: string } | undefined;
+  await assert.rejects(vault.syncPacketBatch(async changes => {
+    committed = { operationId: changes[0].operationId, serialized: JSON.stringify(changes[0].value) };
+    // Simulate successful server COMMIT followed by a lost HTTP response.
+    throw new Error('response lost after commit');
+  }), /response lost/);
+  vault.lock();
+  const reopened = new OfflineStorage(namespace);
+  await reopened.unlock(passphrase);
+  type Restored = { reports: Array<{ id: string; narrative: string; syncStatus: string;
+    syncAttemptPending?: boolean; legacyActivity?: Record<string, unknown> }> };
+  const restored = await reopened.get<Restored>('workspace');
+  assert.ok(restored);
+  // Workspace restoration uses this guard to bypass report normalization.
+  assert.equal(restored.reports[0].syncAttemptPending, true);
+  // A stray migration/autosave cannot replace an uncertain operation.
+  await assert.rejects(reopened.saveWorkspace({
+    ...restored, reports: [{ ...restored.reports[0], legacyActivity: {} }],
+  }), /Reconcile the attempted/);
+  await reopened.saveWorkspace(restored);
+  const acknowledged = await reopened.syncPacketBatch(async changes => {
+    assert.equal(changes[0].operationId, committed?.operationId);
+    assert.equal(JSON.stringify(changes[0].value), committed?.serialized);
+    // The server recognizes the already-committed operation and returns its receipt.
+    return [{ id: 'p1', operation_id: changes[0].operationId,
+      server_version: 1, sync_status: 'synchronized_complete' }];
+  });
+  assert.equal(acknowledged?.reports[0].syncStatus, 'synchronized_complete');
+  assert.equal(acknowledged?.reports[0].syncAttemptPending, false);
+  assert.equal(await reopened.pendingCount(), 0);
+});
+
 test('upgrading an existing vault adds the local-drafts store without dropping records', async () => {
   const namespace = `offline-upgrade-${crypto.randomUUID()}`;
   const databaseName = `fieldready-vault-${namespace}`;

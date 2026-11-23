@@ -1,4 +1,5 @@
 import { Router, json, type RequestHandler } from "express";
+import { randomUUID } from "node:crypto";
 import { SyncTrainingPacketsResponse, GetTrainingPacketParams } from "@workspace/api-zod";
 import { CompletePacketInput, CompletePacketsEnvelope } from "../lib/packet-contract.js";
 import { requireAgencyIdentity, type AgencyIdentity } from "../security/agencyIdentity.js";
@@ -59,7 +60,10 @@ export function createTrainingPacketsRouter(
     try {
       const store = resolveStore();
       if (!store) throw new PacketError(503, "AGENCY_STORAGE_UNAVAILABLE");
-      const data = await store.sync(identity, parsed.data.packets);
+      const data = await store.sync(identity, {
+        requestId: typeof req.id === "string" ? req.id : randomUUID(),
+        clientIp: req.ip || req.socket.remoteAddress || "unknown",
+      }, parsed.data.packets);
       res.json(SyncTrainingPacketsResponse.parse({
         status: "success", metadata: { total_records: data.length, role: identity.role }, data,
       }));
@@ -76,7 +80,10 @@ export function createTrainingPacketsRouter(
       const store = resolveStore();
       if (!store) throw new PacketError(503, "AGENCY_STORAGE_UNAVAILABLE");
       const identity = res.locals.agencyIdentity as AgencyIdentity;
-      const data = await store.read(identity, typeof id === "string" ? id : undefined);
+      const data = await store.read(identity, {
+        requestId: typeof req.id === "string" ? req.id : randomUUID(),
+        clientIp: req.ip || req.socket.remoteAddress || "unknown",
+      }, typeof id === "string" ? id : undefined);
       res.json(CompletePacketsEnvelope.parse({
         status: "success", metadata: { total_records: data.length, role: identity.role }, data,
       }));
