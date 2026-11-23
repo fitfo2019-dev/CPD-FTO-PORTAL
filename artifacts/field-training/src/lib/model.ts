@@ -571,6 +571,24 @@ export const PHASE_PROGRAM_WEEK_START: Record<Phase,number> = { 1:1, 2:5, 3:9, 4
 export const PHASE_LIMBO_FULL_WEEKS: readonly Phase[] = [1];
 // Phase I is handled as a full week above; 0 means no separate day-count rule.
 export const PHASE_LIMBO_WORKDAYS: Record<Phase,number> = { 1:0, 2:2, 3:1, 4:1 };
+export interface PhaseWeekRange {
+  startDate: string;
+  endDate: string;
+}
+export interface PhaseExtensionRequest {
+  id: string;
+  className: string;
+  recruitName: string;
+  recruitBadge: string;
+  phase: Phase;
+  phaseStartDate: string;
+  requestingFtoName: string;
+  requestingFtoBadge: string;
+  extensionType: 'training_weeks'|'limbo_period';
+  requestedWeeks: number;
+  justification: string;
+  createdAt: string;
+}
 export type Shift = 'A-Co'|'B-Co'|'C-Co'|'DMW'|'EMW';
 export type Weekday = 0|1|2|3|4|5|6;
 export const WEEKDAYS: { value: Weekday; label: string }[] = [
@@ -693,6 +711,8 @@ export interface PhaseCaseFolder {
   ftoAssignment?: string;
   daysOff: Weekday[];
   phaseStartDate: string;
+  phaseWeekRanges?: PhaseWeekRange[];
+  limboExtensionWeeks?: number;
   openedAt: string;
   legacyGeography?: { previousPrecinctText?: string; previousAreaText?: string };
 }
@@ -840,6 +860,7 @@ export interface Workspace {
   ftoPhaseSignups:FtoPhaseSignup[];
   coverageRequests:CoverageRequest[];
   lawReviewRecords:LawReviewRecord[];
+  phaseExtensionRequests:PhaseExtensionRequest[];
 }
 
 const PII = [
@@ -863,7 +884,7 @@ export function validateReport(r: Report): string[] {
   for (const [label,value] of [['Phase week',r.phaseWeek],['FTO week',r.ftoWeek]] as const) {
     if (value !== undefined && (!Number.isInteger(value) || value < 1)) errs.push(`${label} must be a positive whole number`);
   }
-  if(r.phaseWeek!==undefined&&r.phaseWeek>PHASE_LENGTH_WEEKS[r.phase])errs.push(`${phaseLabel(r.phase)} is limited to ${PHASE_LENGTH_WEEKS[r.phase]} weeks in the manual.`);
+  if(r.phaseWeek!==undefined&&(!Number.isInteger(r.phaseWeek)||r.phaseWeek<1))errs.push('Phase week must be a positive whole number.');
   for (const c of r.limboDay ? [] : CATEGORIES) {
     const v = r.ratings?.[c];
     if (!v?.rating) errs.push(CATEGORY_LABEL[c] + ': select a manual rating');

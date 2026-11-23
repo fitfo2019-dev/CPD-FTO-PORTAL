@@ -6,6 +6,7 @@ import { CATEGORIES, CATEGORY_LABEL, canViewClass, evaluationProgress, needsJust
 import { formatDateDMY, localISODate } from '@/lib/training-calendar.js';
 import { PageHead, Panel, RatingChip, Stat, StatusPill } from '@/components/bits.js';
 import { NrtAdminReviewPanel } from '@/components/nrt-admin-review-panel.js';
+import { PhaseExtensionPanel } from '@/components/phase-extension-panel.js';
 import { activityTotals } from '@/lib/run-activity.js';
 
 export default function Dashboard() {
@@ -36,6 +37,8 @@ export default function Dashboard() {
       {canViewClass(ws.role)&&<Link href="/class-overview" data-testid="link-class-overview" className="inline-flex min-h-11 items-center gap-2 rounded border bg-card px-4 text-sm font-bold"><UsersRound className="h-4 w-4"/>{isCoordinator?'Open classes and rosters':'Open class records'}</Link>}
       {(ws.role==='fto'||ws.role==='fto_coordinator')&&<Link href="/substitute-fto" data-testid="link-substitute-fto" className="inline-flex min-h-11 items-center gap-2 rounded border bg-card px-4 text-sm font-bold"><CalendarClock className="h-4 w-4"/>{isCoordinator?'Manage coverage':'Request or provide coverage'}</Link>}
     </PageHead>
+
+    <PhaseExtensionPanel/>
 
     <section aria-label="Your next steps" className="mb-5 rounded border border-primary/20 bg-primary/[0.035] p-4 sm:p-5">
       <p className="label-caps">{isCoordinator?'FTO Coordinator starting point':'FTO starting point'}</p>

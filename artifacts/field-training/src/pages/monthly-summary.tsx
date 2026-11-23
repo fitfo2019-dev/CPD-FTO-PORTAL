@@ -8,6 +8,7 @@ import { DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, RATINGS, SEG_CATEGORIES,
 import { useMonthlyExcelAggregator } from '@/hooks/use-monthly-excel-aggregator.js';
 import { formatDateDMY } from '@/lib/training-calendar.js';
 import { useWorkspace } from '@/state/workspace.js';
+import { filterReportsForMonth } from '@/lib/monthly-summary.js';
 
 const ownerKey = (report: { className?: string; recruitBadge: string; recruitName: string }) =>
   JSON.stringify([report.className ?? '', report.recruitBadge, report.recruitName]);
@@ -48,7 +49,13 @@ export default function MonthlySummaryPage() {
   const months = useMemo(() => [...new Set(ownerReports.map(report => report.date.slice(0, 7)))]
     .filter(month => /^\d{4}-\d{2}$/.test(month)).sort((a, b) => b.localeCompare(a)), [ownerReports]);
   const monthKey = months.includes(selectedMonth) ? selectedMonth : months[0] ?? '';
-  const { reports, summary } = useMonthlyExcelAggregator(ownerReports, monthKey);
+  const monthReports=filterReportsForMonth(ownerReports,monthKey);
+  const monthPhases=[...new Set(monthReports.map(report=>report.phase))];
+  const phaseFolder=monthPhases.length===1
+    ?ws.phaseFolders.find(folder=>ownerKey(folder)===owner?.key&&folder.phase===monthPhases[0])
+      ??(ws.caseFolder&&ownerKey(ws.caseFolder)===owner?.key&&ws.caseFolder.phase===monthPhases[0]?ws.caseFolder:undefined)
+    :undefined;
+  const { reports, summary, workbookWeekRanges } = useMonthlyExcelAggregator(ownerReports, monthKey,phaseFolder?.phaseWeekRanges);
   const monthLabel = monthKey ? formatMonth(monthKey) : 'No monthly records';
   const rangeStart = reports[0]?.date ?? '';
   const rangeEnd = reports[reports.length - 1]?.date ?? '';
@@ -59,7 +66,7 @@ export default function MonthlySummaryPage() {
     setExportMessage('');
     try {
       const { exportMonthlyWorkbook } = await import('@/lib/monthly-export.js');
-      exportMonthlyWorkbook(reports, monthKey);
+      exportMonthlyWorkbook(reports, monthKey,workbookWeekRanges);
       setExportMessage('Monthly Excel workbook downloaded.');
     } catch {
       setExportMessage('The workbook could not be created. Your saved daily records are unchanged.');

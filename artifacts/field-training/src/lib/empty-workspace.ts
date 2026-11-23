@@ -19,6 +19,7 @@ export function createEmptyWorkspace(): Workspace {
     ftoPhaseSignups: [],
     coverageRequests: [],
     lawReviewRecords: [],
+    phaseExtensionRequests: [],
   };
 }
 

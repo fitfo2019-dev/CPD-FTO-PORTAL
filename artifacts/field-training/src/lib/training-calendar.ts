@@ -1,4 +1,4 @@
-import { PHASE_LENGTH_WEEKS, PHASE_LIMBO_FULL_WEEKS, PHASE_LIMBO_WORKDAYS, PHASE_PROGRAM_WEEK_START, type Phase, type PhaseCaseFolder, type Report, type ReportShift, type Shift, type Weekday } from './model.js';
+import { PHASE_LENGTH_WEEKS, PHASE_LIMBO_FULL_WEEKS, PHASE_LIMBO_WORKDAYS, PHASE_PROGRAM_WEEK_START, type Phase, type PhaseCaseFolder, type PhaseWeekRange, type Report, type ReportShift, type Shift, type Weekday } from './model.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -100,6 +100,27 @@ export function getTrainingWeekNumber(isoDate: string, phaseStartDate: string): 
   return Math.floor(elapsedDays / 7) + 1;
 }
 
+export function createPhaseWeekRanges(phase:Phase,phaseStartDate:string,additionalWeeks=0):PhaseWeekRange[] {
+  const firstWeek=getSundaySaturdayWeek(phaseStartDate);
+  if(!firstWeek)return [];
+  const weekCount=PHASE_LENGTH_WEEKS[phase]+Math.max(0,Math.floor(additionalWeeks));
+  return Array.from({length:weekCount},(_,index)=>{
+    const start=new Date(`${firstWeek.start}T12:00:00Z`);
+    start.setUTCDate(start.getUTCDate()+index*7);
+    const end=new Date(start);
+    end.setUTCDate(end.getUTCDate()+6);
+    return {startDate:start.toISOString().slice(0,10),endDate:end.toISOString().slice(0,10)};
+  });
+}
+
+export function getPhaseWeekNumber(isoDate:string,phaseStartDate:string,phaseWeekRanges?:readonly PhaseWeekRange[]):number|undefined {
+  if(phaseWeekRanges?.length) {
+    const index=phaseWeekRanges.findIndex(range=>isoDate>=range.startDate&&isoDate<=range.endDate);
+    return index<0?undefined:index+1;
+  }
+  return getTrainingWeekNumber(isoDate,phaseStartDate);
+}
+
 export interface PhaseScheduleInfo {
   phaseWeek?: number;
   programWeek?: number;
@@ -107,8 +128,8 @@ export interface PhaseScheduleInfo {
   limboDay: boolean;
 }
 
-export function getPhaseScheduleInfo(phase:Phase,isoDate:string,phaseStartDate:string,daysOff:Weekday[]):PhaseScheduleInfo {
-  const phaseWeek=getTrainingWeekNumber(isoDate,phaseStartDate);
+export function getPhaseScheduleInfo(phase:Phase,isoDate:string,phaseStartDate:string,daysOff:Weekday[],phaseWeekRanges?:readonly PhaseWeekRange[],limboExtensionWeeks=0):PhaseScheduleInfo {
+  const phaseWeek=getPhaseWeekNumber(isoDate,phaseStartDate,phaseWeekRanges);
   if(!phaseWeek)return {limboDay:false};
   const programWeek=PHASE_PROGRAM_WEEK_START[phase]+phaseWeek-1;
   const window=getSundaySaturdayWeek(isoDate);
@@ -121,7 +142,7 @@ export function getPhaseScheduleInfo(phase:Phase,isoDate:string,phaseStartDate:s
     const weekday=getWeekdayIndex(date);
     if(weekday!==undefined&&!daysOff.includes(weekday))scheduledDay++;
   }
-  const limboDay=phaseWeek<=PHASE_LENGTH_WEEKS[phase]&&phaseWeek===1&&!!scheduledDay&&(PHASE_LIMBO_FULL_WEEKS.includes(phase)||scheduledDay<=PHASE_LIMBO_WORKDAYS[phase]);
+  const limboDay=phaseWeek===1&&!!scheduledDay&&(PHASE_LIMBO_FULL_WEEKS.includes(phase)||scheduledDay<=PHASE_LIMBO_WORKDAYS[phase]||(limboExtensionWeeks>0&&!!phaseWeekRanges?.[0]&&isoDate<=phaseWeekRanges[0].endDate));
   return {phaseWeek,programWeek,scheduledDay,limboDay};
 }
 

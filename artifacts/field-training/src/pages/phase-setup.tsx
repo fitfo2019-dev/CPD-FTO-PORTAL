@@ -10,13 +10,17 @@ import { SearchableSelect } from '@/components/searchable-select.js';
 import { useWorkspace } from '@/state/workspace.js';
 import { CPD_GEOGRAPHY, cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, cpdPrecinctsForZone } from '@/lib/cpd-geography.js';
 import { assignmentToCaseFolder, TrainingAssignmentsPanel } from '@/components/training-assignments-panel.js';
-import { PHASES, SHIFTS, SHIFT_LABEL, WEEKDAYS, phaseLabel, type Phase, type PhaseCaseFolder, type Shift, type TrainingAssignment, type Weekday } from '@/lib/model.js';
-import { currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, parseDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
+import { PHASES, PHASE_LENGTH_WEEKS, SHIFTS, SHIFT_LABEL, WEEKDAYS, phaseLabel, type Phase, type PhaseCaseFolder, type Shift, type TrainingAssignment, type Weekday } from '@/lib/model.js';
+import { createPhaseWeekRanges, currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getSundaySaturdayWeek, parseDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
 import { useToast } from '@/hooks/use-toast.js';
 
 const DAY_VALUES=[0,1,2,3,4,5,6] as const;
 const SHIFT_ORDER:Shift[]=['A-Co','DMW','B-Co','EMW','C-Co'];
 const daySchema=z.union([z.literal(0),z.literal(1),z.literal(2),z.literal(3),z.literal(4),z.literal(5),z.literal(6)]);
+const phaseWeekRangeSchema=z.object({
+  startDate:z.string().refine(value=>!!parseDateDMY(value),'Enter a valid date as MM/DD/YYYY.'),
+  endDate:z.string().refine(value=>!!parseDateDMY(value),'Enter a valid date as MM/DD/YYYY.'),
+});
 const setupSchema=z.object({
   assignmentId:z.string(),
   className:z.string().trim().min(1,'Enter the training class.'),
@@ -26,6 +30,7 @@ const setupSchema=z.object({
   ftoBadge:z.string().trim().min(1,'Enter the regularly assigned FTO badge.'),
   phase:z.enum(['1','2','3','4']),
   phaseStartDate:z.string().refine(value=>!!parseDateDMY(value),'Enter a valid date as MM/DD/YYYY.'),
+  phaseWeekRanges:z.array(phaseWeekRangeSchema),
   shift:z.string().refine(value=>SHIFTS.includes(value as Shift),'Select a Columbus shift.'),
   zone:z.string().min(1,'Select a zone.'),
   precinct:z.string().min(1,'Select a precinct.'),
@@ -39,6 +44,33 @@ const setupSchema=z.object({
   if(SHIFTS.includes(shift)&&value.daysOff.length!==requiredDaysOff(shift)) {
     context.addIssue({code:'custom',path:['daysOff'],message:`Select exactly ${requiredDaysOff(shift)} days off for ${shift}.`});
   }
+  const phase=Number(value.phase) as Phase;
+  if(value.phaseWeekRanges.length<PHASE_LENGTH_WEEKS[phase]) {
+    context.addIssue({code:'custom',path:['phaseWeekRanges'],message:`Enter all ${PHASE_LENGTH_WEEKS[phase]} scheduled phase week ranges.`});
+  }
+  const ranges=value.phaseWeekRanges.map(range=>({start:parseDateDMY(range.startDate),end:parseDateDMY(range.endDate)}));
+  ranges.forEach((range,index)=>{
+    if(!range.start||!range.end)return;
+    const startWeek=getSundaySaturdayWeek(range.start);
+    const endWeek=getSundaySaturdayWeek(range.end);
+    const expectedEnd=new Date(`${range.start}T12:00:00Z`);
+    expectedEnd.setUTCDate(expectedEnd.getUTCDate()+6);
+    if(startWeek?.start!==range.start||endWeek?.end!==range.end||expectedEnd.toISOString().slice(0,10)!==range.end) {
+      context.addIssue({code:'custom',path:['phaseWeekRanges',index],message:'Each phase week must run Sunday through Saturday.'});
+    }
+    if(index>0&&ranges[index-1]?.end) {
+      const nextDate=new Date(`${ranges[index-1].end}T12:00:00Z`);
+      nextDate.setUTCDate(nextDate.getUTCDate()+1);
+      if(nextDate.toISOString().slice(0,10)!==range.start) {
+        context.addIssue({code:'custom',path:['phaseWeekRanges',index],message:'Phase week ranges must be consecutive with no gaps or overlaps.'});
+      }
+    }
+  });
+  const phaseStart=parseDateDMY(value.phaseStartDate);
+  const firstRangeStart=ranges[0]?.start;
+  if(phaseStart&&firstRangeStart&&getSundaySaturdayWeek(phaseStart)?.start!==firstRangeStart) {
+    context.addIssue({code:'custom',path:['phaseWeekRanges',0],message:'The first phase week must contain the phase start date.'});
+  }
 });
 type SetupValues=z.infer<typeof setupSchema>;
 const textInput='h-11 w-full rounded border bg-card px-3 text-sm';
@@ -50,6 +82,8 @@ function valuesFromFolder(folder:PhaseCaseFolder,ftos:{badge:string;name:string}
     ftoName:assignedFto?.name??folder.ftoName,ftoBadge:assignedFto?.badge??folder.ftoBadge,phase:String(folder.phase) as SetupValues['phase'],
     phaseStartDate:formatDateDMY(folder.phaseStartDate),shift:folder.shift,zone:folder.zone,precinct:folder.precinct,
     ftoAssignment:folder.ftoAssignment??'',daysOff:folder.daysOff,
+    phaseWeekRanges:(folder.phaseWeekRanges?.length?folder.phaseWeekRanges:createPhaseWeekRanges(folder.phase,folder.phaseStartDate))
+      .map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),
   };
 }
 function valuesFromAssignment(assignment:TrainingAssignment,ftos:{badge:string;name:string}[],savedFolder?:PhaseCaseFolder):SetupValues {
@@ -62,6 +96,8 @@ function valuesFromAssignment(assignment:TrainingAssignment,ftos:{badge:string;n
     zone:assignment.zone??saved?.zone??'',precinct:assignment.precinct??saved?.precinct??'',
     ftoAssignment:assignment.ftoAssignment??saved?.ftoAssignment??'',
     daysOff:assignment.daysOff?.length?assignment.daysOff:saved?.daysOff??[],
+    phaseWeekRanges:saved?.phaseWeekRanges??createPhaseWeekRanges(assignment.phase,assignment.phaseStartDate)
+      .map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),
   };
 }
 
@@ -79,7 +115,7 @@ export default function PhaseSetupPage() {
     if(activeFolder) return valuesFromFolder(activeFolder,ws.ftoDirectory);
     return {assignmentId:'',className:'',recruitName:'',recruitBadge:'',ftoName:'',ftoBadge:'',
       phase:'1',
-      phaseStartDate:'',shift:'',zone:'',precinct:'',ftoAssignment:'',daysOff:[]};
+      phaseStartDate:'',phaseWeekRanges:[],shift:'',zone:'',precinct:'',ftoAssignment:'',daysOff:[]};
   },[ws.caseFolder,ws.phaseFolders,ws.assignments,ws.ftoDirectory]);
   const form=useForm<SetupValues>({resolver:zodResolver(setupSchema),defaultValues:defaults,mode:'onChange'});
   useEffect(()=>{if(!form.formState.isDirty)form.reset(defaults);},[defaults,form.formState.isDirty,form.reset]);
@@ -91,7 +127,9 @@ export default function PhaseSetupPage() {
   const zone=form.watch('zone');
   const precinct=form.watch('precinct');
   const daysOff=form.watch('daysOff') as Weekday[];
+  const phaseWeekRanges=form.watch('phaseWeekRanges')??[];
   const fieldError=(name:keyof SetupValues)=>form.formState.errors[name]?.message?.toString();
+  const phaseRangeFieldError=(index:number,key:'startDate'|'endDate')=>form.getFieldState(`phaseWeekRanges.${index}.${key}`).error?.message?.toString();
 
   function loadAssignment(id:string) {
     const assignment=ws.assignments.find(item=>item.id===id);
@@ -122,6 +160,7 @@ export default function PhaseSetupPage() {
       assignmentId:values.assignmentId||undefined,className:values.className.trim(),recruitName:values.recruitName.trim(),
       recruitBadge:values.recruitBadge.trim(),ftoName:values.ftoName.trim(),ftoBadge:values.ftoBadge.trim(),
       phase:Number(values.phase) as Phase,phaseStartDate,shift:values.shift as Shift,
+      phaseWeekRanges:values.phaseWeekRanges.map(range=>({startDate:parseDateDMY(range.startDate)!,endDate:parseDateDMY(range.endDate)!})),
       zone:values.zone,precinct:values.precinct,
       cruiserDistrict:cruiserDistrictForFtoAssignment(values.zone,values.precinct,values.ftoAssignment,values.shift)??'',
       ftoAssignment:values.ftoAssignment,daysOff:values.daysOff,
@@ -174,8 +213,33 @@ export default function PhaseSetupPage() {
                 {(!ftoBadge||!assignedFtoProfile)&&<p role="alert" className="text-sm font-semibold text-destructive">The assigned FTO is unavailable. Ask the FTO Coordinator to confirm the roster assignment before saving.</p>}
             </fieldset>
             <Field label="Shift / company" error={fieldError('shift')}>{canManageAssignment?<SearchableSelect {...form.register('shift')} value={shift} className={selectInput} onChange={event=>{form.setValue('shift',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-shift"><option value="">Select shift / company</option>{SHIFT_ORDER.map(value=><option key={value} value={value}>{SHIFT_LABEL[value]}</option>)}</SearchableSelect>:<input {...form.register('shift')} className={textInput} readOnly data-testid="select-shift"/>}</Field>
-            <Field label="Phase" error={fieldError('phase')}>{canManageAssignment?<SearchableSelect {...form.register('phase')} value={phaseValue} className={selectInput} data-testid="select-phase">{PHASES.map(value=><option key={value} value={String(value)}>{phaseLabel(value)}</option>)}</SearchableSelect>:<input {...form.register('phase')} className={textInput} readOnly data-testid="select-phase"/>}</Field>
-            <Field label="Phase start date · MM/DD/YYYY" error={fieldError('phaseStartDate')}><input {...form.register('phaseStartDate')} className={textInput} inputMode="text" placeholder="MM/DD/YYYY" readOnly={!canManageAssignment} onChange={event=>form.setValue('phaseStartDate',formatDateEntryMDY(event.target.value),{shouldDirty:true,shouldValidate:true})} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();form.setValue('phaseStartDate',currentDateTimeMDY().date,{shouldDirty:true,shouldValidate:true});}}} data-testid="input-phase-start"/>{canManageAssignment&&<span className="text-xs font-normal text-muted-foreground">Type digits for automatic MM/DD/YYYY formatting. Enter ? then press Enter for today.</span>}</Field>
+            <Field label="Phase" error={fieldError('phase')}>{canManageAssignment?<SearchableSelect {...form.register('phase')} value={phaseValue} className={selectInput} onChange={event=>{
+              const selectedPhase=event.target.value as SetupValues['phase'];
+              form.setValue('phase',selectedPhase,{shouldDirty:true,shouldValidate:true});
+              const start=parseDateDMY(form.getValues('phaseStartDate'));
+              if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(selectedPhase) as Phase,start).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});
+            }} data-testid="select-phase">{PHASES.map(value=><option key={value} value={String(value)}>{phaseLabel(value)}</option>)}</SearchableSelect>:<input {...form.register('phase')} className={textInput} readOnly data-testid="select-phase"/>}</Field>
+            <Field label="Phase start date · MM/DD/YYYY" error={fieldError('phaseStartDate')}><input {...form.register('phaseStartDate')} className={textInput} inputMode="text" placeholder="MM/DD/YYYY" readOnly={!canManageAssignment} onChange={event=>{
+              const value=formatDateEntryMDY(event.target.value);
+              form.setValue('phaseStartDate',value,{shouldDirty:true,shouldValidate:true});
+              const start=parseDateDMY(value);
+              if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(phaseValue) as Phase,start).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});
+            }} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const value=currentDateTimeMDY().date;form.setValue('phaseStartDate',value,{shouldDirty:true,shouldValidate:true});const start=parseDateDMY(value);if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(phaseValue) as Phase,start).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});}}} data-testid="input-phase-start"/>{canManageAssignment&&<span className="text-xs font-normal text-muted-foreground">Type digits for automatic MM/DD/YYYY formatting. Enter ? then press Enter for today.</span>}</Field>
+            <fieldset className="grid gap-3 rounded-sm border bg-muted/20 p-4">
+              <legend className="px-2 text-sm font-bold">Phase week dates · Sunday–Saturday</legend>
+              {phaseWeekRanges.map((range,index)=><div key={index} className="grid gap-3 sm:grid-cols-2">
+                <Field label={`Week ${index+1} starts · MM/DD/YYYY`} error={phaseRangeFieldError(index,'startDate')}><input className={textInput} inputMode="text" placeholder="MM/DD/YYYY" value={range.startDate} onChange={event=>{
+                  const next=[...phaseWeekRanges];next[index]={...next[index],startDate:formatDateEntryMDY(event.target.value)};
+                  form.setValue('phaseWeekRanges',next,{shouldDirty:true,shouldValidate:true});
+                }} data-testid={`input-phase-week-${index+1}-start`}/></Field>
+                <Field label={`Week ${index+1} ends · MM/DD/YYYY`} error={phaseRangeFieldError(index,'endDate')}><input className={textInput} inputMode="text" placeholder="MM/DD/YYYY" value={range.endDate} onChange={event=>{
+                  const next=[...phaseWeekRanges];next[index]={...next[index],endDate:formatDateEntryMDY(event.target.value)};
+                  form.setValue('phaseWeekRanges',next,{shouldDirty:true,shouldValidate:true});
+                }} data-testid={`input-phase-week-${index+1}-end`}/></Field>
+              </div>)}
+              {fieldError('phaseWeekRanges')&&<p className="text-sm text-destructive" role="alert">{fieldError('phaseWeekRanges')}</p>}
+              <p className="text-xs text-muted-foreground">The date ranges set the workbook’s phase-week tabs. Extra approved weeks are included with Week 4 in Excel.</p>
+            </fieldset>
             <Field label="Patrol zone" error={fieldError('zone')}>{canManageAssignment?<SearchableSelect {...form.register('zone')} value={zone} className={selectInput} onChange={event=>{form.setValue('zone',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('precinct','',{shouldDirty:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-zone"><option value="">Select zone</option>{CPD_GEOGRAPHY.map(item=><option key={item.zone} value={item.zone}>Zone {item.zone}</option>)}</SearchableSelect>:<input {...form.register('zone')} className={textInput} readOnly data-testid="select-zone"/>}</Field>
             <Field label="Precinct" error={fieldError('precinct')}>{canManageAssignment?<SearchableSelect {...form.register('precinct')} value={precinct} className={selectInput} disabled={!zone} onChange={event=>{form.setValue('precinct',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-precinct"><option value="">Select precinct</option>{cpdPrecinctsForZone(zone).map(item=><option key={item.precinct} value={item.precinct}>Precinct {item.precinct}</option>)}</SearchableSelect>:<input {...form.register('precinct')} className={textInput} readOnly data-testid="select-precinct"/>}</Field>
             <Field label="FTO assignment" error={fieldError('ftoAssignment')}><input {...form.register('ftoAssignment')} className={textInput} list={canManageAssignment?'fto-assignment-options':undefined} autoComplete="off" readOnly={!canManageAssignment} disabled={canManageAssignment&&(!precinct||!shift)} placeholder={canManageAssignment?(shift?'Type or select assignment code':'Select shift first'):undefined} onChange={event=>form.setValue('ftoAssignment',event.target.value.toUpperCase(),{shouldDirty:true,shouldValidate:true})} data-testid="input-fto-assignment"/>{canManageAssignment&&<datalist id="fto-assignment-options">{ftoAssignmentsForPrecinct(zone,precinct,shift).map(value=><option key={value} value={value}/>)}</datalist>}</Field>

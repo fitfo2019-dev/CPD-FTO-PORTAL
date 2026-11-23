@@ -7,7 +7,7 @@ import { SearchableSelect } from '@/components/searchable-select.js';
 import { PrintableWeeklyAcknowledgement } from '@/components/printable-weekly-ack.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { phaseAssignmentLabel, phaseLabel, uid, type Phase, type WeeklyPacketAcknowledgement } from '@/lib/model.js';
-import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
+import { formatDateDMY, getPhaseWeekNumber, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
 import { useTimelineInterpolation, useWorkspace } from '@/state/workspace.js';
 
 export default function WeeklyAcknowledgementPage() {
@@ -77,7 +77,9 @@ export default function WeeklyAcknowledgementPage() {
       id: uid(),
       weekStart: selectedWeek.start,
       weekEnd: selectedWeek.end,
-      weekNumber: getTrainingWeekNumber(selectedWeek.start, folder?.phaseStartDate ?? selectedWeek.start) ?? 1,
+      weekNumber: folder
+        ?getPhaseWeekNumber(selectedWeek.start,folder.phaseStartDate,folder.phaseWeekRanges)??getTrainingWeekNumber(selectedWeek.start,folder.phaseStartDate)??1
+        :getTrainingWeekNumber(selectedWeek.start,selectedWeek?.start??'')??1,
       phase: (matchingReport?.phase ?? folder?.phase ?? baseReport?.phase ?? 1) as Phase,
       recruitName: matchingReport?.recruitName ?? folder?.recruitName ?? baseReport?.recruitName ?? '',
       recruitBadge,

@@ -56,7 +56,7 @@ function makeReport(id: string, overrides: Partial<Report> = {}): Report {
   };
 }
 
-test('monthly workbook has exactly four dual-grid weekly tabs without leaking incident details', () => {
+test('monthly workbook includes every calendar week without leaking incident details', () => {
   const weekOne = makeReport('week-one', {
     phaseWeek: 1,
     ratingsReviewedAt: '2026-11-01T18:00:00.000Z',
@@ -161,10 +161,63 @@ test('monthly workbook has exactly four dual-grid weekly tabs without leaking in
   for(const sheet of Object.values(workbook.Sheets))assert.equal(Object.values(sheet).some(cell=>typeof cell==='object'&&cell!==null&&'f'in cell),false);
 });
 
-test('four-tab export rejects a fifth source week instead of dropping it',()=>{
-  assert.throws(()=>buildMonthlyWorkbook([
-    makeReport('first',{date:'2026-11-01'}),makeReport('fifth',{date:'2026-11-29'}),
-  ],'2026-11'),/more than four weekly tabs/);
+test('five-week months keep four tabs and include the fifth week in the final tab',()=>{
+  const reports=[
+    makeReport('first',{date:'2026-11-01',activity:{...emptyDailyActivitySummary(),trafficStops:2},phase:1,phaseWeek:4}),
+    makeReport('fifth',{date:'2026-11-29',activity:{...emptyDailyActivitySummary(),trafficStops:7},phase:2,phaseWeek:1}),
+  ];
+  const workbook=buildMonthlyWorkbook(reports,'2026-11');
+  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3','Week 4']);
+  const lastRows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 4'],{header:1}) as unknown[][];
+  assert.equal(lastRows.find(row=>row[0]==='Traffic Stops')?.[5],7);
+  assert.equal(lastRows[1][11],'1');
+  assert.equal(lastRows[2][10],'11/22/2026 – 12/05/2026 · 2026-11 · includes additional source weeks');
+  const activityTotal=workbook.SheetNames.reduce((total,name)=>{
+    const rows=XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][];
+    return total+(Number(rows.find(row=>row[0]==='Traffic Stops')?.[5])||0);
+  },0);
+  assert.equal(activityTotal,9);
+});
+
+test('six-week months retain boundary records across exactly four tabs',()=>{
+  const reports=[
+    makeReport('first',{date:'2026-08-01',activity:{...emptyDailyActivitySummary(),trafficStops:3},phase:1,phaseWeek:4}),
+    makeReport('last',{date:'2026-08-31',activity:{...emptyDailyActivitySummary(),trafficStops:8},phase:2,phaseWeek:1}),
+  ];
+  const workbook=buildMonthlyWorkbook(reports,'2026-08');
+  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3','Week 4']);
+  const firstRows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 1'],{header:1}) as unknown[][];
+  const lastRows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 4'],{header:1}) as unknown[][];
+  assert.equal(firstRows.find(row=>row[0]==='Traffic Stops')?.[5],3);
+  assert.equal(lastRows.find(row=>row[0]==='Traffic Stops')?.[5],8);
+  assert.equal(firstRows[1][11],'4');
+  assert.equal(lastRows[1][11],'1');
+  assert.equal(lastRows[2][10],'08/16/2026 – 09/05/2026 · 2026-08 · includes additional source weeks');
+  const activityTotal=workbook.SheetNames.reduce((total,name)=>{
+    const rows=XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][];
+    return total+(Number(rows.find(row=>row[0]==='Traffic Stops')?.[5])||0);
+  },0);
+  assert.equal(activityTotal,11);
+});
+
+test('approved phase-week extensions feed the final workbook tab without dropping activity',()=>{
+  const phaseWeekRanges=[
+    {startDate:'2027-01-03',endDate:'2027-01-09'},
+    {startDate:'2027-01-10',endDate:'2027-01-16'},
+    {startDate:'2027-01-17',endDate:'2027-01-23'},
+    {startDate:'2027-01-24',endDate:'2027-01-30'},
+    {startDate:'2027-01-31',endDate:'2027-02-06'},
+  ];
+  const reports=[
+    makeReport('week-four',{date:'2027-01-24',activity:{...emptyDailyActivitySummary(),trafficStops:4},phaseWeek:4}),
+    makeReport('extension-week',{date:'2027-01-31',activity:{...emptyDailyActivitySummary(),trafficStops:6},phaseWeek:5}),
+  ];
+  const workbook=buildMonthlyWorkbook(reports,'2027-01',phaseWeekRanges);
+  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3','Week 4']);
+  const rows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 4'],{header:1}) as unknown[][];
+  assert.equal(rows.find(row=>row[0]==='Traffic Stops')?.[5],10);
+  assert.equal(rows[1][11],'Multiple');
+  assert.equal(rows[2][10],'01/24/2027 – 02/06/2027 · 2027-01 · includes additional source weeks');
 });
 
 test('export boundary validates the exact approved categories and count types without type assertions', () => {

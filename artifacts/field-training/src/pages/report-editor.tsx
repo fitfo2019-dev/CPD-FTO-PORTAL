@@ -43,7 +43,7 @@ function runTypeCodeHelp(kind:PrimaryRunForm) {
 
 function blank(folder: PhaseCaseFolder, date: string, prior?: Report): Report {
   const now = new Date().toISOString();
-  const schedule=getPhaseScheduleInfo(folder.phase,date,folder.phaseStartDate,folder.daysOff);
+  const schedule=getPhaseScheduleInfo(folder.phase,date,folder.phaseStartDate,folder.daysOff,folder.phaseWeekRanges,folder.limboExtensionWeeks);
   return { id: uid(), date, shift:folder.shift, phase:folder.phase, zone:folder.zone, precinct:folder.precinct, cruiserDistrict:folder.cruiserDistrict, ftoAssignment:folder.ftoAssignment, className:folder.className ?? '', recruitName:folder.recruitName, recruitBadge:folder.recruitBadge, ftoName:folder.ftoName, ftoBadge:folder.ftoBadge, activity:emptyDailyActivitySummary(),activityCountsIncludeRuns:false, runs:[], reportingForDuty:{...defaultReportingForDutyRecord(),cruiserId:prior?.reportingForDuty.cruiserId},
     deficiencyAutomationEnabled:true, ratings: schedule.limboDay ? emptyRatings() : defaultRatings(), phaseWeek:schedule.phaseWeek, limboDay:schedule.limboDay, narrative:'', remedial:'', recruitComments:'', status:'draft', signatures:{}, createdAt: now, updatedAt: now };
 }
@@ -160,7 +160,7 @@ export default function ReportEditor() {
     const parsed = parseDateDMY(value);
     if (!parsed) return;
     if (isNew && ws.caseFolder) {
-      const schedule = getPhaseScheduleInfo(ws.caseFolder.phase, parsed, ws.caseFolder.phaseStartDate, ws.caseFolder.daysOff);
+      const schedule = getPhaseScheduleInfo(ws.caseFolder.phase, parsed, ws.caseFolder.phaseStartDate, ws.caseFolder.daysOff,ws.caseFolder.phaseWeekRanges,ws.caseFolder.limboExtensionWeeks);
       setR(current => current && ({
         ...current,
         date: parsed,

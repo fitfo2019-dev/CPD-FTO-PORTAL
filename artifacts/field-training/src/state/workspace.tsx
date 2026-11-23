@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, type LocalChatDraft } from '@/lib/offlineStorage.js';
 import { createEmptyWorkspace, createUiPreviewWorkspace } from '@/lib/empty-workspace.js';
-import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
+import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type PhaseExtensionRequest, type PhaseWeekRange, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
 import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography.js';
 import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
 import { buildTimelineInterpolation, type TimelineInterpolation } from '@/lib/timeline-interpolation.js';
-import { getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
+import { createPhaseWeekRanges, getPhaseWeekNumber, getSundaySaturdayWeek } from '@/lib/training-calendar.js';
+import { approvePhaseExtension, denyPhaseExtension } from '@/lib/phase-extension.js';
 import { invalidateOperationalReferences, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
 
@@ -15,6 +16,7 @@ type VaultIntent = 'save' | 'restore' | null;
 interface Ctx {
   ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean;
   setRole(r: Role): void; upsertReport(r: Report): void; upsertWeeklyAcknowledgement(ack: WeeklyPacketAcknowledgement): void; deleteReport(id: string): void; toggleTask(id: string, by: string): void; setCaseFolder(folder: PhaseCaseFolder): void;
+  submitPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; resolvePhaseExtensionRequest(id:string,approve:boolean):Promise<void>;
   upsertWeeklyPerformanceLog(log:WeeklyPerformanceLog):void; upsertSubstationOrientation(record:SubstationOrientationRecord):void;
   upsertFtoPhasePosting(posting:FtoPhasePosting):void; upsertFtoPhaseSignup(signup:FtoPhaseSignup):void; upsertCoverageRequest(request:CoverageRequest):void;
   upsertLawReviewRecord(record:LawReviewRecord):void; deleteLawReviewRecord(id:string):void;
@@ -73,7 +75,7 @@ function upsertReportAndWeeklyUaLog(workspace:Workspace, inputReport:Report):Wor
     item.recruitBadge===report.recruitBadge&&item.className===className&&item.phase===report.phase,
   );
   const phaseStartDate=phaseFolder?.phaseStartDate??assignment?.phaseStartDate;
-  const phaseWeek=phaseStartDate?getTrainingWeekNumber(week.start,phaseStartDate)??(report.phaseWeek??1):report.phaseWeek??1;
+  const phaseWeek=phaseStartDate?getPhaseWeekNumber(week.start,phaseStartDate,phaseFolder?.phaseWeekRanges)??(report.phaseWeek??1):report.phaseWeek??1;
   const weekNumber=PHASE_PROGRAM_WEEK_START[report.phase]+phaseWeek-1;
   const base:WeeklyPerformanceLog=existing??{
     id:`weekly-ua-${className}-${report.recruitBadge}-${report.phase}-${week.start}`,
@@ -161,6 +163,10 @@ function migrateCaseFolder(value:unknown):PhaseCaseFolder|undefined {
   if(![1,2,3,4].includes(phase)||!SHIFTS.includes(raw.shift as Shift)) return undefined;
   const {beat:_oldAreaField,...folderWithoutOldField}=raw;
   const geography=migrateGeography(raw);
+  const phaseStartDate=typeof raw.phaseStartDate==='string'?raw.phaseStartDate:'';
+  const savedRanges=Array.isArray(raw.phaseWeekRanges)
+    ?raw.phaseWeekRanges.filter((range):range is PhaseWeekRange=>isRecord(range)&&typeof range.startDate==='string'&&typeof range.endDate==='string'&&range.startDate<=range.endDate)
+    :[];
   return {
     ...folderWithoutOldField,
     assignmentId:typeof raw.assignmentId==='string'?raw.assignmentId:undefined,
@@ -177,7 +183,9 @@ function migrateCaseFolder(value:unknown):PhaseCaseFolder|undefined {
     cruiserDistrict:geography.cruiserDistrict,
     ftoAssignment:typeof raw.ftoAssignment==='string'?raw.ftoAssignment:'',
     daysOff:(Array.isArray(raw.daysOff)?raw.daysOff:[]).filter((day):day is Weekday=>Number.isInteger(day)&&day>=0&&day<=6),
-    phaseStartDate:typeof raw.phaseStartDate==='string'?raw.phaseStartDate:'',
+    phaseStartDate,
+    phaseWeekRanges:savedRanges.length?savedRanges:createPhaseWeekRanges(phase as PhaseCaseFolder['phase'],phaseStartDate),
+    limboExtensionWeeks:Number.isInteger(raw.limboExtensionWeeks)&&Number(raw.limboExtensionWeeks)>0?Number(raw.limboExtensionWeeks):0,
     openedAt:typeof raw.openedAt==='string'?raw.openedAt:'',
   };
 }
@@ -186,6 +194,11 @@ function sameCaseFolder(a:PhaseCaseFolder,b:PhaseCaseFolder) {
   return (a.className??'').toLowerCase()===(b.className??'').toLowerCase()
     &&a.recruitBadge.toLowerCase()===b.recruitBadge.toLowerCase()
     &&a.phase===b.phase;
+}
+function sameExtensionTarget(left:PhaseExtensionRequest,right:PhaseExtensionRequest) {
+  return left.recruitBadge.toLowerCase()===right.recruitBadge.toLowerCase()
+    &&left.phase===right.phase
+    &&left.className.toLowerCase()===right.className.toLowerCase();
 }
 
 export function WorkspaceProvider({
@@ -248,6 +261,14 @@ export function WorkspaceProvider({
   }, [online, vault, dirty, persist]);
 
   const mutate = useCallback((fn: (w: Workspace) => Workspace) => { rev.current++; setWs(w => reconcileOperationalReferences(w, fn(w))); setDirty(true); }, []);
+  const mutateAndPersist = useCallback(async (fn:(w:Workspace)=>Workspace) => {
+    const next=reconcileOperationalReferences(wsRef.current,fn(wsRef.current));
+    rev.current++;
+    wsRef.current=next;
+    setWs(next);
+    setDirty(true);
+    if(vault==='unlocked')await persist(next);
+  },[persist,vault]);
 
   // autosave when vault unlocked
   const saveTimer = useRef<number | undefined>(undefined);
@@ -385,13 +406,22 @@ export function WorkspaceProvider({
     const coverageRequests=Array.isArray(savedWorkspace.coverageRequests)
       ?savedWorkspace.coverageRequests.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&typeof item.startDateTime==='string'&&typeof item.endDateTime==='string'&&['local_unsent','cancelled'].includes(String(item.status)))
       :[];
+    const phaseExtensionRequests=Array.isArray(savedWorkspace.phaseExtensionRequests)
+      ?savedWorkspace.phaseExtensionRequests.filter((item):item is PhaseExtensionRequest=>
+        isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'
+        &&typeof item.className==='string'&&typeof item.justification==='string'
+        &&[1,2,3,4].includes(Number(item.phase))&&Number.isInteger(item.requestedWeeks)&&Number(item.requestedWeeks)>0
+        &&['training_weeks','limbo_period'].includes(String(item.extensionType))
+        &&typeof item.phaseStartDate==='string'&&typeof item.requestingFtoBadge==='string'
+        &&typeof item.requestingFtoName==='string'&&typeof item.createdAt==='string')
+      :[];
     const lawReviewRecords=Array.isArray(savedWorkspace.lawReviewRecords)
       ?savedWorkspace.lawReviewRecords.filter((item):item is LawReviewRecord=>isRecord(item)&&typeof item.id==='string'&&typeof item.assignmentId==='string'&&typeof item.recruitBadge==='string'&&typeof item.recruitName==='string'&&typeof item.sourceId==='string'&&typeof item.sourceLabel==='string'&&[1,2,3,4].includes(Number(item.phase))&&['assigned','reviewed'].includes(String(item.state)))
       :[];
     const ftoDirectory = Array.isArray(savedWorkspace.ftoDirectory) ? savedWorkspace.ftoDirectory.filter(item=>isRecord(item)&&typeof item.badge==='string'&&typeof item.name==='string') : [];
     const assignments = Array.isArray(savedWorkspace.assignments) ? savedWorkspace.assignments.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&[1,2,3,4].includes(Number(item.phase))) : [];
     const tasks=Array.isArray(savedWorkspace.tasks)?savedWorkspace.tasks.filter(item=>isRecord(item)&&[1,2,3,4].includes(Number(item.phase))):[];
-    setWs({ ...workspaceWithoutChatHistory, packetIndexVersion:1, role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords }); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(weeklyPerformanceLogs!==savedWeeklyPerformanceLogs); setLockedNotice(false); setLockedWithUnsaved(false);
+    setWs({ ...workspaceWithoutChatHistory, packetIndexVersion:1, role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests }); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(weeklyPerformanceLogs!==savedWeeklyPerformanceLogs); setLockedNotice(false); setLockedWithUnsaved(false);
     setStoragePersistent(await requestPersistentStorage());
     await refreshPending();
   }, [previewOnly, refreshPending]);
@@ -435,6 +465,17 @@ export function WorkspaceProvider({
       const phaseFolders=index<0?[...folders,caseFolder]:folders.map((existing,i)=>i===index?caseFolder:existing);
       return {...w,caseFolder,phaseFolders};
     }),
+    submitPhaseExtensionRequest:async(request)=>{
+      if(wsRef.current.role!=='fto'||vault!=='unlocked')throw new Error('Unlock the local vault as the FTO before submitting a request.');
+      await mutateAndPersist(w=>{
+        if((w.phaseExtensionRequests??[]).some(item=>sameExtensionTarget(item,request)))return w;
+        return {...w,phaseExtensionRequests:[...(w.phaseExtensionRequests??[]),request]};
+      });
+    },
+    resolvePhaseExtensionRequest:async(id,approve)=>{
+      if(wsRef.current.role!=='fto_coordinator'||vault!=='unlocked')throw new Error('Unlock the local vault as the FTO Coordinator to review requests.');
+      await mutateAndPersist(w=>approve?approvePhaseExtension(w,id):denyPhaseExtension(w,id));
+    },
     importRoster: (ftos, assignments) => mutate(w => {
       const directory = new Map(w.ftoDirectory.map(item=>[item.badge.toLowerCase(),item]));
       ftos.forEach(item=>{
@@ -462,10 +503,10 @@ export function WorkspaceProvider({
       deleteLawReviewRecord:(id)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).filter(item=>item.id!==id)})),
     deleteReport: (id) => mutate(w => ({ ...w, reports: w.reports.filter(r => r.id !== id) })),
     toggleTask: (id, by) => mutate(w => ({ ...w, tasks: w.tasks.map((t: Task) => t.id !== id ? t : t.done ? { ...t, done: false, by: undefined, at: undefined } : { ...t, done: true, by, at: new Date().toISOString() }) })),
-     openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
+    openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
     setupAndSave, unlockAndRestore, saveNow, lockNow, dismissLockedNotice: () => setLockedNotice(false),
-     resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace() : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setEpoch(e => e + 1); },
-   }), [ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, setupAndSave, unlockAndRestore, saveNow, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
+    resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace() : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setEpoch(e => e + 1); },
+  }), [ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

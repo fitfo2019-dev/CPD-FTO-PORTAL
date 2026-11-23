@@ -7,7 +7,7 @@ import { ManualDefinitionTooltip } from '@/components/manual-definition-tooltip.
 import { PrintableWeeklySummary } from '@/components/printable-weekly-summary.js';
 import { useWorkspace } from '@/state/workspace.js';
 import { CATEGORY_GROUPS, DAILY_ACTIVITY_FIELDS, PHASE_PROGRAM_WEEK_START, phaseAssignmentLabel, RATINGS, SEG_CATEGORIES, RATING_LEGEND, RUN_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, PRIMARY_RUN_FORMS, SUPPLEMENTAL_RUN_FORMS, requiredSupplementalForms } from '@/lib/model.js';
-import { formatDateDMY, getSundaySaturdayWeek, getTrainingWeekNumber } from '@/lib/training-calendar.js';
+import { formatDateDMY, getPhaseWeekNumber, getSundaySaturdayWeek } from '@/lib/training-calendar.js';
 import { activityTotals } from '@/lib/run-activity.js';
 import { weeklyRatingCount } from '@/lib/weekly-rating-counts.js';
 import { ACTIVITY_MANUAL_DEFINITIONS, SEG_MANUAL_DEFINITIONS, WEEKLY_ACTIVITY_SUMMARY_DEFINITION, WEEKLY_RATING_SUMMARY_DEFINITION } from '@/lib/weekly-summary-manual-definitions.js';
@@ -52,7 +52,7 @@ export default function WeeklySummaryPage() {
     ??(ws.caseFolder&&ownerKey(ws.caseFolder)===owner?.key&&ws.caseFolder.phase===weekPhase?ws.caseFolder:undefined):undefined;
   const assignmentLabel=phaseAssignmentLabel(reports[0]?.ftoAssignment??phaseFolder?.ftoAssignment,reports[0]?.shift??phaseFolder?.shift);
   const phaseWeek=reports.find(report=>report.phase===weekPhase&&report.phaseWeek)?.phaseWeek
-    ??(week&&phaseFolder?getTrainingWeekNumber(reports[0]?.date??week.start,phaseFolder.phaseStartDate):undefined);
+    ??(week&&phaseFolder?getPhaseWeekNumber(reports[0]?.date??week.start,phaseFolder.phaseStartDate,phaseFolder.phaseWeekRanges):undefined);
   const weekNumber=weekPhase&&phaseWeek?PHASE_PROGRAM_WEEK_START[weekPhase]+phaseWeek-1:0;
   const title = weekNumber ? `Week ${weekNumber}` : `Week of ${formatDateDMY(week?.start ?? '')}`;
   const weekStart = week?.start ?? '';
@@ -88,7 +88,7 @@ export default function WeeklySummaryPage() {
               const itemFolder=itemPhase?ws.phaseFolders.find(folder=>ownerKey(folder)===owner?.key&&folder.phase===itemPhase)
                 ??(ws.caseFolder&&ownerKey(ws.caseFolder)===owner?.key&&ws.caseFolder.phase===itemPhase?ws.caseFolder:undefined):undefined;
               const localWeek=itemReports.find(report=>report.phase===itemPhase&&report.phaseWeek)?.phaseWeek
-                ??(itemFolder?getTrainingWeekNumber(itemReports[0]?.date??item.start,itemFolder.phaseStartDate):undefined);
+                ??(itemFolder?getPhaseWeekNumber(itemReports[0]?.date??item.start,itemFolder.phaseStartDate,itemFolder.phaseWeekRanges):undefined);
               const number=itemPhase&&localWeek?PHASE_PROGRAM_WEEK_START[itemPhase]+localWeek-1:undefined;
               return <option key={item.start} value={item.start}>{number ? `Week ${number} · Phase ${itemPhase}` : 'Week of'} · {formatDateDMY(item.start)}–{formatDateDMY(item.end)}</option>;
             })}

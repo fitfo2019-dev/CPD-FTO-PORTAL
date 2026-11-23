@@ -10,6 +10,7 @@ import { activityTotals } from './run-activity.js';
 import { formatDateMDY, getSundaySaturdayWeek } from './training-calendar.js';
 import { weeklyRatingCount } from './weekly-rating-counts.js';
 import { spreadsheetText } from './spreadsheet-text.js';
+import type { PhaseWeekRange } from './model.js';
 
 const border = Object.fromEntries(['top','bottom','left','right'].map(edge=>[edge,{style:'thin',color:{rgb:'FF000000'}}]));
 const allColumns = 24;
@@ -49,29 +50,65 @@ function buildCategoryPanel(week:Report[], groups:readonly string[]):PanelRow[] 
   return panel;
 }
 
-/** Exactly four consecutive Sunday–Saturday tabs; fail explicitly instead of dropping a fifth week. */
-export function buildMonthlyWorkbook(reports: Report[], monthKey: string) {
+type WeeklyTabRange={startDate:string;endDate:string};
+
+function buildWeeklyTabRanges(monthKey:string,phaseWeekRanges?:readonly PhaseWeekRange[]):WeeklyTabRange[] {
+  let sourceRanges:WeeklyTabRange[];
+  if(phaseWeekRanges?.length) {
+    sourceRanges=phaseWeekRanges.map(range=>({startDate:range.startDate,endDate:range.endDate}));
+  } else {
+    const firstWeek=getSundaySaturdayWeek(`${monthKey}-01`);
+    const [year,month]=monthKey.split('-').map(Number);
+    const lastDay=new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
+    const lastWeek=getSundaySaturdayWeek(lastDay);
+    if(!firstWeek||!lastWeek)throw new Error('The selected month is invalid.');
+    sourceRanges=[];
+    for(let start=firstWeek.start;start<=lastWeek.start;) {
+      const end=new Date(`${start}T12:00:00Z`);
+      end.setUTCDate(end.getUTCDate()+6);
+      sourceRanges.push({startDate:start,endDate:end.toISOString().slice(0,10)});
+      const next=new Date(`${start}T12:00:00Z`);
+      next.setUTCDate(next.getUTCDate()+7);
+      start=next.toISOString().slice(0,10);
+    }
+  }
+  const tabs=sourceRanges.slice(0,3);
+  const remaining=sourceRanges.slice(3);
+  if(remaining.length)tabs.push({startDate:remaining[0].startDate,endDate:remaining.at(-1)!.endDate});
+  while(tabs.length<4) {
+    const previous=tabs.at(-1);
+    if(!previous)throw new Error('No weekly date ranges are available for this workbook.');
+    const start=new Date(`${previous.endDate}T12:00:00Z`);
+    start.setUTCDate(start.getUTCDate()+1);
+    const end=new Date(start);
+    end.setUTCDate(end.getUTCDate()+6);
+    tabs.push({startDate:start.toISOString().slice(0,10),endDate:end.toISOString().slice(0,10)});
+  }
+  return tabs;
+}
+
+function tabForDate(date:string,tabs:readonly WeeklyTabRange[]):number {
+  const exact=tabs.findIndex(range=>date>=range.startDate&&date<=range.endDate);
+  if(exact>=0)return exact;
+  const before=tabs.findIndex(range=>date<range.startDate);
+  if(before===0)return 0;
+  if(before>0)return before-1;
+  return tabs.length-1;
+}
+
+/** Four Sunday–Saturday phase tabs; approved weeks beyond four roll into the final tab. */
+export function buildMonthlyWorkbook(reports: Report[], monthKey: string, phaseWeekRanges?:readonly PhaseWeekRange[]) {
   const selected = filterReportsForMonth(validateReportsForExport(reports), monthKey);
   if (!selected.length) throw new Error('There are no saved daily logs in this month to export.');
   const first = selected[0];
   if (selected.some(report => report.recruitBadge !== first.recruitBadge || (report.className ?? '') !== (first.className ?? ''))) {
-    throw new Error('Select one probationary officer and training class for the four-week workbook.');
+    throw new Error('Select one probationary officer and training class for the monthly workbook.');
   }
-  const start = getSundaySaturdayWeek(first.date)?.start;
-  if (!start) throw new Error('A daily log has an invalid training date.');
-  const weekStarts = Array.from({length:4},(_,index)=>{
-    const date=new Date(`${start}T12:00:00Z`);
-    date.setUTCDate(date.getUTCDate()+index*7);
-    return date.toISOString().slice(0,10);
-  });
-  if (selected.some(report => !weekStarts.includes(getSundaySaturdayWeek(report.date)?.start ?? ''))) {
-    throw new Error('This month spans more than four weekly tabs. No records were omitted. A five-week or split-workbook policy must be approved before export.');
-  }
+  const weekRanges=buildWeeklyTabRanges(monthKey,phaseWeekRanges);
   const workbook=XLSX.utils.book_new();
-  for (const [index,weekStart] of weekStarts.entries()) {
-    const week=selected.filter(report=>getSundaySaturdayWeek(report.date)?.start===weekStart);
-    const weekDate=getSundaySaturdayWeek(weekStart);
-    if(!weekDate)throw new Error('The weekly sheet start date is invalid.');
+  for (const [index,weekRange] of weekRanges.entries()) {
+    const week=selected.filter(report=>tabForDate(report.date,weekRanges)===index);
+    const weekSpanDays=(Date.parse(`${weekRange.endDate}T00:00:00Z`)-Date.parse(`${weekRange.startDate}T00:00:00Z`))/86_400_000+1;
     const rows:(string|number)[][]=[];
     const merges:{s:{r:number;c:number};e:{r:number;c:number}}[]=[];
     const phases=uniqueDisplay(week.map(report=>phaseLabel(report.phase)));
@@ -98,7 +135,7 @@ export function buildMonthlyWorkbook(reports: Report[], monthKey: string) {
     appendMergedRow(rows,merges,2,[
       {start:0,end:7,value:'Columbus Division of Police'},
       {start:8,end:9,value:'Date:'},
-      {start:10,end:23,value:`${formatDateMDY(weekDate.start)} – ${formatDateMDY(weekDate.end)} · ${monthKey}`},
+      {start:10,end:23,value:`${formatDateMDY(weekRange.startDate)} – ${formatDateMDY(weekRange.endDate)} · ${monthKey}${index===3&&weekSpanDays>7?' · includes additional source weeks':''}`},
     ]);
     appendMergedRow(rows,merges,3,[{start:0,end:23,value:'PERFORMANCE CATEGORIES'}]);
 
@@ -183,8 +220,8 @@ export function buildMonthlyWorkbook(reports: Report[], monthKey: string) {
   return workbook;
 }
 
-export function exportMonthlyWorkbook(reports: Report[], monthKey: string) {
-  const workbook=buildMonthlyWorkbook(reports,monthKey);
+export function exportMonthlyWorkbook(reports: Report[], monthKey: string, phaseWeekRanges?:readonly PhaseWeekRange[]) {
+  const workbook=buildMonthlyWorkbook(reports,monthKey,phaseWeekRanges);
   const name=`Field_Training_Monthly_Summary_${monthKey.replaceAll('-','')}.xlsx`;
   XLSX.writeFile(workbook,name);
   return name;
