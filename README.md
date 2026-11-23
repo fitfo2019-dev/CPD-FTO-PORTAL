@@ -5,6 +5,7 @@ This pnpm workspace contains the Express API Server, the React/Vite Component Pr
 ## Current scope
 
 - The Field Training Officer Portal includes Clerk sign-in and workflow screens. Its drafts are encrypted in device-local IndexedDB; no training-record synchronization or database-backed portal routes are connected.
+- New run forms can receive editable dispatch defaults through the server-only PatrolView adapter when an approved adapter URL, server credential, and authorized Clerk user allowlist are configured. No live dispatch feed is configured in this checkout; manual run entry remains available.
 - The API's `/api/v1/secure-records` route serves validated synthetic records by default. `USE_REAL_API` is fail-secure and defaults to `false`; production live mode requires server-side configuration and an approved authorization grant.
 - Clerk authentication is present, but agency employment, role, record-scope, and department identity policies are not configured here. Do not treat the prototype as approved for operational or CJIS-restricted data.
 - The XML-to-JSON gateway remains a planned boundary. No live Government System XML or binary integration is active.
@@ -36,10 +37,15 @@ The workspace targets Node.js `^20.19.0 || >=22.12.0 <25`. Configure values thro
 | `USE_REAL_API` | Optional; defaults to `false` | Fail-secure mock-by-default switch. Production live mode requires `REAL_API_URL`, `REAL_API_KEY`, and an approved authorization grant. |
 | `REAL_API_URL` | Required when production live mode is enabled | HTTPS endpoint for the upstream records service. |
 | `REAL_API_KEY` | Required when production live mode is enabled | Server-only upstream credential; browser authorization headers are never forwarded to this service. |
+| `PATROLVIEW_EVENT_LOOKUP_URL` | Optional; required for dispatch prefill | Agency-approved HTTPS adapter URL with exactly one `{eventId}` path placeholder. The adapter must return event ingress time and approved incident fields as JSON. |
+| `PATROLVIEW_API_TOKEN` | Required when dispatch prefill is enabled | Server-only bearer credential for the approved dispatch adapter. It is never sent to the browser. |
+| `PATROLVIEW_ALLOWED_CLERK_USER_IDS` | Required when dispatch prefill is enabled | Comma-separated Clerk user IDs approved by the agency for dispatch lookups. Requests fail closed if the list is empty or the user is not listed. |
 | `ALLOWED_ORIGINS` | Optional for same-origin hosting; required for a separate browser origin | Comma-separated exact HTTPS origins allowed by CORS. Wildcards are rejected. |
 | `LOG_LEVEL` | Optional; defaults to `info` | Pino logging threshold. Structured logs are written to stdout. |
 | `DATABASE_URL` | Not used by current API routes | Connection string for the separate database helper if database-backed routes are implemented. |
 | `RESOURCE_FILES_DIR` | Optional | Approved mounted resource directory; otherwise the API uses its packaged `resources/` directory. |
+
+For dispatch prefill, the portal accepts a `patrolViewEventId` URL parameter on a new run. It sends that identifier only to the same-origin API; the API checks the signed-in Clerk identity against the server-side allowlist, calls the configured HTTPS adapter, and returns only `eventIngressAt`, `incidentNumber`, `location`, and `dispatchedCode`. The adapter may return those fields in camelCase or snake_case, at the top level or inside `data`/`event`. Missing values are allowed. Run fields remain editable, and a response never overwrites a field the FTO has already changed. Upstream failures leave manual entry available. The agency must supply and approve the actual adapter endpoint and its normalized response contract before enabling the feed.
 
 `TRUST_PROXY_HOPS` is validated and applied before security, request logging, and audit middleware. The confirmed agency ingress uses two trusted hops, so set `TRUST_PROXY_HOPS=2` for that deployment. Do not trust forwarded headers directly or reuse that value for a different proxy topology without verification.
 

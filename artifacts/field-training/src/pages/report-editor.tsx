@@ -25,6 +25,7 @@ import { alignRunDateToShift, parseRunDateTime } from '@/lib/run-details.js';
 import { useDeficiencyEditor } from '@/hooks/use-deficiency-editor.js';
 import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
 import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
+import { applyDispatchPrefillValue, mapDispatchPrefillResponse } from '@/lib/dispatch-prefill.js';
 
 function checklistHelp(form:string,meaning:string) {
   return `${form}: ${meaning} Keep checked only when the PO completed the described action acceptably. Clearing an applicable task creates a UA deficiency. Use the Not applicable control for an inapplicable form or group; document observed facts and any training actually completed.`;
@@ -68,6 +69,9 @@ export default function ReportEditor() {
   const [runTimeText, setRunTimeText] = useState('');
   const [incidentNumber, setIncidentNumber] = useState('');
   const [runLocation, setRunLocation] = useState('');
+  const [dispatchPrefillStatus, setDispatchPrefillStatus] = useState<'idle'|'loading'|'loaded'|'empty'|'unavailable'>('idle');
+  const dispatchPrefillAttempted = useRef<string | null>(null);
+  const dispatchEventId = useMemo(() => new URLSearchParams(window.location.search).get('patrolViewEventId')?.trim() ?? '', []);
   const [runError, setRunError] = useState('');
   const [runDispatched, setRunDispatched] = useState(true);
   const [trafficMode, setTrafficMode] = useState<TrainingRun['trafficMode']>('none');
@@ -142,6 +146,41 @@ export default function ReportEditor() {
     setDateText(formatDateDMY(r.date));
     if (!editingRunId) setRunDateTimeText(current=>current.includes(' ')?current:formatDateDMY(r.date));
   }, [r?.date, editingRunId]);
+  useEffect(() => {
+    if (!isNew || !dispatchEventId || !r || r.status !== 'draft' || ws.role !== 'fto') return;
+    if (dispatchPrefillAttempted.current === dispatchEventId) return;
+    dispatchPrefillAttempted.current = dispatchEventId;
+    const initial = {
+      runDateTimeText,
+      runTimeText,
+      incidentNumber,
+      runLocation,
+      dispatchedCode,
+    };
+    setDispatchPrefillStatus('loading');
+    void fetch('/api/v1/dispatch/event-ingress', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventId: dispatchEventId }),
+    }).then(async response => {
+      if (!response.ok) throw new Error('Dispatch prefill unavailable');
+      return mapDispatchPrefillResponse(await response.json());
+    }).then(prefill => {
+      if (!prefill) throw new Error('Dispatch prefill unavailable');
+      const eventDateTimeText = prefill.eventIngressAt
+        ? formatDateTimeMDY(prefill.eventIngressAt)
+        : undefined;
+      setRunDateTimeText(current => applyDispatchPrefillValue(current, initial.runDateTimeText, eventDateTimeText));
+      setRunTimeText(current => applyDispatchPrefillValue(current, initial.runTimeText, eventDateTimeText?.split(' ')[1]));
+      setIncidentNumber(current => applyDispatchPrefillValue(current, initial.incidentNumber, prefill.incidentNumber));
+      setRunLocation(current => applyDispatchPrefillValue(current, initial.runLocation, prefill.location));
+      setDispatchedCode(current => applyDispatchPrefillValue(current, initial.dispatchedCode, prefill.dispatchedCode));
+      setDispatchPrefillStatus(
+        Object.values(prefill).some(value => value !== undefined) ? 'loaded' : 'empty',
+      );
+    }).catch(() => setDispatchPrefillStatus('unavailable'));
+  }, [isNew, dispatchEventId, r, ws.role, runDateTimeText, runTimeText, incidentNumber, runLocation, dispatchedCode]);
   const errs = useMemo(() => r ? [
     ...validateReport(r),
     ...(operationalPacket?.blockingIssues ?? []),
@@ -356,6 +395,7 @@ export default function ReportEditor() {
     setRunDraftId(uid());
     setChargeText('');
     setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunTimeText(''); setRunDispatched(true); setRunError(''); runReviewConfirmedRef.current = false;
+    setDispatchPrefillStatus('idle');
     setIncidentNumber(''); setRunLocation(''); generatedNarrativeRef.current = '';
     setTrafficMode('none'); setArrestMade(false); setTransported(false); setTransportDestination(''); setTransportDestinationType(undefined); setArrestProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
     setActivityFlags({}); setDispatchedCode(''); setSituationFoundCode(SITUATION_FOUND_NA); setClearanceCode('');
@@ -521,6 +561,9 @@ export default function ReportEditor() {
         <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,.8fr)]">
           <div className="rounded border bg-muted/35 p-4">
             <div className="label-caps mb-3">{editingRunId ? 'Edit run' : 'Add training run'}</div>
+             {dispatchPrefillStatus!=='idle'&&<p role="status" className="mb-3 rounded border bg-card px-3 py-2 text-xs text-muted-foreground">
+               {dispatchPrefillStatus==='loading'?'Checking approved dispatch details…':dispatchPrefillStatus==='loaded'?'Available dispatch details were added as editable defaults. Review and correct them; fill in any missing fields.':dispatchPrefillStatus==='empty'?'No dispatch details were available. Enter the run details manually.':'Dispatch details are unavailable. The run can still be completed manually.'}
+             </p>}
             <fieldset disabled={!editable} className="grid gap-3 sm:grid-cols-2">
               <F l="Primary form">
                  <SearchableSelect className={inp} value={runKind} onChange={e=>{const next=e.target.value as PrimaryRunForm;const dispatched=next==='call_for_service'?true:next==='self_initiated'?false:runDispatched;const mode:TrainingRun['trafficMode']=next==='traffic_stop'?'motor_vehicle':'none';setRunKind(next);setRunDispatched(dispatched);setTrafficMode(mode);setDispatchedCode(DEFAULT_RUN_TYPE_CODES[next]??'');setSituationFoundCode(SITUATION_FOUND_NA);setRunChecklist(checklistFor(next,mode,dispatched,arrestMade,transported,oviProcessed,narrativeAdditionRequired,{},arrestProcessRequired));setRunChecklistReviewed(false);setRunError('');}} data-testid="select-run-kind">

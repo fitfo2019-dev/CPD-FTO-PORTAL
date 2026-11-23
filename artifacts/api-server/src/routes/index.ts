@@ -4,6 +4,7 @@ import authRouter from "./auth.js";
 import secureRecordsRouter from "./secureRecords.js";
 import auditLogsRouter from "./audit-logs.js";
 import resourcesRouter from "./resources.js";
+import dispatchRouter from "./dispatch.js";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(authRouter);
 router.use(secureRecordsRouter);
 router.use(auditLogsRouter);
 router.use(resourcesRouter);
+router.use(dispatchRouter);
 
 export default router;
