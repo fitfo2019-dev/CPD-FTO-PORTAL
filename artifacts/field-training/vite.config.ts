@@ -1,6 +1,7 @@
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import checker from "vite-plugin-checker";
 import { defineConfig } from "vite";
 import { fieldReadyPwa } from "./pwa-plugin.js";
 
@@ -56,6 +57,7 @@ export default defineConfig(async ({ command }) => {
     fieldReadyPwa(basePath),
     normalizeZodRollupAnnotations(),
     react(),
+    checker({ typescript: true }),
     tailwindcss({ optimize: false }),
     ...(isDevServer ? [runtimeErrorOverlay()] : []),
     ...(isDevServer &&

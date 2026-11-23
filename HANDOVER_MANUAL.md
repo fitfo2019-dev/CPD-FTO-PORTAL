@@ -268,6 +268,8 @@ The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v
 ## Workspace Checks
 
 - `pnpm run typecheck` — TypeScript checks across workspace packages.
+- The Field Training Vite configuration enables TypeScript checking with
+  `vite-plugin-checker`; this tooling does not change the portal's rendered UI.
 - `pnpm run build` — type checks and builds all workspace artifacts using their local default ports and paths.
 - `pnpm run test:field-training:phase` — runs the Node test suite for the phase registry, phase extensions, and training calendar using the Field Training test config and path aliases.
 - `pnpm run bundle:production` — builds the API and creates a clean standalone `dist-production.zip`.

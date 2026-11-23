@@ -47,6 +47,7 @@ catalog:
   tailwind-merge: ^3.3.1
   tailwindcss: ^4.1.14
   tsx: ^4.21.0
+  vite-plugin-checker: ^0.14.5
   vite: ^7.3.2
   wouter: ^3.3.5
   zod: ^4.6.7
