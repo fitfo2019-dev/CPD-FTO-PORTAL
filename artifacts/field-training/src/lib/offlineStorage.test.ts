@@ -5,6 +5,12 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 import { OfflineStorage } from './offlineStorage.js';
+import {
+  emptyDailyActivitySummary,
+  emptyRatings,
+  emptyReportingForDutyRecord,
+  type Report,
+} from './model.js';
 import { WorkspaceProvider, useWorkspace } from '../state/workspace.js';
 
 const encoder = new TextEncoder();
@@ -360,5 +366,94 @@ test('preview edits, autosave, sync, and reset never create device storage recor
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete (globalThis as Record<string, unknown>)[key];
     }
+  }
+});
+
+test('editing and synchronizing a preview packet never calls the agency upload API', async () => {
+  const namespace = `preview-sync-only-${crypto.randomUUID()}`;
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { pretendToBeVisual: true });
+  const globalKeys = ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'IS_REACT_ACT_ENVIRONMENT'];
+  const previousGlobals = new Map(globalKeys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const previousFetch = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+  const testGlobals: Record<string, unknown> = {
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement,
+    Node: dom.window.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  };
+  for (const [key, value] of Object.entries(testGlobals)) {
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  }
+
+  const packetUploadRequests: string[] = [];
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    writable: true,
+    value: async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/v1/training-packets/sync')) packetUploadRequests.push(url);
+      throw new Error(`Unexpected network request in preview test: ${url}`);
+    },
+  });
+
+  let current: ReturnType<typeof useWorkspace> | undefined;
+  function Probe() {
+    current = useWorkspace();
+    return null;
+  }
+
+  const container = dom.window.document.getElementById('root')!;
+  const root = createRoot(container);
+  try {
+    await act(async () => {
+      root.render(createElement(WorkspaceProvider, { storageNamespace: namespace, previewOnly: true },
+        createElement(Probe)));
+    });
+    assert.ok(current);
+    const previewPacket: Report = {
+      id: 'preview-packet',
+      date: '2026-11-23',
+      shift: 'A-Co',
+      phase: 3,
+      zone: '1',
+      precinct: '1',
+      cruiserDistrict: '10',
+      className: 'UI TEST ONLY',
+      recruitName: 'DEMO PO',
+      recruitBadge: 'DEMO-PO',
+      ftoName: 'DEMO FTO',
+      ftoBadge: 'DEMO-FTO',
+      activity: emptyDailyActivitySummary(),
+      runs: [],
+      reportingForDuty: emptyReportingForDutyRecord(),
+      ratings: emptyRatings(),
+      narrative: 'Fictional preview packet',
+      remedial: '',
+      recruitComments: '',
+      status: 'draft',
+      signatures: {},
+      createdAt: '2026-11-23T12:00:00.000Z',
+      updatedAt: '2026-11-23T12:00:00.000Z',
+    };
+
+    await act(async () => {
+      current!.upsertReport({ ...previewPacket, narrative: 'Edited fictional preview packet' });
+    });
+    assert.equal(current!.ws.reports[0]?.narrative, 'Edited fictional preview packet');
+    assert.equal(current!.ws.reports[0]?.syncStatus, 'local_draft_pending');
+
+    await act(async () => { await current!.syncPackets(); });
+    assert.deepEqual(packetUploadRequests, []);
+  } finally {
+    await act(async () => { root.unmount(); });
+    dom.window.close();
+    for (const [key, descriptor] of previousGlobals) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete (globalThis as Record<string, unknown>)[key];
+    }
+    if (previousFetch) Object.defineProperty(globalThis, 'fetch', previousFetch);
+    else delete (globalThis as Record<string, unknown>).fetch;
   }
 });
