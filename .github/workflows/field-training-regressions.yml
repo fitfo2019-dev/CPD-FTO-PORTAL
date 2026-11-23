@@ -29,3 +29,6 @@ jobs:
 
       - name: Run field training regressions
         run: pnpm test:field-training:regressions
+
+      - name: Build field training production bundle
+        run: pnpm --filter @workspace/field-training run build
