@@ -42,7 +42,11 @@ import type {
   StagingAcknowledgementInput,
   StagingTrainingEnvelope,
   StagingTrainingInput,
-  StagingTrainingUpdate
+  StagingTrainingUpdate,
+  TrainingPacketSyncEnvelope,
+  TrainingPacketSyncInput,
+  TrainingPacketSyncReadinessEnvelope,
+  TrainingPacketsEnvelope
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -822,6 +826,400 @@ export function useListSecureRecords<TData = Awaited<ReturnType<typeof listSecur
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListSecureRecordsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListTrainingPacketsUrl = () => {
+
+
+
+
+  return `/api/v1/training-packets`
+}
+
+/**
+ * The server scopes results by verified agency claims and its own assignment roster. Browser role or assignment data is never used for authorization.
+ * @summary List packets assigned to the signed-in agency identity
+ */
+export const listTrainingPackets = async ( options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketsEnvelope> => {
+
+  return customFetch<TrainingPacketsEnvelope>(getListTrainingPacketsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTrainingPacketsQueryKey = () => {
+    return [
+    `/api/v1/training-packets`
+    ] as const;
+    }
+
+
+export const getListTrainingPacketsQueryOptions = <TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTrainingPacketsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTrainingPackets>>> = ({ signal }) => listTrainingPackets({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListTrainingPacketsQueryResult = NonNullable<Awaited<ReturnType<typeof listTrainingPackets>>>
+export type ListTrainingPacketsQueryError = ErrorType<ApiError>
+
+
+export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTrainingPackets>>,
+          TError,
+          Awaited<ReturnType<typeof listTrainingPackets>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTrainingPackets>>,
+          TError,
+          Awaited<ReturnType<typeof listTrainingPackets>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List packets assigned to the signed-in agency identity
+ */
+
+export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListTrainingPacketsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTrainingPacketSyncReadinessUrl = () => {
+
+
+
+
+  return `/api/v1/training-packets/sync-readiness`
+}
+
+/**
+ * Automatic sync is enabled only for a verified FTO on an agency-configured network address. Manual sync still enforces signed role and server roster checks.
+ * @summary Check whether automatic packet sync is allowed
+ */
+export const getTrainingPacketSyncReadiness = async ( options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketSyncReadinessEnvelope> => {
+
+  return customFetch<TrainingPacketSyncReadinessEnvelope>(getGetTrainingPacketSyncReadinessUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTrainingPacketSyncReadinessQueryKey = () => {
+    return [
+    `/api/v1/training-packets/sync-readiness`
+    ] as const;
+    }
+
+
+export const getGetTrainingPacketSyncReadinessQueryOptions = <TData = Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTrainingPacketSyncReadinessQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>> = ({ signal }) => getTrainingPacketSyncReadiness({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTrainingPacketSyncReadinessQueryResult = NonNullable<Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>>
+export type GetTrainingPacketSyncReadinessQueryError = ErrorType<ApiError>
+
+
+export function useGetTrainingPacketSyncReadiness<TData = Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError = ErrorType<ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>,
+          TError,
+          Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTrainingPacketSyncReadiness<TData = Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>,
+          TError,
+          Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTrainingPacketSyncReadiness<TData = Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Check whether automatic packet sync is allowed
+ */
+
+export function useGetTrainingPacketSyncReadiness<TData = Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTrainingPacketSyncReadinessQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSyncTrainingPacketsUrl = () => {
+
+
+
+
+  return `/api/v1/training-packets/sync`
+}
+
+/**
+ * The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. A successful commit returns server-confirmed sync status.
+ * @summary Commit a batch of complete local packets as the assigned FTO
+ */
+export const syncTrainingPackets = async (trainingPacketSyncInput: TrainingPacketSyncInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketSyncEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingPacketSyncEnvelope>(getSyncTrainingPacketsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trainingPacketSyncInput)
+  }
+);}
+
+
+
+
+
+export const getSyncTrainingPacketsMutationKey = () => ['syncTrainingPackets'] as const;
+
+export const getSyncTrainingPacketsMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncTrainingPackets>>, TError,SyncTrainingPacketsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncTrainingPackets>>, TError,SyncTrainingPacketsMutationVariables, TContext> => {
+
+const mutationKey = getSyncTrainingPacketsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncTrainingPackets>>, SyncTrainingPacketsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  syncTrainingPackets(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncTrainingPacketsMutationResult = NonNullable<Awaited<ReturnType<typeof syncTrainingPackets>>>
+    export type SyncTrainingPacketsMutationBody = BodyType<TrainingPacketSyncInput>
+    export type SyncTrainingPacketsMutationError = ErrorType<ApiError>
+    export type SyncTrainingPacketsMutationVariables = {data: BodyType<TrainingPacketSyncInput>}
+
+    /**
+ * @summary Commit a batch of complete local packets as the assigned FTO
+ */
+export const useSyncTrainingPackets = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncTrainingPackets>>, TError,SyncTrainingPacketsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof syncTrainingPackets>>,
+        TError,
+        SyncTrainingPacketsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSyncTrainingPacketsMutationOptions(options), queryClient);
+    }
+
+export const getGetTrainingPacketUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/training-packets/${id}`
+}
+
+/**
+ * @summary Read one packet within the caller's agency assignment scope
+ */
+export const getTrainingPacket = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketsEnvelope> => {
+
+  return customFetch<TrainingPacketsEnvelope>(getGetTrainingPacketUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTrainingPacketQueryKey = (id: string,) => {
+    return [
+    `/api/v1/training-packets/${id}`
+    ] as const;
+    }
+
+
+export const getGetTrainingPacketQueryOptions = <TData = Awaited<ReturnType<typeof getTrainingPacket>>, TError = ErrorType<ApiError>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacket>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTrainingPacketQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTrainingPacket>>> = ({ signal }) => getTrainingPacket(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacket>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTrainingPacketQueryResult = NonNullable<Awaited<ReturnType<typeof getTrainingPacket>>>
+export type GetTrainingPacketQueryError = ErrorType<ApiError>
+
+
+export function useGetTrainingPacket<TData = Awaited<ReturnType<typeof getTrainingPacket>>, TError = ErrorType<ApiError>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacket>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTrainingPacket>>,
+          TError,
+          Awaited<ReturnType<typeof getTrainingPacket>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTrainingPacket<TData = Awaited<ReturnType<typeof getTrainingPacket>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacket>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTrainingPacket>>,
+          TError,
+          Awaited<ReturnType<typeof getTrainingPacket>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTrainingPacket<TData = Awaited<ReturnType<typeof getTrainingPacket>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacket>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read one packet within the caller's agency assignment scope
+ */
+
+export function useGetTrainingPacket<TData = Awaited<ReturnType<typeof getTrainingPacket>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTrainingPacket>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTrainingPacketQueryOptions(id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

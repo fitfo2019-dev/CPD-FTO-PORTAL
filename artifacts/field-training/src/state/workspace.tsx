@@ -9,6 +9,7 @@ import { createPhaseWeekRanges, getPhaseWeekNumber, getSundaySaturdayWeek } from
 import { applyApprovedPhaseExtensions, approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests } from '@/lib/phase-extension.js';
 import { CURRENT_PACKET_INDEX_VERSION, migrateOperationalReferenceReviews, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
+import { uploadPacketBatch } from '@/lib/training-packet-sync.js';
 
 export type VaultState = 'none' | 'unlocked';
 type VaultIntent = 'save' | 'restore' | null;
@@ -25,6 +26,7 @@ interface Ctx {
   intent: VaultIntent; openVault(i: Exclude<VaultIntent, null>): void; closeVault(): void;
   setupAndSave(pass: string): Promise<void>; unlockAndRestore(pass: string): Promise<void>; saveNow(): Promise<void>; lockNow(reason?: string): void; dismissLockedNotice(): void;
   resetWorkspace(): void;
+  syncPackets(): Promise<void>;
   getOperationalPacket(report: Report): OperationalPacket;
   segTaskDirectory: typeof SEG_TASK_DIRECTORY;
 }
@@ -55,6 +57,10 @@ function normalizeReportingForDuty(value: unknown) {
 }
 
 function upsertReportAndWeeklyUaLog(workspace:Workspace, inputReport:Report):Workspace {
+  if (workspace.reports.some(item => item.id === inputReport.id && item.syncStatus === 'synchronized_complete')) {
+    throw new Error('This packet has been synchronized and is sealed. Request an authorized correction.');
+  }
+  inputReport = { ...inputReport, syncStatus: 'local_draft_pending', serverVersion: 0 };
   const report=reconcileDeficiencyRatings(inputReport,resolveOperationalPacket(inputReport,[...workspace.phaseFolders,...(workspace.caseFolder?[workspace.caseFolder]:[])],workspace.substationOrientations));
   const reports=workspace.reports.some(item=>item.id===report.id)
     ?workspace.reports.map(item=>item.id===report.id?report:item)
@@ -240,6 +246,9 @@ export function WorkspaceProvider({
   const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
   const editorDirtyRef = useRef(editorDirty); editorDirtyRef.current = editorDirty;
   const saveErrorRef = useRef(saveError); saveErrorRef.current = saveError;
+  const syncing = useRef(false);
+  const syncAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => { syncAbort.current?.abort(); storage.current.lock(); }, []);
 
   useEffect(() => { const on = () => setOnline(true), off = () => setOnline(false);
     window.addEventListener('online', on); window.addEventListener('offline', off);
@@ -251,7 +260,7 @@ export function WorkspaceProvider({
   const persist = useCallback(async (w: Workspace) => {
     if (previewOnly) return;
     const at = rev.current;
-    try { await storage.current.save<Workspace>('workspace', w); }
+    try { await storage.current.saveWorkspace<Workspace>(w); }
     catch (e) { setSaveError(e instanceof Error ? e.message : 'Local save failed'); throw e; }
     setSaveError(null);
     if (rev.current === at) setDirty(false);
@@ -268,8 +277,12 @@ export function WorkspaceProvider({
     }
   }, [online, vault, dirty, persist]);
 
-  const mutate = useCallback((fn: (w: Workspace) => Workspace) => { rev.current++; setWs(w => reconcileOperationalReferences(w, fn(w))); setDirty(true); }, []);
+  const mutate = useCallback((fn: (w: Workspace) => Workspace) => {
+    if (syncing.current) throw new Error('Wait for packet synchronization to finish.');
+    rev.current++; setWs(w => reconcileOperationalReferences(w, fn(w))); setDirty(true);
+  }, []);
   const mutateAndPersist = useCallback(async (fn:(w:Workspace)=>Workspace) => {
+    if (syncing.current) throw new Error('Wait for packet synchronization to finish.');
     const next=reconcileOperationalReferences(wsRef.current,fn(wsRef.current));
     rev.current++;
     wsRef.current=next;
@@ -288,6 +301,7 @@ export function WorkspaceProvider({
   }, [ws, vault, dirty, persist]);
 
   const lockNow = useCallback((reason?: string) => {
+    syncAbort.current?.abort();
     if (previewOnly) {
       storage.current.lock();
       setLockedWithUnsaved(false);
@@ -347,6 +361,7 @@ export function WorkspaceProvider({
     let restoredCaseFolder: PhaseCaseFolder | undefined;
     try {
       migratedReports = data.reports.filter(saved=>[1,2,3,4].includes(Number(saved.phase))).map(saved => {
+        if (saved.syncStatus === 'synchronized_complete') return saved;
         const raw = saved as Report & { beat?: unknown; ratings?: unknown };
         const { beat: _oldAreaField, ...reportWithoutOldField } = raw;
         const geography = migrateGeography(raw);
@@ -432,6 +447,27 @@ export function WorkspaceProvider({
     if (vault !== 'unlocked') { setIntent('save'); return; }
     await persist(wsRef.current);
   }, [previewOnly, vault, persist]);
+
+  const syncPackets = useCallback(async () => {
+    if (previewOnly || vault !== 'unlocked' || !online || editorDirtyRef.current)
+      throw new Error('Save open edits and unlock the online workspace before synchronizing.');
+    if (syncing.current) throw new Error('Sync is already running.');
+    syncing.current = true;
+    const controller = new AbortController();
+    syncAbort.current = controller;
+    try {
+      await persist(wsRef.current);
+      const next = await storage.current.syncPacketBatch<Workspace>(
+        changes => uploadPacketBatch(changes, controller.signal),
+      );
+      if (controller.signal.aborted) return;
+      if (next) { wsRef.current = next; setWs(next); setEpoch(value => value + 1); }
+      await refreshPending();
+    } catch (error) {
+      if (!controller.signal.aborted) setSaveError('Packet sync failed. The encrypted local drafts remain on this device.');
+      throw error;
+    } finally { syncing.current = false; syncAbort.current = null; }
+  }, [previewOnly, vault, online, persist, refreshPending]);
 
   const loadLocalChatDrafts = useCallback(() => previewOnly
     ? Promise.resolve(previewChatDrafts)
@@ -522,12 +558,16 @@ export function WorkspaceProvider({
      upsertCoverageRequest:(request)=>mutate(w=>({...w,coverageRequests:(w.coverageRequests??[]).some(item=>item.id===request.id)?w.coverageRequests.map(item=>item.id===request.id?request:item):[request,...(w.coverageRequests??[])]})),
       upsertLawReviewRecord:(record)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).some(item=>item.id===record.id)?w.lawReviewRecords.map(item=>item.id===record.id?record:item):[record,...(w.lawReviewRecords??[])]})),
       deleteLawReviewRecord:(id)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).filter(item=>item.id!==id)})),
-    deleteReport: (id) => mutate(w => ({ ...w, reports: w.reports.filter(r => r.id !== id) })),
+    deleteReport: (id) => mutate(w => {
+      if (w.reports.some(r => r.id === id && r.syncStatus === 'synchronized_complete'))
+        throw new Error('Synchronized packets cannot be deleted locally.');
+      return { ...w, reports: w.reports.filter(r => r.id !== id) };
+    }),
     toggleTask: (id, by) => mutate(w => ({ ...w, tasks: w.tasks.map((t: Task) => t.id !== id ? t : t.done ? { ...t, done: false, by: undefined, at: undefined } : { ...t, done: true, by, at: new Date().toISOString() }) })),
     openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
-    setupAndSave, unlockAndRestore, saveNow, lockNow, dismissLockedNotice: () => setLockedNotice(false),
+    setupAndSave, unlockAndRestore, saveNow, syncPackets, lockNow, dismissLockedNotice: () => setLockedNotice(false),
     resetWorkspace: () => { rev.current++; setWs(previewOnly ? createUiPreviewWorkspace() : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setEpoch(e => e + 1); },
-  }), [ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
+  }), [ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

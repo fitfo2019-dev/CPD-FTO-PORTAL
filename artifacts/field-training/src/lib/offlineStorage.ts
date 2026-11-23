@@ -31,6 +31,8 @@ export type SyncResult =
   | { status: "accepted"; operationId: string; version: number }
   | { status: "conflict"; serverVersion: number };
 export type SyncTransport = (change: PendingChange) => Promise<SyncResult>;
+export type PacketBatchReceipt = { id: string; operation_id: string;
+  server_version: number; sync_status: "synchronized_complete" };
 export type LocalChatDraft = {
   id: string;
   sender: string;
@@ -178,6 +180,104 @@ export class OfflineStorage {
   async pendingCount(): Promise<number> {
     const db = await this.db();
     return request(db.transaction("sync_queue").objectStore("sync_queue").count());
+  }
+
+  /** Local workspace and latest per-packet queue entries commit together.
+   * Legacy workspace queue entries are never sent by syncPacketBatch(). */
+  saveWorkspace<T extends { reports: Array<{ id: string; syncStatus?: string; serverVersion?: number }> }>(
+    workspace: T,
+  ): Promise<void> {
+    const { key, epoch } = this.session();
+    const snapshot = structuredClone(workspace);
+    const run = this.operations.catch(() => {}).then(async () => {
+      this.assertActive(epoch);
+      const db = await this.db();
+      const savedEnvelope = await this.read<Envelope>("records", "workspace");
+      const saved = savedEnvelope ? await this.open<T>(key, savedEnvelope) : undefined;
+      // A delayed autosave cannot overwrite a server-confirmed sealed packet.
+      for (const sealed of saved?.reports ?? []) {
+        if (sealed.syncStatus !== "synchronized_complete") continue;
+        const index = snapshot.reports.findIndex(report => report.id === sealed.id);
+        if (index >= 0) snapshot.reports[index] = sealed;
+        else snapshot.reports.push(sealed);
+      }
+      const queued = await request<Envelope[]>(db.transaction("sync_queue").objectStore("sync_queue").getAll());
+      const previous = new Map<string, PendingChange>();
+      for (const envelope of queued) {
+        if (envelope.id.startsWith("packet:")) previous.set(envelope.id, await this.open<PendingChange>(key, envelope));
+      }
+      const envelopes: Envelope[] = [];
+      const ids = new Set<string>();
+      for (const report of snapshot.reports) {
+        if (report.syncStatus === "synchronized_complete") continue;
+        const id = `packet:${report.id}`;
+        ids.add(id);
+        const prior = previous.get(id);
+        const change = prior && JSON.stringify(prior.value) === JSON.stringify(report) ? prior : {
+          operationId: crypto.randomUUID(), recordId: report.id, value: report,
+          baseVersion: report.serverVersion ?? 0, clientTimestamp: new Date().toISOString(),
+        };
+        envelopes.push(await this.seal(key, id, change));
+      }
+      const record = await this.seal(key, "workspace", snapshot);
+      this.assertActive(epoch);
+      const tx = db.transaction(["records", "sync_queue"], "readwrite");
+      const done = complete(tx);
+      tx.objectStore("records").put(record);
+      // Old whole-workspace operations are local-only legacy entries; removing
+      // them is safe because their latest snapshot remains encrypted in records.
+      for (const envelope of queued) {
+        if (!ids.has(envelope.id)) tx.objectStore("sync_queue").delete(envelope.id);
+      }
+      for (const envelope of envelopes) tx.objectStore("sync_queue").put(envelope);
+      await done;
+    });
+    this.operations = run;
+    return run;
+  }
+
+  /** One server transaction, followed by one local acknowledgement transaction.
+   * No queue deletion or local sealing occurs on partial/malformed receipts. */
+  syncPacketBatch<T extends { reports: Array<{ id: string; syncStatus?: string; serverVersion?: number }> }>(
+    transport: (changes: PendingChange[]) => Promise<PacketBatchReceipt[]>,
+  ): Promise<T | undefined> {
+    if (this.syncing) return Promise.reject(new Error("Sync is already running."));
+    const { key, epoch } = this.session();
+    this.syncing = true;
+    const run = this.operations.catch(() => {}).then(async () => {
+      this.assertActive(epoch);
+      const db = await this.db();
+      const envelopes = await request<Envelope[]>(db.transaction("sync_queue").objectStore("sync_queue").getAll());
+      const packets = envelopes.filter(item => item.id.startsWith("packet:"));
+      if (!packets.length) return undefined;
+      const changes = await Promise.all(packets.map(item => this.open<PendingChange>(key, item)));
+      const receipts = await transport(changes);
+      this.assertActive(epoch);
+      if (receipts.length !== changes.length || new Set(receipts.map(item => item.id)).size !== changes.length ||
+        changes.some(change => !receipts.some(item => item.id === change.recordId &&
+          item.operation_id === change.operationId && item.sync_status === "synchronized_complete" &&
+          Number.isInteger(item.server_version) && item.server_version >= 1))) {
+        throw new Error("Invalid packet synchronization acknowledgement.");
+      }
+      const envelope = await this.read<Envelope>("records", "workspace");
+      if (!envelope) throw new Error("The saved local workspace is unavailable.");
+      const workspace = await this.open<T>(key, envelope);
+      const next = { ...workspace, reports: workspace.reports.map(report => {
+        const receipt = receipts.find(item => item.id === report.id);
+        return receipt ? { ...report, syncStatus: "synchronized_complete" as const,
+          serverVersion: receipt.server_version } : report;
+      }) };
+      const sealed = await this.seal(key, "workspace", next);
+      this.assertActive(epoch);
+      const tx = db.transaction(["records", "sync_queue"], "readwrite");
+      const done = complete(tx);
+      tx.objectStore("records").put(sealed);
+      for (const packet of packets) tx.objectStore("sync_queue").delete(packet.id);
+      await done;
+      return next as T;
+    }).finally(() => { this.syncing = false; });
+    this.operations = run;
+    return run;
   }
 
   /** Encrypted device-only drafts; deliberately excluded from sync_queue. */

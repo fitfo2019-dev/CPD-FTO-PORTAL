@@ -25,6 +25,62 @@ test('offline vault restores encrypted records and rejects a wrong passphrase', 
   assert.deepEqual(await restored.get('workspace'), { note: 'saved on this device' });
 });
 
+test('workspace save queues only latest complete packets, never roster or whole workspace', async () => {
+  const { vault } = createVault();
+  await vault.unlock(passphrase);
+  const workspace = { reports: [{ id: 'p1', syncStatus: 'local_draft_pending', narrative: 'first' }],
+    assignments: [{ badge: 'do-not-upload' }], role: 'role-preview' };
+  await vault.save('workspace', workspace); // legacy whole-workspace queue
+  await vault.saveWorkspace(workspace);
+  await vault.saveWorkspace({ ...workspace, reports: [{ ...workspace.reports[0], narrative: 'latest' }] });
+  assert.equal(await vault.pendingCount(), 1);
+  const next = await vault.syncPacketBatch(async changes => {
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].recordId, 'p1');
+    assert.deepEqual(changes[0].value, { ...workspace.reports[0], narrative: 'latest' });
+    return changes.map(change => ({ id: change.recordId, operation_id: change.operationId,
+      server_version: 1, sync_status: 'synchronized_complete' }));
+  });
+  assert.equal(next?.reports[0].syncStatus, 'synchronized_complete');
+  assert.equal(await vault.pendingCount(), 0);
+  // A delayed pre-acknowledgement autosave cannot erase the seal.
+  await vault.saveWorkspace(workspace);
+  assert.equal((await vault.get<typeof workspace>('workspace'))?.reports[0].syncStatus, 'synchronized_complete');
+  assert.equal(await vault.pendingCount(), 0);
+});
+
+test('failed and partial packet acknowledgements retain encrypted drafts and retry operation IDs', async () => {
+  const { vault } = createVault();
+  await vault.unlock(passphrase);
+  const workspace = { reports: [{ id: 'p1', syncStatus: 'local_draft_pending' }] };
+  await vault.saveWorkspace(workspace);
+  let firstOperation: string | undefined;
+  await assert.rejects(vault.syncPacketBatch(async changes => {
+    firstOperation = changes[0].operationId;
+    throw new Error('network lost');
+  }), /network lost/);
+  await vault.saveWorkspace(workspace);
+  await assert.rejects(vault.syncPacketBatch(async changes => {
+    assert.equal(changes[0].operationId, firstOperation);
+    return [];
+  }), /Invalid packet/);
+  assert.equal(await vault.pendingCount(), 1);
+  assert.equal((await vault.get<typeof workspace>('workspace'))?.reports[0].syncStatus, 'local_draft_pending');
+});
+
+test('locking the vault during packet transmission cannot restore plaintext or acknowledge queued data', async () => {
+  const { vault } = createVault();
+  await vault.unlock(passphrase);
+  await vault.saveWorkspace({ reports: [{ id: 'p1' }] });
+  await assert.rejects(vault.syncPacketBatch(async changes => {
+    vault.lock();
+    return changes.map(change => ({ id: change.recordId, operation_id: change.operationId,
+      server_version: 1, sync_status: 'synchronized_complete' }));
+  }), /expired/);
+  await vault.unlock(passphrase);
+  assert.equal(await vault.pendingCount(), 1);
+});
+
 test('upgrading an existing vault adds the local-drafts store without dropping records', async () => {
   const namespace = `offline-upgrade-${crypto.randomUUID()}`;
   const databaseName = `fieldready-vault-${namespace}`;

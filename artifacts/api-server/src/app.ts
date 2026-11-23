@@ -106,6 +106,9 @@ app.use(
   express.json({
     limit: "16kb",
     inflate: false,
+    // Packet routes install their own authenticated, bounded 2MB parser.
+    type: (req) => !req.url?.split("?")[0]?.startsWith("/api/v1/training-packets") &&
+      Boolean(req.headers["content-type"]?.split(";")[0] === "application/json"),
     verify(req, _res, buffer) {
       recordPayloadSize(req, buffer.byteLength);
     },

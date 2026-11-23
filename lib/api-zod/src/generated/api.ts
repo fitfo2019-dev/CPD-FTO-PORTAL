@@ -313,6 +313,279 @@ export const ListSecureRecordsResponse = zod.object({
 
 
 /**
+ * The server scopes results by verified agency claims and its own assignment roster. Browser role or assignment data is never used for authorization.
+ * @summary List packets assigned to the signed-in agency identity
+ */
+export const listTrainingPacketsResponseMetadataTotalRecordsMin = 0;
+export const listTrainingPacketsResponseMetadataTotalRecordsMax = 100;
+
+export const listTrainingPacketsResponseDataItemIdMax = 128;
+
+export const listTrainingPacketsResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const listTrainingPacketsResponseDataItemPhaseMax = 4;
+
+
+export const listTrainingPacketsResponseDataItemReportIdMax = 128;
+
+
+export const listTrainingPacketsResponseDataItemReportIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+export const listTrainingPacketsResponseDataItemReportDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const listTrainingPacketsResponseDataItemReportPhaseMax = 4;
+
+export const listTrainingPacketsResponseDataItemReportClassNameMax = 120;
+
+export const listTrainingPacketsResponseDataItemReportRecruitNameMax = 120;
+
+export const listTrainingPacketsResponseDataItemReportRecruitBadgeMax = 40;
+
+export const listTrainingPacketsResponseDataItemReportFtoNameMax = 120;
+
+export const listTrainingPacketsResponseDataItemReportFtoBadgeMax = 40;
+
+export const listTrainingPacketsResponseDataItemReportRunsMax = 200;
+
+export const listTrainingPacketsResponseDataItemReportActivityMinOne = 0;
+
+export const listTrainingPacketsResponseDataItemReportNarrativeMax = 100000;
+
+export const listTrainingPacketsResponseDataItemReportRemedialMax = 100000;
+
+export const listTrainingPacketsResponseDataItemReportRecruitCommentsMax = 100000;
+
+export const listTrainingPacketsResponseDataMax = 100;
+
+
+
+export const ListTrainingPacketsResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(listTrainingPacketsResponseMetadataTotalRecordsMin).max(listTrainingPacketsResponseMetadataTotalRecordsMax),
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(listTrainingPacketsResponseDataItemIdMax),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string().regex(listTrainingPacketsResponseDataItemRecordDateRegExp),
+  "phase": zod.number().int().min(1).max(listTrainingPacketsResponseDataItemPhaseMax),
+  "server_version": zod.number().int().min(1),
+  "sync_status": zod.enum(['synchronized_complete']),
+  "report": zod.object({
+  "id": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportIdMax).regex(listTrainingPacketsResponseDataItemReportIdRegExp),
+  "date": zod.string().regex(listTrainingPacketsResponseDataItemReportDateRegExp),
+  "phase": zod.number().int().min(1).max(listTrainingPacketsResponseDataItemReportPhaseMax),
+  "className": zod.string().max(listTrainingPacketsResponseDataItemReportClassNameMax),
+  "recruitName": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportRecruitBadgeMax),
+  "ftoName": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportFtoNameMax),
+  "ftoBadge": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportFtoBadgeMax),
+  "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(listTrainingPacketsResponseDataItemReportRunsMax),
+  "activity": zod.record(zod.string(), zod.number().int().min(listTrainingPacketsResponseDataItemReportActivityMinOne)),
+  "reportingForDuty": zod.record(zod.string(), zod.unknown()),
+  "ratings": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
+  "narrative": zod.string().max(listTrainingPacketsResponseDataItemReportNarrativeMax),
+  "remedial": zod.string().max(listTrainingPacketsResponseDataItemReportRemedialMax),
+  "recruitComments": zod.string().max(listTrainingPacketsResponseDataItemReportRecruitCommentsMax)
+})
+})).max(listTrainingPacketsResponseDataMax)
+})
+
+
+/**
+ * Automatic sync is enabled only for a verified FTO on an agency-configured network address. Manual sync still enforces signed role and server roster checks.
+ * @summary Check whether automatic packet sync is allowed
+ */
+export const getTrainingPacketSyncReadinessResponseDataMax = 1;
+
+
+
+export const GetTrainingPacketSyncReadinessResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "can_sync": zod.boolean()
+}),
+  "data": zod.array(zod.object({
+  "automatic_sync_allowed": zod.boolean()
+})).max(getTrainingPacketSyncReadinessResponseDataMax)
+})
+
+
+/**
+ * The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. A successful commit returns server-confirmed sync status.
+ * @summary Commit a batch of complete local packets as the assigned FTO
+ */
+export const syncTrainingPacketsBodyPacketsItemBaseVersionMin = 0;
+
+export const syncTrainingPacketsBodyPacketsItemReportIdMax = 128;
+
+
+export const syncTrainingPacketsBodyPacketsItemReportIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+export const syncTrainingPacketsBodyPacketsItemReportDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const syncTrainingPacketsBodyPacketsItemReportPhaseMax = 4;
+
+export const syncTrainingPacketsBodyPacketsItemReportClassNameMax = 120;
+
+export const syncTrainingPacketsBodyPacketsItemReportRecruitNameMax = 120;
+
+export const syncTrainingPacketsBodyPacketsItemReportRecruitBadgeMax = 40;
+
+export const syncTrainingPacketsBodyPacketsItemReportFtoNameMax = 120;
+
+export const syncTrainingPacketsBodyPacketsItemReportFtoBadgeMax = 40;
+
+export const syncTrainingPacketsBodyPacketsItemReportRunsMax = 200;
+
+export const syncTrainingPacketsBodyPacketsItemReportActivityMinOne = 0;
+
+export const syncTrainingPacketsBodyPacketsItemReportNarrativeMax = 100000;
+
+export const syncTrainingPacketsBodyPacketsItemReportRemedialMax = 100000;
+
+export const syncTrainingPacketsBodyPacketsItemReportRecruitCommentsMax = 100000;
+
+export const syncTrainingPacketsBodyPacketsMax = 100;
+
+
+
+export const SyncTrainingPacketsBody = zod.object({
+  "packets": zod.array(zod.object({
+  "operation_id": zod.string().uuid(),
+  "base_version": zod.number().int().min(syncTrainingPacketsBodyPacketsItemBaseVersionMin),
+  "report": zod.object({
+  "id": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportIdMax).regex(syncTrainingPacketsBodyPacketsItemReportIdRegExp),
+  "date": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportDateRegExp),
+  "phase": zod.number().int().min(1).max(syncTrainingPacketsBodyPacketsItemReportPhaseMax),
+  "className": zod.string().max(syncTrainingPacketsBodyPacketsItemReportClassNameMax),
+  "recruitName": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportRecruitBadgeMax),
+  "ftoName": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportFtoNameMax),
+  "ftoBadge": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportFtoBadgeMax),
+  "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(syncTrainingPacketsBodyPacketsItemReportRunsMax),
+  "activity": zod.record(zod.string(), zod.number().int().min(syncTrainingPacketsBodyPacketsItemReportActivityMinOne)),
+  "reportingForDuty": zod.record(zod.string(), zod.unknown()),
+  "ratings": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
+  "narrative": zod.string().max(syncTrainingPacketsBodyPacketsItemReportNarrativeMax),
+  "remedial": zod.string().max(syncTrainingPacketsBodyPacketsItemReportRemedialMax),
+  "recruitComments": zod.string().max(syncTrainingPacketsBodyPacketsItemReportRecruitCommentsMax)
+})
+})).min(1).max(syncTrainingPacketsBodyPacketsMax)
+})
+
+export const syncTrainingPacketsResponseMetadataTotalRecordsMin = 0;
+export const syncTrainingPacketsResponseMetadataTotalRecordsMax = 100;
+
+export const syncTrainingPacketsResponseDataItemIdMax = 128;
+
+
+export const syncTrainingPacketsResponseDataMax = 100;
+
+
+
+export const SyncTrainingPacketsResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(syncTrainingPacketsResponseMetadataTotalRecordsMin).max(syncTrainingPacketsResponseMetadataTotalRecordsMax),
+  "role": zod.enum(['FTO'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(syncTrainingPacketsResponseDataItemIdMax),
+  "operation_id": zod.string().uuid(),
+  "server_version": zod.number().int().min(1),
+  "sync_status": zod.enum(['synchronized_complete'])
+})).max(syncTrainingPacketsResponseDataMax)
+})
+
+
+/**
+ * @summary Read one packet within the caller's agency assignment scope
+ */
+export const getTrainingPacketPathIdMax = 128;
+
+
+export const getTrainingPacketPathIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+
+
+export const GetTrainingPacketParams = zod.object({
+  "id": zod.string().min(1).max(getTrainingPacketPathIdMax).regex(getTrainingPacketPathIdRegExp)
+})
+
+export const getTrainingPacketResponseMetadataTotalRecordsMin = 0;
+export const getTrainingPacketResponseMetadataTotalRecordsMax = 100;
+
+export const getTrainingPacketResponseDataItemIdMax = 128;
+
+export const getTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getTrainingPacketResponseDataItemPhaseMax = 4;
+
+
+export const getTrainingPacketResponseDataItemReportIdMax = 128;
+
+
+export const getTrainingPacketResponseDataItemReportIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+export const getTrainingPacketResponseDataItemReportDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getTrainingPacketResponseDataItemReportPhaseMax = 4;
+
+export const getTrainingPacketResponseDataItemReportClassNameMax = 120;
+
+export const getTrainingPacketResponseDataItemReportRecruitNameMax = 120;
+
+export const getTrainingPacketResponseDataItemReportRecruitBadgeMax = 40;
+
+export const getTrainingPacketResponseDataItemReportFtoNameMax = 120;
+
+export const getTrainingPacketResponseDataItemReportFtoBadgeMax = 40;
+
+export const getTrainingPacketResponseDataItemReportRunsMax = 200;
+
+export const getTrainingPacketResponseDataItemReportActivityMinOne = 0;
+
+export const getTrainingPacketResponseDataItemReportNarrativeMax = 100000;
+
+export const getTrainingPacketResponseDataItemReportRemedialMax = 100000;
+
+export const getTrainingPacketResponseDataItemReportRecruitCommentsMax = 100000;
+
+export const getTrainingPacketResponseDataMax = 100;
+
+
+
+export const GetTrainingPacketResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(getTrainingPacketResponseMetadataTotalRecordsMin).max(getTrainingPacketResponseMetadataTotalRecordsMax),
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(getTrainingPacketResponseDataItemIdMax),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string().regex(getTrainingPacketResponseDataItemRecordDateRegExp),
+  "phase": zod.number().int().min(1).max(getTrainingPacketResponseDataItemPhaseMax),
+  "server_version": zod.number().int().min(1),
+  "sync_status": zod.enum(['synchronized_complete']),
+  "report": zod.object({
+  "id": zod.string().min(1).max(getTrainingPacketResponseDataItemReportIdMax).regex(getTrainingPacketResponseDataItemReportIdRegExp),
+  "date": zod.string().regex(getTrainingPacketResponseDataItemReportDateRegExp),
+  "phase": zod.number().int().min(1).max(getTrainingPacketResponseDataItemReportPhaseMax),
+  "className": zod.string().max(getTrainingPacketResponseDataItemReportClassNameMax),
+  "recruitName": zod.string().min(1).max(getTrainingPacketResponseDataItemReportRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(getTrainingPacketResponseDataItemReportRecruitBadgeMax),
+  "ftoName": zod.string().min(1).max(getTrainingPacketResponseDataItemReportFtoNameMax),
+  "ftoBadge": zod.string().min(1).max(getTrainingPacketResponseDataItemReportFtoBadgeMax),
+  "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(getTrainingPacketResponseDataItemReportRunsMax),
+  "activity": zod.record(zod.string(), zod.number().int().min(getTrainingPacketResponseDataItemReportActivityMinOne)),
+  "reportingForDuty": zod.record(zod.string(), zod.unknown()),
+  "ratings": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
+  "narrative": zod.string().max(getTrainingPacketResponseDataItemReportNarrativeMax),
+  "remedial": zod.string().max(getTrainingPacketResponseDataItemReportRemedialMax),
+  "recruitComments": zod.string().max(getTrainingPacketResponseDataItemReportRecruitCommentsMax)
+})
+})).max(getTrainingPacketResponseDataMax)
+})
+
+
+/**
  * Returns deterministic, pseudonymized sample audit events in development only.
  * @summary List development audit log samples
  */

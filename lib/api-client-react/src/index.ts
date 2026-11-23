@@ -1,4 +1,4 @@
-export { setBaseUrl, setAuthTokenGetter, setMemoryAuthToken } from "./custom-fetch.js";
+export { customFetch, setBaseUrl, setAuthTokenGetter, setMemoryAuthToken } from "./custom-fetch.js";
 export type { AuthTokenGetter } from "./custom-fetch.js";
 export { API_BASE_URL, apiEndpoint } from "./api-config.js";
 export { loginWithMockCredentials, getMockToken, clearMockToken } from "./auth.js";

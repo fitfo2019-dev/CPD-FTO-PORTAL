@@ -18,6 +18,8 @@ tags:
     description: Protected dispatch event prefill
   - name: resources
     description: Clerk-authenticated reference document catalog and downloads
+  - name: training-packets
+    description: Agency-roster-authorized training packet sync and reads
 paths:
   /v1/staging/training-records:
     get:
@@ -193,6 +195,128 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /v1/training-packets:
+    get:
+      operationId: listTrainingPackets
+      tags: [training-packets]
+      summary: List packets assigned to the signed-in agency identity
+      description: The server scopes results by verified agency claims and its own assignment roster. Browser role or assignment data is never used for authorization.
+      responses:
+        "200":
+          description: Authorized packet snapshots
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        "401":
+          description: Verified agency sign-in required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: No matching agency assignment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: Agency records service is not configured
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/sync-readiness:
+    get:
+      operationId: getTrainingPacketSyncReadiness
+      tags: [training-packets]
+      summary: Check whether automatic packet sync is allowed
+      description: Automatic sync is enabled only for a verified FTO on an agency-configured network address. Manual sync still enforces signed role and server roster checks.
+      responses:
+        "200":
+          description: Sync readiness
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketSyncReadinessEnvelope" }
+        default:
+          description: Authentication or service configuration error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/sync:
+    post:
+      operationId: syncTrainingPackets
+      tags: [training-packets]
+      summary: Commit a batch of complete local packets as the assigned FTO
+      description: The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. A successful commit returns server-confirmed sync status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketSyncInput" }
+      responses:
+        "200":
+          description: All packets committed atomically
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketSyncEnvelope" }
+        "400":
+          description: Invalid packet payload
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "401":
+          description: Verified FTO sign-in required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: FTO identity and badge do not match the server roster
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "409":
+          description: A packet version conflicts with the server
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: Agency records service is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+    get:
+      operationId: getTrainingPacket
+      tags: [training-packets]
+      summary: Read one packet within the caller's agency assignment scope
+      responses:
+        "200":
+          description: Authorized packet snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        "401":
+          description: Verified agency sign-in required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: No matching agency assignment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "404":
+          description: Packet not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: Agency records service is not configured
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
   /v1/audit-logs:
     get:
       operationId: listAuditLogs
@@ -559,6 +683,124 @@ components:
           type: array
           maxItems: 100
           items: { $ref: "#/components/schemas/StagingTrainingRecord" }
+    TrainingPacketReport:
+      type: object
+      additionalProperties: true
+      required: [id, date, phase, className, recruitName, recruitBadge, ftoName, ftoBadge, runs, status, activity, reportingForDuty, ratings, narrative, remedial, recruitComments]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+        date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        className: { type: string, maxLength: 120 }
+        recruitName: { type: string, minLength: 1, maxLength: 120 }
+        recruitBadge: { type: string, minLength: 1, maxLength: 40 }
+        ftoName: { type: string, minLength: 1, maxLength: 120 }
+        ftoBadge: { type: string, minLength: 1, maxLength: 40 }
+        runs:
+          type: array
+          maxItems: 200
+          items: { type: object, additionalProperties: true, maxProperties: 100 }
+        activity: { type: object, additionalProperties: { type: integer, minimum: 0 }, maxProperties: 100 }
+        reportingForDuty: { type: object, additionalProperties: true, maxProperties: 100 }
+        ratings: { type: object, additionalProperties: true, maxProperties: 100 }
+        status: { type: string, enum: [draft, fto_signed, recruit_signed, locked] }
+        narrative: { type: string, maxLength: 100000 }
+        remedial: { type: string, maxLength: 100000 }
+        recruitComments: { type: string, maxLength: 100000 }
+    TrainingPacketSyncItem:
+      type: object
+      additionalProperties: false
+      required: [operation_id, base_version, report]
+      properties:
+        operation_id: { type: string, format: uuid }
+        base_version: { type: integer, minimum: 0 }
+        report: { $ref: "#/components/schemas/TrainingPacketReport" }
+    TrainingPacketSyncInput:
+      type: object
+      additionalProperties: false
+      required: [packets]
+      properties:
+        packets:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: "#/components/schemas/TrainingPacketSyncItem" }
+    TrainingPacketSyncRecord:
+      type: object
+      additionalProperties: false
+      required: [id, operation_id, server_version, sync_status]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128 }
+        operation_id: { type: string, format: uuid }
+        server_version: { type: integer, minimum: 1 }
+        sync_status: { type: string, enum: [synchronized_complete] }
+    TrainingPacketSyncEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records, role]
+          properties:
+            total_records: { type: integer, minimum: 0, maximum: 100 }
+            role: { type: string, enum: [FTO] }
+        data:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/TrainingPacketSyncRecord" }
+    TrainingPacketRecord:
+      type: object
+      additionalProperties: false
+      required: [id, assignment_id, record_date, phase, server_version, sync_status, report]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128 }
+        assignment_id: { type: string, format: uuid }
+        record_date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        server_version: { type: integer, minimum: 1 }
+        sync_status: { type: string, enum: [synchronized_complete] }
+        report: { $ref: "#/components/schemas/TrainingPacketReport" }
+    TrainingPacketsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records, role]
+          properties:
+            total_records: { type: integer, minimum: 0, maximum: 100 }
+            role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+        data:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/TrainingPacketRecord" }
+    TrainingPacketSyncReadinessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [can_sync]
+          properties:
+            can_sync: { type: boolean }
+        data:
+          type: array
+          maxItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [automatic_sync_allowed]
+            properties:
+              automatic_sync_allowed: { type: boolean }
     HealthStatus:
       type: object
       properties:

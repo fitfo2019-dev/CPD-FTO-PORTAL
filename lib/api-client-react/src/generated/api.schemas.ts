@@ -221,6 +221,220 @@ export interface StagingTrainingEnvelope {
   data: StagingTrainingRecord[];
 }
 
+export type TrainingPacketReportRunsItem = { [key: string]: unknown };
+
+export type TrainingPacketReportActivity = {[key: string]: number};
+
+export type TrainingPacketReportReportingForDuty = { [key: string]: unknown };
+
+export type TrainingPacketReportRatings = { [key: string]: unknown };
+
+export type TrainingPacketReportStatus = typeof TrainingPacketReportStatus[keyof typeof TrainingPacketReportStatus];
+
+
+export const TrainingPacketReportStatus = {
+  draft: 'draft',
+  fto_signed: 'fto_signed',
+  recruit_signed: 'recruit_signed',
+  locked: 'locked',
+} as const;
+
+export interface TrainingPacketReport {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+     */
+  id: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  date: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  /** @maxLength 120 */
+  className: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  recruitName: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  recruitBadge: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  ftoName: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  ftoBadge: string;
+  /** @maxItems 200 */
+  runs: TrainingPacketReportRunsItem[];
+  activity: TrainingPacketReportActivity;
+  reportingForDuty: TrainingPacketReportReportingForDuty;
+  ratings: TrainingPacketReportRatings;
+  status: TrainingPacketReportStatus;
+  /** @maxLength 100000 */
+  narrative: string;
+  /** @maxLength 100000 */
+  remedial: string;
+  /** @maxLength 100000 */
+  recruitComments: string;
+  [key: string]: unknown;
+ }
+
+export interface TrainingPacketSyncItem {
+  operation_id: string;
+  /** @minimum 0 */
+  base_version: number;
+  report: TrainingPacketReport;
+}
+
+export interface TrainingPacketSyncInput {
+  /**
+     * @minItems 1
+     * @maxItems 100
+     */
+  packets: TrainingPacketSyncItem[];
+}
+
+export type TrainingPacketSyncRecordSyncStatus = typeof TrainingPacketSyncRecordSyncStatus[keyof typeof TrainingPacketSyncRecordSyncStatus];
+
+
+export const TrainingPacketSyncRecordSyncStatus = {
+  synchronized_complete: 'synchronized_complete',
+} as const;
+
+export interface TrainingPacketSyncRecord {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  id: string;
+  operation_id: string;
+  /** @minimum 1 */
+  server_version: number;
+  sync_status: TrainingPacketSyncRecordSyncStatus;
+}
+
+export type TrainingPacketSyncEnvelopeStatus = typeof TrainingPacketSyncEnvelopeStatus[keyof typeof TrainingPacketSyncEnvelopeStatus];
+
+
+export const TrainingPacketSyncEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type TrainingPacketSyncEnvelopeMetadataRole = typeof TrainingPacketSyncEnvelopeMetadataRole[keyof typeof TrainingPacketSyncEnvelopeMetadataRole];
+
+
+export const TrainingPacketSyncEnvelopeMetadataRole = {
+  FTO: 'FTO',
+} as const;
+
+export type TrainingPacketSyncEnvelopeMetadata = {
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  total_records: number;
+  role: TrainingPacketSyncEnvelopeMetadataRole;
+};
+
+export interface TrainingPacketSyncEnvelope {
+  status: TrainingPacketSyncEnvelopeStatus;
+  metadata: TrainingPacketSyncEnvelopeMetadata;
+  /** @maxItems 100 */
+  data: TrainingPacketSyncRecord[];
+}
+
+export type TrainingPacketRecordSyncStatus = typeof TrainingPacketRecordSyncStatus[keyof typeof TrainingPacketRecordSyncStatus];
+
+
+export const TrainingPacketRecordSyncStatus = {
+  synchronized_complete: 'synchronized_complete',
+} as const;
+
+export interface TrainingPacketRecord {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  id: string;
+  assignment_id: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  record_date: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  /** @minimum 1 */
+  server_version: number;
+  sync_status: TrainingPacketRecordSyncStatus;
+  report: TrainingPacketReport;
+}
+
+export type TrainingPacketsEnvelopeStatus = typeof TrainingPacketsEnvelopeStatus[keyof typeof TrainingPacketsEnvelopeStatus];
+
+
+export const TrainingPacketsEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type TrainingPacketsEnvelopeMetadataRole = typeof TrainingPacketsEnvelopeMetadataRole[keyof typeof TrainingPacketsEnvelopeMetadataRole];
+
+
+export const TrainingPacketsEnvelopeMetadataRole = {
+  PO: 'PO',
+  FTO: 'FTO',
+  FTO_COORDINATOR: 'FTO_COORDINATOR',
+} as const;
+
+export type TrainingPacketsEnvelopeMetadata = {
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  total_records: number;
+  role: TrainingPacketsEnvelopeMetadataRole;
+};
+
+export interface TrainingPacketsEnvelope {
+  status: TrainingPacketsEnvelopeStatus;
+  metadata: TrainingPacketsEnvelopeMetadata;
+  /** @maxItems 100 */
+  data: TrainingPacketRecord[];
+}
+
+export type TrainingPacketSyncReadinessEnvelopeStatus = typeof TrainingPacketSyncReadinessEnvelopeStatus[keyof typeof TrainingPacketSyncReadinessEnvelopeStatus];
+
+
+export const TrainingPacketSyncReadinessEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type TrainingPacketSyncReadinessEnvelopeMetadata = {
+  can_sync: boolean;
+};
+
+export type TrainingPacketSyncReadinessEnvelopeDataItem = {
+  automatic_sync_allowed: boolean;
+};
+
+export interface TrainingPacketSyncReadinessEnvelope {
+  status: TrainingPacketSyncReadinessEnvelopeStatus;
+  metadata: TrainingPacketSyncReadinessEnvelopeMetadata;
+  /** @maxItems 1 */
+  data: TrainingPacketSyncReadinessEnvelopeDataItem[];
+}
+
 export interface HealthStatus {
   status: string;
 }

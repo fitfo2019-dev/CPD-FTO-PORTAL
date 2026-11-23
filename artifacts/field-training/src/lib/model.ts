@@ -831,6 +831,8 @@ export interface ChecklistDeficiencyGroup {
   reviewed?: boolean;
 }
 export interface Report {
+  syncStatus?: 'local_draft_pending' | 'synchronized_complete';
+  serverVersion?: number;
   id: string; date: string; shiftStartTime?: string; shift: ReportShift; phase: Phase; zone: string; precinct: string; cruiserDistrict: string;
   deficiencyAutomationEnabled?: boolean;
   deficiencyOverrides?: Record<string, Category>;
