@@ -11,9 +11,10 @@ The user renamed the site “Field Training Officer Portal.” Use the Columbus 
 
 Use ALL CAPS or Title Case for portal wording, keeping short connector words
 such as “of” and “or” lowercase in Title Case. The user approved the Title Case
-packet-control preview before integration.
+packet-control preview before integration. Titles and preview headings must use
+ALL CAPS or Title Case, not sentence case.
 
 **Why:** The user explicitly requested either all capitals or capitalization of
-all words except short connector words.
+all words except short connector words, and reiterated, “TITLES SHOULD BE ALL CAPS OR CAPITAL FIRST LETTERS.”
 
 **How to apply:** Preserve acronyms and identifiers; do not uppercase user-entered records.

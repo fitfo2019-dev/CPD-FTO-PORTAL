@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useListResources, apiEndpoint, type ResourceCatalogItem } from '@workspace/api-client-react';
 import { PageHead } from '@/components/bits.js';
+import { GeographyMapPanel } from '@/components/geography-map-panel.js';
 import {
   FTO_HELP, MANUAL_SOURCE, UPLOADED_FORM_SOURCES,
 } from '@/lib/fto-help.js';
@@ -409,6 +410,8 @@ export default function HelpPage() {
           <ExternalLink aria-hidden="true" size={16} /> Official directives
         </a>
       </PageHead>
+
+      <GeographyMapPanel />
 
       <section className="uploaded-resources" aria-labelledby="uploaded-resources-title" data-testid="section-uploaded-resources">
         <div className="uploaded-resources-heading">

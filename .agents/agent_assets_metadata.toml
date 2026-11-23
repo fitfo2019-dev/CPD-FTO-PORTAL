@@ -448,3 +448,17 @@ mtime_ms = 1795443826169
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/0e805cd5-0bb1-41c3-bc4c-3c9f718dd805/b117e217-6840-4b25-8998-f4a2eb1f119b"
 storage_version_token = "1795443834288366"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "JTl25j19WUrG0ODAA_DuX"
+uri = "file://generated-artifacts/geography-map-preview.jpg"
+type = "image"
+title = "Columbus Geography Map Preview"
+description = "Updated heading capitalization and Open Original Map label."
+logical_id = "6cc273c3-de6c-45fd-94b9-3cacf694b05c"
+content_hash = "sha256:7329ed7b70b28174dfe828d5c9c754823d1bcb239118ef257600b273b2398d6f"
+size = 166910
+mtime_ms = 1795451633936
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/6cc273c3-de6c-45fd-94b9-3cacf694b05c/bfc3849e-2363-49a8-81ad-ac15f4703d90"
+storage_version_token = "1795451641221985"
+content_type = "image/jpeg"

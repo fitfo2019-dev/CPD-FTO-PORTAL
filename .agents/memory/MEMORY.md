@@ -8,3 +8,4 @@
 - [Run record boundaries](run-record-boundaries.md) — generate narrative drafts only after explicit checklist review; keep run evidence separate from ratings.
 - [Staging and handover](developer-staging-boundary.md) — no extra developer password; the whole site goes to Columbus; configuration snapshots are not full backups.
 - [Agency packet boundary](agency-packet-boundary.md) — offline-first complete packets; signed agency identity plus server roster controls sync; local saving never uploads.
+- [Shared type freshness](shared-type-freshness.md) — missing API exports in the portal checker can mean stale declaration output, not absent source functions.

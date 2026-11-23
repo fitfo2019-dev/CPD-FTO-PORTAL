@@ -2,11 +2,12 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/AdminLogsDashboard.tsx": () => import("../components/mockups/AdminLogsDashboard.tsx"),
+  "./components/mockups/ColumbusGeographyMap.tsx": () => import("../components/mockups/ColumbusGeographyMap.tsx"),
   "./components/mockups/PacketReviewPreview.tsx": () => import("../components/mockups/PacketReviewPreview.tsx"),
   "./components/mockups/ResourceLibraryPreview.tsx": () => import("../components/mockups/ResourceLibraryPreview.tsx"),
   "./components/mockups/RoleWorkspacePreview.tsx": () => import("../components/mockups/RoleWorkspacePreview.tsx"),
-  "./components/mockups/investigator/WarningTriage.tsx": () => import("../components/mockups/investigator/WarningTriage.tsx"),
   "./components/mockups/operations/AuditPulse.tsx": () => import("../components/mockups/operations/AuditPulse.tsx"),
   "./components/mockups/packet-upload/PacketUploadPreview.tsx": () => import("../components/mockups/packet-upload/PacketUploadPreview.tsx"),
+  "./components/mockups/investigator/WarningTriage.tsx": () => import("../components/mockups/investigator/WarningTriage.tsx"),
   "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx")
 };
