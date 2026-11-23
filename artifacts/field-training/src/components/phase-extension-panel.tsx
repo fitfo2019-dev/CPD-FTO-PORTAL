@@ -1,16 +1,46 @@
-import { useState } from 'react';
+import * as React from 'react';
 import { Panel } from '@/components/bits.js';
 import { useWorkspace } from '@/state/workspace.js';
 import { PHASE_LENGTH_WEEKS, phaseLabel, uid, type PhaseExtensionRequest } from '@/lib/model.js';
 import { phaseExtensionRequestInputSchema } from '@/lib/phase-extension.js';
 import { useToast } from '@/hooks/use-toast.js';
 
+interface PhaseExtensionReviewViewProps {
+  requests:readonly PhaseExtensionRequest[];
+  vaultUnlocked:boolean;
+  onReview(id:string,approve:boolean):Promise<void>;
+}
+
+export function PhaseExtensionReviewView({requests,vaultUnlocked,onReview}:PhaseExtensionReviewViewProps) {
+  if(!requests.length)return null;
+  return <Panel title={`Pending phase extension requests · ${requests.length}`} className="mb-4" id="panel-phase-extension-review">
+    <ul className="divide-y">
+      {requests.map(request=><li key={request.id} className="grid gap-3 p-4" data-testid={`phase-extension-request-${request.id}`}>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="font-bold">{request.className} · {request.recruitName} #{request.recruitBadge}</p>
+            <p className="text-sm text-muted-foreground">{phaseLabel(request.phase)} · {request.requestedWeeks} additional week{request.requestedWeeks===1?'':'s'} · {request.extensionType==='limbo_period'?'Limbo period':'Training phase'}</p>
+            <p className="text-xs text-muted-foreground">Requested by {request.requestingFtoName} · #{request.requestingFtoBadge}</p>
+          </div>
+          <time className="text-xs text-muted-foreground" dateTime={request.createdAt}>{new Date(request.createdAt).toLocaleDateString()}</time>
+        </div>
+        <p className="whitespace-pre-wrap text-sm">{request.justification}</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={!vaultUnlocked} onClick={()=>void onReview(request.id,true)} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid={`button-approve-extension-${request.id}`}>Approve</button>
+          <button type="button" disabled={!vaultUnlocked} onClick={()=>void onReview(request.id,false)} className="min-h-10 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-deny-extension-${request.id}`}>Deny</button>
+        </div>
+      </li>)}
+    </ul>
+    <p className="border-t px-4 py-3 text-xs text-muted-foreground">{vaultUnlocked?'This review is saved in the encrypted workspace on this device. It does not notify or sync to another device.':'Unlock this device’s encrypted workspace to approve or deny requests.'}</p>
+  </Panel>;
+}
+
 export function PhaseExtensionPanel() {
   const {ws,vault,submitPhaseExtensionRequest,resolvePhaseExtensionRequest}=useWorkspace();
   const {toast}=useToast();
-  const [extensionType,setExtensionType]=useState<PhaseExtensionRequest['extensionType']>('training_weeks');
-  const [requestedWeeks,setRequestedWeeks]=useState(1);
-  const [justification,setJustification]=useState('');
+  const [extensionType,setExtensionType]=React.useState<PhaseExtensionRequest['extensionType']>('training_weeks');
+  const [requestedWeeks,setRequestedWeeks]=React.useState(1);
+  const [justification,setJustification]=React.useState('');
   const pending=ws.phaseExtensionRequests??[];
 
   async function reviewRequest(id:string,approve:boolean) {
@@ -25,27 +55,7 @@ export function PhaseExtensionPanel() {
   }
 
   if(ws.role==='fto_coordinator') {
-    if(!pending.length)return null;
-    return <Panel title={`Pending phase extension requests · ${pending.length}`} className="mb-4" id="panel-phase-extension-review">
-      <ul className="divide-y">
-        {pending.map(request=><li key={request.id} className="grid gap-3 p-4" data-testid={`phase-extension-request-${request.id}`}>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <p className="font-bold">{request.className} · {request.recruitName} #{request.recruitBadge}</p>
-              <p className="text-sm text-muted-foreground">{phaseLabel(request.phase)} · {request.requestedWeeks} additional week{request.requestedWeeks===1?'':'s'} · {request.extensionType==='limbo_period'?'Limbo period':'Training phase'}</p>
-              <p className="text-xs text-muted-foreground">Requested by {request.requestingFtoName} · #{request.requestingFtoBadge}</p>
-            </div>
-            <time className="text-xs text-muted-foreground" dateTime={request.createdAt}>{new Date(request.createdAt).toLocaleDateString()}</time>
-          </div>
-          <p className="whitespace-pre-wrap text-sm">{request.justification}</p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={vault!=='unlocked'} onClick={()=>void reviewRequest(request.id,true)} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid={`button-approve-extension-${request.id}`}>Approve</button>
-            <button type="button" disabled={vault!=='unlocked'} onClick={()=>void reviewRequest(request.id,false)} className="min-h-10 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-deny-extension-${request.id}`}>Deny</button>
-          </div>
-        </li>)}
-      </ul>
-      <p className="border-t px-4 py-3 text-xs text-muted-foreground">{vault==='unlocked'?'This review is saved in the encrypted workspace on this device. It does not notify or sync to another device.':'Unlock this device’s encrypted workspace to approve or deny requests.'}</p>
-    </Panel>;
+    return <PhaseExtensionReviewView requests={pending} vaultUnlocked={vault==='unlocked'} onReview={reviewRequest}/>;
   }
 
   if(ws.role!=='fto'||!ws.caseFolder)return null;

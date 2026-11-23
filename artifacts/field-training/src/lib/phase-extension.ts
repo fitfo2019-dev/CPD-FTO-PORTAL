@@ -8,6 +8,32 @@ export const phaseExtensionRequestInputSchema=z.object({
   justification:z.string().trim().min(1),
 });
 
+function isRecord(value:unknown):value is Record<string,unknown> {
+  return !!value&&typeof value==='object'&&!Array.isArray(value);
+}
+
+export function normalizePhaseExtensionRequests(value:unknown):PhaseExtensionRequest[] {
+  if(!Array.isArray(value))return [];
+  return value.filter((item):item is PhaseExtensionRequest=>{
+    if(!isRecord(item))return false;
+    return typeof item.id==='string'
+      &&typeof item.recruitBadge==='string'
+      &&typeof item.className==='string'
+      &&typeof item.justification==='string'
+      &&typeof item.phase==='number'
+      &&[1,2,3,4].includes(item.phase)
+      &&typeof item.requestedWeeks==='number'
+      &&Number.isInteger(item.requestedWeeks)
+      &&item.requestedWeeks>0
+      &&['training_weeks','limbo_period'].includes(String(item.extensionType))
+      &&typeof item.phaseStartDate==='string'
+      &&typeof item.requestingFtoBadge==='string'
+      &&typeof item.requestingFtoName==='string'
+      &&typeof item.createdAt==='string'
+      &&typeof item.recruitName==='string';
+  });
+}
+
 const addDays=(isoDate:string,days:number)=>new Date(Date.parse(`${isoDate}T12:00:00Z`)+days*24*60*60*1000).toISOString().slice(0,10);
 
 function matchesRequest(request:PhaseExtensionRequest,folder:PhaseCaseFolder) {

@@ -1,8 +1,11 @@
 import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { isValidElement, type ReactElement, type ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { PhaseExtensionReviewView } from '../components/phase-extension-panel.js';
 import { createEmptyWorkspace } from './empty-workspace.js';
-import { approvePhaseExtension, denyPhaseExtension, phaseExtensionRequestInputSchema } from './phase-extension.js';
+import { approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests, phaseExtensionRequestInputSchema } from './phase-extension.js';
 import { OfflineStorage } from './offlineStorage.js';
 import type { PhaseCaseFolder, PhaseExtensionRequest, Workspace } from './model.js';
 import { createPhaseWeekRanges } from './training-calendar.js';
@@ -19,6 +22,20 @@ const request:PhaseExtensionRequest={
   extensionType:'training_weeks',requestedWeeks:1,justification:'Need one additional training week.',
   createdAt:'2027-01-30T12:00:00.000Z',
 };
+
+function findByTestId(node:ReactNode,testId:string):ReactElement<Record<string,unknown>>|undefined {
+  if(Array.isArray(node)) {
+    for(const child of node) {
+      const found=findByTestId(child,testId);
+      if(found)return found;
+    }
+    return undefined;
+  }
+  if(!isValidElement(node))return undefined;
+  const element=node as ReactElement<Record<string,unknown>>;
+  if(element.props['data-testid']===testId)return element;
+  return findByTestId(element.props.children as ReactNode,testId);
+}
 
 test('request validation keeps written justification unlimited in length',()=>{
   const parsed=phaseExtensionRequestInputSchema.safeParse({
@@ -109,4 +126,73 @@ test('phase extension requests and approved ranges survive locking and restoring
   assert.deepEqual(deniedWorkspace.phaseFolders[0].phaseWeekRanges,expectedRanges);
   assert.deepEqual(deniedWorkspace.caseFolder?.phaseWeekRanges,expectedRanges);
   afterDenial.lock();
+});
+
+test('vault-restored requests render in coordinator review and approve or deny actions resolve them',async()=>{
+  const namespace=`phase-extension-review-${crypto.randomUUID()}`;
+  const passphrase=new TextEncoder().encode('phase-extension-review-test-passphrase');
+  const initial=createEmptyWorkspace();
+  initial.caseFolder=folder;
+  initial.phaseFolders=[folder];
+  initial.phaseExtensionRequests=[request];
+
+  const writer=new OfflineStorage(namespace);
+  await writer.unlock(passphrase);
+  await writer.save('workspace',initial);
+  writer.lock();
+
+  const coordinatorVault=new OfflineStorage(namespace);
+  await coordinatorVault.unlock(passphrase);
+  const reopened=await coordinatorVault.get<Workspace>('workspace');
+  assert.ok(reopened);
+  const restoredRequests=normalizePhaseExtensionRequests(reopened.phaseExtensionRequests);
+  assert.deepEqual(restoredRequests,[request]);
+  let coordinatorWorkspace:Workspace={...reopened,phaseExtensionRequests:restoredRequests};
+  const review=(onReview:(id:string,approve:boolean)=>Promise<void>)=>PhaseExtensionReviewView({
+    requests:coordinatorWorkspace.phaseExtensionRequests,
+    vaultUnlocked:true,
+    onReview,
+  });
+
+  const approveMarkup=renderToStaticMarkup(review(async(id,approve)=>{
+    coordinatorWorkspace=approve
+      ?approvePhaseExtension(coordinatorWorkspace,id)
+      :denyPhaseExtension(coordinatorWorkspace,id);
+  }));
+  assert.match(approveMarkup,/Pending phase extension requests · 1/);
+  assert.match(approveMarkup,/Example PO/);
+  assert.match(approveMarkup,/Need one additional training week\./);
+  const approveButton=findByTestId(review(async(id,approve)=>{
+    coordinatorWorkspace=approve
+      ?approvePhaseExtension(coordinatorWorkspace,id)
+      :denyPhaseExtension(coordinatorWorkspace,id);
+  }),'button-approve-extension-extension-1');
+  assert.ok(approveButton);
+  assert.equal(approveButton.props.disabled,false);
+  const approve=approveButton.props.onClick;
+  assert.equal(typeof approve,'function');
+  await (approve as () => void)();
+  assert.deepEqual(coordinatorWorkspace.phaseExtensionRequests,[]);
+  assert.equal(coordinatorWorkspace.phaseFolders[0].phaseWeekRanges?.length,5);
+
+  const deniedRequest={...request,id:'extension-denied'};
+  coordinatorWorkspace={...coordinatorWorkspace,phaseExtensionRequests:[deniedRequest]};
+  const rangesBeforeDenial=coordinatorWorkspace.phaseFolders[0].phaseWeekRanges;
+  const denyView=review(async(id,approve)=>{
+    coordinatorWorkspace=approve
+      ?approvePhaseExtension(coordinatorWorkspace,id)
+      :denyPhaseExtension(coordinatorWorkspace,id);
+  });
+  assert.ok(denyView);
+  const denyMarkup=renderToStaticMarkup(denyView);
+  assert.match(denyMarkup,/extension-denied/);
+  const denyButton=findByTestId(denyView,'button-deny-extension-extension-denied');
+  assert.ok(denyButton);
+  assert.equal(denyButton.props.disabled,false);
+  const deny=denyButton.props.onClick;
+  assert.equal(typeof deny,'function');
+  await (deny as () => void)();
+  assert.deepEqual(coordinatorWorkspace.phaseExtensionRequests,[]);
+  assert.deepEqual(coordinatorWorkspace.phaseFolders[0].phaseWeekRanges,rangesBeforeDenial);
+  coordinatorVault.lock();
 });

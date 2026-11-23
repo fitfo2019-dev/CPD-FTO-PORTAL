@@ -6,7 +6,7 @@ import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-
 import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
 import { buildTimelineInterpolation, type TimelineInterpolation } from '@/lib/timeline-interpolation.js';
 import { createPhaseWeekRanges, getPhaseWeekNumber, getSundaySaturdayWeek } from '@/lib/training-calendar.js';
-import { approvePhaseExtension, denyPhaseExtension } from '@/lib/phase-extension.js';
+import { approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests } from '@/lib/phase-extension.js';
 import { invalidateOperationalReferences, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
 
@@ -406,15 +406,7 @@ export function WorkspaceProvider({
     const coverageRequests=Array.isArray(savedWorkspace.coverageRequests)
       ?savedWorkspace.coverageRequests.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&typeof item.startDateTime==='string'&&typeof item.endDateTime==='string'&&['local_unsent','cancelled'].includes(String(item.status)))
       :[];
-    const phaseExtensionRequests=Array.isArray(savedWorkspace.phaseExtensionRequests)
-      ?savedWorkspace.phaseExtensionRequests.filter((item):item is PhaseExtensionRequest=>
-        isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'
-        &&typeof item.className==='string'&&typeof item.justification==='string'
-        &&[1,2,3,4].includes(Number(item.phase))&&Number.isInteger(item.requestedWeeks)&&Number(item.requestedWeeks)>0
-        &&['training_weeks','limbo_period'].includes(String(item.extensionType))
-        &&typeof item.phaseStartDate==='string'&&typeof item.requestingFtoBadge==='string'
-        &&typeof item.requestingFtoName==='string'&&typeof item.createdAt==='string')
-      :[];
+    const phaseExtensionRequests=normalizePhaseExtensionRequests(savedWorkspace.phaseExtensionRequests);
     const lawReviewRecords=Array.isArray(savedWorkspace.lawReviewRecords)
       ?savedWorkspace.lawReviewRecords.filter((item):item is LawReviewRecord=>isRecord(item)&&typeof item.id==='string'&&typeof item.assignmentId==='string'&&typeof item.recruitBadge==='string'&&typeof item.recruitName==='string'&&typeof item.sourceId==='string'&&typeof item.sourceLabel==='string'&&[1,2,3,4].includes(Number(item.phase))&&['assigned','reviewed'].includes(String(item.state)))
       :[];
