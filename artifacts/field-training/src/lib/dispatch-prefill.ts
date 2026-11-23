@@ -1,3 +1,6 @@
+import { DEFAULT_RUN_TYPE_CODES } from './radio-codes.js';
+import type { TrainingRun } from './model.js';
+
 export type DispatchPrefill = {
   eventDate?: string;
   eventIngressAt?: string;
@@ -89,6 +92,60 @@ export type DispatchPrefillDraft = {
   clearanceCode?: DispatchPrefill['clearanceCode'];
   dispatchedCode: string;
 };
+
+export type SavedRunDispatchFields = {
+  incidentNumber: string;
+  runLocation: string;
+  runLocationCity: string;
+  runLocationState: string;
+  runLocationZip: string;
+  runZone: string;
+  runCruiserDistrict: string;
+  clearanceCode: NonNullable<DispatchPrefill['clearanceCode']>;
+  dispatchedCode: string;
+};
+
+export function serializeDispatchPrefillFields(
+  draft: DispatchPrefillDraft,
+): Pick<
+  TrainingRun,
+  | 'incidentNumber'
+  | 'location'
+  | 'locationCity'
+  | 'locationState'
+  | 'locationZip'
+  | 'incidentZone'
+  | 'incidentCruiserDistrict'
+  | 'clearanceCode'
+  | 'dispatchedCode'
+> {
+  return {
+    incidentNumber: draft.incidentNumber.trim() || undefined,
+    location: draft.runLocation.trim() || undefined,
+    locationCity: draft.runLocationCity?.trim() || undefined,
+    locationState: draft.runLocationState?.trim() || undefined,
+    locationZip: draft.runLocationZip?.trim() || undefined,
+    incidentZone: draft.runZone?.trim() || undefined,
+    incidentCruiserDistrict: draft.runCruiserDistrict?.trim() || undefined,
+    clearanceCode: draft.clearanceCode,
+    dispatchedCode: draft.dispatchedCode,
+  };
+}
+
+/** Restore saved run values as-is; defaults are only for older runs missing a code. */
+export function restoreDispatchPrefillFields(run: TrainingRun): SavedRunDispatchFields {
+  return {
+    incidentNumber: run.incidentNumber ?? '',
+    runLocation: run.location ?? '',
+    runLocationCity: run.locationCity ?? '',
+    runLocationState: run.locationState ?? '',
+    runLocationZip: run.locationZip ?? '',
+    runZone: run.incidentZone ?? '',
+    runCruiserDistrict: run.incidentCruiserDistrict ?? '',
+    clearanceCode: run.clearanceCode ?? '',
+    dispatchedCode: run.dispatchedCode ?? DEFAULT_RUN_TYPE_CODES[run.runKind] ?? '',
+  };
+}
 
 export function applyDispatchPrefillValue(
   current: string,

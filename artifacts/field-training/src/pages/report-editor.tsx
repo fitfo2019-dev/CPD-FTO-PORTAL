@@ -26,6 +26,7 @@ import { useDeficiencyEditor } from '@/hooks/use-deficiency-editor.js';
 import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
 import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
 import { getRunWorkflowSteps, runSheetReviewSnapshot, type RunSheetKey, type RunWorkflowDraft } from '@/lib/run-workflow.js';
+import { restoreDispatchPrefillFields, serializeDispatchPrefillFields } from '@/lib/dispatch-prefill.js';
 import { RunStepRail, SheetStatus, sheetHasEdits } from '@/components/run-sheet-workflow.js';
 import { NewRunDialog, type NewRunSeed } from '@/components/new-run-dialog.js';
 import '@/components/run-sheet-workflow.css';
@@ -391,13 +392,11 @@ export default function ReportEditor() {
         description,
       })),
       id: previous?.id ?? runDraftId,
-      incidentNumber: incidentNumber.trim() || undefined,
-      location: runLocation.trim() || undefined,
-      locationCity:runLocationCity.trim()||undefined,
-      locationState:runLocationState.trim()||undefined,
-      locationZip:runLocationZip.trim()||undefined,
-      incidentZone:runZone.trim()||undefined,
-      incidentCruiserDistrict:runCruiserDistrict.trim()||undefined,
+      ...serializeDispatchPrefillFields({
+        runDateTimeText, runTimeText, incidentNumber, runLocation,
+        runLocationCity, runLocationState, runLocationZip, runZone,
+        runCruiserDistrict, clearanceCode, dispatchedCode,
+      }),
       unitNumber: runUnitNumber.trim() || undefined,
       dispatchedAt: dispatchedAtIso,
       endedAt: clearedAtIso ?? (runClearedAtText.trim() ? previous?.endedAt : undefined),
@@ -405,7 +404,7 @@ export default function ReportEditor() {
       transportDestinationType:arrestMade&&transported?transportDestinationType:undefined,
       occurredAt: localRunDateTime,
       runKind, isDispatched: runDispatched, trafficMode, arrestMade,
-      activityFlags:{...activityFlags}, dispatchedCode, situationFoundCode, clearanceCode,
+      activityFlags:{...activityFlags}, situationFoundCode,
       transportedAfterArrest: arrestMade && transported, arrestProcessRequired, buildingSearchRequired, oviProcessRequired, oviProcessed, narrativeAdditionRequired,
       formStatus: !!runNarrative.trim() ? 'complete' : 'in_progress',
       checklist: { ...runChecklist }, directiveReviews:directiveReviewsToSave, checklistReviewedAt:new Date().toISOString(), narrative: runNarrative,
@@ -453,16 +452,17 @@ export default function ReportEditor() {
     setEditingRunId(run.id); setRunKind(run.runKind);
     setRunStep('details'); setRunError('');
     setRunUnitNumber(run.unitNumber ?? ''); setRunDispatchedAtText(run.dispatchedAt ? formatDateTimeMDY(run.dispatchedAt) : ''); setRunClearedAtText(run.endedAt ? formatDateTimeMDY(run.endedAt) : '');
-    setIncidentNumber(run.incidentNumber ?? ''); setRunLocation(run.location ?? '');
-    setRunLocationCity(run.locationCity??'');setRunLocationState(run.locationState??'');setRunLocationZip(run.locationZip??'');
-    setRunZone(run.incidentZone??'');setRunCruiserDistrict(run.incidentCruiserDistrict??'');generatedNarrativeRef.current = '';
+    const dispatchFields=restoreDispatchPrefillFields(run);
+    setIncidentNumber(dispatchFields.incidentNumber); setRunLocation(dispatchFields.runLocation);
+    setRunLocationCity(dispatchFields.runLocationCity);setRunLocationState(dispatchFields.runLocationState);setRunLocationZip(dispatchFields.runLocationZip);
+    setRunZone(dispatchFields.runZone);setRunCruiserDistrict(dispatchFields.runCruiserDistrict);generatedNarrativeRef.current = '';
     const occurredAt = new Date(run.occurredAt);
     const localDateTime = new Date(occurredAt.getTime() - occurredAt.getTimezoneOffset() * 60000).toISOString();
     const localRunDateTime=`${formatDateDMY(localDateTime.slice(0,10))} ${localDateTime.slice(11,16)}`;
     setRunDateTimeText(localRunDateTime); setRunTimeText(splitDateTimeEntryMDY(localRunDateTime).time); setRunDispatched(run.isDispatched);
     setTrafficMode(run.trafficMode); setArrestMade(run.arrestMade);
-    setActivityFlags(run.activityFlags ?? {}); setDispatchedCode(run.runKind==='traffic_stop'?'6':run.dispatchedCode ?? DEFAULT_RUN_TYPE_CODES[run.runKind] ?? '');
-    setSituationFoundCode(run.situationFoundCode ?? ''); setClearanceCode(run.clearanceCode ?? '');
+    setActivityFlags(run.activityFlags ?? {}); setDispatchedCode(dispatchFields.dispatchedCode);
+    setSituationFoundCode(run.situationFoundCode ?? ''); setClearanceCode(dispatchFields.clearanceCode);
     setTransported(run.transportedAfterArrest); setTransportDestination(run.transportDestination??''); setTransportDestinationType(run.transportDestinationType); setArrestProcessRequired(!!run.arrestProcessRequired); setBuildingSearchRequired(!!run.buildingSearchRequired); setOviProcessRequired(!!run.oviProcessRequired); setOviProcessed(run.oviProcessed);
     setNarrativeAdditionRequired(run.narrativeAdditionRequired);
     setDirectiveReviews(run.directiveReviews??{});

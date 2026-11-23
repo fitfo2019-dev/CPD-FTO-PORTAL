@@ -1,6 +1,9 @@
+import 'fake-indexeddb/auto';
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyDispatchPrefill, applyDispatchPrefillValue, mapDispatchPrefillResponse, mapDispatchIncidentResponse, selectDispatchIncidentMatch, type DispatchPrefillDraft } from "./dispatch-prefill.js";
+import { applyDispatchPrefill, applyDispatchPrefillValue, mapDispatchPrefillResponse, mapDispatchIncidentResponse, restoreDispatchPrefillFields, selectDispatchIncidentMatch, serializeDispatchPrefillFields, type DispatchPrefillDraft } from "./dispatch-prefill.js";
+import { OfflineStorage } from "./offlineStorage.js";
+import type { TrainingRun } from "./model.js";
 
 test('incident lookup matches the entered unit without borrowing another PO’s timings',()=>{
   const rows=[
@@ -136,4 +139,86 @@ test('structured dispatch location and clearance prefill only untouched fields',
 test("dispatch ingress time is a default only until the FTO changes it", () => {
   assert.equal(applyDispatchPrefillValue("11/23/2026", "11/23/2026", "11/22/2026 14:05"), "11/22/2026 14:05");
   assert.equal(applyDispatchPrefillValue("11/23/2026 13:55", "11/23/2026", "11/22/2026 14:05"), "11/23/2026 13:55");
+});
+
+test('saved dispatch corrections survive vault reopening without traffic-stop defaults replacing them', async () => {
+  const initial: DispatchPrefillDraft = {
+    runDateTimeText: '11/23/2026 14:00',
+    runTimeText: '14:00',
+    incidentNumber: '',
+    runLocation: '',
+    runLocationCity: '',
+    runLocationState: '',
+    runLocationZip: '',
+    runZone: '',
+    runCruiserDistrict: '',
+    clearanceCode: '',
+    dispatchedCode: '6',
+  };
+  const dispatchDefaults = {
+    incidentNumber: 'CAD-2468',
+    locationAddress: '100 Main Street',
+    locationCity: 'Columbus',
+    locationState: 'OH',
+    locationZip: '43215',
+    zone: 'Z1',
+    cruiserDistrict: 'D1',
+    clearanceCode: '1V' as const,
+    dispatchedCode: '6',
+  };
+  const populated = applyDispatchPrefill(initial, initial, dispatchDefaults);
+  const corrected = {
+    ...populated,
+    incidentNumber: 'FTO-verified-2468',
+    runLocation: '200 Oak Avenue',
+    runLocationCity: 'Corrected City',
+    dispatchedCode: '17A',
+  };
+  const run: TrainingRun = {
+    id: 'dispatch-save-reopen-test',
+    ...serializeDispatchPrefillFields(corrected),
+    occurredAt: '2026-11-23T14:00:00.000Z',
+    runKind: 'traffic_stop',
+    isDispatched: true,
+    trafficMode: 'motor_vehicle',
+    arrestMade: false,
+    transportedAfterArrest: false,
+    oviProcessed: false,
+    narrativeAdditionRequired: false,
+    formStatus: 'complete',
+    checklist: {},
+    checklistReviewedAt: '2026-11-23T15:00:00.000Z',
+    narrative: 'Fictional dispatch persistence test.',
+  };
+
+  const namespace = `dispatch-roundtrip-${crypto.randomUUID()}`;
+  const passphrase = new TextEncoder().encode('dispatch-roundtrip-test-passphrase');
+  const vault = new OfflineStorage(namespace);
+  await vault.unlock(passphrase);
+  await vault.save('workspace', { reports: [{ id: 'test-report', runs: [run] }] });
+  vault.lock();
+
+  const reopenedVault = new OfflineStorage(namespace);
+  await reopenedVault.unlock(passphrase);
+  const restoredWorkspace = await reopenedVault.get<{
+    reports: Array<{ runs: TrainingRun[] }>;
+  }>('workspace');
+  assert.ok(restoredWorkspace);
+  const restoredRun = restoredWorkspace.reports[0].runs[0];
+  const reopenedFields = restoreDispatchPrefillFields(restoredRun);
+
+  assert.equal(reopenedFields.incidentNumber, 'FTO-verified-2468');
+  assert.equal(reopenedFields.runLocation, '200 Oak Avenue');
+  assert.equal(reopenedFields.runLocationCity, 'Corrected City');
+  assert.equal(reopenedFields.runLocationState, 'OH');
+  assert.equal(reopenedFields.runLocationZip, '43215');
+  assert.equal(reopenedFields.runZone, 'Z1');
+  assert.equal(reopenedFields.runCruiserDistrict, 'D1');
+  assert.equal(reopenedFields.dispatchedCode, '17A');
+  assert.equal(reopenedFields.clearanceCode, '1V');
+  assert.deepEqual(
+    applyDispatchPrefill({ ...initial, ...reopenedFields }, initial, dispatchDefaults),
+    { ...initial, ...reopenedFields },
+  );
+  reopenedVault.lock();
 });
