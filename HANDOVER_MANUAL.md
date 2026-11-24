@@ -170,8 +170,9 @@ all of its listed tasks covered. Safety-specific tasks retain individual checks.
 The review confirmation is below the list.
 
 Reporting for Duty is retained every day: Phase Day 1 is orientation P1, duty
-P2, then runs from P3. Routine days are duty P1 and runs from P2. Long orientation
-notes are preserved on separately numbered U-10.192 attachments after the runs.
+P2, then runs from P3. Standard Day 2+ starts with duty P1 and runs from P2.
+The standard program schedule remains 4/4/4/3 weeks. Long orientation notes are
+preserved on separately numbered U-10.192 attachments after the runs.
 Standalone orientation attachments without a matching saved daily report are
 explicitly unindexed rather than assigned made-up packet coordinates.
 
@@ -701,11 +702,14 @@ cannot be cleared on that day; a Limbo report never receives the latch.
 
 ### Versioned clearance-derived activity
 
-New run records carry `clearanceRulesVersion: 1`. Legacy runs retain their manual
-accounting even when edited; they are not recounted retroactively. Only completed,
-checklist-reviewed versioned runs contribute automatic counts. Displayed totals
-are manual extras plus derived counts; editing a total adjusts its manual portion
-without counting the run again. Run activity flags remain supporting evidence.
+New run records carry `clearanceRulesVersion: 1`; editing a legacy run does not
+backfill its older report/prisoner clearance multipliers. Arrest classification
+uses its own `arrestClassificationVersion: 1`: explicit severity/type values on
+a reviewed 3V add the new arrest and warrant counts without inferring values from
+legacy detail. Only completed, checklist-reviewed versioned runs contribute
+automatic counts. Displayed totals are manual extras plus derived counts; editing
+a total adjusts its manual portion without counting the run again. Run activity
+flags remain supporting evidence.
 Transport starts unchecked on a new run. `3V` requires Arrest Made and
 transport. Selecting Arrest Made or 3V preselects transport and reveals
 destination fields. The FTO selects Jail, HQ, or Clerks
@@ -720,20 +724,32 @@ increment activity totals.
   one Solve Citation/Summons; other runs contribute one PremierOne Report.
   Distinct citation columns are not automatically incremented together.
 - `2V`: no automatic report or citation count.
-- `3V`: one U-10.100, one Prisoners Slated, one PremierOne Report, one Probable
-  Cause Affidavit, and one Criminal Complaint per explicitly entered charge.
+- `3V`: one U-10.100, one Prisoners Slated, and one PremierOne Report. A newly
+  reviewed 3V arrest also requires explicit `arrestClassificationVersion: 1`,
+  severity (`Felony` or `Misdemeanor`), and arrest type (`Warrant` or `On-view`).
+  The text fields accept case-insensitive F/M and W/O shortcuts. Each reviewed
+  arrest adds exactly one felony or misdemeanor arrest count; a Warrant adds
+  one warrant-served count and suppresses a fresh Probable Cause Affidavit.
+  On-view retains one affidavit count and deterministic draft. Criminal Complaints
+  are not derived from classifications or charge quantities. An unclassified
+  legacy run remains unchanged; explicitly classifying one adds only its new
+  severity/type counts and does not backfill prior clearance-version multipliers.
 - `4V`: no extra report/citation multiplier was supplied, so none is invented.
 - Traffic-stop totals increase only for completed, reviewed 1V/2V/3V traffic-stop
   runs; 4V does not create that count. Other source activity flags do not replace
   or duplicate the clearance-derived totals.
 
-For `3V`, the editor accepts one charge per line and derives stable, distinct
-draft payloads: U-10.100, Probable Cause Affidavit, and one Criminal Complaint
-Form payload per charge. Changing the code or charges rebuilds that list instead
-of appending duplicates. The class workbook includes **Generated Document
-Payloads** for inspection. These are local data drafts—not completed, signed,
-filed, or legally validated documents—and add no physical pages without an
-approved printable template.
+For `3V`, the editor requests the two classifications, not actual charge names.
+It rebuilds stable draft metadata for U-10.100 and an On-view Probable Cause
+Affidavit; it creates no Criminal Complaint Form draft from a classification,
+charge line, or arbitrary count. Repeated edits use the same run-based IDs and
+do not append duplicates. Existing saved charge detail and document metadata on
+unclassified legacy runs are preserved; no severity or arrest type is inferred,
+and legacy totals are not automatically reclassified. Legacy documents are
+retained only when already stored on the run. The class workbook includes
+**Generated Document Payloads** for inspection. These are local data drafts—not
+completed, signed, filed, or legally validated documents—and add no physical
+pages without an approved printable template.
 
 Weekly views, print forms, workbook forms, and monthly exports share the
 category-ceiling calculation. Export strings are guarded against formula

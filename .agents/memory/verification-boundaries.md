@@ -1,6 +1,6 @@
 ---
 name: Verification boundaries
-description: Differences between browser and Node JSX, and between emulated and actual PostgreSQL permission checks.
+description: Differences between browser and Node JSX, React input focus in JSDOM, and emulated versus actual PostgreSQL permission checks.
 ---
 
 Exercise actual JSX components, not only pure models or browser builds.
@@ -8,6 +8,12 @@ Exercise actual JSX components, not only pure models or browser builds.
 **Why:** Vite can supply a React runtime that Node's transformation of transitive JSX imports does not. Typechecking and the browser build alone missed a component-rendering failure.
 
 **How to apply:** Include component `.test.tsx` files in alias-resolved regression commands, alongside `.test.ts` files. Keep those tests independent of browser-only runtime injection.
+
+For React input tests in JSDOM, verify native `disabled` state rather than calling `.focus()` on inputs.
+
+**Why:** React's legacy input-event polyfill can call unsupported `attachEvent` when JSDOM input focus triggers event setup.
+
+**How to apply:** Use browser automation for actual focus behavior; keep JSDOM assertions on labels, values, placeholders, and disabled state.
 
 Preserve the disposable real-PostgreSQL tests with a non-owner, column-restricted runtime role.
 

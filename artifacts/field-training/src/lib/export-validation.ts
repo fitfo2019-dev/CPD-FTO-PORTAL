@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isTacticalCallSign, PatrolAssignmentMetadataSchema } from './cpd-geography.js';
+import { ARREST_CLASSIFICATION_VERSION, ARREST_SEVERITIES, ARREST_TYPES } from './arrest-classification.js';
 import {
   CATEGORIES,
   DAILY_ACTIVITY_FIELDS,
@@ -62,6 +63,9 @@ const directiveReviewSchema = z.object({
 
 const trainingRunSchema = z.object({
   clearanceRulesVersion: z.literal(1).optional(),
+  arrestClassificationVersion: z.literal(ARREST_CLASSIFICATION_VERSION).optional(),
+  arrestSeverity: z.enum(ARREST_SEVERITIES).optional(),
+  arrestType: z.enum(ARREST_TYPES).optional(),
   charges: z.array(z.object({id:z.string().min(1),description:z.string().min(1)})).optional(),
   generatedDocuments: z.array(z.object({
     id:z.string(),kind:z.enum(['U-10.100','Probable Cause Affidavit','Criminal Complaint Form']),
@@ -101,7 +105,16 @@ const trainingRunSchema = z.object({
   ).optional(),
   checklistReviewedAt: z.string().optional(),
   narrative: z.string(),
-}).passthrough();
+}).passthrough().superRefine((run,context)=>{
+  if(run.arrestClassificationVersion!==ARREST_CLASSIFICATION_VERSION
+    ||run.clearanceCode!=='3V'||!run.arrestMade||!run.transportedAfterArrest)return;
+  if(!run.arrestSeverity) context.addIssue({
+    code:'custom',path:['arrestSeverity'],message:'A reviewed 3V arrest requires an explicit severity.',
+  });
+  if(!run.arrestType) context.addIssue({
+    code:'custom',path:['arrestType'],message:'A reviewed 3V arrest requires an explicit arrest type.',
+  });
+});
 
 const dutyRecordSchema = z.object({
   cruiserId: z.string().max(80).optional(),

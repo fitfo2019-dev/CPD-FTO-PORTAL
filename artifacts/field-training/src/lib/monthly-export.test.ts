@@ -261,7 +261,8 @@ test('transport destinations remain visible as literal text in detailed exports'
     runs:[{
       id:'run-transport',occurredAt:'2026-11-01T18:30:00Z',runKind:'call_for_service',isDispatched:true,
       trafficMode:'none',arrestMade:true,transportedAfterArrest:true,transportDestination:'=FORMULA-DEST',
-      oviProcessed:false,narrativeAdditionRequired:false,clearanceRulesVersion:1,clearanceCode:'3V',
+      oviProcessed:false,narrativeAdditionRequired:false,clearanceRulesVersion:1,arrestClassificationVersion:1,
+      arrestSeverity:'Misdemeanor',arrestType:'On-view',clearanceCode:'3V',
       formStatus:'complete',checklist:newRunChecklist('call_for_service'),checklistReviewedAt:'2026-11-01T19:00:00Z',narrative:'Fictional export test.',
     }],
   });

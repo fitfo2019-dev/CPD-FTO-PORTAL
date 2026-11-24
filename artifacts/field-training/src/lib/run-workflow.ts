@@ -6,7 +6,9 @@ import {
 import type { RunChecklistMetadata } from './run-checklist-state.js';
 
 export type RunSheetKey = 'primary' | SupplementalRunForm;
-export type RunWorkflowDraft = RunChecklistMetadata & Partial<TrainingRun>;
+export type RunWorkflowDraft = RunChecklistMetadata
+  & Omit<Partial<TrainingRun>, 'arrestSeverity'|'arrestType'>
+  & {arrestSeverity?:string;arrestType?:string};
 export interface RunWorkflowStep {
   id: 'details' | RunSheetKey | 'finish';
   title: string;
@@ -41,6 +43,7 @@ export function runSheetReviewSnapshot(run: RunWorkflowDraft, sheet: RunSheetKey
     unitNumber:run.unitNumber??'',dispatchedAt:run.dispatchedAt??'',endedAt:run.endedAt??'',
     dispatchedCode:run.dispatchedCode??'', situationFoundCode:run.situationFoundCode??'',
     clearanceCode:run.clearanceCode??'', arrestMade:run.arrestMade,
+    arrestSeverity:run.arrestSeverity??'',arrestType:run.arrestType??'',
     transportedAfterArrest:run.transportedAfterArrest, oviProcessed:run.oviProcessed,
     transportDestination:run.transportDestination??'', transportDestinationType:run.transportDestinationType??'',
     notApplicable:checklist[sheet==='primary'?'na-task':`na-supp-${sheet}`]===true,

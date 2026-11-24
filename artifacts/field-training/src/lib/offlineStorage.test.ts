@@ -49,6 +49,51 @@ test('draft synchronization acknowledges storage without sealing and queues only
   reopened.lock();
 });
 
+test('explicit arrest classifications survive encrypted save, reopen, and repeated edits with legacy charge details intact',async()=>{
+  type TestRun={id:string;charges?:unknown;generatedDocuments?:Array<{kind:string;[key:string]:unknown}>;arrestSeverity?:string;arrestType?:string;[key:string]:unknown};
+  type TestWorkspace={reports:Array<{id:string;runs:TestRun[];[key:string]:unknown}>};
+  const {namespace,vault}=createVault();
+  await vault.unlock(passphrase);
+  const legacyRun={
+    id:'legacy-arrest',clearanceRulesVersion:1,clearanceCode:'3V',arrestMade:true,transportedAfterArrest:true,
+    charges:[{id:'saved-charge',description:'Fictional saved charge detail'}],
+    generatedDocuments:[{id:'legacy-arrest:complaint:saved-charge',kind:'Criminal Complaint Form',chargeId:'saved-charge',description:'Fictional saved charge detail'}],
+  };
+  const initialArrest={
+    id:'current-arrest',clearanceRulesVersion:1,arrestClassificationVersion:1,arrestSeverity:'Felony',arrestType:'On-view',
+    clearanceCode:'3V',arrestMade:true,transportedAfterArrest:true,
+  };
+  const initialRun={...initialArrest,generatedDocuments:[
+    {id:'current-arrest:U-10.100',kind:'U-10.100'},
+    {id:'current-arrest:Probable-Cause-Affidavit',kind:'Probable Cause Affidavit'},
+  ]};
+  await vault.saveWorkspace({reports:[{id:'arrest-report',runs:[legacyRun,initialRun]}]});
+  vault.lock();
+
+  const reopened=new OfflineStorage(namespace);
+  await reopened.unlock(passphrase);
+  const loaded=await reopened.get<TestWorkspace>('workspace');
+  assert.ok(loaded);
+  assert.deepEqual(loaded.reports[0].runs[0].charges,legacyRun.charges);
+  assert.deepEqual(loaded.reports[0].runs[0].generatedDocuments,legacyRun.generatedDocuments);
+  assert.equal(loaded.reports[0].runs[1].arrestSeverity,'Felony');
+
+  const edited={...loaded.reports[0].runs[1],arrestSeverity:'Misdemeanor',arrestType:'Warrant'};
+  const editedRun={...edited,generatedDocuments:[{id:'current-arrest:U-10.100',kind:'U-10.100'}]};
+  await reopened.saveWorkspace({reports:[{...loaded.reports[0],runs:[loaded.reports[0].runs[0],editedRun]}]});
+  reopened.lock();
+
+  const reopenedAgain=new OfflineStorage(namespace);
+  await reopenedAgain.unlock(passphrase);
+  const finalWorkspace=await reopenedAgain.get<TestWorkspace>('workspace');
+  const current=finalWorkspace?.reports[0].runs[1];
+  assert.equal(current?.arrestSeverity,'Misdemeanor');
+  assert.equal(current?.arrestType,'Warrant');
+  assert.deepEqual(current?.generatedDocuments?.map(document=>document.kind),['U-10.100']);
+  assert.deepEqual(finalWorkspace?.reports[0].runs[0].charges,legacyRun.charges);
+  reopenedAgain.lock();
+});
+
 test('draft sync rejects a sealing receipt and preserves pending edits',async()=>{
   const {vault}=createVault();
   await vault.unlock(passphrase);

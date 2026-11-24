@@ -1,5 +1,6 @@
 import { isValidAssignment, PatrolAssignmentMetadataSchema } from './cpd-geography.js';
 import { SUBMITTED_PRIMARY_CHECKLISTS, SUBMITTED_SUPPLEMENTAL_CHECKLISTS } from './manual-form-checklists.js';
+import { ARREST_CLASSIFICATION_VERSION, type ArrestSeverity, type ArrestType } from './arrest-classification.js';
 import {
   PHASE_TIMELINE_REGISTRY,
   PHASE_LENGTH_WEEKS,
@@ -434,6 +435,9 @@ export type DirectiveReviewForm=PrimaryRunForm|SupplementalRunForm;
 export type DirectiveReviews=Partial<Record<DirectiveReviewForm,DirectiveReviewRecord>>;
 export interface TrainingRun {
   clearanceRulesVersion?: 1;
+  arrestClassificationVersion?: typeof ARREST_CLASSIFICATION_VERSION;
+  arrestSeverity?: ArrestSeverity;
+  arrestType?: ArrestType;
   charges?: { id: string; description: string }[];
   generatedDocuments?: { id: string; kind: 'U-10.100' | 'Probable Cause Affidavit' | 'Criminal Complaint Form'; chargeId?: string; description?: string }[];
   id: string;
@@ -926,6 +930,10 @@ export function validateReport(r: Report): string[] {
     if(run.clearanceRulesVersion===1&&run.transportedAfterArrest&&!run.transportDestinationType) errs.push('Select Jail, HQ, or Clerks for each transported arrest');
     if(run.clearanceRulesVersion===1&&run.clearanceCode==='3V'&&!run.transportedAfterArrest) errs.push('3V requires a recorded transport; use 1V when no transport occurred');
     if(run.clearanceRulesVersion===1&&run.arrestMade&&!run.transportedAfterArrest&&run.clearanceCode!=='1V') errs.push('An arrest without transport must use 1V');
+    if(run.arrestClassificationVersion===ARREST_CLASSIFICATION_VERSION&&run.clearanceCode==='3V'&&run.arrestMade&&run.transportedAfterArrest) {
+      if(!run.arrestSeverity) errs.push('Select Felony or Misdemeanor for this reviewed 3V arrest');
+      if(!run.arrestType) errs.push('Select Warrant or On-view for this reviewed 3V arrest');
+    }
     if(run.transportDestination&&run.transportDestination.length>200) errs.push('Transport destination must be 200 characters or fewer');
   }
   const req: [keyof Report, string][] = [['date','Shift date'],['shift','Shift'],['recruitName','Recruit name'],['recruitBadge','Recruit badge'],['ftoName','FTO name'],['ftoBadge','FTO badge']];

@@ -163,16 +163,35 @@ test('distinct incidents remain distinct weekly evidence, with no fabricated tra
   assert.equal(weeklyRatingCount([report],'buildingSearch','UA'),2);
 });
 
-test('clearance multipliers and distinct complaint payloads are versioned, deterministic, and reversible',()=>{
-  const arrest={...run(),clearanceRulesVersion:1 as const,clearanceCode:'3V' as const,arrestMade:true,transportedAfterArrest:true,
+test('explicit arrest classifications count one event and rebuild only approved draft documents',()=>{
+  const arrest={...run(),clearanceRulesVersion:1 as const,arrestClassificationVersion:1 as const,
+    arrestSeverity:'Felony' as const,arrestType:'On-view' as const,clearanceCode:'3V' as const,arrestMade:true,transportedAfterArrest:true,
     transportDestination:'Fictional Jail',transportDestinationType:'Jail' as const,
     charges:[{id:'charge-1',description:'Fictional charge one'},{id:'charge-2',description:'Fictional charge two'}]};
   const counts=clearanceDerivedActivityCounts([arrest]);
-  for(const key of ['u10100Reports','premierOneReports','prisonersSlated','pcAffidavits'] as const)assert.equal(counts[key],1);
-  assert.equal(counts.criminalComplaints,2);
+  for(const key of ['u10100Reports','premierOneReports','prisonersSlated','pcAffidavits','felonyArrests'] as const)assert.equal(counts[key],1);
+  assert.equal(counts.misdemeanorArrests,0);
+  assert.equal(counts.attemptedWarrantsServed,0);
+  assert.equal(counts.criminalComplaints,0);
   const docs=buildClearanceDocuments(arrest);
-  assert.equal(docs.length,4);assert.equal(new Set(docs.map(doc=>doc.id)).size,4);
+  assert.deepEqual(docs.map(doc=>doc.kind),['U-10.100','Probable Cause Affidavit']);
+  assert.equal(new Set(docs.map(doc=>doc.id)).size,2);
   assert.deepEqual(buildClearanceDocuments(arrest),docs);
+  const warrant={...arrest,id:'warrant-run',arrestSeverity:'Misdemeanor' as const,arrestType:'Warrant' as const};
+  const warrantCounts=clearanceDerivedActivityCounts([warrant]);
+  assert.equal(warrantCounts.misdemeanorArrests,1);
+  assert.equal(warrantCounts.felonyArrests,0);
+  assert.equal(warrantCounts.attemptedWarrantsServed,1);
+  assert.equal(warrantCounts.pcAffidavits,0);
+  assert.deepEqual(buildClearanceDocuments(warrant).map(doc=>doc.kind),['U-10.100']);
+  assert.deepEqual(buildClearanceDocuments(warrant),buildClearanceDocuments(warrant));
+  const legacy={...arrest,arrestClassificationVersion:undefined,arrestSeverity:undefined,arrestType:undefined,
+    generatedDocuments:[{id:'legacy:complaint:charge-1',kind:'Criminal Complaint Form' as const,chargeId:'charge-1',description:'Fictional charge one'}]};
+  const legacyCounts=clearanceDerivedActivityCounts([legacy]);
+  assert.equal(legacyCounts.felonyArrests,0);
+  assert.equal(legacyCounts.misdemeanorArrests,0);
+  assert.equal(legacyCounts.attemptedWarrantsServed,0);
+  assert.deepEqual(buildClearanceDocuments(legacy),legacy.generatedDocuments);
   assert.equal(buildClearanceDocuments({...arrest,clearanceCode:'2V'}).length,0);
   assert.equal(clearanceDerivedActivityCounts([{...arrest,clearanceRulesVersion:undefined}]).premierOneReports,0);
   assert.equal(clearanceDerivedActivityCounts([{...arrest,clearanceCode:'2V'}]).premierOneReports,0);

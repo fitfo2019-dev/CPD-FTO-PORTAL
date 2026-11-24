@@ -444,7 +444,8 @@ test('only explicitly selected related activity counts on completed and reviewed
 });
 
 test('transport requires the actual destination and clearance totals are not duplicated by manual entry',()=>{
-  const base={...run('arrest-3v','3V'),clearanceRulesVersion:1 as const,runKind:'call_for_service' as const,arrestMade:true,
+  const base={...run('arrest-3v','3V'),clearanceRulesVersion:1 as const,arrestClassificationVersion:1 as const,
+    arrestSeverity:'Felony' as const,arrestType:'On-view' as const,runKind:'call_for_service' as const,arrestMade:true,
     charges:[{id:'charge-1',description:'Fictional charge'}]};
   assert.match(runActivityValidationError({...base,transportedAfterArrest:true})??'',/actual destination/);
   assert.match(runActivityValidationError({...base,transportedAfterArrest:true,transportDestination:'Fictional intake location'})??'',/Jail, HQ, or Clerks/);

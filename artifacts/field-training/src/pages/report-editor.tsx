@@ -27,6 +27,8 @@ import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
 import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
 import { getRunWorkflowSteps, runSheetReviewSnapshot, type RunSheetKey, type RunWorkflowDraft } from '@/lib/run-workflow.js';
 import { restoreDispatchPrefillFields, serializeDispatchPrefillFields } from '@/lib/dispatch-prefill.js';
+import { isArrestSeverity, isArrestType } from '@/lib/arrest-classification.js';
+import { ArrestClassificationFields } from '@/components/arrest-classification-fields.js';
 import { RunStepRail, SheetStatus, sheetHasEdits } from '@/components/run-sheet-workflow.js';
 import { NewRunDialog, type NewRunSeed } from '@/components/new-run-dialog.js';
 import { TrafficStopRiskPrompt } from '@/components/traffic-stop-risk-choice.js';
@@ -110,7 +112,8 @@ export default function ReportEditor() {
   const [dispatchedCode, setDispatchedCode] = useState('');
   const [situationFoundCode, setSituationFoundCode] = useState('');
   const [clearanceCode, setClearanceCode] = useState<NonNullable<TrainingRun['clearanceCode']>>('');
-  const [chargeText, setChargeText] = useState('');
+  const [arrestSeverity, setArrestSeverity] = useState('');
+  const [arrestType, setArrestType] = useState('');
   const [arrestMade, setArrestMade] = useState(false);
   const [transported, setTransported] = useState(false);
   const [transportDestination, setTransportDestination] = useState('');
@@ -175,6 +178,8 @@ export default function ReportEditor() {
   const requiredSupplements = requiredSupplementalForms(runMeta);
   const workflowDraft: RunWorkflowDraft = {
     ...runMeta, checklist: runChecklist, directiveReviews, narrative: runNarrative,
+    arrestClassificationVersion: editingRunId ? r?.runs.find(run=>run.id===editingRunId)?.arrestClassificationVersion ?? 1 : 1,
+    arrestSeverity, arrestType,
     incidentNumber: incidentNumber.trim() || undefined, location: runLocation.trim() || undefined,
     locationCity:runLocationCity.trim()||undefined,locationState:runLocationState.trim()||undefined,locationZip:runLocationZip.trim()||undefined,
     incidentZone:runZone.trim()||undefined,incidentCruiserDistrict:runCruiserDistrict.trim()||undefined,
@@ -207,7 +212,7 @@ export default function ReportEditor() {
   },[existing?.syncStatus,existing?.serverVersion]);
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
-  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== '' || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runLocationCity.trim() !== '' || runLocationState.trim() !== '' || runLocationZip.trim() !== '' || runZone.trim() !== '' || runCruiserDistrict.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
+  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== '' || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestSeverity !== '' || arrestType !== '' || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runLocationCity.trim() !== '' || runLocationState.trim() !== '' || runLocationZip.trim() !== '' || runZone.trim() !== '' || runCruiserDistrict.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
   const isDirty = !!r && (authoredReportSnapshot(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
   useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
@@ -332,6 +337,7 @@ export default function ReportEditor() {
     if(value){setTransported(true);setClearanceCode('3V');}
     if(!value){
       setTransported(false);setTransportDestination('');setTransportDestinationType(undefined);
+      setArrestSeverity('');setArrestType('');
       if(clearanceCode==='3V')setClearanceCode('');
     }
     recompute({arrestMade:value,transportedAfterArrest:nextTransported});
@@ -350,6 +356,7 @@ export default function ReportEditor() {
 
   const addRun = () => {
     if (!r || !editable) return;
+    const previous = editingRunId ? r.runs.find(item => item.id === editingRunId) : undefined;
     const localRunDateTime = parseRunDateTime(runDateTimeText);
     if (!localRunDateTime) {
       setRunError('Enter a valid run date and time together as MM/DD/YYYY HH:MM in 24-hour time.');
@@ -364,6 +371,8 @@ export default function ReportEditor() {
     const activityError=runActivityValidationError({
       runKind,dispatchedCode,clearanceCode,activityFlags,arrestMade,
       clearanceRulesVersion:editingRunId?r.runs.find(run=>run.id===editingRunId)?.clearanceRulesVersion:1,
+      arrestClassificationVersion:previous?.arrestClassificationVersion??1,
+      arrestSeverity,arrestType,
       transportedAfterArrest:arrestMade&&transported,
       transportDestination,
       transportDestinationType,
@@ -388,15 +397,14 @@ export default function ReportEditor() {
       return;
     }
     setRunError('');
-    const previous = editingRunId ? r.runs.find(item => item.id === editingRunId) : undefined;
     // Inactive directive reviews are kept so a deselected sheet restores intact.
     const directiveReviewsToSave={...directiveReviews};
     const nextRun: TrainingRun = {
       clearanceRulesVersion: previous ? previous.clearanceRulesVersion : 1,
-      charges: chargeText.split('\n').map(text=>text.trim()).filter(Boolean).map((description,index)=>({
-        id: previous?.charges?.[index]?.description===description ? previous.charges[index].id : `${previous?.id??runDraftId}:charge:${index}`,
-        description,
-      })),
+      arrestClassificationVersion: previous?.arrestClassificationVersion ?? 1,
+      ...(isArrestSeverity(arrestSeverity) ? { arrestSeverity } : {}),
+      ...(isArrestType(arrestType) ? { arrestType } : {}),
+      ...(previous?.charges ? { charges: structuredClone(previous.charges) } : {}),
       id: previous?.id ?? runDraftId,
       ...serializeDispatchPrefillFields({
         runDateTimeText, runTimeText, incidentNumber, runLocation,
@@ -444,7 +452,7 @@ export default function ReportEditor() {
       };
     });
     setRunDraftId(uid());
-    setChargeText('');
+    setArrestSeverity('');setArrestType('');
     setEditingRunId(null); setRunKind('call_for_service'); setRunDateTimeText(dateText); setRunTimeText(''); setRunDispatched(true); setRunError('');
     setRunStep('details'); setSheetReviews({}); setLegacyReviewSheets(null); setRunUnitNumber(''); setRunDispatchedAtText(''); setRunClearedAtText('');
     setIncidentNumber(''); setRunLocation(''); setRunLocationCity(''); setRunLocationState(''); setRunLocationZip(''); setRunZone(''); setRunCruiserDistrict(''); generatedNarrativeRef.current = '';
@@ -456,7 +464,7 @@ export default function ReportEditor() {
     setRiskPrompt(false);setRiskCodeDirty(false);setRiskCandidate('');
     setRunOpen(true);
     deficiencyEditor.resetIncident();
-    setChargeText((run.charges??[]).map(charge=>charge.description).join('\n'));
+    setArrestSeverity(run.arrestSeverity??'');setArrestType(run.arrestType??'');
     setEditingRunId(run.id); setRunKind(run.runKind);
     setRunStep('details'); setRunError('');
     setRunUnitNumber(run.unitNumber ?? ''); setRunDispatchedAtText(run.dispatchedAt ? formatDateTimeMDY(run.dispatchedAt) : ''); setRunClearedAtText(run.endedAt ? formatDateTimeMDY(run.endedAt) : '');
@@ -793,7 +801,15 @@ export default function ReportEditor() {
             </fieldset>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={arrestMade} onChange={e=>setArrestState(e.target.checked)} data-testid="checkbox-arrest-made" />Arrest made</label>
-              {clearanceCode==='3V'&&<F l="Criminal charges · one per line"><textarea disabled={!editable} rows={3} className={inp} value={chargeText} onChange={event=>setChargeText(event.target.value)} data-testid="input-criminal-charges"/></F>}
+              {clearanceCode==='3V'&&arrestMade&&<ArrestClassificationFields
+                severity={arrestSeverity}
+                arrestType={arrestType}
+                disabled={!editable}
+                inputClassName={inp}
+                onSeverityChange={setArrestSeverity}
+                onArrestTypeChange={setArrestType}
+                onEdit={()=>setRunError('')}
+              />}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable || !arrestMade} checked={transported} onChange={e=>setTransportState(e.target.checked)} data-testid="checkbox-transported" />Transported after arrest</label>
               {arrestMade&&transported&&<F l="Transport destination type"><SearchableSelect disabled={!editable} className={inp} value={transportDestinationType??''} onChange={event=>{const value=event.target.value as TrainingRun['transportDestinationType'];setTransportDestinationType(value||undefined);setRunError('');}} data-testid="select-transport-destination-type"><option value="">Select destination</option><option value="Jail">Jail</option><option value="HQ">HQ</option><option value="Clerks">Clerks</option></SearchableSelect></F>}
               {arrestMade&&transported&&<F l="Actual transport destination"><input disabled={!editable} className={inp} maxLength={200} value={transportDestination} onChange={event=>{setTransportDestination(event.target.value);setRunError('');}} placeholder="Enter the destination that actually occurred" data-testid="input-transport-destination"/></F>}
