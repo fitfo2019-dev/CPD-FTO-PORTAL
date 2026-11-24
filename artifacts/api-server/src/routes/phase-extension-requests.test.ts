@@ -207,7 +207,7 @@ test("agency migration installs phase-extension requests and roster-scoped revie
       });
     });
 
-    await t.test("Coordinators can list and decide only requests in their active roster scope", async () => {
+    await t.test("pending requests follow the current Coordinator assignment", async () => {
       await withApi(coordinatorB, store, async baseUrl => {
         const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
         const payload = await list.json() as { data: SharedPhaseExtensionRequest[] };
@@ -224,6 +224,33 @@ test("agency migration installs phase-extension requests and roster-scoped revie
         const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
         const payload = await list.json() as { data: SharedPhaseExtensionRequest[] };
         assert.equal(payload.data.length, 1);
+      });
+
+      await db.query(
+        `UPDATE agency_training.po_coordinators SET coordinator_id=$1
+         WHERE po_id=$2`,
+        [coordinatorB.userId, "test-phase-po-a"],
+      );
+
+      await withApi(coordinatorA, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const payload = await list.json() as { data: SharedPhaseExtensionRequest[] };
+        assert.equal(payload.data.length, 0);
+        const denied = await fetch(`${baseUrl}/v1/phase-extension-requests/${request.id}/review`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ decision: "approve" }),
+        });
+        assert.equal(denied.status, 404);
+      });
+
+      await withApi(coordinatorB, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const payload = await list.json() as { data: SharedPhaseExtensionRequest[] };
+        assert.equal(payload.data.length, 1);
+        assert.equal(payload.data[0].id, request.id);
+        assert.equal(payload.data[0].status, "pending");
+
         const competingDecisions = await Promise.all(["approve", "deny"].map(decision =>
           fetch(`${baseUrl}/v1/phase-extension-requests/${request.id}/review`, {
             method: "POST",
@@ -247,7 +274,7 @@ test("agency migration installs phase-extension requests and roster-scoped revie
         [request.id],
       );
       assert.ok(["approved", "denied"].includes(decision.rows[0].status));
-      assert.equal(decision.rows[0].reviewed_by_user_id, coordinatorA.userId);
+      assert.equal(decision.rows[0].reviewed_by_user_id, coordinatorB.userId);
       assert.ok(decision.rows[0].reviewed_at instanceof Date);
 
       await withApi(ftoA, store, async baseUrl => {
