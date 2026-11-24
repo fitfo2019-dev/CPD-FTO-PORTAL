@@ -532,3 +532,31 @@ mtime_ms = 1795526122601
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/3ab2d141-6edf-468e-90d5-d4c58d8e427a/2ae27333-7506-49ad-9153-f734dd2acb19"
 storage_version_token = "1795526123370706"
 content_type = "text/html"
+
+[[outputs]]
+id = "Y7FYSQrEQVi3tORpGBT7-"
+uri = "file://generated-artifacts/website-records/Columbus-FTO-Website-Overview.pdf"
+type = "pdf"
+title = "Website Overview — Personal Records Copy"
+description = "13-page PDF of the existing Columbus FTO Portal briefing: purpose, features, workflows, integrations, and remaining agency setup."
+logical_id = "d4ce9dbc-0743-4a42-bbf8-84640dc2fec1"
+content_hash = "sha256:3257d7e81f2b3371540d1b6e88d07bcaaf5fd707f6eaa7b0b135a4350c7e5fad"
+size = 136472
+mtime_ms = 1795529651372
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/d4ce9dbc-0743-4a42-bbf8-84640dc2fec1/9b693adb-4f67-4aae-8f4a-a6b01dd74771"
+storage_version_token = "1795529670800673"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "LxQIxg80VTkhiV6JSdUZZ"
+uri = "file://generated-artifacts/website-records/Columbus-FTO-Developer-Handover-Manual.pdf"
+type = "pdf"
+title = "Developer Handover Manual — Personal Records Copy"
+description = "22-page PDF copy of the existing technical handover manual, including architecture, configuration, and operational boundaries."
+logical_id = "a63147b0-7366-443c-a2b2-4009811f9ff4"
+content_hash = "sha256:9d6377e08a911dea1d16345f24c919bbd9b15978e219c8c3170f41dccb5e9bb4"
+size = 216465
+mtime_ms = 1795529652900
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/a63147b0-7366-443c-a2b2-4009811f9ff4/b241ef1c-9cdd-4623-b0db-ddbcf57c1ffd"
+storage_version_token = "1795529671430231"
+content_type = "application/pdf"
