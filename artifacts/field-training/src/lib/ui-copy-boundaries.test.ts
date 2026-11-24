@@ -5,7 +5,23 @@ import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {TrafficStopRiskPrompt} from '../components/traffic-stop-risk-choice.js';
 import {ftoAssignmentsForPrecinct,cruiserDistrictForFtoAssignment} from './cpd-geography.js';
+import {assertExportCopy} from '../../test-support/export-copy-boundaries.js';
 
+test('generated exports reject developer commentary and report the export and offending phrase',()=>{
+  for(const [copy,offending] of [
+    ['Implementation notes','Implementation notes'],
+    ['Task-summary commentary','Task-summary commentary'],
+    ['This update preserves the controls.','This update preserves'],
+  ]){
+    assert.throws(
+      ()=>assertExportCopy('Weekly performance workbook',copy,[]),
+      new RegExp(`Weekly performance workbook contains developer commentary "${offending}"`),
+    );
+  }
+  assert.doesNotThrow(()=>assertExportCopy('Daily print export',
+    'Probationary Officer Daily Performance Log · Local draft · Not server-confirmed',
+    ['Probationary Officer Daily Performance Log','Local draft · Not server-confirmed']));
+});
 test('the closed traffic-stop prompt renders no inline question or routing commentary',()=>{
   for(const kind of ['traffic_stop','high_risk_stop'] as const){
     const html=renderToStaticMarkup(createElement(TrafficStopRiskPrompt,{

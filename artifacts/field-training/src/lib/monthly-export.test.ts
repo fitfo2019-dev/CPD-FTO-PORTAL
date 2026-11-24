@@ -14,6 +14,7 @@ import {
 import { buildMonthlyWorkbook } from './monthly-export.js';
 import { validateReportsForExport } from './export-validation.js';
 import { buildClassWorkbook } from './exportWorkbook.js';
+import { assertExportCopy } from '../../test-support/export-copy-boundaries.js';
 
 const ratingEntry = (rating: RatingEntry['rating']): RatingEntry => ({
   rating,
@@ -135,6 +136,16 @@ test('monthly workbook renders four supplied weekly ranges without leaking incid
   ];
   const workbook = buildMonthlyWorkbook([weekOne, weekTwo, unreviewed, outsideMonth], '2026-11',approvedFourWeeks);
   assert.deepEqual(workbook.SheetNames, ['Week 1', 'Week 2', 'Week 3', 'Week 4']);
+  for(const name of workbook.SheetNames){
+    const content=(XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][]).flat().join('\n');
+    assertExportCopy(`Monthly workbook ${name}`,content,[
+      'Columbus Division of Police',
+      'PERFORMANCE CATEGORIES',
+      'DAILY ACTIVITY SUMMARY',
+      'FTO Comments (Optional)',
+      'Rating System:',
+    ]);
+  }
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Week 1'], { header: 1 }) as unknown[][];
   const formUsageRows = rows.filter(row => row[8] === 'Form Usage');
   assert.equal(formUsageRows.length, 1);
@@ -228,6 +239,13 @@ test('weekly form styles survive class workbook assembly and formula-like text s
   assert.ok(name);
   const sheet = workbook.Sheets[name];
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+  const weeklyContent=rows.flat().join('\n');
+  assertExportCopy(`Weekly performance workbook ${name}`,weeklyContent,[
+    'PROBATIONARY OFFICER WEEKLY PERFORMANCE SUMMARY · U-10.173',
+    'DEVICE-LOCAL RECORD · Not submitted or digitally signed',
+    'Weekly Activity Summary · factual counts'.toLocaleUpperCase('en-US'),
+    'Ratings are counts of descriptive selections, not performance scores, averages, or rankings.',
+  ]);
   const sectionRow = rows.findIndex(row => row[0] === 'DUTY READINESS');
   assert.ok(sectionRow >= 0);
   const count = sheet[XLSX.utils.encode_cell({ r: sectionRow + 1, c: 2 })];

@@ -19,6 +19,14 @@ export interface CopyFinding {
   importChain: string[];
 }
 
+export function findForbiddenCopy(text: string) {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  return forbiddenCopy.flatMap(rule => {
+    const match = normalized.match(rule.pattern);
+    return match ? [{ rule: rule.name, text: match[0] }] : [];
+  });
+}
+
 const isNonRuntime = (file: string) =>
   /(?:^|\/)(?:__tests__|__fixtures__|test-support|docs)(?:\/|$)|\.(?:test|spec|stories)\.[cm]?[jt]sx?$|\.d\.ts$/.test(file);
 
@@ -75,12 +83,12 @@ export function auditCopyGraph(entry: string, read: (file: string) => string | u
     const source = parse(file, text);
     function check(value: string, node: ts.Node) {
       const normalized = value.replace(/\s+/g, ' ').trim();
-      for (const rule of forbiddenCopy) {
-        if (rule.pattern.test(normalized)) findings.push({
+      for (const match of findForbiddenCopy(normalized)) {
+        findings.push({
           file,
           line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
           text: normalized,
-          rule: rule.name,
+          rule: match.rule,
           importChain,
         });
       }
