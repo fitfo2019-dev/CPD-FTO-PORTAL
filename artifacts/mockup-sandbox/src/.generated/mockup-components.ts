@@ -21,8 +21,8 @@ export const modules: ModuleMap = {
   "./components/mockups/investigator/WarningTriage.tsx": () => import("../components/mockups/investigator/WarningTriage.tsx"),
   "./components/mockups/operations/AuditPulse.tsx": () => import("../components/mockups/operations/AuditPulse.tsx"),
   "./components/mockups/orientation-editable/EditableOrientation.tsx": () => import("../components/mockups/orientation-editable/EditableOrientation.tsx"),
-  "./components/mockups/packet-history/PacketHistoryFiltersPreview.tsx": () => import("../components/mockups/packet-history/PacketHistoryFiltersPreview.tsx"),
   "./components/mockups/packet-upload/DraftFinalizationPreview.tsx": () => import("../components/mockups/packet-upload/DraftFinalizationPreview.tsx"),
   "./components/mockups/packet-upload/PacketUploadPreview.tsx": () => import("../components/mockups/packet-upload/PacketUploadPreview.tsx"),
+  "./components/mockups/packet-history/PacketHistoryFiltersPreview.tsx": () => import("../components/mockups/packet-history/PacketHistoryFiltersPreview.tsx"),
   "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx")
 };
