@@ -51,6 +51,7 @@
 .packet-transfer .pp-packet-name { display: grid; gap: 1px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .packet-transfer .pp-packet-name strong { font-size: 13px; color: var(--pp-ink); }
 .packet-transfer .pp-packet-name > span { font-size: 11px; }
+.packet-transfer .pp-finalize-button { justify-self: start; white-space: normal; text-align: left; }
 .packet-transfer .pp-status { display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 3px; white-space: nowrap; }
 .packet-transfer .pp-pending { background: #fff3dd; color: #7f5109; }
 .packet-transfer .pp-uploading { background: #e5eef8; color: #174777; }
@@ -85,6 +86,7 @@
   .packet-transfer .pp-history-filter-actions .pp-button { flex: 1; }
   .packet-transfer .pp-card { padding: 16px; }.packet-transfer .pp-count { align-self: flex-start; }
   .packet-transfer .pp-packets li { flex-wrap: wrap; }.packet-transfer .pp-status { margin-left: 29px; }
+  .packet-transfer .pp-finalize-button { width: 100%; justify-content: flex-start; }
   .packet-transfer .pp-shared-content li span { margin-left: 25px; width: 100%; }
 }
 @media(max-width: 380px) {

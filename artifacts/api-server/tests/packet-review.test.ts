@@ -63,7 +63,7 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
       activity: {}, reportingForDuty: {reviewedAt:"2026-11-23T12:00:00Z"},ratingsReviewedAt:"2026-11-23T12:00:00Z",
       narrative: "", remedial: "", recruitComments: "" };
     const approve=async(content:typeof report,packetStore=store)=>{
-      await packetStore.finalize(fto,content.id,randomUUID(),1,audit());
+      await packetStore.finalize(fto,audit(),content.id,{operation_id:randomUUID(),content_hash:contentHash(content)});
       await assert.rejects(packetStore.review(coordinator,audit(),content.id,"release",change(content)),denied("PACKET_APPROVAL_REQUIRED"));
       const submission=(await assigned.list(coordinator,0)).items.find(item=>item.packet_id===content.id)!;
       await assigned.act(coordinator,submission.id,{operation_id:randomUUID(),action:"acknowledge",note:""});

@@ -841,10 +841,19 @@ export interface ChecklistDeficiencyGroup {
   reviewed?: boolean;
 }
 export interface Report {
-  syncStatus?: 'local_draft_pending' | 'synchronized_complete';
+  /** Server-authorized replacement metadata; present only for an approved correction. */
+  amendmentOf?: string;
+  amendmentReason?: string;
+  syncStatus?: 'local_draft_pending' | 'submitted_complete' | 'synchronized_complete';
   serverVersion?: number;
+  /** Hash of the exact latest report snapshot stored by the agency server. */
+  serverContentHash?: string;
+  /** True only while this editable local snapshot needs draft synchronization. */
+  draftSyncPending?: boolean;
   /** An attempted upload must be reconciled before its immutable snapshot changes. */
   syncAttemptPending?: boolean;
+  /** An uncertain finalization response protects its exact retry snapshot. */
+  finalizationAttemptPending?: boolean;
   id: string; date: string; shiftStartTime?: string; shift: ReportShift; phase: Phase; zone: string; precinct: string; cruiserDistrict: string;
   deficiencyAutomationEnabled?: boolean;
   deficiencyOverrides?: Record<string, Category>;

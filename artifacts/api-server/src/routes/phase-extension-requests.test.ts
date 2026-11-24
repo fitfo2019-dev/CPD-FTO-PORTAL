@@ -415,7 +415,7 @@ test("phase-extension requests work with the documented non-owner PostgreSQL gra
         privateColumns: ["po_badge"],
       },
     ]) {
-      const allowed = await runtimePool.query(
+      const allowed: pg.QueryResult = await runtimePool.query(
         `SELECT ${readableColumns.join(",")} FROM agency_training.${table}`,
       );
       assert.deepEqual(allowed.fields.map(field => field.name), readableColumns);

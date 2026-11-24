@@ -69,6 +69,7 @@ CREATE TABLE agency_training.packet_events (
   operation_id uuid UNIQUE,
   request_hash char(64),
   content_hash char(64),
+  server_version integer,
   record_count integer NOT NULL CHECK (record_count BETWEEN 0 AND 100)
 );
 CREATE INDEX ON agency_training.assignments(fto_id_hash, fto_badge_hash) WHERE active;

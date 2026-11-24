@@ -11,5 +11,4 @@ export type TrainingPacketSyncRecordSyncStatus = typeof TrainingPacketSyncRecord
 
 export const TrainingPacketSyncRecordSyncStatus = {
   local_draft_pending: 'local_draft_pending',
-  synchronized_complete: 'synchronized_complete',
 } as const;

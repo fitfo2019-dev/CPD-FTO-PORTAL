@@ -134,6 +134,7 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
       assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packets")).rows[0]?.n, 0);
 
       let offset = 0;
+      const snapshotHashes=new Map<string,string>();
       let interruptedBody: string | undefined;
       const draftSyncStarted = performance.now();
       while (offset < operations.length) {
@@ -157,9 +158,13 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
           method: "POST", headers: { "content-type": "application/json" }, body,
         });
         assert.equal(response.status, 200, "synthetic packet batch should be accepted");
-        const receipts = await response.json() as { data: Array<{ id: string; operation_id: string; server_version: number; sync_status: string }> };
+        const receipts = await response.json() as { data: Array<{ id: string; operation_id: string; server_version: number; sync_status: string;content_hash:string }> };
         assert.equal(receipts.data.length, batch.length);
         assert.ok(receipts.data.every(receipt => receipt.sync_status === "local_draft_pending" && receipt.server_version === 1));
+        for(const receipt of receipts.data){
+          assert.match(receipt.content_hash,/^[a-f0-9]{64}$/);
+          snapshotHashes.set(receipt.id,receipt.content_hash);
+        }
         metrics.batchMilliseconds.push(performance.now() - batchStarted);
 
         // Discard one successful response and retry its exact request once.
@@ -205,8 +210,8 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
       const listResponse = await fetch(base);
       assert.equal(listResponse.status, 200);
       const list = await listResponse.json() as { data: Array<{ id: string }>; metadata: { total_records: number } };
-      assert.equal(list.data.length, 100, "collection reads remain bounded at the existing 100-record limit");
-      assert.equal(list.metadata.total_records, 100);
+      assert.ok(list.data.length>0&&list.data.length<=100,"collection reads are bounded by count and serialized bytes");
+      assert.equal(list.metadata.total_records, list.data.length);
       metrics.listReadMilliseconds = performance.now() - listStarted;
       metrics.listRecords = list.data.length;
       const seenDetails = new Set<string>();
@@ -229,13 +234,14 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
         const response = await fetch(`${base}/${encodeURIComponent(String(report.id))}/finalize`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ operation_id: randomUUID(), base_version: 1 }),
+          body: JSON.stringify({ operation_id: randomUUID(), content_hash:snapshotHashes.get(String(report.id)) }),
         });
         assert.equal(response.status, 200, "explicit synthetic finalization should be accepted");
-        const receipt = await response.json() as { id: string; server_version: number; sync_status: string };
+        const result = await response.json() as {data:Array<{ id: string; server_version: number; sync_status: string }>};
+        const receipt=result.data[0]!;
         assert.equal(receipt.id, report.id);
         assert.equal(receipt.server_version, 1);
-        assert.equal(receipt.sync_status, "synchronized_complete");
+        assert.equal(receipt.sync_status, "submitted_complete");
       }
       metrics.finalizationMilliseconds = performance.now() - finalizationStarted;
       assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packets WHERE submission_status='submitted'")).rows[0]?.n, FTO_PACKET_STRESS_COUNT);
@@ -246,7 +252,7 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
 
       const finalDetails = await fetch(`${base}/${encodeURIComponent(String(reports[0]!.id))}`);
       const finalPacket = await finalDetails.json() as { data: Array<{ sync_status: string }> };
-      assert.equal(finalPacket.data[0]?.sync_status, "synchronized_complete");
+      assert.equal(finalPacket.data[0]?.sync_status, "submitted_complete");
       metrics.failures += 0;
       assert.ok(metrics.readinessMilliseconds >= 0);
     });

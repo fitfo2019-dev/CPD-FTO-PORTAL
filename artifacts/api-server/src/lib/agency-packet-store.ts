@@ -16,12 +16,13 @@ export type PacketReport = {
 };
 export type PacketChange = { operation_id: string; base_version: number; report: PacketReport;
   amendment_of?: string; amendment_reason?: string };
+export type PacketFinalizeChange = { operation_id:string; content_hash:string };
 export type PacketReviewAction = "release" | "withdraw" | "acknowledge";
 export type PacketReviewChange = { operation_id: string; content_hash: string;
   review_confirmed?: boolean; reason?: string; comments?: string };
 export type PacketReceipt = {
   id: string; operation_id: string; server_version: number;
-  sync_status: "local_draft_pending" | "synchronized_complete";
+  sync_status: "local_draft_pending"; content_hash:string;
 };
 export type PacketAuditContext = { requestId: string; clientIp: string };
 type Assignment = { id: string; fto_name: string; fto_badge_hash: string;
@@ -126,7 +127,7 @@ export function createAgencyPacketStore(pool: pg.Pool) {
         await client.query("COMMIT");
         return {
           data: rows.map(({ submission_status, ...row }) => ({ ...row,
-            sync_status: submission_status === "submitted" ? "synchronized_complete" : "local_draft_pending" })),
+            sync_status: submission_status === "submitted" ? "submitted_complete" : "local_draft_pending" })),
           hasMore,
         };
       } catch (error) { await client.query("ROLLBACK"); throw error; }
@@ -157,7 +158,7 @@ export function createAgencyPacketStore(pool: pg.Pool) {
         );
         await client.query("COMMIT");
         return result.rows.map(({ submission_status, ...row }) => ({ ...row,
-          sync_status: submission_status === "submitted" ? "synchronized_complete" : "local_draft_pending" }));
+          sync_status: submission_status === "submitted" ? "submitted_complete" : "local_draft_pending" }));
       } catch (error) { await client.query("ROLLBACK"); throw error; }
       finally { client.release(); }
     },
@@ -202,7 +203,7 @@ export function createAgencyPacketStore(pool: pg.Pool) {
             event.event_type !== action.toUpperCase() || event.request_hash !== requestHash)
             throw new PacketError(409, "PACKET_OPERATION_CONFLICT");
           await client.query("COMMIT");
-          return [{ ...packet, sync_status: "synchronized_complete" as const }];
+          return [{ ...packet, sync_status: "submitted_complete" as const }];
         }
         if (packet.withdrawn_at) throw new PacketError(409, "PACKET_WITHDRAWN");
         if (action === "release") {
@@ -247,7 +248,7 @@ export function createAgencyPacketStore(pool: pg.Pool) {
         );
         const result = await client.query(`SELECT ${packetColumns} FROM agency_training.packets p WHERE p.id=$1`, [id]);
         await client.query("COMMIT");
-        return result.rows.map(row => ({ ...row, sync_status: "synchronized_complete" as const }));
+        return result.rows.map(row => ({ ...row, sync_status: "submitted_complete" as const }));
       } catch (error) { await client.query("ROLLBACK"); throw error; }
       finally { client.release(); }
     },
@@ -275,6 +276,21 @@ export function createAgencyPacketStore(pool: pg.Pool) {
             hashUserIdentifier(report.recruitBadge) !== assignment.po_badge_hash || report.phase !== assignment.phase ||
             report.className !== assignment.class_name) throw new PacketError(403, "PACKET_ASSIGNMENT_REQUIRED");
           const digest = digestJson(report);
+          const requestHash=digestJson({id:report.id,base_version:change.base_version,
+            content_hash:digest,amendment_of:change.amendment_of,amendment_reason:change.amendment_reason});
+          const operation=await client.query<{packet_id:string;actor_hash:string;event_type:string;
+            request_hash:string;server_version:number;content_hash:string}>(
+            `SELECT packet_id,actor_hash,event_type,request_hash,server_version,content_hash
+             FROM agency_training.packet_events WHERE operation_id=$1`,[change.operation_id]);
+          if(operation.rows[0]){
+            const previous=operation.rows[0];
+            if(previous.packet_id!==report.id||previous.actor_hash!==identityHash(identity)||
+              previous.event_type!=='DRAFT_SYNC'||previous.request_hash!==requestHash||!previous.server_version)
+              throw new PacketError(409,'PACKET_OPERATION_CONFLICT');
+            receipts.push({id:report.id,operation_id:change.operation_id,server_version:previous.server_version,
+              sync_status:'local_draft_pending',content_hash:previous.content_hash});
+            continue;
+          }
           const existing = await client.query<{
             operation_id: string; content_hash: string; server_version: number; assignment_id: string; submission_status: string;
             amendment_of: string | null; amendment_reason: string | null; record_date:string; phase:number;
@@ -287,8 +303,7 @@ export function createAgencyPacketStore(pool: pg.Pool) {
           if (prior?.operation_id === change.operation_id) {
             if(prior.content_hash !== digest) throw new PacketError(409,"PACKET_OPERATION_CONFLICT");
             receipts.push({ id: report.id, operation_id: change.operation_id,
-              server_version: prior.server_version, sync_status: prior.submission_status === "submitted"
-                ? "synchronized_complete" : "local_draft_pending" });
+              server_version: prior.server_version, sync_status: "local_draft_pending",content_hash:digest });
             continue;
           }
           if(prior?.submission_status === "submitted") throw new PacketError(409,"PACKET_ALREADY_SUBMITTED");
@@ -329,20 +344,21 @@ export function createAgencyPacketStore(pool: pg.Pool) {
           );
           await client.query(
             `INSERT INTO agency_training.packet_events
-             (request_id, packet_id, actor_hash, actor_role, client_ip_hash, event_type, record_count, content_hash)
-             VALUES ($1,$2,$3,$4,$5,'DRAFT_SYNC',1,$6)`,
+             (request_id, packet_id, actor_hash, actor_role, client_ip_hash, event_type, record_count,
+              operation_id,request_hash,content_hash,server_version)
+             VALUES ($1,$2,$3,$4,$5,'DRAFT_SYNC',1,$6,$7,$8,$9)`,
             [audit.requestId, report.id, identityHash(identity), identity.role,
-              hashUserIdentifier(audit.clientIp), digest],
+              hashUserIdentifier(audit.clientIp),change.operation_id,requestHash,digest,version],
           );
           receipts.push({ id: report.id, operation_id: change.operation_id,
-            server_version: version, sync_status: "local_draft_pending" });
+            server_version: version, sync_status: "local_draft_pending",content_hash:digest });
         }
         await client.query("COMMIT");
         return receipts;
       } catch (error) { await client.query("ROLLBACK"); throw error; }
       finally { client.release(); }
     },
-    async finalize(identity: AgencyIdentity, id: string, operationId: string, baseVersion: number,audit:PacketAuditContext): Promise<PacketReceipt> {
+    async finalize(identity: AgencyIdentity, audit:PacketAuditContext, id: string, change:PacketFinalizeChange) {
       if(identity.role !== "FTO") throw new PacketError(403,"PACKET_SUBMIT_FORBIDDEN");
       const client=await pool.connect();
       try {
@@ -354,9 +370,9 @@ export function createAgencyPacketStore(pool: pg.Pool) {
         // Neither a browser role, supplied badge, nor a supplied Coordinator ID
         // is authority. Recheck the assignment at finalization under row locks.
         const result=await client.query<{
-          server_version:number; submission_status:string; finalization_operation_id:string|null; report:PacketReport;
+          server_version:number;content_hash:string; submission_status:string; finalization_operation_id:string|null; report:PacketReport;
            po_id:string;po_badge:string;po_id_hash:string;po_badge_hash:string;
-         }>(`SELECT p.server_version,p.submission_status,p.finalization_operation_id,p.report,a.po_id,a.po_badge,a.po_id_hash,a.po_badge_hash
+         }>(`SELECT p.server_version,p.content_hash,p.submission_status,p.finalization_operation_id,p.report,a.po_id,a.po_badge,a.po_id_hash,a.po_badge_hash
            FROM agency_training.packets p JOIN agency_training.packet_assignments pa
              ON pa.packet_id=p.id AND pa.assignment_id=p.assignment_id AND pa.active
            JOIN agency_training.assignments a ON a.id=p.assignment_id
@@ -372,22 +388,23 @@ export function createAgencyPacketStore(pool: pg.Pool) {
         if(!packet) throw new PacketError(403,"PACKET_ASSIGNMENT_REQUIRED");
          if(hashUserIdentifier(packet.po_id)!==packet.po_id_hash || hashUserIdentifier(packet.po_badge)!==packet.po_badge_hash)
            throw new PacketError(403,"PACKET_ASSIGNMENT_REQUIRED");
+        if(packet.content_hash!==change.content_hash)throw new PacketError(409,"PACKET_SNAPSHOT_CONFLICT");
         if(packet.submission_status==="submitted") {
-          if(packet.finalization_operation_id!==operationId) throw new PacketError(409,"PACKET_ALREADY_SUBMITTED");
+          if(packet.finalization_operation_id!==change.operation_id) throw new PacketError(409,"PACKET_ALREADY_SUBMITTED");
         } else {
-          if(packet.server_version!==baseVersion) throw new PacketError(409,"PACKET_VERSION_CONFLICT");
           if(!packetSubmissionReady(packet.report)) throw new PacketError(422,"PACKET_NOT_READY_FOR_SUBMISSION");
           await registerPacketSubmission(client,identity,{id,version:packet.server_version,
             poId:packet.po_id,poBadge:packet.po_badge,report:packet.report});
           await client.query(`UPDATE agency_training.packets SET submission_status='submitted',
-            finalization_operation_id=$2,submitted_at=now() WHERE id=$1`,[id,operationId]);
+            finalization_operation_id=$2,submitted_at=now() WHERE id=$1`,[id,change.operation_id]);
           await client.query(`INSERT INTO agency_training.packet_events
             (packet_id,actor_hash,actor_role,request_id,client_ip_hash,event_type,record_count)
             VALUES ($1,$2,$3,$4,$5,'SUBMIT',1)`,
             [id,hashUserIdentifier(identity.id),identity.role,audit.requestId,hashUserIdentifier(audit.clientIp)]);
         }
+        const saved=await client.query(`SELECT ${packetColumns} FROM agency_training.packets p WHERE p.id=$1`,[id]);
         await client.query("COMMIT");
-        return {id,operation_id:operationId,server_version:packet.server_version,sync_status:"synchronized_complete"};
+        return saved.rows.map(({submission_status,...row})=>({...row,sync_status:"submitted_complete" as const}));
       } catch(error) { await client.query("ROLLBACK"); throw error; }
       finally {client.release();}
     },

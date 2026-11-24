@@ -20,6 +20,8 @@ tags:
     description: Clerk-authenticated reference document catalog and downloads
   - name: training-packets
     description: Agency-roster-authorized training packet sync and reads
+  - name: packet-review
+    description: Server-scoped Coordinator packet review and PO acknowledgment
 paths:
   /v1/packet-review/context:
     get:
@@ -275,17 +277,15 @@ paths:
         - name: recruit
           in: query
           required: false
-          description: Case-insensitive partial match for a recruit name or badge, within the signed-in identity's authorized roster.
+          description: Case-insensitive partial match within the authorized roster.
           schema: { type: string, minLength: 1, maxLength: 120 }
         - name: date_from
           in: query
           required: false
-          description: Include packets on or after this calendar date.
           schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
         - name: date_to
           in: query
           required: false
-          description: Include packets on or before this calendar date.
           schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
       responses:
         "200":
@@ -312,8 +312,8 @@ paths:
     get:
       operationId: getTrainingPacketSyncReadiness
       tags: [training-packets]
-      summary: Check whether automatic packet sync is allowed
-      description: Automatic sync is enabled only for a verified FTO on an agency-configured network address. Manual sync still enforces signed role and server roster checks.
+      summary: Check whether the agency draft-sync service is configured
+      description: This reports service availability only. It does not validate a roster assignment or authorize finalization; each packet operation independently verifies the signed identity and server-held assignment.
       responses:
         "200":
           description: Sync readiness
@@ -329,8 +329,8 @@ paths:
     post:
       operationId: syncTrainingPackets
       tags: [training-packets]
-      summary: Save editable packet drafts as the assigned FTO
-      description: Synchronization never submits a packet. Drafts are visible only to their assigned FTO and remain editable until the separate explicit finalization operation.
+      summary: Synchronize editable packet drafts as the assigned FTO
+      description: The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. Drafts remain editable and are excluded from Coordinator and PO reads until explicit finalization.
       requestBody:
         required: true
         content:
@@ -338,7 +338,7 @@ paths:
             schema: { $ref: "#/components/schemas/TrainingPacketSyncInput" }
       responses:
         "200":
-          description: All packets committed atomically
+          description: All editable drafts synchronized atomically
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TrainingPacketSyncEnvelope" }
@@ -358,7 +358,51 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
         "409":
-          description: A packet version conflicts with the server
+          description: A draft version conflicts with the server or the packet is already finalized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: Agency records service is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/finalize:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" } }
+    post:
+      operationId: finalizeTrainingPacket
+      tags: [training-packets]
+      summary: Explicitly submit an exact packet snapshot to its assigned Coordinator
+      description: An authenticated FTO explicitly finalizes the current synchronized draft. The server atomically rechecks the signed identity, badge, active roster assignment, and exact content hash, seals the packet as submitted_complete, and exposes it only to the Coordinator assigned by the server roster. Idempotent retries are safe. This is not a signature, PO release, or acknowledgment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketFinalizeInput" }
+      responses:
+        "200":
+          description: Finalized packet in its server-owned Coordinator scope
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        "400":
+          description: Invalid finalization request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: FTO identity, badge, or active assignment does not match
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "404":
+          description: Draft is not visible to this FTO
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "409":
+          description: Snapshot changed, was withdrawn, or cannot be finalized
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
@@ -433,33 +477,6 @@ paths:
               schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
         default:
           description: Authentication, scope, conflict, validation or storage error
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ApiError" }
-  /v1/training-packets/{id}/finalize:
-    post:
-      operationId: finalizeTrainingPacket
-      tags: [training-packets]
-      summary: Explicitly finalize a saved draft for its assigned Coordinator
-      description: Rechecks the active server roster and draft version. Only this operation makes a packet visible to its assigned Coordinator and PO.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/TrainingPacketFinalizationInput" }
-      responses:
-        "200":
-          description: Finalized packet receipt
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TrainingPacketSyncRecord" }
-        default:
-          description: Identity, assignment, validation, or version failure
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
@@ -989,13 +1006,6 @@ components:
         amendment_of: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
         amendment_reason: { type: string, minLength: 1, maxLength: 4000 }
         report: { $ref: "#/components/schemas/TrainingPacketReport" }
-    TrainingPacketFinalizationInput:
-      type: object
-      additionalProperties: false
-      required: [operation_id, base_version]
-      properties:
-        operation_id: { type: string, format: uuid }
-        base_version: { type: integer, minimum: 1 }
     TrainingPacketSyncInput:
       type: object
       additionalProperties: false
@@ -1009,12 +1019,13 @@ components:
     TrainingPacketSyncRecord:
       type: object
       additionalProperties: false
-      required: [id, operation_id, server_version, sync_status]
+      required: [id, operation_id, server_version, sync_status, content_hash]
       properties:
         id: { type: string, minLength: 1, maxLength: 128 }
         operation_id: { type: string, format: uuid }
         server_version: { type: integer, minimum: 1 }
-        sync_status: { type: string, enum: [local_draft_pending, synchronized_complete] }
+        sync_status: { type: string, enum: [local_draft_pending] }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
     TrainingPacketSyncEnvelope:
       type: object
       additionalProperties: false
@@ -1032,6 +1043,13 @@ components:
           type: array
           maxItems: 100
           items: { $ref: "#/components/schemas/TrainingPacketSyncRecord" }
+    TrainingPacketFinalizeInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, content_hash]
+      properties:
+        operation_id: { type: string, format: uuid }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
     TrainingPacketReviewInput:
       type: object
       additionalProperties: false
@@ -1075,7 +1093,7 @@ components:
         record_date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
         phase: { type: integer, minimum: 1, maximum: 4 }
         server_version: { type: integer, minimum: 1 }
-        sync_status: { type: string, enum: [local_draft_pending, synchronized_complete] }
+        sync_status: { type: string, enum: [local_draft_pending, submitted_complete] }
         report: { $ref: "#/components/schemas/TrainingPacketReport" }
         content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
         released_to_po: { type: boolean }
@@ -1116,18 +1134,18 @@ components:
         metadata:
           type: object
           additionalProperties: false
-          required: [can_sync]
+          required: [service_available]
           properties:
-            can_sync: { type: boolean }
+            service_available: { type: boolean }
         data:
           type: array
           maxItems: 1
           items:
             type: object
             additionalProperties: false
-            required: [automatic_sync_allowed]
+            required: [draft_sync_available]
             properties:
-              automatic_sync_allowed: { type: boolean }
+              draft_sync_available: { type: boolean }
     HealthStatus:
       type: object
       properties:

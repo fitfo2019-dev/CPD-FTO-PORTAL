@@ -7,5 +7,5 @@
  */
 
 export type TrainingPacketSyncReadinessEnvelopeDataItem = {
-  automatic_sync_allowed: boolean;
+  draft_sync_available: boolean;
 };

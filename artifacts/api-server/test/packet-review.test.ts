@@ -54,7 +54,10 @@ test("real SQL packet lifecycle preserves snapshots, scopes access and separates
     const packets={
       sync:(identity:AgencyIdentity,changes:Parameters<typeof raw.sync>[2])=>raw.sync(identity,audit(),changes),
       read:(identity:AgencyIdentity)=>raw.read(identity,audit()),
-      finalize:(identity:AgencyIdentity,id:string,op:string,version:number)=>raw.finalize(identity,id,op,version,audit()),
+      finalize:async(identity:AgencyIdentity,id:string,op:string,version:number)=>{
+        const result=await query("SELECT content_hash FROM agency_training.packets WHERE id=$1 AND server_version=$2",[id,version]);
+        return raw.finalize(identity,audit(),id,{operation_id:op,content_hash:String(result.rows[0]?.content_hash??"f".repeat(64))});
+      },
     };
     const addRoster=async(_packetId:string)=>{
       const found=await query("SELECT id FROM agency_training.assignments WHERE fto_id_hash=$1",[hash(fto.id)]);
@@ -199,7 +202,7 @@ test("real SQL packet lifecycle preserves snapshots, scopes access and separates
       assert.equal((await review.act(other,submissionId,input)).state,"approved");
       await review.act(other,submissionId,input);
       await assert.rejects(review.act(other,submissionId,{operation_id:randomUUID(),action:"return",note:"TEST"}),/ACKNOWLEDGE_BEFORE_REVIEW/);
-      assert.equal((await packets.read(fto,report.id))[0].sync_status,"synchronized_complete");
+      assert.equal((await packets.read(fto,report.id))[0].sync_status,"submitted_complete");
       assert.equal((await review.list(fto,0)).items.find(s=>s.packet_id===report.id)!.state,"approved");
       const history=(await review.detail(other,submissionId)).history;
       assert.equal(history.filter(e=>e.action==="APPROVED").length,1);
@@ -225,6 +228,7 @@ test("real SQL packet lifecycle preserves snapshots, scopes access and separates
         GRANT USAGE ON SCHEMA agency_training TO test_packet_runtime;
         GRANT SELECT ON agency_training.assignments,agency_training.packet_assignments,agency_training.coordinator_directory TO test_packet_runtime;
         GRANT SELECT,INSERT ON agency_training.packets,agency_training.packet_assignments TO test_packet_runtime;
+        GRANT SELECT ON agency_training.packet_acknowledgments TO test_packet_runtime;
         GRANT UPDATE(operation_id,content_hash,report,server_version,submission_status,finalization_operation_id,submitted_at,
           released_to_po,released_at,released_by_hash,withdrawn_at,withdrawn_by_hash,withdrawal_reason)
           ON agency_training.packets TO test_packet_runtime;

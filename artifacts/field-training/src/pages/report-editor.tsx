@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, Trash, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useOperationalStateMachine, useWorkspace } from '@/state/workspace.js';
@@ -25,6 +25,7 @@ import { alignRunDateToShift, parseRunDateTime } from '@/lib/run-details.js';
 import { useDeficiencyEditor } from '@/hooks/use-deficiency-editor.js';
 import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
 import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
+import { authoredReportSnapshot } from '@/lib/protected-packets.js';
 import { getRunWorkflowSteps, runSheetReviewSnapshot, type RunSheetKey, type RunWorkflowDraft } from '@/lib/run-workflow.js';
 import { restoreDispatchPrefillFields, serializeDispatchPrefillFields } from '@/lib/dispatch-prefill.js';
 import { isArrestSeverity, isArrestType } from '@/lib/arrest-classification.js';
@@ -68,11 +69,6 @@ function dutyChecklistHelp(section:string,item:string) {
   return `Reporting for Duty · ${section}: indicates the PO ${item.toLowerCase()}. Clearing an applicable task creates a UA deficiency. Use the section's Not applicable control when the section does not apply.`;
 }
 
-function authoredReportSnapshot(report:Report|undefined):string {
-  if(!report)return 'null';
-  const {serverVersion:_version,syncStatus:_sync,...authored}=report;
-  return JSON.stringify(authored);
-}
 export default function ReportEditor() {
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
@@ -235,7 +231,11 @@ export default function ReportEditor() {
 
   if (!r) return <div className="py-20 text-center"><div className="mono text-5xl font-bold text-muted-foreground">{isNew ? <Lock className="mx-auto h-10 w-10" /> : '404'}</div><p className="mt-2">{isNew ? ws.caseFolder ? 'Complete the shift schedule and valid Zone → Precinct → FTO Assignment in phase setup before starting this shift.' : 'Complete phase setup before starting a shift.' : 'Report not found.'}</p><Link href={isNew ? '/phase-setup' : '/reports'} className="underline font-semibold mt-3 inline-block">{isNew ? 'Open phase setup' : 'Back to saved records'}</Link></div>;
 
-  const locked = r.status === 'locked' || r.syncStatus === 'synchronized_complete' || existing?.syncStatus === 'synchronized_complete' || r.syncAttemptPending === true;
+  const locked = r.status === 'locked'
+    || r.syncStatus === 'synchronized_complete' || existing?.syncStatus === 'synchronized_complete'
+    || r.syncStatus === 'submitted_complete' || existing?.syncStatus === 'submitted_complete'
+    || r.syncAttemptPending === true || r.finalizationAttemptPending === true
+    || existing?.syncAttemptPending === true || existing?.finalizationAttemptPending === true;
   const editable = !locked && r.status === 'draft' && ws.role === 'fto';
   const commentsEditable = !locked && r.status === 'fto_signed' && ws.role === 'po';
   const set = <K extends keyof Report>(k: K, v: Report[K]) => setR(x => x && ({ ...x, deficiencyAutomationEnabled:k==='reportingForDuty'?true:x.deficiencyAutomationEnabled, ratingsReviewedAt: undefined, [k]: v }));

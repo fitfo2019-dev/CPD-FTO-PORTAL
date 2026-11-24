@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface TrainingPacketFinalizationInput {
+export interface TrainingPacketFinalizeInput {
   operation_id: string;
-  /** @minimum 1 */
-  base_version: number;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
 }

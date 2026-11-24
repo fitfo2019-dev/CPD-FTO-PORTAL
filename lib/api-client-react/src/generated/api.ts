@@ -53,12 +53,11 @@ import type {
   StagingTrainingInput,
   StagingTrainingUpdate,
   TrainingPacketAcknowledgmentInput,
-  TrainingPacketFinalizationInput,
+  TrainingPacketFinalizeInput,
   TrainingPacketReviewInput,
   TrainingPacketSyncEnvelope,
   TrainingPacketSyncInput,
   TrainingPacketSyncReadinessEnvelope,
-  TrainingPacketSyncRecord,
   TrainingPacketWithdrawalInput,
   TrainingPacketsEnvelope
 } from './api.schemas';
@@ -1427,8 +1426,8 @@ export const getGetTrainingPacketSyncReadinessUrl = () => {
 }
 
 /**
- * Automatic sync is enabled only for a verified FTO on an agency-configured network address. Manual sync still enforces signed role and server roster checks.
- * @summary Check whether automatic packet sync is allowed
+ * This reports service availability only. It does not validate a roster assignment or authorize finalization; each packet operation independently verifies the signed identity and server-held assignment.
+ * @summary Check whether the agency draft-sync service is configured
  */
 export const getTrainingPacketSyncReadiness = async ( options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketSyncReadinessEnvelope> => {
 
@@ -1499,7 +1498,7 @@ export function useGetTrainingPacketSyncReadiness<TData = Awaited<ReturnType<typ
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Check whether automatic packet sync is allowed
+ * @summary Check whether the agency draft-sync service is configured
  */
 
 export function useGetTrainingPacketSyncReadiness<TData = Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError = ErrorType<ApiError>>(
@@ -1529,8 +1528,8 @@ export const getSyncTrainingPacketsUrl = () => {
 }
 
 /**
- * Synchronization never submits a packet. Drafts are visible only to their assigned FTO and remain editable until the separate explicit finalization operation.
- * @summary Save editable packet drafts as the assigned FTO
+ * The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. Drafts remain editable and are excluded from Coordinator and PO reads until explicit finalization.
+ * @summary Synchronize editable packet drafts as the assigned FTO
  */
 export const syncTrainingPackets = async (trainingPacketSyncInput: TrainingPacketSyncInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketSyncEnvelope> => {
 
@@ -1596,7 +1595,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type SyncTrainingPacketsMutationVariables = {data: BodyType<TrainingPacketSyncInput>}
 
     /**
- * @summary Save editable packet drafts as the assigned FTO
+ * @summary Synchronize editable packet drafts as the assigned FTO
  */
 export const useSyncTrainingPackets = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncTrainingPackets>>, TError,SyncTrainingPacketsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1607,6 +1606,96 @@ export const useSyncTrainingPackets = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getSyncTrainingPacketsMutationOptions(options), queryClient);
+    }
+
+export const getFinalizeTrainingPacketUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/training-packets/${id}/finalize`
+}
+
+/**
+ * An authenticated FTO explicitly finalizes the current synchronized draft. The server atomically rechecks the signed identity, badge, active roster assignment, and exact content hash, seals the packet as submitted_complete, and exposes it only to the Coordinator assigned by the server roster. Idempotent retries are safe. This is not a signature, PO release, or acknowledgment.
+ * @summary Explicitly submit an exact packet snapshot to its assigned Coordinator
+ */
+export const finalizeTrainingPacket = async (id: string,
+    trainingPacketFinalizeInput: TrainingPacketFinalizeInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketsEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingPacketsEnvelope>(getFinalizeTrainingPacketUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trainingPacketFinalizeInput)
+  }
+);}
+
+
+
+
+
+export const getFinalizeTrainingPacketMutationKey = () => ['finalizeTrainingPacket'] as const;
+
+export const getFinalizeTrainingPacketMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext> => {
+
+const mutationKey = getFinalizeTrainingPacketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof finalizeTrainingPacket>>, FinalizeTrainingPacketMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  finalizeTrainingPacket(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FinalizeTrainingPacketMutationResult = NonNullable<Awaited<ReturnType<typeof finalizeTrainingPacket>>>
+    export type FinalizeTrainingPacketMutationBody = BodyType<TrainingPacketFinalizeInput>
+    export type FinalizeTrainingPacketMutationError = ErrorType<ApiError>
+    export type FinalizeTrainingPacketMutationVariables = {id: string;data: BodyType<TrainingPacketFinalizeInput>}
+
+    /**
+ * @summary Explicitly submit an exact packet snapshot to its assigned Coordinator
+ */
+export const useFinalizeTrainingPacket = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof finalizeTrainingPacket>>,
+        TError,
+        FinalizeTrainingPacketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getFinalizeTrainingPacketMutationOptions(options), queryClient);
     }
 
 export const getReleaseTrainingPacketUrl = (id: string,) => {
@@ -1874,96 +1963,6 @@ export const useWithdrawTrainingPacket = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getWithdrawTrainingPacketMutationOptions(options), queryClient);
-    }
-
-export const getFinalizeTrainingPacketUrl = (id: string,) => {
-
-
-
-
-  return `/api/v1/training-packets/${id}/finalize`
-}
-
-/**
- * Rechecks the active server roster and draft version. Only this operation makes a packet visible to its assigned Coordinator and PO.
- * @summary Explicitly finalize a saved draft for its assigned Coordinator
- */
-export const finalizeTrainingPacket = async (id: string,
-    trainingPacketFinalizationInput: TrainingPacketFinalizationInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketSyncRecord> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return customFetch<TrainingPacketSyncRecord>(getFinalizeTrainingPacketUrl(id),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(trainingPacketFinalizationInput)
-  }
-);}
-
-
-
-
-
-export const getFinalizeTrainingPacketMutationKey = () => ['finalizeTrainingPacket'] as const;
-
-export const getFinalizeTrainingPacketMutationOptions = <TError = ErrorType<ApiError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext> => {
-
-const mutationKey = getFinalizeTrainingPacketMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof finalizeTrainingPacket>>, FinalizeTrainingPacketMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  finalizeTrainingPacket(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type FinalizeTrainingPacketMutationResult = NonNullable<Awaited<ReturnType<typeof finalizeTrainingPacket>>>
-    export type FinalizeTrainingPacketMutationBody = BodyType<TrainingPacketFinalizationInput>
-    export type FinalizeTrainingPacketMutationError = ErrorType<ApiError>
-    export type FinalizeTrainingPacketMutationVariables = {id: string;data: BodyType<TrainingPacketFinalizationInput>}
-
-    /**
- * @summary Explicitly finalize a saved draft for its assigned Coordinator
- */
-export const useFinalizeTrainingPacket = <TError = ErrorType<ApiError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof finalizeTrainingPacket>>,
-        TError,
-        FinalizeTrainingPacketMutationVariables,
-        TContext
-      > => {
-      return useMutation(getFinalizeTrainingPacketMutationOptions(options), queryClient);
     }
 
 export const getGetTrainingPacketUrl = (id: string,) => {

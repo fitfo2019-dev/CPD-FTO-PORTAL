@@ -1,3 +1,4 @@
+import React from 'react';
 import { Check, CircleDot, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils.js';
 import type { RunWorkflowStep } from '@/lib/run-workflow.js';

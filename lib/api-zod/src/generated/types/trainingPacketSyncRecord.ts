@@ -17,4 +17,6 @@ export interface TrainingPacketSyncRecord {
   /** @minimum 1 */
   server_version: number;
   sync_status: TrainingPacketSyncRecordSyncStatus;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
 }

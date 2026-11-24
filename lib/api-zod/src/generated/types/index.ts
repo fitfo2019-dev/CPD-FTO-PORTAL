@@ -88,7 +88,7 @@ export * from './stagingTrainingUpdate';
 export * from './stagingTrainingUpdateStatus';
 export * from './trainingPacketAcknowledgment';
 export * from './trainingPacketAcknowledgmentInput';
-export * from './trainingPacketFinalizationInput';
+export * from './trainingPacketFinalizeInput';
 export * from './trainingPacketRecord';
 export * from './trainingPacketRecordSyncStatus';
 export * from './trainingPacketReport';

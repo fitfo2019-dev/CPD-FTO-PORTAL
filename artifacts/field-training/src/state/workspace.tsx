@@ -9,8 +9,8 @@ import { createPhaseWeekRanges, getPhaseWeekNumber, getSundaySaturdayWeek } from
 import { applyApprovedPhaseExtensions, approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests } from '@/lib/phase-extension.js';
 import { CURRENT_PACKET_INDEX_VERSION, migrateOperationalReferenceReviews, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
-import { preserveProtectedPackets } from '@/lib/protected-packets.js';
-import { uploadPacketBatch,finalizePacketDraft } from '@/lib/training-packet-sync.js';
+import { applyPacketSyncState, preserveProtectedPackets } from '@/lib/protected-packets.js';
+import { uploadPacketBatch, finalizePacket as finalizePacketRequest } from '@/lib/training-packet-sync.js';
 import { getTrainingPacket } from '@workspace/api-client-react';
 import { validateReportsForExport } from '@/lib/export-validation.js';
 import { validateReport } from '@/lib/model.js';
@@ -89,12 +89,37 @@ function normalizeReportingForDuty(value: unknown) {
   };
 }
 
+function assertReportEditable(workspace:Workspace, report:Report) {
+  const prior=workspace.reports.find(item=>item.id===report.id);
+  if(prior&&(prior.syncStatus==='submitted_complete'||prior.syncStatus==='synchronized_complete'
+    ||prior.syncAttemptPending||prior.finalizationAttemptPending))
+    throw new Error('This packet is sealed or has an unconfirmed server transition. Reconcile it or request an authorized correction.');
+  if(Boolean(report.amendmentOf)!==Boolean(report.amendmentReason?.trim()))
+    throw new Error('An authorized packet correction requires its linked packet and reason.');
+  const duplicate=workspace.reports.find(item=>item.id!==report.id
+    &&item.date===report.date&&item.phase===report.phase
+    &&item.className===report.className&&item.recruitBadge===report.recruitBadge
+    &&(item.syncStatus==='submitted_complete'||item.syncStatus==='synchronized_complete'));
+  if(duplicate&&report.amendmentOf!==duplicate.id)
+    throw new Error('A finalized packet already exists for this recruit, class, phase, and date. Use the authorized amendment process.');
+}
 function upsertReportAndWeeklyUaLog(workspace:Workspace, inputReport:Report):Workspace {
+  assertReportEditable(workspace,inputReport);
   if (workspace.reports.some(item => item.id === inputReport.id && (item.syncStatus === 'synchronized_complete' || item.syncAttemptPending))) {
     throw new Error('This packet has been synchronized and is sealed. Request an authorized correction.');
   }
+  const priorReport=workspace.reports.find(item=>item.id===inputReport.id);
+  const stripState=(value:Report)=>{
+    const {syncStatus:_status,serverVersion:_version,serverContentHash:_hash,draftSyncPending:_pending,
+      syncAttemptPending:_sync,finalizationAttemptPending:_finalize,...content}=value;
+    return content;
+  };
+  const unchanged=priorReport&&JSON.stringify(stripState(priorReport))===JSON.stringify(stripState(inputReport));
   inputReport = { ...inputReport, syncStatus: 'local_draft_pending',
-    serverVersion: workspace.reports.find(item=>item.id===inputReport.id)?.serverVersion??inputReport.serverVersion??0 };
+    serverVersion: priorReport?.serverVersion??inputReport.serverVersion??0,
+    serverContentHash:unchanged?priorReport?.serverContentHash:undefined,
+    draftSyncPending:unchanged?priorReport?.draftSyncPending??true:true,
+    syncAttemptPending:false,finalizationAttemptPending:false };
   const report=reconcileDeficiencyRatings(inputReport,resolveOperationalPacket(inputReport,[...workspace.phaseFolders,...(workspace.caseFolder?[workspace.caseFolder]:[])],workspace.substationOrientations));
   const reports=workspace.reports.some(item=>item.id===report.id)
     ?workspace.reports.map(item=>item.id===report.id?report:item)
@@ -616,7 +641,8 @@ export function WorkspaceProvider({
     let restoredCaseFolder: PhaseCaseFolder | undefined;
     try {
       migratedReports = data.reports.filter(saved=>[1,2,3,4].includes(Number(saved.phase))).map(saved => {
-        if (saved.syncStatus === 'synchronized_complete' || saved.syncAttemptPending) return saved;
+        if (saved.syncStatus === 'synchronized_complete' || saved.syncStatus === 'submitted_complete'
+          || saved.syncAttemptPending || saved.finalizationAttemptPending) return saved;
         const raw = saved as Report & { beat?: unknown; ratings?: unknown };
         assertTacticalAssignmentMetadata(raw);
         const { beat: _oldAreaField, ...reportWithoutOldField } = raw;
@@ -700,7 +726,7 @@ export function WorkspaceProvider({
     const requiresSyncReview = await s.recoverySyncReviewRequired();
     recoverySyncReviewRef.current = requiresSyncReview;
     setRecoverySyncReviewRequired(requiresSyncReview);
-    setWs(workspaceWithAppliedExtensions); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(workspaceWithAppliedExtensions!==restoredWorkspace||weeklyPerformanceLogs!==savedWeeklyPerformanceLogs||savedWorkspace.packetIndexVersion!==CURRENT_PACKET_INDEX_VERSION); setLockedNotice(false); setLockedWithUnsaved(false); setOverwrittenElsewhere(false);
+    setWs(workspaceWithAppliedExtensions); setEpoch(e => e + 1); setVault('unlocked'); setRestored(true); setDirty(JSON.stringify(workspaceWithAppliedExtensions)!==JSON.stringify(savedWorkspace)); setLockedNotice(false); setLockedWithUnsaved(false); setOverwrittenElsewhere(false);
     setStoragePersistent(await requestPersistentStorage());
     await refreshPending();
     await refreshRecoverySnapshots();
@@ -760,6 +786,7 @@ export function WorkspaceProvider({
       throw new Error('Save the restored workspace locally before synchronizing packets.');
     if (vault !== 'unlocked' || !online || editorDirtyRef.current)
       throw new Error('Save open edits and unlock the online workspace before synchronizing.');
+    if(wsRef.current.role!=='fto') throw new Error('Only an FTO workspace can synchronize packet drafts.');
     if (syncing.current) throw new Error('Sync is already running.');
     syncing.current = true;
     setPacketSyncState('uploading'); setPacketSyncError(null);
@@ -770,9 +797,9 @@ export function WorkspaceProvider({
       await storage.current.syncPacketQueue<Workspace>(
         changes => uploadPacketBatch(changes, controller.signal),
         next => {
-          wsRef.current = next;
-          setWs(next);
-          setEpoch(value => value + 1);
+          const merged=applyPacketSyncState(wsRef.current,next);
+          wsRef.current = merged;
+          setWs(merged);
         },
         () => !controller.signal.aborted,
       );
@@ -785,7 +812,8 @@ export function WorkspaceProvider({
       if (!controller.signal.aborted) {
         const guarded = await storage.current.get<Workspace>('workspace');
         if (guarded && !controller.signal.aborted) {
-          wsRef.current = guarded; setWs(guarded); setEpoch(value => value + 1);
+          const merged=applyPacketSyncState(wsRef.current,guarded);
+          wsRef.current = merged; setWs(merged);
         }
         setPacketSyncError('Upload Not Confirmed. The Exact Saved Snapshot Is Protected Until Retry Confirms the Outcome.');
         setPacketSyncState('failed');
@@ -794,48 +822,50 @@ export function WorkspaceProvider({
     } finally { syncing.current = false; syncAbort.current = null; }
   }, [previewOnly, vault, online, persist, refreshPending]);
 
-  const finalizeOperations=useRef(new Map<string,string>());
   const finalizePacket=useCallback(async(id:string)=>{
     if(recoverySyncReviewRef.current)
       throw new Error('Save the restored workspace locally before submitting packets.');
-    if(previewOnly||vault!=='unlocked'||!online||editorDirtyRef.current||syncing.current)
+    if(previewOnly||vault!=='unlocked'||!online||dirtyRef.current||editorDirtyRef.current||syncing.current)
       throw new Error('Save open edits and unlock the online local vault before submitting.');
     const report=wsRef.current.reports.find(item=>item.id===id);
     if(!report) throw new Error('Save the daily report before submitting.');
-    if(report.syncStatus==='synchronized_complete') throw new Error('This packet is already submitted. Open packet submissions for its status.');
+    if(wsRef.current.role!=='fto')throw new Error('Only an FTO workspace can request packet finalization.');
+    if(report.syncStatus==='synchronized_complete'||report.syncStatus==='submitted_complete') throw new Error('This packet is already submitted. Open packet submissions for its status.');
     const errors=validateReport(report);
     if(errors.length) throw new Error(errors[0]);
     if(!packetSubmissionReady(report as unknown as Record<string,unknown>))
       throw new Error('Review and save the duty sheet, every run form, and the daily evaluation before final submission.');
     syncing.current=true;
+    setPacketSyncState('uploading');setPacketSyncError(null);
     const controller=new AbortController();syncAbort.current=controller;
+    // Publish the lock before the first asynchronous operation. The storage
+    // layer durably records its exact retry snapshot before sending the request.
+    const guarded={...wsRef.current,reports:wsRef.current.reports.map(item=>
+      item.id===id?{...item,finalizationAttemptPending:true}:item)};
+    wsRef.current=guarded;setWs(guarded);
     try {
-      await persist(wsRef.current);
-      const synced=await storage.current.syncPacketBatch<Workspace>(changes=>uploadPacketBatch(changes,controller.signal));
-      if(controller.signal.aborted) throw new Error('Submission interrupted. Local drafts were retained.');
-      let current=synced??wsRef.current;
-      wsRef.current=current;setWs(current);
-      const version=current.reports.find(item=>item.id===id)?.serverVersion;
-      if(!version) throw new Error('The server has not acknowledged this draft.');
-      const key=`${id}:${version}`;
-      const operation=finalizeOperations.current.get(key)??crypto.randomUUID();
-      finalizeOperations.current.set(key,operation);
-      try {await finalizePacketDraft(id,version,operation,controller.signal);}
-      catch(error) {
-        // A lost success response or a reload must not cause a second submit.
-        const saved=await getTrainingPacket(id,{signal:controller.signal});
-        const authoritative=saved.data.find(item=>item.id===id);
-        if(authoritative?.sync_status!=='synchronized_complete'||authoritative.server_version!==version) throw error;
-      }
+      const next=await storage.current.finalizePacket<Workspace>(id,
+        (packetId,operationId,contentHash)=>finalizePacketRequest(packetId,operationId,contentHash,controller.signal));
       if(controller.signal.aborted) throw new Error('Submission response interrupted. Check shared packet status before retrying.');
-      current={...current,reports:current.reports.map(item=>item.id===id
-        ?{...item,status:'locked' as const,syncStatus:'synchronized_complete' as const,serverVersion:version}:item)};
-      await storage.current.saveWorkspace(current);
-      wsRef.current=current;setWs(current);setDirty(false);
-      finalizeOperations.current.delete(key);
+      if(next){wsRef.current=next;setWs(next);}
       await refreshPending();
+      setPacketSyncState('synchronized');
+    } catch(error) {
+      if(!controller.signal.aborted){
+        const guarded=await storage.current.get<Workspace>('workspace');
+        if(guarded&&!controller.signal.aborted){wsRef.current=guarded;setWs(guarded);}
+        setPacketSyncError('Finalization Not Confirmed. The Exact Saved Snapshot Is Protected Until Retry Confirms the Outcome.');
+        setPacketSyncState('failed');
+      }
+      throw error;
     } finally {syncing.current=false;if(syncAbort.current===controller)syncAbort.current=null;}
   },[previewOnly,vault,online,persist,refreshPending]);
+
+  useEffect(()=>{
+    if(previewOnly||vault!=='unlocked'||!restored||ws.role!=='fto'||!online||dirty||editorDirty||
+      recoverySyncReviewRequired||packetSyncState==='failed'||syncing.current||pending===0)return;
+    void syncPackets().catch(()=>{/* Drafts remain encrypted and queued for a safe retry. */});
+  },[previewOnly,vault,restored,ws.role,online,dirty,editorDirty,recoverySyncReviewRequired,packetSyncState,pending,syncPackets]);
 
   const openPacketCorrection=useCallback(async(id:string)=>{
     if(previewOnly||vault!=='unlocked'||!online||editorDirtyRef.current||syncing.current)
@@ -847,15 +877,16 @@ export function WorkspaceProvider({
       const record=response.data.find(item=>item.id===id);
       if(!record||record.sync_status!=='local_draft_pending') throw new Error('This packet has not been returned for correction.');
       const existing=wsRef.current.reports.find(item=>item.id===id);
-      if(existing&&existing.syncStatus!=='synchronized_complete'&&existing.serverVersion===record.server_version)
+      if(existing&&existing.syncStatus!=='synchronized_complete'&&existing.syncStatus!=='submitted_complete'&&existing.serverVersion===record.server_version)
         return; // Preserve an already opened correction and any locally authored changes.
-      if(existing&&existing.syncStatus!=='synchronized_complete')
+      if(existing&&existing.syncStatus!=='synchronized_complete'&&existing.syncStatus!=='submitted_complete')
         throw new Error('A different local draft already exists. It was not overwritten.');
       const report=validateReportsForExport([record.report])[0];
       if(controller.signal.aborted) throw new Error('Opening the correction was interrupted.');
       await persist(wsRef.current);
       const correction={...report,status:'draft' as const,syncStatus:'local_draft_pending' as const,
-        serverVersion:record.server_version,ratingsReviewedAt:undefined};
+        serverVersion:record.server_version,serverContentHash:undefined,draftSyncPending:true,
+        finalizationAttemptPending:false,syncAttemptPending:false,ratingsReviewedAt:undefined};
       const next={...wsRef.current,reports:existing
         ?wsRef.current.reports.map(item=>item.id===id?correction:item):[correction,...wsRef.current.reports]};
       await storage.current.saveWorkspace(next,{correction:{id,version:record.server_version}});
@@ -962,7 +993,7 @@ export function WorkspaceProvider({
       assertAssignmentMetadata(assignment);
       return {...w,assignments:w.assignments.some(item=>item.id===assignment.id)?w.assignments.map(item=>item.id===assignment.id?assignment:item):[...w.assignments,assignment]};
     }),
-    upsertReport: (r) => mutate(w => upsertReportAndWeeklyUaLog(w,r)),
+    upsertReport: (r) => {assertReportEditable(wsRef.current,r);mutate(w => upsertReportAndWeeklyUaLog(w,r));},
     upsertWeeklyAcknowledgement: (ack) => mutate(w => ({ ...w, weeklyAcknowledgements: w.weeklyAcknowledgements.some(x => x.id === ack.id) ? w.weeklyAcknowledgements.map(x => x.id === ack.id ? ack : x) : [ack, ...w.weeklyAcknowledgements] })),
     upsertWeeklyPerformanceLog:(log)=>mutate(w=>({...w,weeklyPerformanceLogs:(w.weeklyPerformanceLogs??[]).some(item=>item.id===log.id)?w.weeklyPerformanceLogs.map(item=>item.id===log.id?log:item):[log,...(w.weeklyPerformanceLogs??[])]})),
     upsertSubstationOrientation:(record)=>mutate(w=>({...w,substationOrientations:(w.substationOrientations??[]).some(item=>item.id===record.id)?w.substationOrientations.map(item=>item.id===record.id?record:item):[record,...(w.substationOrientations??[])]})),
@@ -980,7 +1011,7 @@ export function WorkspaceProvider({
       upsertLawReviewRecord:(record)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).some(item=>item.id===record.id)?w.lawReviewRecords.map(item=>item.id===record.id?record:item):[record,...(w.lawReviewRecords??[])]})),
       deleteLawReviewRecord:(id)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).filter(item=>item.id!==id)})),
     deleteReport: (id) => mutate(w => {
-      if (w.reports.some(r => r.id === id && (r.syncStatus === 'synchronized_complete' || r.syncAttemptPending)))
+      if (w.reports.some(r => r.id === id && (r.syncStatus === 'synchronized_complete' || r.syncStatus === 'submitted_complete' || r.syncAttemptPending || r.finalizationAttemptPending)))
         throw new Error('Synchronized packets cannot be deleted locally.');
       return { ...w, reports: w.reports.filter(r => r.id !== id) };
     }),

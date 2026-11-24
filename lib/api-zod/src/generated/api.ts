@@ -535,9 +535,9 @@ export const listTrainingPacketsQueryDateToRegExp = new RegExp('^\\d{4}-\\d{2}-\
 
 export const ListTrainingPacketsQueryParams = zod.object({
   "cursor": zod.coerce.string().max(listTrainingPacketsQueryCursorMax).optional().describe('Opaque continuation cursor returned by the previous page.'),
-  "recruit": zod.coerce.string().min(1).max(listTrainingPacketsQueryRecruitMax).optional().describe('Case-insensitive partial match for a recruit name or badge, within the signed-in identity\'s authorized roster.'),
-  "date_from": zod.coerce.string().regex(listTrainingPacketsQueryDateFromRegExp).optional().describe('Include packets on or after this calendar date.'),
-  "date_to": zod.coerce.string().regex(listTrainingPacketsQueryDateToRegExp).optional().describe('Include packets on or before this calendar date.')
+  "recruit": zod.coerce.string().min(1).max(listTrainingPacketsQueryRecruitMax).optional().describe('Case-insensitive partial match within the authorized roster.'),
+  "date_from": zod.coerce.string().regex(listTrainingPacketsQueryDateFromRegExp).optional(),
+  "date_to": zod.coerce.string().regex(listTrainingPacketsQueryDateToRegExp).optional()
 })
 
 export const listTrainingPacketsResponseMetadataTotalRecordsMin = 0;
@@ -600,7 +600,7 @@ export const ListTrainingPacketsResponse = zod.object({
   "record_date": zod.string().regex(listTrainingPacketsResponseDataItemRecordDateRegExp),
   "phase": zod.number().int().min(1).max(listTrainingPacketsResponseDataItemPhaseMax),
   "server_version": zod.number().int().min(1),
-  "sync_status": zod.enum(['local_draft_pending', 'synchronized_complete']),
+  "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
   "id": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportIdMax).regex(listTrainingPacketsResponseDataItemReportIdRegExp),
   "date": zod.string().regex(listTrainingPacketsResponseDataItemReportDateRegExp),
@@ -636,8 +636,8 @@ export const ListTrainingPacketsResponse = zod.object({
 
 
 /**
- * Automatic sync is enabled only for a verified FTO on an agency-configured network address. Manual sync still enforces signed role and server roster checks.
- * @summary Check whether automatic packet sync is allowed
+ * This reports service availability only. It does not validate a roster assignment or authorize finalization; each packet operation independently verifies the signed identity and server-held assignment.
+ * @summary Check whether the agency draft-sync service is configured
  */
 export const getTrainingPacketSyncReadinessResponseDataMax = 1;
 
@@ -646,17 +646,17 @@ export const getTrainingPacketSyncReadinessResponseDataMax = 1;
 export const GetTrainingPacketSyncReadinessResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "can_sync": zod.boolean()
+  "service_available": zod.boolean()
 }),
   "data": zod.array(zod.object({
-  "automatic_sync_allowed": zod.boolean()
+  "draft_sync_available": zod.boolean()
 })).max(getTrainingPacketSyncReadinessResponseDataMax)
 })
 
 
 /**
- * Synchronization never submits a packet. Drafts are visible only to their assigned FTO and remain editable until the separate explicit finalization operation.
- * @summary Save editable packet drafts as the assigned FTO
+ * The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. Drafts remain editable and are excluded from Coordinator and PO reads until explicit finalization.
+ * @summary Synchronize editable packet drafts as the assigned FTO
  */
 export const syncTrainingPacketsBodyPacketsItemBaseVersionMin = 0;
 
@@ -730,6 +730,7 @@ export const syncTrainingPacketsResponseMetadataTotalRecordsMax = 100;
 export const syncTrainingPacketsResponseDataItemIdMax = 128;
 
 
+export const syncTrainingPacketsResponseDataItemContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
 export const syncTrainingPacketsResponseDataMax = 100;
 
 
@@ -744,8 +745,126 @@ export const SyncTrainingPacketsResponse = zod.object({
   "id": zod.string().min(1).max(syncTrainingPacketsResponseDataItemIdMax),
   "operation_id": zod.string().uuid(),
   "server_version": zod.number().int().min(1),
-  "sync_status": zod.enum(['local_draft_pending', 'synchronized_complete'])
+  "sync_status": zod.enum(['local_draft_pending']),
+  "content_hash": zod.string().regex(syncTrainingPacketsResponseDataItemContentHashRegExp)
 })).max(syncTrainingPacketsResponseDataMax)
+})
+
+
+/**
+ * An authenticated FTO explicitly finalizes the current synchronized draft. The server atomically rechecks the signed identity, badge, active roster assignment, and exact content hash, seals the packet as submitted_complete, and exposes it only to the Coordinator assigned by the server roster. Idempotent retries are safe. This is not a signature, PO release, or acknowledgment.
+ * @summary Explicitly submit an exact packet snapshot to its assigned Coordinator
+ */
+export const finalizeTrainingPacketPathIdMax = 128;
+
+
+export const finalizeTrainingPacketPathIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+
+
+export const FinalizeTrainingPacketParams = zod.object({
+  "id": zod.string().min(1).max(finalizeTrainingPacketPathIdMax).regex(finalizeTrainingPacketPathIdRegExp)
+})
+
+export const finalizeTrainingPacketBodyContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const FinalizeTrainingPacketBody = zod.object({
+  "operation_id": zod.string().uuid(),
+  "content_hash": zod.string().regex(finalizeTrainingPacketBodyContentHashRegExp)
+})
+
+export const finalizeTrainingPacketResponseMetadataTotalRecordsMin = 0;
+export const finalizeTrainingPacketResponseMetadataTotalRecordsMax = 100;
+
+export const finalizeTrainingPacketResponseMetadataNextCursorMax = 256;
+
+export const finalizeTrainingPacketResponseDataItemIdMax = 128;
+
+export const finalizeTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const finalizeTrainingPacketResponseDataItemPhaseMax = 4;
+
+
+export const finalizeTrainingPacketResponseDataItemReportIdMax = 128;
+
+
+export const finalizeTrainingPacketResponseDataItemReportIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
+export const finalizeTrainingPacketResponseDataItemReportDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const finalizeTrainingPacketResponseDataItemReportPhaseMax = 4;
+
+export const finalizeTrainingPacketResponseDataItemReportClassNameMax = 120;
+
+export const finalizeTrainingPacketResponseDataItemReportRecruitNameMax = 120;
+
+export const finalizeTrainingPacketResponseDataItemReportRecruitBadgeMax = 40;
+
+export const finalizeTrainingPacketResponseDataItemReportFtoNameMax = 120;
+
+export const finalizeTrainingPacketResponseDataItemReportFtoBadgeMax = 40;
+
+export const finalizeTrainingPacketResponseDataItemReportRunsMax = 200;
+
+export const finalizeTrainingPacketResponseDataItemReportActivityMinOne = 0;
+
+export const finalizeTrainingPacketResponseDataItemReportNarrativeMax = 100000;
+
+export const finalizeTrainingPacketResponseDataItemReportRemedialMax = 100000;
+
+export const finalizeTrainingPacketResponseDataItemReportRecruitCommentsMax = 100000;
+
+export const finalizeTrainingPacketResponseDataItemContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const finalizeTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const finalizeTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax = 4000;
+
+export const finalizeTrainingPacketResponseDataMax = 100;
+
+
+
+export const FinalizeTrainingPacketResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.number().int().min(finalizeTrainingPacketResponseMetadataTotalRecordsMin).max(finalizeTrainingPacketResponseMetadataTotalRecordsMax),
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
+  "has_more": zod.boolean().optional(),
+  "next_cursor": zod.string().max(finalizeTrainingPacketResponseMetadataNextCursorMax).nullish()
+}),
+  "data": zod.array(zod.object({
+  "id": zod.string().min(1).max(finalizeTrainingPacketResponseDataItemIdMax),
+  "assignment_id": zod.string().uuid(),
+  "record_date": zod.string().regex(finalizeTrainingPacketResponseDataItemRecordDateRegExp),
+  "phase": zod.number().int().min(1).max(finalizeTrainingPacketResponseDataItemPhaseMax),
+  "server_version": zod.number().int().min(1),
+  "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
+  "report": zod.object({
+  "id": zod.string().min(1).max(finalizeTrainingPacketResponseDataItemReportIdMax).regex(finalizeTrainingPacketResponseDataItemReportIdRegExp),
+  "date": zod.string().regex(finalizeTrainingPacketResponseDataItemReportDateRegExp),
+  "phase": zod.number().int().min(1).max(finalizeTrainingPacketResponseDataItemReportPhaseMax),
+  "className": zod.string().max(finalizeTrainingPacketResponseDataItemReportClassNameMax),
+  "recruitName": zod.string().min(1).max(finalizeTrainingPacketResponseDataItemReportRecruitNameMax),
+  "recruitBadge": zod.string().min(1).max(finalizeTrainingPacketResponseDataItemReportRecruitBadgeMax),
+  "ftoName": zod.string().min(1).max(finalizeTrainingPacketResponseDataItemReportFtoNameMax),
+  "ftoBadge": zod.string().min(1).max(finalizeTrainingPacketResponseDataItemReportFtoBadgeMax),
+  "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(finalizeTrainingPacketResponseDataItemReportRunsMax),
+  "activity": zod.record(zod.string(), zod.number().int().min(finalizeTrainingPacketResponseDataItemReportActivityMinOne)),
+  "reportingForDuty": zod.record(zod.string(), zod.unknown()),
+  "ratings": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
+  "narrative": zod.string().max(finalizeTrainingPacketResponseDataItemReportNarrativeMax),
+  "remedial": zod.string().max(finalizeTrainingPacketResponseDataItemReportRemedialMax),
+  "recruitComments": zod.string().max(finalizeTrainingPacketResponseDataItemReportRecruitCommentsMax)
+}),
+  "content_hash": zod.string().regex(finalizeTrainingPacketResponseDataItemContentHashRegExp),
+  "released_to_po": zod.boolean(),
+  "released_at": zod.coerce.date().nullable(),
+  "withdrawn_at": zod.coerce.date().nullable(),
+  "withdrawal_reason": zod.string().nullable(),
+  "amendment_of": zod.string().nullable(),
+  "amendment_reason": zod.string().nullable(),
+  "acknowledgment": zod.union([zod.object({
+  "acknowledged_at": zod.coerce.date(),
+  "content_hash": zod.string().regex(finalizeTrainingPacketResponseDataItemAcknowledgmentOneContentHashRegExp),
+  "comments": zod.string().max(finalizeTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax)
+}),zod.null()])
+})).max(finalizeTrainingPacketResponseDataMax)
 })
 
 
@@ -831,7 +950,7 @@ export const ReleaseTrainingPacketResponse = zod.object({
   "record_date": zod.string().regex(releaseTrainingPacketResponseDataItemRecordDateRegExp),
   "phase": zod.number().int().min(1).max(releaseTrainingPacketResponseDataItemPhaseMax),
   "server_version": zod.number().int().min(1),
-  "sync_status": zod.enum(['local_draft_pending', 'synchronized_complete']),
+  "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
   "id": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportIdMax).regex(releaseTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(releaseTrainingPacketResponseDataItemReportDateRegExp),
@@ -951,7 +1070,7 @@ export const AcknowledgeTrainingPacketResponse = zod.object({
   "record_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemRecordDateRegExp),
   "phase": zod.number().int().min(1).max(acknowledgeTrainingPacketResponseDataItemPhaseMax),
   "server_version": zod.number().int().min(1),
-  "sync_status": zod.enum(['local_draft_pending', 'synchronized_complete']),
+  "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
   "id": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportIdMax).regex(acknowledgeTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportDateRegExp),
@@ -1070,7 +1189,7 @@ export const WithdrawTrainingPacketResponse = zod.object({
   "record_date": zod.string().regex(withdrawTrainingPacketResponseDataItemRecordDateRegExp),
   "phase": zod.number().int().min(1).max(withdrawTrainingPacketResponseDataItemPhaseMax),
   "server_version": zod.number().int().min(1),
-  "sync_status": zod.enum(['local_draft_pending', 'synchronized_complete']),
+  "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
   "id": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportIdMax).regex(withdrawTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(withdrawTrainingPacketResponseDataItemReportDateRegExp),
@@ -1102,41 +1221,6 @@ export const WithdrawTrainingPacketResponse = zod.object({
   "comments": zod.string().max(withdrawTrainingPacketResponseDataItemAcknowledgmentOneCommentsMax)
 }),zod.null()])
 })).max(withdrawTrainingPacketResponseDataMax)
-})
-
-
-/**
- * Rechecks the active server roster and draft version. Only this operation makes a packet visible to its assigned Coordinator and PO.
- * @summary Explicitly finalize a saved draft for its assigned Coordinator
- */
-export const finalizeTrainingPacketPathIdMax = 128;
-
-
-export const finalizeTrainingPacketPathIdRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
-
-
-export const FinalizeTrainingPacketParams = zod.object({
-  "id": zod.string().min(1).max(finalizeTrainingPacketPathIdMax).regex(finalizeTrainingPacketPathIdRegExp)
-})
-
-
-
-
-export const FinalizeTrainingPacketBody = zod.object({
-  "operation_id": zod.string().uuid(),
-  "base_version": zod.number().int().min(1)
-})
-
-export const finalizeTrainingPacketResponseIdMax = 128;
-
-
-
-
-export const FinalizeTrainingPacketResponse = zod.object({
-  "id": zod.string().min(1).max(finalizeTrainingPacketResponseIdMax),
-  "operation_id": zod.string().uuid(),
-  "server_version": zod.number().int().min(1),
-  "sync_status": zod.enum(['local_draft_pending', 'synchronized_complete'])
 })
 
 
@@ -1213,7 +1297,7 @@ export const GetTrainingPacketResponse = zod.object({
   "record_date": zod.string().regex(getTrainingPacketResponseDataItemRecordDateRegExp),
   "phase": zod.number().int().min(1).max(getTrainingPacketResponseDataItemPhaseMax),
   "server_version": zod.number().int().min(1),
-  "sync_status": zod.enum(['local_draft_pending', 'synchronized_complete']),
+  "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
   "id": zod.string().min(1).max(getTrainingPacketResponseDataItemReportIdMax).regex(getTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(getTrainingPacketResponseDataItemReportDateRegExp),

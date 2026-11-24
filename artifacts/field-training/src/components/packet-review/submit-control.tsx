@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import React,{useState} from 'react';
 import {Link} from 'wouter';
 import {AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel} from '@/components/ui/alert-dialog.js';
 import {Button} from '@/components/ui/button.js';
@@ -12,7 +12,8 @@ export function PacketSubmitControl({reportId,disabled}:{reportId:string;disable
   const [busy,setBusy]=useState(false);
   const [failure,setFailure]=useState<string|null>(null);
   if(previewOnly||context?.role!=='FTO') return null;
-  const sealed=ws.reports.find(r=>r.id===reportId)?.syncStatus==='synchronized_complete';
+  const report=ws.reports.find(r=>r.id===reportId);
+  const sealed=report?.syncStatus==='synchronized_complete'||report?.syncStatus==='submitted_complete';
   const blocked=!!disabled||!context.available||sealed||busy;
   const submit=async()=>{
     setBusy(true);setFailure(null);

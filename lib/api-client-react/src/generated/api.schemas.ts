@@ -421,12 +421,6 @@ export interface TrainingPacketSyncItem {
   report: TrainingPacketReport;
 }
 
-export interface TrainingPacketFinalizationInput {
-  operation_id: string;
-  /** @minimum 1 */
-  base_version: number;
-}
-
 export interface TrainingPacketSyncInput {
   /**
      * @minItems 1
@@ -440,7 +434,6 @@ export type TrainingPacketSyncRecordSyncStatus = typeof TrainingPacketSyncRecord
 
 export const TrainingPacketSyncRecordSyncStatus = {
   local_draft_pending: 'local_draft_pending',
-  synchronized_complete: 'synchronized_complete',
 } as const;
 
 export interface TrainingPacketSyncRecord {
@@ -453,6 +446,8 @@ export interface TrainingPacketSyncRecord {
   /** @minimum 1 */
   server_version: number;
   sync_status: TrainingPacketSyncRecordSyncStatus;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
 }
 
 export type TrainingPacketSyncEnvelopeStatus = typeof TrainingPacketSyncEnvelopeStatus[keyof typeof TrainingPacketSyncEnvelopeStatus];
@@ -483,6 +478,12 @@ export interface TrainingPacketSyncEnvelope {
   metadata: TrainingPacketSyncEnvelopeMetadata;
   /** @maxItems 100 */
   data: TrainingPacketSyncRecord[];
+}
+
+export interface TrainingPacketFinalizeInput {
+  operation_id: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
 }
 
 export interface TrainingPacketReviewInput {
@@ -525,7 +526,7 @@ export type TrainingPacketRecordSyncStatus = typeof TrainingPacketRecordSyncStat
 
 export const TrainingPacketRecordSyncStatus = {
   local_draft_pending: 'local_draft_pending',
-  synchronized_complete: 'synchronized_complete',
+  submitted_complete: 'submitted_complete',
 } as const;
 
 export interface TrainingPacketRecord {
@@ -608,11 +609,11 @@ export const TrainingPacketSyncReadinessEnvelopeStatus = {
 } as const;
 
 export type TrainingPacketSyncReadinessEnvelopeMetadata = {
-  can_sync: boolean;
+  service_available: boolean;
 };
 
 export type TrainingPacketSyncReadinessEnvelopeDataItem = {
-  automatic_sync_allowed: boolean;
+  draft_sync_available: boolean;
 };
 
 export interface TrainingPacketSyncReadinessEnvelope {
@@ -1069,18 +1070,16 @@ export type ListTrainingPacketsParams = {
  */
 cursor?: string;
 /**
- * Case-insensitive partial match for a recruit name or badge, within the signed-in identity's authorized roster.
+ * Case-insensitive partial match within the authorized roster.
  * @minLength 1
  * @maxLength 120
  */
 recruit?: string;
 /**
- * Include packets on or after this calendar date.
  * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 date_from?: string;
 /**
- * Include packets on or before this calendar date.
  * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 date_to?: string;

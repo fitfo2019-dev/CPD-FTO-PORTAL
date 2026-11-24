@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Category, ChecklistDeficiencyGroup } from '@/lib/model.js';
 import { SEG_CATEGORIES } from '@/lib/model.js';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';

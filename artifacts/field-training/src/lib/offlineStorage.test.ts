@@ -28,7 +28,7 @@ test('draft synchronization acknowledges storage without sealing and queues only
   const report={id:'TEST-draft',syncStatus:'local_draft_pending',serverVersion:0,narrative:'first draft'};
   await vault.saveWorkspace({reports:[report]});
   const next=await vault.syncPacketBatch<{reports:typeof report[]}>(async changes=>changes.map(change=>({
-    id:change.recordId,operation_id:change.operationId,server_version:1,sync_status:'local_draft_pending',
+    id:change.recordId,operation_id:change.operationId,server_version:1,sync_status:'local_draft_pending',content_hash:'a'.repeat(64),
   })));
   assert.equal(next?.reports[0].syncStatus,'local_draft_pending');
   assert.equal(next?.reports[0].serverVersion,1);
@@ -40,7 +40,7 @@ test('draft synchronization acknowledges storage without sealing and queues only
   assert.equal(await vault.pendingCount(),1);
   const updated=await vault.syncPacketBatch<typeof changed>(async changes=>{
     assert.equal(changes[0].baseVersion,1);
-    return changes.map(change=>({id:change.recordId,operation_id:change.operationId,server_version:2,sync_status:'local_draft_pending'}));
+    return changes.map(change=>({id:change.recordId,operation_id:change.operationId,server_version:2,sync_status:'local_draft_pending',content_hash:'b'.repeat(64)}));
   });
   vault.lock();
   const reopened=new OfflineStorage(namespace);
@@ -100,7 +100,7 @@ test('draft sync rejects a sealing receipt and preserves pending edits',async()=
   await vault.saveWorkspace({reports:[{id:'TEST-draft',narrative:'keep this'}]});
   await assert.rejects(vault.syncPacketBatch(async changes=>changes.map(change=>({
     id:change.recordId,operation_id:change.operationId,server_version:1,
-    sync_status:'synchronized_complete' as 'local_draft_pending',
+    sync_status:'synchronized_complete' as 'local_draft_pending',content_hash:'a'.repeat(64),
   }))),/acknowledgement/);
   assert.equal(await vault.pendingCount(),1);
   vault.lock();
@@ -205,14 +205,14 @@ test('workspace save queues only latest complete packets, never roster or whole 
     assert.equal(changes[0].recordId, 'p1');
     assert.deepEqual(changes[0].value, { ...workspace.reports[0], narrative: 'latest' });
     return changes.map(change => ({ id: change.recordId, operation_id: change.operationId,
-      server_version: 1, sync_status: 'synchronized_complete',submittedVerified:true as const }));
+      server_version: 1, sync_status: 'local_draft_pending',content_hash:'a'.repeat(64) }));
   });
-  assert.equal(next?.reports[0].syncStatus, 'synchronized_complete');
+  assert.equal(next?.reports[0].syncStatus, 'local_draft_pending');
   assert.equal(await vault.pendingCount(), 0);
-  // A delayed pre-acknowledgement autosave cannot erase the seal.
+  // Draft synchronization does not seal the report: subsequent edits queue again.
   await vault.saveWorkspace(workspace);
-  assert.equal((await vault.get<typeof workspace>('workspace'))?.reports[0].syncStatus, 'synchronized_complete');
-  assert.equal(await vault.pendingCount(), 0);
+  assert.equal((await vault.get<typeof workspace>('workspace'))?.reports[0].syncStatus, 'local_draft_pending');
+  assert.equal(await vault.pendingCount(), 1);
 });
 
 test('failed and partial packet acknowledgements retain encrypted drafts and retry operation IDs', async () => {
@@ -241,7 +241,7 @@ test('locking the vault during packet transmission cannot restore plaintext or a
   await assert.rejects(vault.syncPacketBatch(async changes => {
     vault.lock();
     return changes.map(change => ({ id: change.recordId, operation_id: change.operationId,
-      server_version: 1, sync_status: 'synchronized_complete' }));
+      server_version: 1, sync_status: 'local_draft_pending',content_hash:'a'.repeat(64) }));
   }), /expired/);
   await vault.unlock(passphrase);
   assert.equal(await vault.pendingCount(), 1);
@@ -278,9 +278,9 @@ test('a lost response after server commit can be reconciled after vault reopenin
     assert.equal(JSON.stringify(changes[0].value), committed?.serialized);
     // The server recognizes the already-committed operation and returns its receipt.
     return [{ id: 'p1', operation_id: changes[0].operationId,
-      server_version: 1, sync_status: 'synchronized_complete',submittedVerified:true as const }];
+      server_version: 1, sync_status: 'local_draft_pending',content_hash:'a'.repeat(64) }];
   });
-  assert.equal(acknowledged?.reports[0].syncStatus, 'synchronized_complete');
+  assert.equal(acknowledged?.reports[0].syncStatus, 'local_draft_pending');
   assert.equal(acknowledged?.reports[0].syncAttemptPending, false);
   assert.equal(await reopened.pendingCount(), 0);
 });
@@ -439,7 +439,7 @@ test('recovery snapshots restore local work without changing the agency sync que
   await reopened.syncPacketBatch(async changes => {
     assert.equal(changes[0].operationId, originalOperationId);
     assert.deepEqual(changes[0].value, report);
-    return [{ id: 'p1', operation_id: originalOperationId, server_version: 1, sync_status: 'synchronized_complete',submittedVerified:true as const }];
+    return [{ id: 'p1', operation_id: originalOperationId, server_version: 1, sync_status: 'local_draft_pending',content_hash:'a'.repeat(64) }];
   });
   assert.equal(await reopened.pendingCount(), 0);
 });

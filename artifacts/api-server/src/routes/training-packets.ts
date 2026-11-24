@@ -35,9 +35,10 @@ export function createTrainingPacketsRouter(
     verify(req, _res, buffer) { recordPayloadSize(req, buffer.byteLength); } }));
   router.get("/v1/training-packets/sync-readiness", (_req, res) => {
     // A browser's online flag does not prove a trusted city-network boundary.
-    // Automatic transmission stays off; only explicit authenticated sync is supported.
-    res.json({ status: "success", metadata: { can_sync: Boolean(resolveStore()) },
-      data: [{ automatic_sync_allowed: false }] });
+    // Draft synchronization may follow a save/reconnect. Final submission always
+    // requires the separate explicit authenticated finalization action.
+    res.json({ status: "success", metadata: { can_sync: Boolean(resolveStore()),service_available:Boolean(resolveStore()) },
+      data: [{ automatic_sync_allowed: false,draft_sync_available:Boolean(resolveStore()),finalization_requires_explicit_action:true }] });
   });
   for (const action of ["release", "withdraw", "acknowledge"] as const satisfies readonly PacketReviewAction[]) {
     const schema = action === "release" ? ReleaseTrainingPacketBody.strict() :
@@ -185,12 +186,12 @@ export function createTrainingPacketsRouter(
     try {
       const store=resolveStore();
       if(!store) throw new PacketError(503,"AGENCY_STORAGE_UNAVAILABLE");
-      const receipt=await store.finalize(res.locals.agencyIdentity as AgencyIdentity,params.data.id,
-        parsed.data.operation_id,parsed.data.base_version,{
+      const data=await store.finalize(res.locals.agencyIdentity as AgencyIdentity,{
           requestId:typeof req.id==="string"?req.id:randomUUID(),
           clientIp:req.ip||req.socket.remoteAddress||"unknown",
-        });
-      res.json(receipt);
+        },params.data.id,parsed.data);
+      res.json(CompletePacketsEnvelope.parse({status:"success",
+        metadata:{total_records:data.length,role:res.locals.agencyIdentity.role},data}));
     } catch(error) {sendPacketError(res,error);}
   });
   return router;

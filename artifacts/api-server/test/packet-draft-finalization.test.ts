@@ -3,9 +3,11 @@ import test from "node:test";
 import type pg from "pg";
 import { createAgencyPacketStore,PacketError } from "../src/lib/agency-packet-store.js";
 import type { AgencyIdentity } from "../src/security/agencyIdentity.js";
+import {createHash} from "node:crypto";
 import {hashUserIdentifier as hash} from "../src/utils/cryptoUtils.js";
 
 const fto:AgencyIdentity={id:"TEST-fto",badge:"TEST-2",role:"FTO"};
+const contentHash=(value:unknown)=>createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const report={id:"TEST-packet",date:"2026-11-22",phase:1,className:"TEST ONLY",recruitBadge:"TEST-1",ftoBadge:"TEST-2",status:"draft",
   reportingForDuty:{reviewedAt:"2026-11-22T12:00:00Z"},ratingsReviewedAt:"2026-11-22T12:00:00Z",runs:[]};
 const assignment={id:"TEST-assignment",fto_id:fto.id,fto_badge:fto.badge,po_id:"TEST-po",po_badge:"TEST-1",coordinator_id:"TEST-coordinator",class_name:report.className,phase:1,
@@ -24,12 +26,14 @@ function fixture(options:{
         assignment_id:assignment.id,record_date:report.date,phase:report.phase,...options.prior,
       }]:[]};
       if(sql.includes("SELECT p.server_version")) return {rows:options.assigned===false?[]:[{
-        server_version:1,submission_status:"local_draft_pending",finalization_operation_id:null,report,po_id:assignment.po_id,po_badge:assignment.po_badge,
+        server_version:1,content_hash:contentHash(report),submission_status:"local_draft_pending",finalization_operation_id:null,report,po_id:assignment.po_id,po_badge:assignment.po_badge,
         po_id_hash:assignment.po_id_hash,po_badge_hash:assignment.po_badge_hash,...options.packet,
       }]};
       if(sql.includes("SELECT pc.coordinator_id FROM")) return {rows:[{coordinator_id:assignment.coordinator_id}]};
       if(sql.includes("lock_packet_assignment")) return {rows:options.assigned===false?[]:[{id:assignment.id}]};
-      if(sql.includes("p.record_date::text")) return {rows:options.readRows??[]};
+      if(sql.includes("p.record_date::text")) return {rows:options.readRows??
+        (statements.some(item=>item.sql.includes("SET submission_status='submitted'"))?
+          [{id:report.id,server_version:1,submission_status:"submitted",report}]:[])};
       return {rows:[]};
     },
     release(){},
@@ -40,7 +44,8 @@ function fixture(options:{
   return {store:{
     sync:(identity:AgencyIdentity,changes:Parameters<typeof raw.sync>[2])=>raw.sync(identity,audit,changes),
     read:(identity:AgencyIdentity)=>raw.read(identity,audit),
-    finalize:(identity:AgencyIdentity,id:string,op:string,version:number)=>raw.finalize(identity,id,op,version,audit),
+    finalize:(identity:AgencyIdentity,id:string,op:string,version:number)=>raw.finalize(identity,audit,id,
+      {operation_id:op,content_hash:version===1?contentHash(report):"f".repeat(64)}),
   },statements};
 }
 
@@ -80,7 +85,7 @@ test("drafts are excluded from PO and Coordinator reads by the server query",asy
 test("only explicit finalization submits and rechecks the active roster intersection",async()=>{
   const {store,statements}=fixture();
   const receipt=await store.finalize(fto,report.id,operation,1);
-  assert.equal(receipt.sync_status,"synchronized_complete");
+  assert.equal(receipt[0].sync_status,"submitted_complete");
   const query=statements.find(item=>item.sql.includes("SELECT p.server_version"))!;
   for(const text of ["a.active","a.fto_id=$2","a.fto_badge=$3","a.po_badge=p.report->>'recruitBadge'","a.fto_id_hash=$4","a.fto_badge_hash=$5","FOR UPDATE OF p"])
     assert.ok(query.sql.includes(text));
@@ -91,7 +96,7 @@ test("only explicit finalization submits and rechecks the active roster intersec
 test("unassigned, stale, unready, and non-FTO finalizations cannot submit",async()=>{
   const cases=[
     {options:{assigned:false},version:1,error:/PACKET_ASSIGNMENT_REQUIRED/},
-    {options:{},version:4,error:/PACKET_VERSION_CONFLICT/},
+    {options:{},version:4,error:/PACKET_SNAPSHOT_CONFLICT/},
     {options:{packet:{server_version:1,submission_status:"local_draft_pending",report:{...report,ratingsReviewedAt:undefined}}},version:1,error:/PACKET_NOT_READY/},
   ];
   for(const item of cases) {

@@ -6,7 +6,7 @@ import { agencyPacketsEnvelope, createPacketReviewCommand, packetCommandSatisfie
 const hash = "a".repeat(64);
 const packet = (overrides: Partial<AgencyPacket> = {}): AgencyPacket => ({
   id: "packet-1", assignment_id: "11111111-1111-4111-8111-111111111111",
-  record_date: "2026-11-23", phase: 1, server_version: 1, sync_status: "synchronized_complete",
+  record_date: "2026-11-23", phase: 1, server_version: 1, sync_status: "submitted_complete",
   report: {
     id: "packet-1", date: "2026-11-23", phase: 1, className: "Class A",
     recruitName: "Synthetic PO", recruitBadge: "20", ftoName: "Synthetic FTO", ftoBadge: "30",

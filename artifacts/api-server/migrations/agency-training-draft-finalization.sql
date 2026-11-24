@@ -11,6 +11,7 @@ UPDATE agency_training.packets SET submission_status='submitted'
     OR EXISTS(SELECT 1 FROM agency_training.packet_acknowledgments k WHERE k.packet_id=packets.id);
 ALTER TABLE agency_training.packets ADD COLUMN finalization_operation_id uuid UNIQUE;
 ALTER TABLE agency_training.packets ADD COLUMN submitted_at timestamptz;
+ALTER TABLE agency_training.packet_events ADD COLUMN IF NOT EXISTS server_version integer;
 ALTER TABLE agency_training.packets DROP CONSTRAINT packets_server_version_check;
 ALTER TABLE agency_training.packets ADD CONSTRAINT packets_server_version_check CHECK (server_version >= 1);
 ALTER TABLE agency_training.packet_events DROP CONSTRAINT packet_events_event_type_check;

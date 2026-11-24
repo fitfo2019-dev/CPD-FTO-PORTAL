@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isValidElement, type ReactElement, type ReactNode } from 'react';
+import React, { isValidElement, type ReactElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PhaseExtensionReviewView } from '../components/phase-extension-panel.js';
 import { createEmptyWorkspace } from './empty-workspace.js';
@@ -9,6 +9,9 @@ import { applyApprovedPhaseExtensions, approvePhaseExtension, denyPhaseExtension
 import { OfflineStorage } from './offlineStorage.js';
 import type { PhaseCaseFolder, PhaseExtensionRequest, Workspace } from './model.js';
 import { createPhaseWeekRanges } from './training-calendar.js';
+
+// Node's TSX runner uses the classic JSX runtime; match Vite's React binding.
+Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 
 const folder:PhaseCaseFolder={
   className:'Training Class',recruitName:'Example PO',recruitBadge:'4747',

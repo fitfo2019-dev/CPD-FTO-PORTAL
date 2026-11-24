@@ -9,11 +9,11 @@ Exercise actual JSX components, not only pure models or browser builds.
 
 **How to apply:** Include component `.test.tsx` files in alias-resolved regression commands, alongside `.test.ts` files. Keep those tests independent of browser-only runtime injection.
 
-For React input tests in JSDOM, verify native `disabled` state rather than calling `.focus()` on inputs.
+Browser-specific focus and input behavior needs verification at the browser boundary.
 
-**Why:** React's legacy input-event polyfill can call unsupported `attachEvent` when JSDOM input focus triggers event setup.
+**Why:** A DOM emulator does not implement every browser capability; emulator limitations can be mistaken for application defects.
 
-**How to apply:** Use browser automation for actual focus behavior; keep JSDOM assertions on labels, values, placeholders, and disabled state.
+**How to apply:** Use mounted component tests for state and rendering, and real-browser checks when correctness depends on native browser behavior.
 
 Preserve the disposable real-PostgreSQL tests with a non-owner, column-restricted runtime role.
 
@@ -25,4 +25,4 @@ Do not equate a successful PostgreSQL `GRANT` statement with a successful privil
 
 **Why:** A non-owner with access but no grant option can receive `warning_no_privileges_granted` rather than a rejected query when attempting to grant privileges.
 
-**How to apply:** Permission-escalation regressions should accept only the expected permission error or warning, then verify unchanged ACLs and effective privileges for both grantor and recipient.
+**How to apply:** Verify effective permissions, not just whether the database accepted a permission-related statement.
