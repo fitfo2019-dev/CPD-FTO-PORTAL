@@ -8,13 +8,19 @@
 import type { OperationalIdentitySide } from './operationalIdentitySide';
 
 export interface OperationalIdentity {
-  /** @pattern ^[0-9]{4}[A-Z]-[12]$ */
+  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   assignmentToken: string;
+  /**
+     * Legacy snapshot only; never infer a physical fleet number from CAD.
+     * @deprecated
+     * @pattern ^[0-9]{4}$
+     */
+  cruiserNumber?: string;
   /** @pattern ^[0-9]{4}$ */
-  cruiserNumber: string;
-  /** @pattern ^[0-9]{4}[A-Z]$ */
+  districtToken?: string;
+  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   cadUnit: string;
   /** @pattern ^[A-Z]$ */
   company: string;
-  side: OperationalIdentitySide;
+  side?: OperationalIdentitySide;
 }

@@ -129,7 +129,7 @@ export function parseRosterRows(rows: string[][]): ParsedRoster {
     const operationalAssignmentToken=getValue(row,columns,'operationalAssignmentToken');
     const poOperationalAssignmentToken=getValue(row,columns,'poOperationalAssignmentToken');
     for(const token of [operationalAssignmentToken,poOperationalAssignmentToken]) {
-      if(token&&!OperationalAssignmentToken.safeParse(token).success) rowErrors.push('operational vehicle profile must use four digits, an uppercase company letter, and -1 or -2');
+      if(token&&!OperationalAssignmentToken.safeParse(token).success) rowErrors.push('operational vehicle profile must use four district digits, an uppercase shift letter, and optional -1 or -2');
     }
     if (!ftoName || !ftoBadge) rowErrors.push('FTO name and badge are required');
     if (!emailIsValid(ftoEmail) || !emailIsValid(recruitEmail)) rowErrors.push('email address is invalid');
@@ -166,7 +166,7 @@ export function parseRosterRows(rows: string[][]): ParsedRoster {
       :undefined;
     const cruiserDistrict=explicitDistrict||districtFromAssignment||'';
     if(isUniversalFtoAssignment(ftoAssignment)&&!explicitDistrict) {
-      rowErrors.push('Cruiser District is required for 80C-1 and 80C-2 so the mapped patrol area is preserved');
+      rowErrors.push('Cruiser District is required for 80C, 80C-1 and 80C-2 so the mapped patrol area is preserved');
     } else if(ftoAssignment&&!isValidFtoAssignment(zone,precinct,ftoAssignment,shiftValue,cruiserDistrict)) {
       rowErrors.push('FTO assignment must match the selected patrol area, mapped cruiser district, and shift');
     }

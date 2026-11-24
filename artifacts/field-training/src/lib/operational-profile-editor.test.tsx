@@ -49,8 +49,8 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
   const submit=()=>act(async()=>element("form-operational-profile").dispatchEvent(new dom.window.Event("submit",{bubbles:true,cancelable:true})));
   try{
     await act(async()=>render());
-    assert.equal(element("text-profile-cruiser").textContent,"9150");
-    assert.equal(element("text-profile-cad").textContent,"9150E");
+    assert.equal(element("text-profile-cruiser").textContent,"Not supplied");
+    assert.equal(element("text-profile-cad").textContent,"9150E-1");
     assert.equal(dom.window.document.querySelectorAll("select").length,0,"Signed roles are not editable");
     await input("9150E-3");await submit();
     assert.equal(writes,0);
@@ -59,8 +59,8 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
     assert.equal(writes,1);
     assert.equal(saved.identity?.assignmentToken,"1234A-2");
     assert.match(element("text-profile-saved").textContent!,/future packets only/);
-    assert.equal(element("text-profile-cruiser").textContent,"1234");
-    assert.equal(element("text-profile-cad").textContent,"1234A");
+    assert.equal(element("text-profile-cruiser").textContent,"Not supplied");
+    assert.equal(element("text-profile-cad").textContent,"1234A-2");
 
     failures=true;await input("5678B-1");await submit();
     assert.equal(saved.identity?.assignmentToken,"1234A-2");
@@ -87,7 +87,13 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
     await input("9150E-2");await submit();await act(async()=>render());
     assert.equal(saved.subject,"TEST-PO");
     assert.equal(saved.version,1);
+    assert.equal(saved.identity?.cadUnit,"9150E-2");
+    profile=saved;
+    await act(async()=>render());
+    await input("9150E");await submit();await act(async()=>render());
     assert.equal(saved.identity?.cadUnit,"9150E");
+    assert.equal(saved.identity?.side,undefined);
+    assert.equal(element("text-profile-cruiser").textContent,"Not supplied");
   }finally{
     await act(async()=>root.unmount());dom.window.close();
     for(const [key,descriptor]of previous)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);

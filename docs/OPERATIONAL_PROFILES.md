@@ -2,16 +2,30 @@
 
 This feature extends invitation-only, verified agency accounts. It does not add
 registration, roles, badge edits, training assignments, geographic inference or
-access rights. `9150E-1` and `9150E-2` each derive physical cruiser `9150`, CAD unit
-`9150E`, company `E`, and a separate side. Tokens are exact, case-sensitive,
-four-digit vehicle identifiers with an uppercase company letter and side 1/2.
-Legacy roster and universal assignment grammars remain independent.
+access rights. `9150E`, `9150E-1` and `9150E-2` derive district token `9150`,
+raw CAD shift letter `E` (the compatibility field is named `company`), and
+their exact full CAD unit, including side when present. Missing side stays absent.
+CAD district digits are not a physical vehicle fleet number and never populate
+the editable Cruiser field. The selected training shift/company and patrol
+geography are independent; there is no automatic company-to-shift mapping.
+Tokens are exact, case-sensitive, four digits and an uppercase letter with
+optional `-1`/`-2`. Legacy roster tokens retain their unhyphenated suffix grammar.
+Every sided roster assignment also offers its unsided counterpart. Universal
+`80C`, `80C-1`, and `80C-2` always require explicit mapped district context,
+including in Precinct 8; they never infer district `80`.
 
 ## Agency installation
 
-The DBA must apply `migrations/operational-profiles.sql` to the same agency
-database as the packet service and review its narrow runtime grants. This is
-an additive, single-application migration; no production migration is run
+The DBA must apply `migrations/operational-profiles.sql`, then
+`migrations/operational-profile-optional-sides.sql`, to the same agency
+database as the packet service and review its narrow runtime grants. Existing
+installations apply only the second migration. Grant INSERT and column-only
+UPDATE on `district_token` in addition to the existing profile grants; do not
+widen roster authority. The upgrade preserves legacy `cruiser_number` values
+for audit only, makes missing side NULL, and changes each existing profile's
+version to invalidate in-flight side-stripped lookups. New saves do not write
+that legacy cruiser column. No historical packet JSON is migrated.
+These are single-application migrations; no production migration is run
 by the application or this change. `AGENCY_DATABASE_URL` and
 `AGENCY_PACKET_SYNC_ENABLED=true` select the existing agency storage boundary.
 Without that configuration profile requests return 503, not synthetic data.
@@ -33,7 +47,9 @@ No role, badge, subject, roster or authority columns are writable.
 ## Packet and dispatch behavior
 
 Only a verified FTO whose badge matches the active folder supplies new-packet
-defaults. The physical Cruiser field remains editable. Each newly created packet
+defaults. A prior manually entered physical Cruiser number remains the next
+packet's default; without one the field stays blank, never inferred from CAD.
+The physical Cruiser field remains editable. Each newly created packet
 keeps its full derived identity snapshot; saved records, vault restorations and
 manual corrections are never rewritten by profile refresh. A PO profile cannot
 supply FTO context. When the agency profile is unavailable, manual entry remains.
@@ -46,7 +62,13 @@ active CAD unit, not the Cruiser field. The server preserves the dispatch
 allowlist and additionally checks verified FTO identity and current agency
 profile before and after adapter I/O. A different unit is rejected. Event ingress
 requires an exact matching CAD unit in the approved adapter response; unitless
-events are not guessed. The event hook consumes session CAD identity but this
+events are not guessed. Missing, malformed, duplicate/ambiguous, or conflicting
+unit aliases never establish a new profile. The existing approved adapter
+derives `cadIdentity` from its returned full unit. Only an exact current
+subject/version/unit match may confirm these tokens in the existing session
+cache. It cannot change the selected assignment, training company or Cruiser.
+Incident geography is stored separately from these operational district tokens.
+The event hook consumes session CAD identity but this
 change does not invent a polling service or claim an adapter is configured.
 
 The existing draft sync/finalization lifecycle is unchanged: sync produces
@@ -59,6 +81,8 @@ to Coordinator review.
 It is not imported by the portal. The user explicitly approved integration of
 the Account Settings addition. The portal now exposes a small operational
 identity panel through Account Settings for FTOs and POs using existing styles.
+The user also explicitly approved the isolated `OptionalSidePreview` before
+integrating the optional-side choices, validation and fleet-number distinction.
 Signed role and badge are read-only; only the assignment token is editable.
 The existing vault controls, sign-in, daily forms, headers and presentation
 remain unchanged. Saves use the authenticated compare-and-swap endpoint and

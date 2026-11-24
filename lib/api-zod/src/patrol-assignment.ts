@@ -37,7 +37,7 @@ export const CPD_GEOGRAPHY = [
   ] },
 ] as const;
 
-export const TACTICAL_CALL_SIGNS = ["80C-1", "80C-2"] as const;
+export const TACTICAL_CALL_SIGNS = ["80C", "80C-1", "80C-2"] as const;
 export const isTacticalCallSign = (value: unknown): value is typeof TACTICAL_CALL_SIGNS[number] =>
   typeof value === "string" && TACTICAL_CALL_SIGNS.some(code => code === value);
 export const UNIVERSAL_FTO_ASSIGNMENTS = TACTICAL_CALL_SIGNS;
@@ -56,7 +56,7 @@ const precinctWagonNumber = (zone: string, precinct: string) =>
   cpdPrecinctsForZone(zone).some(item => item.precinct === precinct) ? `${precinct}8` : undefined;
 
 export const ftoAssignmentSuffixesForShift = (shift: string): string[] =>
-  ({ DMW:["D1","D2"], EMW:["E1","E2"], "A-Co":["A"], "B-Co":["B"], "C-Co":["C"] }[shift] ?? []);
+  ({ DMW:["D1","D2","D"], EMW:["E1","E2","E"], "A-Co":["A"], "B-Co":["B"], "C-Co":["C"] }[shift] ?? []);
 export const ftoCruiserDistrictsForShift = (zone: string, precinct: string, shift: string) =>
   cpdDistrictsForPrecinct(zone, precinct).filter(district =>
     isMidwatch(shift) ? isMidwatchDistrict(district) : isCompany(shift) && !isMidwatchDistrict(district));
@@ -86,7 +86,7 @@ export function cruiserDistrictForFtoAssignment(
   if (district) return district;
   const wagon = precinctWagonNumber(zone, precinct);
   return wagon && isCompany(shift) && ftoAssignmentSuffixesForShift(shift).some(suffix =>
-    [1,2].some(seat => `${wagon}${suffix}${seat}` === assignment)) ? wagon : undefined;
+    ["","1","2"].some(seat => `${wagon}${suffix}${seat}` === assignment)) ? wagon : undefined;
 }
 
 export function ftoAssignmentsForPrecinct(zone: string, precinct: string, shift: string, _explicitDistrict?: string): string[] {
@@ -100,8 +100,8 @@ export function ftoAssignmentsForPrecinct(zone: string, precinct: string, shift:
   const base = districts.flatMap(district => suffixes.map(suffix => `${district}${suffix}`));
   const seats = districts.flatMap(district => suffixes.flatMap(suffix => [`${district}${suffix}1`,`${district}${suffix}2`]));
   const wagon = precinctWagonNumber(zone, precinct);
-  const wagons = wagon ? suffixes.flatMap(suffix => [1,2].map(seat => `${wagon}${suffix}${seat}`)) : [];
-  return [...base, ...seats, ...wagons, ...UNIVERSAL_FTO_ASSIGNMENTS];
+  const wagons = wagon ? suffixes.flatMap(suffix => ["","1","2"].map(seat => `${wagon}${suffix}${seat}`)) : [];
+  return [...new Set([...base, ...seats, ...wagons, ...UNIVERSAL_FTO_ASSIGNMENTS])];
 }
 
 export function isValidFtoAssignment(

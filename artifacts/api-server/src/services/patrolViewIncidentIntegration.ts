@@ -1,4 +1,5 @@
 import {fetchPatrolViewJson,mapPatrolViewEvent,PatrolViewIntegrationError,type PatrolViewConfig,type DispatchEventPrefill} from './patrolViewIntegration.js';
+import { operationalIdentityFromCad } from '@workspace/api-zod/operational-profile';
 
 export type DispatchIncidentPrefill=DispatchEventPrefill & {
   incidentNumber:string;
@@ -13,9 +14,11 @@ function invalid():never {
   throw new PatrolViewIntegrationError('PATROLVIEW_INVALID_RESPONSE',502,'The approved incident adapter returned invalid data.');
 }
 function optionalUnit(source:Record<string,unknown>):string|undefined {
-  const value=source.unitNumber??source.unit_number;
+  const aliases=[source.unitNumber,source.unit_number,source.cadUnit].filter(value=>value!=null);
+  const value=aliases[0];
   if(value==null)return;
   if(typeof value!=='string'||!/^[A-Za-z0-9 ._:/-]{1,40}$/.test(value.trim()))return invalid();
+  if(aliases.some(alias=>typeof alias!=='string'||alias.trim().toUpperCase()!==value.trim().toUpperCase()))return invalid();
   return value.trim();
 }
 function optionalTime(source:Record<string,unknown>,camel:string,snake:string):string|undefined {
@@ -66,12 +69,13 @@ export function mapPatrolViewIncident(payload:unknown,incidentNumber:string):Dis
     const common=mapPatrolViewEvent(source);
     if(!common.incidentNumber||common.incidentNumber.trim().toUpperCase()!==incidentNumber.trim().toUpperCase())return invalid();
     const unitNumber=optionalUnit(source);
+    const cadIdentity=operationalIdentityFromCad(source);
     const dispatchedAt=optionalTime(source,'dispatchedAt','dispatched_at');
     const clearedAt=optionalTime(source,'clearedAt','cleared_at');
     if(dispatchedAt&&clearedAt&&Date.parse(clearedAt)<Date.parse(dispatchedAt))return invalid();
     // Whitelist only the approved run metrics. Never pass caller, officer, phone,
     // narrative, notes, or any other upstream payload fields to the browser.
-    return {...common,incidentNumber:common.incidentNumber,...(unitNumber?{unitNumber}:{}),
+    return {...common,incidentNumber:common.incidentNumber,...(unitNumber?{unitNumber}:{}),...(cadIdentity?{cadIdentity}:{}),
       ...(unitNumber&&dispatchedAt?{dispatchedAt}:{}),...(unitNumber&&clearedAt?{clearedAt}:{})};
   });
 }

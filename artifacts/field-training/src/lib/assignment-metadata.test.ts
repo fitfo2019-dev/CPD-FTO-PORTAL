@@ -17,7 +17,7 @@ const roster=(code:string,district='153',zone='3',precinct='15',shift='C-Co')=>[
   headers,['TEST ONLY','Example PO','TEST-1','Example FTO','TEST-2','11/22/2026',shift,zone,precinct,district,code],
 ];
 
-test('both tactical call-signs preserve independent Zone 3 / Precinct 15 / C / District 153 metadata',()=>{
+test('all universal call-signs preserve independent Zone 3 / Precinct 15 / C / District 153 metadata',()=>{
   for(const ftoAssignment of TACTICAL_CALL_SIGNS) {
     const input={...area,ftoAssignment};
     assert.deepEqual(PatrolAssignmentMetadataSchema.parse(input),input);
@@ -45,6 +45,8 @@ test('tactical identifiers cannot infer geography or bypass precinct and shift b
     roster('80C-1','9150','3','15','EMW'),
   ]) assert.deepEqual(parseRosterRows(rows).errors,[]);
   assert.throws(()=>assertTacticalAssignmentMetadata({...area,precinct:'8',ftoAssignment:'80C-1'}));
+  assert.doesNotThrow(()=>assertTacticalAssignmentMetadata({ftoAssignment:'80C',shift:'Day'}));
+  assert.throws(()=>assertTacticalAssignmentMetadata({...area,ftoAssignment:'80C',cruiserDistrict:''}));
 });
 
 test('ordinary assignments round-trip across every mapped precinct and shift',()=>{
@@ -64,7 +66,8 @@ test('ordinary assignments round-trip across every mapped precinct and shift',()
   assert.equal(isValidAssignment('3','15','153','DMW'),false);
   assert.equal(isValidAssignment('3','15','9150','C-Co'),false);
   assert.ok(parseRosterRows(roster('153C','153')).assignments.length);
-  assert.ok(parseRosterRows(roster('80C','153')).errors.length);
+  assert.deepEqual(parseRosterRows(roster('80C','153')).errors,[]);
+  assert.ok(parseRosterRows(roster('80C','')).errors.length);
   assert.ok(parseRosterRows(roster('153C','80')).errors.length);
 });
 
@@ -92,5 +95,30 @@ test('saved reports and real workbook cells retain tactical codes without adding
     assert.ok(values.some(value=>value.includes(ftoAssignment)));
     for(const name of workbook.SheetNames) assert.equal(workbook.Sheets[name]['!ref'],ordinary.Sheets[name]['!ref']);
     assert.throws(()=>validateReportsForExport([{...report,precinct:'8'}]));
+  }
+});
+
+test('historical ordinary 80C reports with pre-modern shifts remain exportable without reinterpretation',()=>{
+  for(const shift of ['Day','Swing','Night'] as const) {
+    const report={...seedReports()[0],zone:'3',precinct:'8',cruiserDistrict:'80',ftoAssignment:'80C',shift};
+    const original=structuredClone(report);
+    assert.doesNotThrow(()=>assertTacticalAssignmentMetadata(report));
+    assert.deepEqual(validateReportsForExport([report]),[original]);
+    const workbook=buildClassWorkbook([report]);
+    const values=workbook.SheetNames.flatMap(name=>Object.values(workbook.Sheets[name]).map(cell=>
+      typeof cell==='object'&&cell!==null&&'v' in cell?String(cell.v):''));
+    assert.ok(values.some(value=>value.includes('80C')),'Class workbook retains the original code');
+    assert.ok(values.some(value=>value===shift),'Class workbook retains the historical shift');
+    assert.deepEqual(report,original,'Neither export path rewrites the source report');
+  }
+});
+
+test('new universal assignments still require complete modern metadata in report and workbook exports',()=>{
+  for(const ftoAssignment of TACTICAL_CALL_SIGNS) for(const override of [
+    {cruiserDistrict:''},{zone:'2'},{precinct:'8'},{shift:'DMW' as const},
+  ]) {
+    const report={...seedReports()[0],...area,ftoAssignment,...override};
+    assert.throws(()=>validateReportsForExport([report]),'Report export rejects invalid new universal metadata');
+    assert.throws(()=>buildClassWorkbook([report]),'Workbook export rejects invalid new universal metadata');
   }
 });

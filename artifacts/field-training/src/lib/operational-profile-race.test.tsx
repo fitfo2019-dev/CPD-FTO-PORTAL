@@ -37,12 +37,12 @@ test("event hook aborts former profile/account requests and preserves manual cor
   const reply=(location:string)=>new Response(JSON.stringify({status:"success",metadata:{total_records:1},data:[{location}]}),{status:200,headers:{"Content-Type":"application/json"}});
   try{
     await act(async()=>render());
-    assert.equal(pending[0].body.cadUnit,"9150E");
+    assert.equal(pending[0].body.cadUnit,"9150E-1");
     current={...current,runLocation:"MANUAL CORRECTION"};
-    value={...value,profile:{...value.profile,version:2,identity:parseOperationalIdentity("1234A-2")},contextKey:"TEST-A:2"};
+    value={...value,profile:{...value.profile,version:2,identity:parseOperationalIdentity("9150E")},contextKey:"TEST-A:2"};
     await act(async()=>render());
     assert.equal(pending[0].signal.aborted,true);
-    assert.equal(pending[1].body.cadUnit,"1234A");
+    assert.equal(pending[1].body.cadUnit,"9150E");
     await act(async()=>{pending[0].resolve(reply("STALE FORMER PROFILE"));});
     assert.equal(callbacks,0);
     value={...value,profile:{...value.profile,subject:"TEST-B"},contextKey:"TEST-B:2"};

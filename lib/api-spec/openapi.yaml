@@ -807,11 +807,12 @@ components:
     OperationalIdentity:
       type: object
       additionalProperties: false
-      required: [assignmentToken, cruiserNumber, cadUnit, company, side]
+      required: [assignmentToken, cadUnit, company]
       properties:
-        assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z]-[12]$" }
-        cruiserNumber: { type: string, pattern: "^[0-9]{4}$" }
-        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z]$" }
+        assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
+        cruiserNumber: { type: string, pattern: "^[0-9]{4}$", deprecated: true, description: "Legacy snapshot only; never infer a physical fleet number from CAD." }
+        districtToken: { type: string, pattern: "^[0-9]{4}$" }
+        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
         company: { type: string, pattern: "^[A-Z]$" }
         side: { type: string, enum: ["1", "2"] }
     OperationalProfileInput:
@@ -819,7 +820,7 @@ components:
       additionalProperties: false
       required: [assignmentToken, expectedVersion]
       properties:
-        assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z]-[12]$" }
+        assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
         expectedVersion: { type: integer, minimum: 0, maximum: 2147483646 }
     OperationalProfileContext:
       type: object
@@ -1469,6 +1470,7 @@ components:
       additionalProperties: false
       required: [incidentNumber]
       properties:
+        cadIdentity: { $ref: "#/components/schemas/OperationalIdentity" }
         incidentNumber: { type: string, minLength: 1, maxLength: 120 }
         unitNumber: { type: string, minLength: 1, maxLength: 40 }
         eventDate: { type: string, format: date }
@@ -1507,7 +1509,7 @@ components:
       additionalProperties: false
       required: [eventId, cadUnit]
       properties:
-        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z]$" }
+        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
         eventId:
           type: string
           minLength: 1
@@ -1517,6 +1519,7 @@ components:
       type: object
       additionalProperties: false
       properties:
+        cadIdentity: { $ref: "#/components/schemas/OperationalIdentity" }
         eventDate:
           type: string
           format: date

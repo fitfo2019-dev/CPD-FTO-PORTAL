@@ -15,6 +15,13 @@ export function assertAssignmentMetadata(value: SavedMetadata): void {
 
 /** Older ordinary records may contain incomplete geography. Leave those alone;
  * tactical records must always reopen with their independent official area. */
+export function requiresTacticalAssignmentMetadata(value: SavedMetadata): boolean {
+  // 80C was also an ordinary company choice in older Precinct 8 records.
+  // Do not newly reject those historical, pre-modern-shift snapshots. New
+  // writes/imports still go through the full metadata validator above.
+  if (value.ftoAssignment === '80C' && !['A-Co','B-Co','C-Co','DMW','EMW'].includes(value.shift ?? '')) return false;
+  return isTacticalCallSign(value.ftoAssignment);
+}
 export function assertTacticalAssignmentMetadata(value: SavedMetadata): void {
-  if (isTacticalCallSign(value.ftoAssignment)) PatrolAssignmentMetadataSchema.parse(value);
+  if (requiresTacticalAssignmentMetadata(value)) PatrolAssignmentMetadataSchema.parse(value);
 }

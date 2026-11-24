@@ -7,7 +7,7 @@
  */
 
 export interface OperationalProfileInput {
-  /** @pattern ^[0-9]{4}[A-Z]-[12]$ */
+  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   assignmentToken: string;
   /**
      * @minimum 0

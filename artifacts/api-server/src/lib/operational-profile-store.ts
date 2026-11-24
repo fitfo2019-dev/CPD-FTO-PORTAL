@@ -33,14 +33,14 @@ export function createOperationalProfileStore(pool: pg.Pool) {
       const result = await pool.query(
         expectedVersion === 0
           ? `INSERT INTO agency_training.operational_profiles
-            (subject_hash,assignment_token,cruiser_number,cad_unit,company,side)
+            (subject_hash,assignment_token,district_token,cad_unit,company,side)
             VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (subject_hash) DO NOTHING
             RETURNING version,updated_at`
           : `UPDATE agency_training.operational_profiles SET assignment_token=$2,
-            cruiser_number=$3,cad_unit=$4,company=$5,side=$6,version=version+1,updated_at=clock_timestamp()
+            district_token=$3,cad_unit=$4,company=$5,side=$6,version=version+1,updated_at=clock_timestamp()
             WHERE subject_hash=$1 AND version=$7 RETURNING version,updated_at`,
-        [hashUserIdentifier(identity.id), assignmentToken, derived.cruiserNumber,
-          derived.cadUnit, derived.company, derived.side, ...(expectedVersion ? [expectedVersion] : [])],
+        [hashUserIdentifier(identity.id), assignmentToken, derived.districtToken,
+          derived.cadUnit, derived.company, derived.side ?? null, ...(expectedVersion ? [expectedVersion] : [])],
       );
       if (!result.rows[0]) throw new PacketError(409, "PROFILE_VERSION_CONFLICT");
       return GetOperationalProfileResponse.parse({

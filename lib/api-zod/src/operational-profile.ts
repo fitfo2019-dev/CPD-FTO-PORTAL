@@ -1,23 +1,43 @@
 import { z } from "zod/v4";
 
-/** Vehicle identity is not a roster, shift, precinct or access assignment. */
-export const OperationalAssignmentToken = z.string().regex(/^[0-9]{4}[A-Z]-[12]$/,
-  "Use four cruiser digits, an uppercase company letter, and side -1 or -2.");
+/** CAD district/shift identity is not a physical fleet number or roster authority. */
+export const OperationalAssignmentToken = z.string().regex(/^[0-9]{4}[A-Z](?:-[12])?$/,
+  "Use four district digits, an uppercase shift letter, and optional side -1 or -2.");
 export function parseOperationalIdentity(value: unknown) {
   const assignmentToken = OperationalAssignmentToken.parse(value);
   return {
-    assignmentToken, cruiserNumber: assignmentToken.slice(0, 4),
-    cadUnit: assignmentToken.slice(0, 5), company: assignmentToken[4]!,
-    side: assignmentToken.slice(-1) as "1" | "2",
+    assignmentToken, districtToken: assignmentToken.slice(0, 4),
+    cadUnit: assignmentToken, company: assignmentToken[4]!,
+    ...(assignmentToken.length === 7 ? { side: assignmentToken[6] as "1" | "2" } : {}),
   };
 }
-export type OperationalIdentity = ReturnType<typeof parseOperationalIdentity>;
 export const OperationalIdentitySnapshot = z.object({
   assignmentToken: OperationalAssignmentToken,
-  cruiserNumber: z.string(), cadUnit: z.string(), company: z.string(), side: z.enum(["1", "2"]),
+  districtToken: z.string().optional(),
+  // Retained only to read historical snapshots without rewriting their JSON.
+  cruiserNumber: z.string().optional(),
+  cadUnit: z.string(), company: z.string(), side: z.enum(["1", "2"]).optional(),
 }).strict().superRefine((value, ctx) => {
   const expected = parseOperationalIdentity(value.assignmentToken);
-  for (const key of ["cruiserNumber", "cadUnit", "company", "side"] as const) {
-    if (value[key] !== expected[key]) ctx.addIssue({ code: "custom", path: [key], message: "Identity derivation does not match the assignment token." });
+  const legacy = value.districtToken === undefined && value.assignmentToken.length === 7
+    && value.cruiserNumber === expected.districtToken && value.cadUnit === value.assignmentToken.slice(0, 5);
+  for (const key of ["districtToken", "cadUnit", "company", "side"] as const) {
+    const wanted = legacy && key === "cadUnit" ? value.assignmentToken.slice(0, 5)
+      : legacy && key === "districtToken" ? undefined : expected[key];
+    if (value[key] !== wanted) ctx.addIssue({ code: "custom", path: [key], message: "Identity derivation does not match the assignment token." });
   }
+  if (!legacy && value.cruiserNumber !== undefined)
+    ctx.addIssue({ code: "custom", path: ["cruiserNumber"], message: "CAD district digits are not a physical fleet number." });
 });
+export type OperationalIdentity = z.infer<typeof OperationalIdentitySnapshot>;
+
+/** Multiple adapter aliases must agree; a malformed/conflicting unit is not guessed. */
+export function operationalIdentityFromCad(source: Record<string, unknown>) {
+  const units = ["unitNumber", "unit_number", "cadUnit"].flatMap(key =>
+    source[key] == null ? [] : [source[key]]);
+  if (!units.length || units.some(unit => typeof unit !== "string")) return undefined;
+  const normalized = (units as string[]).map(unit => unit.trim().toUpperCase());
+  if (normalized.some(unit => unit !== normalized[0]) || !OperationalAssignmentToken.safeParse(normalized[0]).success)
+    return undefined;
+  return parseOperationalIdentity(normalized[0]);
+}

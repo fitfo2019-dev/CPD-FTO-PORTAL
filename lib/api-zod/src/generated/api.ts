@@ -10,9 +10,10 @@ import * as zod from 'zod';
 
 export const getOperationalProfileResponseVersionMin = 0;
 
-export const getOperationalProfileResponseIdentityOneAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const getOperationalProfileResponseIdentityOneAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const getOperationalProfileResponseIdentityOneCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const getOperationalProfileResponseIdentityOneCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const getOperationalProfileResponseIdentityOneDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const getOperationalProfileResponseIdentityOneCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const getOperationalProfileResponseIdentityOneCompanyRegExp = new RegExp('^[A-Z]$');
 
 
@@ -23,16 +24,17 @@ export const GetOperationalProfileResponse = zod.object({
   "version": zod.number().int().min(getOperationalProfileResponseVersionMin),
   "identity": zod.union([zod.object({
   "assignmentToken": zod.string().regex(getOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(getOperationalProfileResponseIdentityOneCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(getOperationalProfileResponseIdentityOneCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(getOperationalProfileResponseIdentityOneDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(getOperationalProfileResponseIdentityOneCadUnitRegExp),
   "company": zod.string().regex(getOperationalProfileResponseIdentityOneCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }),zod.null()]),
   "updatedAt": zod.coerce.date().optional()
 })
 
 
-export const updateOperationalProfileBodyAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const updateOperationalProfileBodyAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const updateOperationalProfileBodyExpectedVersionMin = 0;
 export const updateOperationalProfileBodyExpectedVersionMax = 2147483646;
 
@@ -45,9 +47,10 @@ export const UpdateOperationalProfileBody = zod.object({
 
 export const updateOperationalProfileResponseVersionMin = 0;
 
-export const updateOperationalProfileResponseIdentityOneAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const updateOperationalProfileResponseIdentityOneAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const updateOperationalProfileResponseIdentityOneCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const updateOperationalProfileResponseIdentityOneCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const updateOperationalProfileResponseIdentityOneDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const updateOperationalProfileResponseIdentityOneCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const updateOperationalProfileResponseIdentityOneCompanyRegExp = new RegExp('^[A-Z]$');
 
 
@@ -58,10 +61,11 @@ export const UpdateOperationalProfileResponse = zod.object({
   "version": zod.number().int().min(updateOperationalProfileResponseVersionMin),
   "identity": zod.union([zod.object({
   "assignmentToken": zod.string().regex(updateOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(updateOperationalProfileResponseIdentityOneCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(updateOperationalProfileResponseIdentityOneCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(updateOperationalProfileResponseIdentityOneDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(updateOperationalProfileResponseIdentityOneCadUnitRegExp),
   "company": zod.string().regex(updateOperationalProfileResponseIdentityOneCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }),zod.null()]),
   "updatedAt": zod.coerce.date().optional()
 })
@@ -171,9 +175,10 @@ export const GetPacketSubmissionParams = zod.object({
 })
 
 
-export const getPacketSubmissionResponseReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const getPacketSubmissionResponseReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const getPacketSubmissionResponseReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const getPacketSubmissionResponseReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const getPacketSubmissionResponseReportOperationalIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const getPacketSubmissionResponseReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const getPacketSubmissionResponseReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const getPacketSubmissionResponseReportIdMax = 128;
 
@@ -223,10 +228,11 @@ export const GetPacketSubmissionResponse = zod.object({
   "report": zod.object({
   "operationalIdentity": zod.object({
   "assignmentToken": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCadUnitRegExp),
   "company": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }).optional(),
   "id": zod.string().min(1).max(getPacketSubmissionResponseReportIdMax).regex(getPacketSubmissionResponseReportIdRegExp),
   "date": zod.string().regex(getPacketSubmissionResponseReportDateRegExp),
@@ -621,9 +627,10 @@ export const listTrainingPacketsResponseDataItemRecordDateRegExp = new RegExp('^
 export const listTrainingPacketsResponseDataItemPhaseMax = 4;
 
 
-export const listTrainingPacketsResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const listTrainingPacketsResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const listTrainingPacketsResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const listTrainingPacketsResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const listTrainingPacketsResponseDataItemReportOperationalIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const listTrainingPacketsResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const listTrainingPacketsResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const listTrainingPacketsResponseDataItemReportIdMax = 128;
 
@@ -678,10 +685,11 @@ export const ListTrainingPacketsResponse = zod.object({
   "report": zod.object({
   "operationalIdentity": zod.object({
   "assignmentToken": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCadUnitRegExp),
   "company": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }).optional(),
   "id": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportIdMax).regex(listTrainingPacketsResponseDataItemReportIdRegExp),
   "date": zod.string().regex(listTrainingPacketsResponseDataItemReportDateRegExp),
@@ -747,9 +755,10 @@ export const syncTrainingPacketsBodyPacketsItemAmendmentOfMax = 128;
 export const syncTrainingPacketsBodyPacketsItemAmendmentOfRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
 export const syncTrainingPacketsBodyPacketsItemAmendmentReasonMax = 4000;
 
-export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const syncTrainingPacketsBodyPacketsItemReportIdMax = 128;
 
@@ -791,10 +800,11 @@ export const SyncTrainingPacketsBody = zod.object({
   "report": zod.object({
   "operationalIdentity": zod.object({
   "assignmentToken": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCadUnitRegExp),
   "company": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }).optional(),
   "id": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportIdMax).regex(syncTrainingPacketsBodyPacketsItemReportIdRegExp),
   "date": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportDateRegExp),
@@ -876,9 +886,10 @@ export const finalizeTrainingPacketResponseDataItemRecordDateRegExp = new RegExp
 export const finalizeTrainingPacketResponseDataItemPhaseMax = 4;
 
 
-export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const finalizeTrainingPacketResponseDataItemReportIdMax = 128;
 
@@ -933,10 +944,11 @@ export const FinalizeTrainingPacketResponse = zod.object({
   "report": zod.object({
   "operationalIdentity": zod.object({
   "assignmentToken": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
   "company": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }).optional(),
   "id": zod.string().min(1).max(finalizeTrainingPacketResponseDataItemReportIdMax).regex(finalizeTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(finalizeTrainingPacketResponseDataItemReportDateRegExp),
@@ -1004,9 +1016,10 @@ export const releaseTrainingPacketResponseDataItemRecordDateRegExp = new RegExp(
 export const releaseTrainingPacketResponseDataItemPhaseMax = 4;
 
 
-export const releaseTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const releaseTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const releaseTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const releaseTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const releaseTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const releaseTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const releaseTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const releaseTrainingPacketResponseDataItemReportIdMax = 128;
 
@@ -1061,10 +1074,11 @@ export const ReleaseTrainingPacketResponse = zod.object({
   "report": zod.object({
   "operationalIdentity": zod.object({
   "assignmentToken": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
   "company": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }).optional(),
   "id": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportIdMax).regex(releaseTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(releaseTrainingPacketResponseDataItemReportDateRegExp),
@@ -1135,9 +1149,10 @@ export const acknowledgeTrainingPacketResponseDataItemRecordDateRegExp = new Reg
 export const acknowledgeTrainingPacketResponseDataItemPhaseMax = 4;
 
 
-export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const acknowledgeTrainingPacketResponseDataItemReportIdMax = 128;
 
@@ -1192,10 +1207,11 @@ export const AcknowledgeTrainingPacketResponse = zod.object({
   "report": zod.object({
   "operationalIdentity": zod.object({
   "assignmentToken": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
   "company": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }).optional(),
   "id": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportIdMax).regex(acknowledgeTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportDateRegExp),
@@ -1265,9 +1281,10 @@ export const withdrawTrainingPacketResponseDataItemRecordDateRegExp = new RegExp
 export const withdrawTrainingPacketResponseDataItemPhaseMax = 4;
 
 
-export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const withdrawTrainingPacketResponseDataItemReportIdMax = 128;
 
@@ -1322,10 +1339,11 @@ export const WithdrawTrainingPacketResponse = zod.object({
   "report": zod.object({
   "operationalIdentity": zod.object({
   "assignmentToken": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
   "company": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }).optional(),
   "id": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportIdMax).regex(withdrawTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(withdrawTrainingPacketResponseDataItemReportDateRegExp),
@@ -1384,9 +1402,10 @@ export const getTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\
 export const getTrainingPacketResponseDataItemPhaseMax = 4;
 
 
-export const getTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const getTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const getTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
-export const getTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const getTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const getTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const getTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const getTrainingPacketResponseDataItemReportIdMax = 128;
 
@@ -1441,10 +1460,11 @@ export const GetTrainingPacketResponse = zod.object({
   "report": zod.object({
   "operationalIdentity": zod.object({
   "assignmentToken": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
-  "cruiserNumber": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cruiserNumber": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
   "cadUnit": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
   "company": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
-  "side": zod.enum(['1', '2'])
+  "side": zod.enum(['1', '2']).optional()
 }).optional(),
   "id": zod.string().min(1).max(getTrainingPacketResponseDataItemReportIdMax).regex(getTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(getTrainingPacketResponseDataItemReportDateRegExp),
@@ -1564,6 +1584,11 @@ export const DispatchIncidentLookupBody = zod.object({
 export const dispatchIncidentLookupResponseMetadataTotalRecordsMin = 0;
 export const dispatchIncidentLookupResponseMetadataTotalRecordsMax = 100;
 
+export const dispatchIncidentLookupResponseDataItemCadIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
+export const dispatchIncidentLookupResponseDataItemCadIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const dispatchIncidentLookupResponseDataItemCadIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const dispatchIncidentLookupResponseDataItemCadIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
+export const dispatchIncidentLookupResponseDataItemCadIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const dispatchIncidentLookupResponseDataItemIncidentNumberMax = 120;
 
 export const dispatchIncidentLookupResponseDataItemUnitNumberMax = 40;
@@ -1591,6 +1616,14 @@ export const DispatchIncidentLookupResponse = zod.object({
   "total_records": zod.number().int().min(dispatchIncidentLookupResponseMetadataTotalRecordsMin).max(dispatchIncidentLookupResponseMetadataTotalRecordsMax)
 }),
   "data": zod.array(zod.object({
+  "cadIdentity": zod.object({
+  "assignmentToken": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityDistrictTokenRegExp).optional(),
+  "cadUnit": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityCadUnitRegExp),
+  "company": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2']).optional()
+}).optional(),
   "incidentNumber": zod.string().min(1).max(dispatchIncidentLookupResponseDataItemIncidentNumberMax),
   "unitNumber": zod.string().min(1).max(dispatchIncidentLookupResponseDataItemUnitNumberMax).optional(),
   "eventDate": zod.coerce.date().optional(),
@@ -1614,7 +1647,7 @@ export const DispatchIncidentLookupResponse = zod.object({
  * Looks up one explicit event ID using the protected server-side adapter. This does not discover or poll active units.
  * @summary Look up an approved dispatch event
  */
-export const dispatchEventIngressBodyCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const dispatchEventIngressBodyCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
 export const dispatchEventIngressBodyEventIdMax = 128;
 
 
@@ -1629,6 +1662,11 @@ export const DispatchEventIngressBody = zod.object({
 export const dispatchEventIngressResponseMetadataTotalRecordsMin = 0;
 export const dispatchEventIngressResponseMetadataTotalRecordsMax = 1;
 
+export const dispatchEventIngressResponseDataItemCadIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
+export const dispatchEventIngressResponseDataItemCadIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const dispatchEventIngressResponseDataItemCadIdentityDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const dispatchEventIngressResponseDataItemCadIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
+export const dispatchEventIngressResponseDataItemCadIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const dispatchEventIngressResponseDataItemIncidentNumberMax = 120;
 
 export const dispatchEventIngressResponseDataItemLocationMax = 200;
@@ -1657,6 +1695,14 @@ export const DispatchEventIngressResponse = zod.object({
   "total_records": zod.number().int().min(dispatchEventIngressResponseMetadataTotalRecordsMin).max(dispatchEventIngressResponseMetadataTotalRecordsMax)
 }),
   "data": zod.array(zod.object({
+  "cadIdentity": zod.object({
+  "assignmentToken": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityDistrictTokenRegExp).optional(),
+  "cadUnit": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityCadUnitRegExp),
+  "company": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2']).optional()
+}).optional(),
   "eventDate": zod.coerce.date().optional(),
   "eventIngressAt": zod.coerce.date().optional(),
   "incidentNumber": zod.string().max(dispatchEventIngressResponseDataItemIncidentNumberMax).optional(),

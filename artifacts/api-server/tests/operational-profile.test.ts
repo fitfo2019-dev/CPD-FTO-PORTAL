@@ -12,11 +12,12 @@ import { CompletePacketInput } from "../src/lib/packet-contract.js";
 
 const fto: AgencyIdentity={id:"FICTIONAL-FTO",badge:"TEST-1",role:"FTO"};
 const po: AgencyIdentity={id:"FICTIONAL-PO",badge:"TEST-2",role:"PO"};
-test("exact cruiser examples retain side and token; reject malformed and legacy roster tokens",()=>{
+test("CAD examples retain full unit and optional side, never an inferred fleet number",()=>{
   for(const side of ["1","2"]) assert.deepEqual(parseOperationalIdentity(`9150E-${side}`),{
-    assignmentToken:`9150E-${side}`,cruiserNumber:"9150",cadUnit:"9150E",company:"E",side,
+    assignmentToken:`9150E-${side}`,districtToken:"9150",cadUnit:`9150E-${side}`,company:"E",side,
   });
-  for(const value of ["9150E","9150E1","9150e-1"," 9150E-1","9150E-1 ","9150E-3","80C-1","9150EE-1","915E-1",null,9150])
+  assert.deepEqual(parseOperationalIdentity("9150E"),{assignmentToken:"9150E",districtToken:"9150",cadUnit:"9150E",company:"E"});
+  for(const value of ["9150E1","9150e-1"," 9150E-1","9150E-1 ","9150E-3","80C-1","9150EE-1","915E-1",null,9150])
     assert.equal(OperationalAssignmentToken.safeParse(value).success,false,String(value));
 });
 
@@ -25,6 +26,7 @@ test("agency SQL atomically saves own profile, rejects stale concurrent saves an
   try{
     await db.exec("CREATE SCHEMA agency_training");
     await db.exec(await readFile(new URL("../migrations/operational-profiles.sql",import.meta.url),"utf8"));
+    await db.exec(await readFile(new URL("../migrations/operational-profile-optional-sides.sql",import.meta.url),"utf8"));
     const store=createOperationalProfileStore({query:(sql:string,args:unknown[])=>db.query(sql,args)} as unknown as pg.Pool);
     assert.equal((await store.read(fto)).identity,null);
     const creations=await Promise.allSettled(["9150E-1","9150E-2"].map(assignmentToken=>store.save(fto,{assignmentToken,expectedVersion:0})));
@@ -46,6 +48,15 @@ test("agency SQL atomically saves own profile, rejects stale concurrent saves an
     await assert.rejects(store.save({...fto,role:"FTO_COORDINATOR"},{assignmentToken:"9150E-1",expectedVersion:2}),{status:403});
     await assert.rejects(db.query("UPDATE agency_training.operational_profiles SET cad_unit='WRONG'"));
     assert.deepEqual(await store.read(fto),saved);
+    const unsided=await store.save(fto,{assignmentToken:"9150E",expectedVersion:2});
+    assert.equal(unsided.identity?.side,undefined);
+    assert.equal(unsided.identity?.cadUnit,"9150E");
+    const raw=await db.query("SELECT side,cruiser_number,district_token,cad_unit FROM agency_training.operational_profiles WHERE assignment_token='9150E'");
+    assert.deepEqual(raw.rows,[{side:null,cruiser_number:null,district_token:"9150",cad_unit:"9150E"}]);
+    await assert.rejects(db.query("UPDATE agency_training.operational_profiles SET side='1' WHERE assignment_token='9150E'"));
+    const sided=await store.save(fto,{assignmentToken:"9150E-2",expectedVersion:3});
+    assert.equal(sided.identity?.side,"2");
+    assert.equal((await store.read(fto)).identity?.cadUnit,"9150E-2");
   }finally{await db.close();}
 });
 
@@ -91,4 +102,23 @@ test("complete packet contract keeps identity snapshots optional but rejects for
   const operationalIdentity=parseOperationalIdentity("9150E-1");
   assert.deepEqual(CompletePacketInput.parse(input({...base,operationalIdentity})).packets[0].report.operationalIdentity,operationalIdentity);
   assert.equal(CompletePacketInput.safeParse(input({...base,operationalIdentity:{...operationalIdentity,cadUnit:"OTHER"}})).success,false);
+  const historical={assignmentToken:"9150E-1",cruiserNumber:"9150",cadUnit:"9150E",company:"E",side:"1"};
+  assert.deepEqual(CompletePacketInput.parse(input({...base,operationalIdentity:historical})).packets[0].report.operationalIdentity,historical);
+  const unsided=parseOperationalIdentity("9150E");
+  assert.deepEqual(CompletePacketInput.parse(input({...base,operationalIdentity:unsided})).packets[0].report.operationalIdentity,unsided);
+});
+
+test("migration preserves former profile evidence and packet JSON while invalidating old session versions",async()=>{
+  const db=new PGlite();
+  try{
+    await db.exec("CREATE SCHEMA agency_training");
+    await db.exec(await readFile(new URL("../migrations/operational-profiles.sql",import.meta.url),"utf8"));
+    await db.query("INSERT INTO agency_training.operational_profiles(subject_hash,assignment_token,cruiser_number,cad_unit,company,side) VALUES ($1,'9150E-1','9150','9150E','E','1')",["a".repeat(64)]);
+    await db.exec("CREATE TABLE agency_training.historical_test(report jsonb); INSERT INTO agency_training.historical_test VALUES ('{\"reportingForDuty\":{\"cruiserId\":\"MANUAL\"},\"operationalIdentity\":{\"cadUnit\":\"9150E\"}}')");
+    const before=await db.query("SELECT report FROM agency_training.historical_test");
+    await db.exec(await readFile(new URL("../migrations/operational-profile-optional-sides.sql",import.meta.url),"utf8"));
+    const raw=await db.query("SELECT version,cad_unit,cruiser_number,district_token FROM agency_training.operational_profiles");
+    assert.deepEqual(raw.rows,[{version:2,cad_unit:"9150E-1",cruiser_number:"9150",district_token:"9150"}]);
+    assert.deepEqual(await db.query("SELECT report FROM agency_training.historical_test"),before);
+  }finally{await db.close();}
 });

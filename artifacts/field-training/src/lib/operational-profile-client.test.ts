@@ -27,6 +27,7 @@ test("profile response validation rejects incomplete, wrapped or forged-derived 
   t.mock.method(globalThis,"fetch",async()=>json(body));
   for(const invalid of [{},{...profile,subject:undefined},{...profile,version:-1},
     {...profile,identity:{...profile.identity,cadUnit:"WRONG"}},
+    {...profile,identity:{assignmentToken:"9150E-1",cruiserNumber:"9150",cadUnit:"9150E",company:"E",side:"1"}},
     {status:"success",metadata:{},data:[profile]}]){
     body=invalid;await assert.rejects(getOperationalProfile(),/documented contract/);
   }
@@ -40,4 +41,13 @@ test("packet review context keeps its actual object contract through the shared 
   const context={available:true,account_id:profile.subject,role:"FTO",coordinators:[],assignments:[],pending_count:0,pending:null};
   t.mock.method(globalThis,"fetch",async()=>json(context));
   assert.deepEqual(await getPacketReviewContext(),context);
+});
+test("refreshed unsided profile stays unsided through the actual generated GET and PUT clients",async t=>{
+  const unsided={...profile,version:2,identity:parseOperationalIdentity("9150E")};
+  t.mock.method(globalThis,"fetch",async()=>json(unsided));
+  for(const result of [await getOperationalProfile(),await updateOperationalProfile({assignmentToken:"9150E",expectedVersion:1})]) {
+    assert.deepEqual(result,unsided);
+    assert.equal("side" in result.identity!,false);
+    assert.equal("cruiserNumber" in result.identity!,false);
+  }
 });

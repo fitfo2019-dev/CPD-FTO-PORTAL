@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { isTacticalCallSign, PatrolAssignmentMetadataSchema } from './cpd-geography.js';
+import { PatrolAssignmentMetadataSchema } from './cpd-geography.js';
+import { requiresTacticalAssignmentMetadata } from './assignment-metadata.js';
 import { ARREST_CLASSIFICATION_VERSION, ARREST_SEVERITIES, ARREST_TYPES } from './arrest-classification.js';
 import {
   CATEGORIES,
@@ -223,7 +224,7 @@ const reportSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 }).passthrough().superRefine((value,context)=>{
-  if(!isTacticalCallSign(value.ftoAssignment)) return;
+  if(!requiresTacticalAssignmentMetadata(value)) return;
   const metadata=PatrolAssignmentMetadataSchema.safeParse(value);
   if(!metadata.success) metadata.error.issues.forEach(issue=>context.addIssue({...issue,code:'custom'}));
 });

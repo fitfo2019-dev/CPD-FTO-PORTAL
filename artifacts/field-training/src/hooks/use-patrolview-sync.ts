@@ -22,7 +22,7 @@ export function usePatrolViewSync({
   draft,
   onPrefill,
 }: UsePatrolViewSyncOptions): { status: PatrolViewSyncStatus; reset: () => void } {
-  const { profile, contextKey } = useOperationalProfile();
+  const { profile, contextKey, confirmCadIdentity } = useOperationalProfile();
   const cadUnit = profile?.role === 'FTO' ? profile.identity?.cadUnit : undefined;
   const [status, setStatus] = useState<PatrolViewSyncStatus>("idle");
   const attemptedEventId = useRef<string | null>(null);
@@ -30,6 +30,8 @@ export function usePatrolViewSync({
   const requestController = useRef<AbortController | null>(null);
   const draftRef = useRef(draft);
   const onPrefillRef = useRef(onPrefill);
+  const contextRef = useRef(contextKey);
+  contextRef.current = contextKey;
   draftRef.current = draft;
   onPrefillRef.current = onPrefill;
 
@@ -52,12 +54,17 @@ export function usePatrolViewSync({
       { eventId, cadUnit },
       { credentials: "include", signal: controller.signal },
     ).then((response) => {
-      if (controller.signal.aborted || sequence !== requestSequence.current) return;
+      if (controller.signal.aborted || sequence !== requestSequence.current || contextRef.current !== contextKey) return;
       const prefill = mapDispatchPrefillResponse(response);
       if (!prefill) {
         setStatus("unavailable");
         return;
       }
+      if (prefill.cadIdentity && prefill.cadIdentity.cadUnit !== cadUnit) {
+        setStatus("unavailable");
+        return;
+      }
+      if (prefill.cadIdentity) confirmCadIdentity?.(prefill.cadIdentity, contextKey);
       // This automatic path may rerun after an account/profile refresh. Existing
       // authored values are not a new empty form, even if unchanged in flight.
       const protectedPrefill = { ...prefill };
@@ -73,7 +80,7 @@ export function usePatrolViewSync({
       onPrefillRef.current(initialDraft, protectedPrefill);
       setStatus(Object.values(prefill).some((value) => value !== undefined) ? "loaded" : "empty");
     }).catch(() => {
-      if (!controller.signal.aborted && sequence === requestSequence.current) {
+      if (!controller.signal.aborted && sequence === requestSequence.current && contextRef.current === contextKey) {
         setStatus("unavailable");
       }
     });
@@ -84,7 +91,7 @@ export function usePatrolViewSync({
       if (requestSequence.current === sequence) requestSequence.current += 1;
       if (attemptedEventId.current === eventId) attemptedEventId.current = null;
     };
-  }, [enabled, eventId, cadUnit, contextKey]);
+  }, [enabled, eventId, cadUnit, contextKey, confirmCadIdentity]);
 
   const reset = () => {
     requestController.current?.abort();

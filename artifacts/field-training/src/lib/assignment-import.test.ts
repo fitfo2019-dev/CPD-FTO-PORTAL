@@ -53,7 +53,7 @@ test('universal assignment codes are offered for every mapped precinct and suppo
     const compatibleDistricts=ftoCruiserDistrictsForShift(zone.zone,precinct.precinct,shift);
     const compatibleDistrict=compatibleDistricts[0];
     assert.ok(compatibleDistrict,`${zone.zone}/${precinct.precinct}/${shift} has a mapped district`);
-    for(const code of ['80C-1','80C-2']) {
+    for(const code of ['80C','80C-1','80C-2']) {
       assert.ok(options.includes(code),`${zone.zone}/${precinct.precinct}/${shift} offers ${code}`);
       assert.equal(isValidFtoAssignment(zone.zone,precinct.precinct,code,shift,compatibleDistrict),true);
       assert.equal(cruiserDistrictForFtoAssignment(zone.zone,precinct.precinct,code,shift),undefined);
@@ -63,6 +63,28 @@ test('universal assignment codes are offered for every mapped precinct and suppo
   assert.equal(isValidFtoAssignment('2','1','80C-1','A-Co','10'),false);
   assert.equal(isValidFtoAssignment('1','1','80C-2','DMW','10'),false);
   assert.equal(ftoAssignmentsForPrecinct('1','1','unknown').length,0);
+});
+
+test('every sided assignment has an unsided counterpart with identical geography and shift restrictions',()=>{
+  for(const zone of CPD_GEOGRAPHY) for(const precinct of zone.precincts) for(const shift of ['A-Co','B-Co','C-Co','DMW','EMW']) {
+    const options=ftoAssignmentsForPrecinct(zone.zone,precinct.precinct,shift);
+    assert.equal(new Set(options).size,options.length);
+    for(const code of options) {
+      const unsided=code.replace(/-?[12]$/,'');
+      assert.ok(options.includes(unsided),`${code} requires ${unsided}`);
+      const district=code.startsWith('80C')?ftoCruiserDistrictsForShift(zone.zone,precinct.precinct,shift)[0]
+        :cruiserDistrictForFtoAssignment(zone.zone,precinct.precinct,code,shift);
+      assert.ok(district);
+      assert.equal(isValidFtoAssignment(zone.zone,precinct.precinct,unsided,shift,district),true,unsided);
+      assert.equal(cruiserDistrictForFtoAssignment(zone.zone,precinct.precinct,unsided,shift,district),
+        cruiserDistrictForFtoAssignment(zone.zone,precinct.precinct,code,shift,district));
+    }
+  }
+  assert.equal(isValidFtoAssignment('3','15','9150E','DMW','9150'),false);
+  assert.equal(isValidFtoAssignment('3','15','158C','EMW','158'),false);
+  assert.equal(isValidFtoAssignment('3','15','80C','EMW'),false);
+  assert.equal(isValidFtoAssignment('3','15','80C','EMW','150'),false);
+  assert.equal(isValidFtoAssignment('3','8','80C','A-Co','81'),true,'80C must not infer district 80');
 });
 
 test('roster import preserves and checks a universal assignment mapped district',()=>{

@@ -14,19 +14,25 @@ export const OperationalIdentitySide = {
 } as const;
 
 export interface OperationalIdentity {
-  /** @pattern ^[0-9]{4}[A-Z]-[12]$ */
+  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   assignmentToken: string;
+  /**
+     * Legacy snapshot only; never infer a physical fleet number from CAD.
+     * @deprecated
+     * @pattern ^[0-9]{4}$
+     */
+  cruiserNumber?: string;
   /** @pattern ^[0-9]{4}$ */
-  cruiserNumber: string;
-  /** @pattern ^[0-9]{4}[A-Z]$ */
+  districtToken?: string;
+  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   cadUnit: string;
   /** @pattern ^[A-Z]$ */
   company: string;
-  side: OperationalIdentitySide;
+  side?: OperationalIdentitySide;
 }
 
 export interface OperationalProfileInput {
-  /** @pattern ^[0-9]{4}[A-Z]-[12]$ */
+  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   assignmentToken: string;
   /**
      * @minimum 0
@@ -968,6 +974,7 @@ export const DispatchIncidentPrefillClearanceCode = {
 } as const;
 
 export interface DispatchIncidentPrefill {
+  cadIdentity?: OperationalIdentity;
   /**
      * @minLength 1
      * @maxLength 120
@@ -1024,7 +1031,7 @@ export interface DispatchIncidentEnvelope {
 }
 
 export interface DispatchEventIngressInput {
-  /** @pattern ^[0-9]{4}[A-Z]$ */
+  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   cadUnit: string;
   /**
      * @minLength 1
@@ -1046,6 +1053,7 @@ export const DispatchEventPrefillClearanceCode = {
 } as const;
 
 export interface DispatchEventPrefill {
+  cadIdentity?: OperationalIdentity;
   eventDate?: string;
   eventIngressAt?: string;
   /** @maxLength 120 */

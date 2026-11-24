@@ -299,14 +299,14 @@ content_type = "text/markdown"
 id = "GEw4cUu2PgVFTIvl-ltKs"
 uri = "file://dist-production.zip"
 type = "unspecified"
-title = "Corrected API Handover Package — Latest"
-description = "Replaces the earlier archive. Includes the corrected PO release/withdrawal and exact-version protections, migrations, runtime and handover guide. API-only; no production deployment."
+title = "Updated production handover ZIP"
+description = "Verified 77-file delivery with optional-side assignments, exact CAD matching, current migrations, and historical 80C report/workbook export compatibility. No secrets or saved records."
 logical_id = "53770732-0f29-44f2-b2d6-4f0a761fe5c5"
-content_hash = "sha256:531e6b54ae66e0917b7337e68ee455f0f530ca3592f656f98e7c022215c34129"
-size = 10071541
-mtime_ms = 1795467147772
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/53770732-0f29-44f2-b2d6-4f0a761fe5c5/05e629c2-b438-460a-b224-b9c07379ee53"
-storage_version_token = "1795467232268907"
+content_hash = "sha256:c1b4d9a4e96a4ba2f034bb618b4cebb9570b2295006acac0c0e96f03a0fbc24d"
+size = 12880541
+mtime_ms = 1795540037209
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/53770732-0f29-44f2-b2d6-4f0a761fe5c5/173d0597-33fb-4522-86be-371260b7fedb"
+storage_version_token = "1795540094941449"
 content_type = "application/octet-stream"
 
 [[outputs]]

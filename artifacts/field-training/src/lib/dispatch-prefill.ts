@@ -1,7 +1,9 @@
 import { DEFAULT_RUN_TYPE_CODES } from './radio-codes.js';
 import type { TrainingRun } from './model.js';
+import { OperationalIdentitySnapshot, type OperationalIdentity } from '@workspace/api-zod/operational-profile';
 
 export type DispatchPrefill = {
+  cadIdentity?: OperationalIdentity;
   eventDate?: string;
   eventIngressAt?: string;
   incidentNumber?: string;
@@ -49,6 +51,7 @@ export function mapDispatchIncidentResponse(value:unknown):DispatchIncidentPrefi
     if(record.unitNumber!==undefined&&(typeof record.unitNumber!=='string'||!/^[A-Za-z0-9 ._:/-]{1,40}$/.test(record.unitNumber.trim())))return;
     const row:DispatchIncidentPrefill={...common,incidentNumber:common.incidentNumber};
     if(typeof record.unitNumber==='string')row.unitNumber=record.unitNumber.trim();
+    if(row.cadIdentity&&row.unitNumber&&normalizedUnit(row.unitNumber)!==row.cadIdentity.cadUnit)return;
     for(const key of ['dispatchedAt','clearedAt'] as const){
       const time=record[key];
       if(time===undefined)continue;
@@ -174,6 +177,12 @@ export function mapDispatchPrefillResponse(value: unknown): DispatchPrefill | un
   if (typeof data !== "object" || data === null || Array.isArray(data)) return;
   const record = data as Record<string, unknown>;
   const result: DispatchPrefill = {};
+  if(record.cadIdentity!==undefined) {
+    const identity=OperationalIdentitySnapshot.safeParse(record.cadIdentity);
+    // Adapter responses must use current full identities, not historical packets.
+    if(!identity.success||identity.data.districtToken===undefined)return;
+    result.cadIdentity=identity.data;
+  }
   for(const [key,max,pattern] of [
     ['location',200,undefined],
     ['locationAddress',200,undefined],

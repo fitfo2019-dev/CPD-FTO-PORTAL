@@ -5,13 +5,27 @@ description: Columbus vehicle-profile semantics and their separation from traini
 
 Treat the user's `9150E-1` / `9150E-2` vehicle-profile examples as operational
 identity, not a replacement grammar for legacy training roster assignments or
-universal assignments. A vehicle number does not establish a precinct, mapped
-patrol district, shift, company-to-training mapping, role, badge or record access.
-Side suffixes remain separate from CAD identity.
+universal assignments. The user clarified that every supported assignment also
+has an unsided form, including `9150E` and universal `80C`; an absent side must
+remain absent. CAD unit digits are district tokens, not physical fleet numbers.
+Validated CAD identities may supply their district token and trailing shift
+letter, but do not establish mapped patrol geography, training company, role,
+badge or record access. Preserve the full source CAD identity and optional side;
+unsided units are not wildcards for sided units.
+
+Universal `80C` takes precedence over the identically spelled ordinary
+Precinct 8 company choice for new assignments; require an explicit mapped
+district even there. Historical snapshots must keep their former meaning.
+Historical ordinary `80C` records with `Day`, `Swing`, or `Night` shifts must
+remain readable and exportable, including in class workbooks.
 
 **Why:** The user requested a newer vehicle-profile notation while explicitly
-preserving the portal's existing training assignment meanings. Conflating the
-two could silently reinterpret imported rosters and change geographic context.
+preserving the portal's existing training assignment meanings, then clarified
+that sides are optional and district/shift tokens come from CAD. Conflating
+these values could silently reinterpret imported rosters, fleet numbers or
+geographic context.
+The universal code spelling overlaps an existing company code, so treating it
+as ordinary would invent district 80 for selections made elsewhere.
 
 **How to apply:** Keep account vehicle edits at the invitation-only verified
 account boundary, separate from trusted roster provisioning. Snapshot the active

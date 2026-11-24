@@ -1,3 +1,5 @@
+import { OperationalAssignmentToken, operationalIdentityFromCad, type OperationalIdentity } from "@workspace/api-zod/operational-profile";
+
 export type PatrolViewConfig = {
   PATROLVIEW_EVENT_LOOKUP_URL?: string;
   PATROLVIEW_INCIDENT_LOOKUP_URL?: string;
@@ -5,6 +7,7 @@ export type PatrolViewConfig = {
 };
 
 export type DispatchEventPrefill = {
+  cadIdentity?: OperationalIdentity;
   eventDate?: string;
   eventIngressAt?: string;
   incidentNumber?: string;
@@ -267,16 +270,16 @@ export async function fetchPatrolViewUnitEvent(
   eventId: string, cadUnit: string, config: PatrolViewConfig = process.env,
   fetchImpl: FetchFunction = fetch as FetchFunction,
 ): Promise<DispatchEventPrefill> {
-  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(eventId) || !/^[0-9]{4}[A-Z]$/.test(cadUnit)) {
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(eventId) || !OperationalAssignmentToken.safeParse(cadUnit).success) {
     throw new PatrolViewIntegrationError("PATROLVIEW_INVALID_RESPONSE", 400, "Invalid event or CAD unit.");
   }
   const { endpointTemplate, apiToken } = configuration(config);
   const payload = await fetchPatrolViewJson(new URL(endpointTemplate.replace("{eventId}", encodeURIComponent(eventId))), apiToken, fetchImpl);
   const root = record(payload);
   const event = record(root?.data) ?? record(root?.event) ?? root;
-  const unit = event?.unitNumber ?? event?.unit_number ?? event?.cadUnit;
-  if (typeof unit !== "string" || unit.trim().toUpperCase().replace(/\s+/g, " ") !== cadUnit) return {};
-  return mapPatrolViewEvent(event);
+  const cadIdentity = event ? operationalIdentityFromCad(event) : undefined;
+  if (!cadIdentity || cadIdentity.cadUnit !== cadUnit) return {};
+  return { ...mapPatrolViewEvent(event), cadIdentity };
 }
 
 /** Shared bounded machine-to-machine transport; never accepts browser headers. */

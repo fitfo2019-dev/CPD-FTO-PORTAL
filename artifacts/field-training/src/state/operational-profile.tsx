@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, type 
 import { useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetOperationalProfile, updateOperationalProfile, type OperationalProfileContext } from "@workspace/api-client-react";
-import { OperationalAssignmentToken } from "@workspace/api-zod/operational-profile";
+import { OperationalAssignmentToken, OperationalIdentitySnapshot, type OperationalIdentity } from "@workspace/api-zod/operational-profile";
 import { OperatorFacingError } from "@/lib/operator-errors.js";
 import type { PhaseCaseFolder } from "@/lib/model.js";
 
@@ -11,6 +11,7 @@ type ProfileState = {
   pending: boolean; contextKey: string; error?: string;
   save?(assignmentToken: string, expectedVersion: number): Promise<OperationalProfileContext>;
   refresh?(): Promise<OperationalProfileContext>;
+  confirmCadIdentity?(identity: OperationalIdentity, expectedContextKey: string): void;
 };
 const Context = createContext<ProfileState>({ pending: false, contextKey: "no-operational-session" });
 export { Context as OperationalProfileStateContext };
@@ -57,7 +58,7 @@ export function OperationalProfileProvider({ children }: { children: ReactNode }
   const save = useCallback(async (assignmentToken: string, expectedVersion: number) => {
     const current = subjectRef.current;
     if (!current || !OperationalAssignmentToken.safeParse(assignmentToken).success)
-      throw new OperatorFacingError("Use four cruiser digits, an uppercase company letter, and side -1 or -2.");
+      throw new OperatorFacingError("Use four district digits, an uppercase shift letter, and optional side -1 or -2.");
     const controller = new AbortController();
     controllers.current.add(controller);
     try {
@@ -78,12 +79,24 @@ export function OperationalProfileProvider({ children }: { children: ReactNode }
       throw new OperatorFacingError("The profile save was not confirmed. Reload the saved assignment before retrying. Existing packets are unchanged.");
     } finally { controllers.current.delete(controller); }
   }, [cache]);
+  // Reuse the existing subject/version cache, not another profile store. A
+  // confirmed adapter identity can supply tokens only for this exact selection.
+  const confirmCadIdentity = useCallback((identity: OperationalIdentity, expectedContextKey: string) => {
+    const current = subjectRef.current;
+    const parsed = OperationalIdentitySnapshot.safeParse(identity);
+    if (!current || !parsed.success || !parsed.data.districtToken) return;
+    cache.setQueryData<OperationalProfileContext>(["operational-profile", current], saved =>
+      saved?.subject === current && `${current}:${saved.version}` === expectedContextKey
+        && saved.identity?.cadUnit === parsed.data.cadUnit
+        && saved.identity.assignmentToken === parsed.data.assignmentToken
+        ? { ...saved, identity: parsed.data } : saved);
+  }, [cache]);
   return <Context.Provider value={{
     profile, editorProfile: query.data?.subject === subject ? query.data : undefined,
     pending: !!subject && query.isPending,
     contextKey: `${subject ?? ""}:${profile?.version ?? "unavailable"}`,
     error: query.isError ? "The agency profile service is unavailable or your account is not authorized. Existing packets are unchanged." : undefined,
-    save, refresh,
+    save, refresh, confirmCadIdentity,
   }}>{children}</Context.Provider>;
 }
 export function activeFtoIdentity(profile: OperationalProfileContext | undefined, folder: PhaseCaseFolder) {

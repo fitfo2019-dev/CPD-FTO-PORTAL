@@ -6,8 +6,12 @@ import {
 import { OperationalIdentitySnapshot } from "@workspace/api-zod/operational-profile";
 
 type ResponseSchema = { safeParse(value: unknown): { success: boolean } };
-const readProfile = GetOperationalProfileResponse.extend({ identity: OperationalIdentitySnapshot.nullable() }).strict();
-const saveProfile = UpdateOperationalProfileResponse.extend({ identity: OperationalIdentitySnapshot.nullable() }).strict();
+// Legacy derivations are readable only inside historical packets, never as the
+// current live profile (which would incorrectly strip a CAD side).
+const liveIdentity = OperationalIdentitySnapshot.refine(identity => identity.districtToken !== undefined
+  && identity.cadUnit === identity.assignmentToken, "The active CAD profile requires its full unit identity.");
+const readProfile = GetOperationalProfileResponse.extend({ identity: liveIdentity.nullable() }).strict();
+const saveProfile = UpdateOperationalProfileResponse.extend({ identity: liveIdentity.nullable() }).strict();
 
 /** These OpenAPI operations return objects, not the legacy success envelope.
  * Keep the allowlist method/path-specific; never accept arbitrary raw API JSON.

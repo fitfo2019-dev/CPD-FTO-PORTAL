@@ -21,7 +21,7 @@ export function createDailyReportDraft(folder:PhaseCaseFolder,date:string,prior?
     recruitName:folder.recruitName,recruitBadge:folder.recruitBadge,ftoName:folder.ftoName,ftoBadge:folder.ftoBadge,
     activity:emptyDailyActivitySummary(),activityCountsIncludeRuns:false,runs:[],
     ...(snapshot?{operationalIdentity:{...snapshot}}:{}),
-    reportingForDuty:{...defaultReportingForDutyRecord(),cruiserId:snapshot?.cruiserNumber??prior?.reportingForDuty?.cruiserId},
+    reportingForDuty:{...defaultReportingForDutyRecord(),cruiserId:prior?.reportingForDuty?.cruiserId},
     deficiencyAutomationEnabled:true,ratings:schedule.limboDay?emptyRatings():defaultRatings(),
     phaseWeek:schedule.phaseWeek,limboDay:schedule.limboDay,narrative:'',remedial:'',recruitComments:'',
     syncStatus:'local_draft_pending',serverVersion:0,

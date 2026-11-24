@@ -62,7 +62,7 @@ function ProfileEditor({ profile, save, refresh, unavailable }: {
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(""); setMessage("");
     if (unavailable || pending || requiresReload || profile.version !== version) return;
-    if (!valid) { setError("Use four cruiser digits, an uppercase company letter, and side -1 or -2, for example 9150E-1."); return; }
+    if (!valid) { setError("Use four district digits, an uppercase shift letter, and optional side -1 or -2, for example 9150E or 9150E-1."); return; }
     setPending(true);
     try {
       const saved=await save(token,version);
@@ -84,11 +84,11 @@ function ProfileEditor({ profile, save, refresh, unavailable }: {
             aria-invalid={!!error || (dirty && !valid)} aria-describedby="operational-assignment-help"
             onChange={event=>{setToken(event.target.value);setError("");setMessage("");}}
             className="mt-2 h-10 w-full rounded border bg-card px-3 text-sm mono disabled:opacity-50" data-testid="input-operational-assignment"/>
-          <p id="operational-assignment-help" className="mt-1 text-xs text-muted-foreground">Four digits, uppercase company letter, hyphen, then side 1 or 2. Example: 9150E-1.</p>
+          <p id="operational-assignment-help" className="mt-1 text-xs text-muted-foreground">Four district digits and an uppercase shift letter; optional side -1 or -2. Examples: 9150E, 9150E-1, 9150E-2.</p>
         </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded border bg-muted/30 p-3"><span className="label-caps">Physical cruiser · read only</span><output className="mono ml-3 font-bold" data-testid="text-profile-cruiser">{derived?.cruiserNumber ?? "—"}</output></div>
+        <div className="rounded border bg-muted/30 p-3"><span className="label-caps">Physical cruiser · read only</span><output className="mono ml-3 font-bold" data-testid="text-profile-cruiser">Not supplied</output></div>
         <div className="rounded border bg-muted/30 p-3"><span className="label-caps">CAD identifier · read only</span><output className="mono ml-3 font-bold" data-testid="text-profile-cad">{derived?.cadUnit ?? "—"}</output></div>
       </div>
       <p className="border-l-4 border-primary bg-primary/5 p-3"><strong>Future packets only.</strong> Saving changes your account's operational assignment, not your training roster, role, badge or record access. Existing packets and manual Cruiser corrections stay unchanged. A PO profile never replaces the FTO vehicle context.</p>
