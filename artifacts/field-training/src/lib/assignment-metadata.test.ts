@@ -36,16 +36,22 @@ test('tactical identifiers cannot infer geography or bypass precinct and shift b
   for(const rows of [
     roster('80C-1',''),roster('80C-1','153','1'),roster('80C-2','153','3','8'),
     roster('80C-1','9150'),roster('80C-2','153','3','15','DMW'),
-    roster('80C-1','153','3','15','A-Co'),roster('80C-3'),
+    roster('80C-1','9150','3','15','A-Co'),roster('80C-3'),
     roster('80C1'),roster('80C-2','153','3','15','EMW'),
   ]) assert.ok(parseRosterRows(rows).errors.length>0);
+  for(const rows of [
+    roster('80C-1','153','3','15','A-Co'),
+    roster('80C-2','9150','3','15','DMW'),
+    roster('80C-1','9150','3','15','EMW'),
+  ]) assert.deepEqual(parseRosterRows(rows).errors,[]);
   assert.throws(()=>assertTacticalAssignmentMetadata({...area,precinct:'8',ftoAssignment:'80C-1'}));
 });
 
 test('ordinary assignments round-trip across every mapped precinct and shift',()=>{
   for(const zone of CPD_GEOGRAPHY) for(const precinct of zone.precincts) {
     for(const shift of ['A-Co','B-Co','C-Co','DMW','EMW']) {
-      const assignments=ftoAssignmentsForPrecinct(zone.zone,precinct.precinct,shift);
+      const assignments=ftoAssignmentsForPrecinct(zone.zone,precinct.precinct,shift)
+        .filter(assignment=>!TACTICAL_CALL_SIGNS.some(code=>code===assignment));
       assert.ok(assignments.length>0);
       for(const ftoAssignment of assignments) {
         const cruiserDistrict=cruiserDistrictForFtoAssignment(zone.zone,precinct.precinct,ftoAssignment,shift);

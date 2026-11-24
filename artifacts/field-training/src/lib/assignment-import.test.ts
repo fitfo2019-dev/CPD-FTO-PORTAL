@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseRosterRows } from './assignment-import.js';
-import { cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct } from './cpd-geography.js';
+import { CPD_GEOGRAPHY, cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, ftoCruiserDistrictsForShift, isValidFtoAssignment } from './cpd-geography.js';
 import { formatDateMDY, parseDateMDY } from './training-calendar.js';
 
 test('roster import aggregates FTOs and validates assignment rows',()=>{
@@ -44,6 +44,48 @@ test('FTO assignment suffixes follow the selected shift',()=>{
   assert.equal(cruiserDistrictForFtoAssignment('1','1','9010E1','DMW'),undefined);
   assert.equal(cruiserDistrictForFtoAssignment('1','1','9010A','A-Co'),undefined);
   assert.equal(cruiserDistrictForFtoAssignment('1','1','9010D2','DMW'),'9010');
+});
+
+test('universal assignment codes are offered for every mapped precinct and supported shift with real district context',()=>{
+  const shifts=['A-Co','B-Co','C-Co','DMW','EMW'];
+  for(const zone of CPD_GEOGRAPHY) for(const precinct of zone.precincts) for(const shift of shifts) {
+    const options=ftoAssignmentsForPrecinct(zone.zone,precinct.precinct,shift);
+    const compatibleDistricts=ftoCruiserDistrictsForShift(zone.zone,precinct.precinct,shift);
+    const compatibleDistrict=compatibleDistricts[0];
+    assert.ok(compatibleDistrict,`${zone.zone}/${precinct.precinct}/${shift} has a mapped district`);
+    for(const code of ['80C-1','80C-2']) {
+      assert.ok(options.includes(code),`${zone.zone}/${precinct.precinct}/${shift} offers ${code}`);
+      assert.equal(isValidFtoAssignment(zone.zone,precinct.precinct,code,shift,compatibleDistrict),true);
+      assert.equal(cruiserDistrictForFtoAssignment(zone.zone,precinct.precinct,code,shift),undefined);
+      assert.equal(isValidFtoAssignment(zone.zone,precinct.precinct,code,shift,'80'),compatibleDistricts.includes('80'));
+    }
+  }
+  assert.equal(isValidFtoAssignment('2','1','80C-1','A-Co','10'),false);
+  assert.equal(isValidFtoAssignment('1','1','80C-2','DMW','10'),false);
+  assert.equal(ftoAssignmentsForPrecinct('1','1','unknown').length,0);
+});
+
+test('roster import preserves and checks a universal assignment mapped district',()=>{
+  const headers=['Class','PO Name','PO Badge','FTO Name','FTO Badge','Phase Start Date','Shift','Days Off','Zone','Precinct','Cruiser District','FTO Assignment'];
+  const valid=parseRosterRows([
+    headers,
+    ['Class 27-A','Officer Example','0071','Trainer Example','0020','03/09/2027','DMW','Sunday;Monday;Tuesday','1','1','9010','80C-1'],
+  ]);
+  assert.deepEqual(valid.errors,[]);
+  assert.equal(valid.assignments[0]?.ftoAssignment,'80C-1');
+  assert.equal(valid.assignments[0]?.cruiserDistrict,'9010');
+
+  const missingDistrict=parseRosterRows([
+    headers,
+    ['Class 27-A','Officer Example','0071','Trainer Example','0020','03/09/2027','DMW','Sunday;Monday;Tuesday','1','1','','80C-2'],
+  ]);
+  assert.ok(missingDistrict.errors.some(error=>error.includes('Cruiser District is required')));
+
+  const wrongShiftDistrict=parseRosterRows([
+    headers,
+    ['Class 27-A','Officer Example','0071','Trainer Example','0020','03/09/2027','DMW','Sunday;Monday;Tuesday','1','1','10','80C-2'],
+  ]);
+  assert.ok(wrongShiftDistrict.errors.some(error=>error.includes('mapped cruiser district, and shift')));
 });
 
 test('dates are displayed and accepted only as MM/DD/YYYY',()=>{

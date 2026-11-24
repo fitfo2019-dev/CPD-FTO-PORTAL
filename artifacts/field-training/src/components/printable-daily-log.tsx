@@ -57,7 +57,7 @@ export function PrintableDailyLog({ report, dayReference, packet:providedPacket 
         <PrintField label="Date" value={formatDateDMY(report.date)} />
         <PrintField label="Time" value={report.shiftStartTime||'Not recorded'} />
         <PrintField label="Shift" value={shiftDisplayLabel(report.shift)} />
-        <PrintField label="FTO assignment" value={phaseAssignmentLabel(report.ftoAssignment,report.shift)} />
+        <PrintField label="FTO assignment" value={phaseAssignmentLabel(report.ftoAssignment,report.shift,report.cruiserDistrict)} />
         <PrintField label="Training week" value={weekLabel} />
       </div>
 

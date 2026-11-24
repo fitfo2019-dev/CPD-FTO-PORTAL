@@ -1,8 +1,10 @@
 // Shared validation is used by onboarding, imports, local records and the API.
 export {
   CPD_GEOGRAPHY, TACTICAL_CALL_SIGNS, isTacticalCallSign,
+  UNIVERSAL_FTO_ASSIGNMENTS, isUniversalFtoAssignment,
   cpdPrecinctsForZone, cpdDistrictsForPrecinct, ftoAssignmentSuffixesForShift,
-  ftoAssignmentsForPrecinct, cruiserDistrictForFtoAssignment, isValidAssignment,
+  ftoAssignmentsForPrecinct, ftoCruiserDistrictsForShift,
+  cruiserDistrictForFtoAssignment, isValidFtoAssignment, isValidAssignment,
   assignmentFromPrecinctAndDistrict, PatrolAssignmentMetadataSchema,
   type PatrolAssignmentMetadata,
 } from "@workspace/api-zod/patrol-assignment";

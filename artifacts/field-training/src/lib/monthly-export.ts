@@ -137,7 +137,7 @@ export function buildMonthlyWorkbook(reports: Report[], monthKey: string, phaseW
     const phases=uniqueDisplay(week.map(report=>phaseLabel(report.phase)));
     const phaseWeeks=uniqueDisplay(week.map(report=>report.phaseWeek));
     const ftoWeeks=uniqueDisplay(week.map(report=>report.ftoWeek));
-    const assignments=uniqueDisplay(week.map(report=>phaseAssignmentLabel(report.ftoAssignment,report.shift)));
+    const assignments=uniqueDisplay(week.map(report=>phaseAssignmentLabel(report.ftoAssignment,report.shift,report.cruiserDistrict)));
     const ftos=uniqueDisplay(week.map(report=>report.ftoName));
     const ftoBadges=uniqueDisplay(week.map(report=>report.ftoBadge));
     appendMergedRow(rows,merges,0,[

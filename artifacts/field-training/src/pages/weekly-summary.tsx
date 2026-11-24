@@ -50,7 +50,7 @@ export default function WeeklySummaryPage() {
   const weekPhase=reports[0]?.phase??(ws.caseFolder&&ownerKey(ws.caseFolder)===owner?.key?ws.caseFolder.phase:undefined);
   const phaseFolder=weekPhase?ws.phaseFolders.find(folder=>ownerKey(folder)===owner?.key&&folder.phase===weekPhase)
     ??(ws.caseFolder&&ownerKey(ws.caseFolder)===owner?.key&&ws.caseFolder.phase===weekPhase?ws.caseFolder:undefined):undefined;
-  const assignmentLabel=phaseAssignmentLabel(reports[0]?.ftoAssignment??phaseFolder?.ftoAssignment,reports[0]?.shift??phaseFolder?.shift);
+  const assignmentLabel=phaseAssignmentLabel(reports[0]?.ftoAssignment??phaseFolder?.ftoAssignment,reports[0]?.shift??phaseFolder?.shift,reports[0]?.cruiserDistrict??phaseFolder?.cruiserDistrict);
   const phaseWeek=reports.find(report=>report.phase===weekPhase&&report.phaseWeek)?.phaseWeek
     ??(week&&phaseFolder?getPhaseWeekNumber(reports[0]?.date??week.start,phaseFolder.phaseStartDate,phaseFolder.phaseWeekRanges):undefined);
   const weekNumber=weekPhase&&phaseWeek?PHASE_PROGRAM_WEEK_START[weekPhase]+phaseWeek-1:0;

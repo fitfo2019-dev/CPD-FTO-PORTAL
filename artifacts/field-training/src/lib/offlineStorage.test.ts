@@ -143,6 +143,54 @@ test('offline vault restores encrypted records and rejects a wrong passphrase', 
   assert.deepEqual(await restored.get('workspace'), { note: 'saved on this device' });
 });
 
+test('universal assignment and mapped district survive an encrypted workspace reopen', async () => {
+  const { namespace, vault } = createVault();
+  await vault.unlock(passphrase);
+  const assignment = {
+    id: 'universal-assignment',
+    className: 'Class 27-A',
+    recruitName: 'Test PO',
+    recruitBadge: 'PO-1',
+    ftoBadge: 'FTO-1',
+    phase: 2 as const,
+    phaseStartDate: '2026-11-22',
+    shift: 'DMW' as const,
+    zone: '3',
+    precinct: '15',
+    cruiserDistrict: '9150',
+    ftoAssignment: '80C-1',
+  };
+  const folder = {
+    assignmentId: assignment.id,
+    className: assignment.className,
+    recruitName: assignment.recruitName,
+    recruitBadge: assignment.recruitBadge,
+    ftoName: 'Test FTO',
+    ftoBadge: assignment.ftoBadge,
+    phase: assignment.phase,
+    phaseStartDate: assignment.phaseStartDate,
+    shift: assignment.shift,
+    zone: assignment.zone,
+    precinct: assignment.precinct,
+    cruiserDistrict: assignment.cruiserDistrict,
+    ftoAssignment: assignment.ftoAssignment,
+    daysOff: [0, 1, 2],
+    openedAt: '2026-11-22T12:00:00.000Z',
+  };
+  const workspace = { reports: [], assignments: [assignment], caseFolder: folder, phaseFolders: [folder] };
+  await vault.saveWorkspace(workspace);
+  vault.lock();
+
+  const reopened = new OfflineStorage(namespace);
+  await reopened.unlock(passphrase);
+  const restored = await reopened.get<typeof workspace>('workspace');
+  assert.equal(restored?.assignments[0]?.ftoAssignment, '80C-1');
+  assert.equal(restored?.assignments[0]?.cruiserDistrict, '9150');
+  assert.equal(restored?.caseFolder.ftoAssignment, '80C-1');
+  assert.equal(restored?.caseFolder.cruiserDistrict, '9150');
+  assert.equal(restored?.caseFolder.shift, 'DMW');
+});
+
 test('workspace save queues only latest complete packets, never roster or whole workspace', async () => {
   const { vault } = createVault();
   await vault.unlock(passphrase);
@@ -528,7 +576,9 @@ test('preview edits, autosave, sync, and reset never create device storage recor
     root = createRoot(container);
     await act(async () => {
       root.render(createElement(WorkspaceProvider, {
-        storageNamespace: namespace, previewOnly: true, children: createElement(Probe),
+        storageNamespace: namespace,
+        previewOnly: true,
+        children: createElement(Probe),
       }));
     });
     assert.ok(current);
@@ -600,7 +650,9 @@ test('editing and synchronizing a preview packet never calls the agency upload A
   try {
     await act(async () => {
       root.render(createElement(WorkspaceProvider, {
-        storageNamespace: namespace, previewOnly: true, children: createElement(Probe),
+        storageNamespace: namespace,
+        previewOnly: true,
+        children: createElement(Probe),
       }));
     });
     assert.ok(current);

@@ -66,3 +66,36 @@ These are event-driven reference prompts, not a complete transcription of every 
 ## Assignment conventions supplied by the user
 
 For day companies, mapped cruiser-district assignments can have a two-officer `1` or `2` suffix. PTV wagon car numbers use the precinct number plus `8` (for example, precincts 15, 8, and 19 yield 158, 88, and 198); wagon assignments have two seats such as `88C1` and `88C2`. Midwatch has no wagon assignment and retains D1/D2 or E1/E2 conventions.
+
+## Cruiser districts, universal assignment codes, and reporting starts
+
+Reviewed the supplied Patrol Subdivision SOP compilation revised through
+06/30/26, preferring it to the older compilation revised through 12/30/24.
+In SOP 1.01 E.2 (section revision 06/30/23; printed page 1, PDF page 3),
+each patrol zone is divided into precincts and each precinct into cruiser
+districts. SOP 1.01 E.6 (same revision; printed page 2, PDF page 4) directs
+personnel to the Division intranet cruiser maps and makes Communications the
+final authority for boundary discrepancies. Its zone/precinct table is on
+printed page 2 (PDF page 4).
+
+The supplied Division Directives compilation is revised through 09/30/26.
+Directive 10.03 (revised 09/30/26) I.5.b(1) says cruiser district maps are
+distributed to Communications; J.1.a(1)–(2) says the Division Database
+Administrator formulates them and the R&D Unit distributes and maintains
+them (printed page 2 of Directive 10.03, PDF page 632 of the compilation).
+These sources support using the mapped patrol area and directing map-boundary
+questions to Communications; they do not establish a universal `80` district.
+
+`80C-1` and `80C-2` are the user's explicit universal assignment requirement,
+not codes verified in either reviewed publication. Searches of the reviewed
+SOP and Directives text did not verify a sergeant-side 1/2 definition or
+connect those suffixes to the existing two-officer assignment suffixes. Do not
+infer geographic boundaries, passenger seats, or authorization from the code;
+agency confirmation is needed for any sergeant-side interpretation.
+
+SOP 1.01 F.1–3 (section revision 06/30/23; printed page 2, PDF page 4) lists
+early-reporting precincts 4, 5, 7, 8, 9, 10, 11, 13, 17, 18, and 20 at
+06:00/14:00/22:00; late-reporting precincts 1, 2, 3, 6, 12, 14, 15, 16, and
+19 at 07:00/15:00/23:00; and DMW/EMW starts at 09:00/19:00. These are
+documented reporting starts only, not an independently verified A/B/C-to-watch
+mapping or an end-time schedule.

@@ -5,7 +5,7 @@ import { SearchableSelect } from '@/components/searchable-select.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { useWorkspace } from '@/state/workspace.js';
 import { phaseAssignmentLabel, phaseLabel, uid, type PhaseCaseFolder, type Shift, type TrainingAssignment } from '@/lib/model.js';
-import { cruiserDistrictForFtoAssignment } from '@/lib/cpd-geography.js';
+import { cruiserDistrictForFtoAssignment, isValidFtoAssignment } from '@/lib/cpd-geography.js';
 import { formatDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
 import { parseRosterFile, ROSTER_CSV_TEMPLATE, type ParsedRoster } from '@/lib/assignment-import.js';
 import { operatorErrorMessage, reportUnexpectedOperatorError } from '@/lib/operator-errors.js';
@@ -69,7 +69,7 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
           <input type="file" accept=".csv,.xlsx,.docx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFileChange} disabled={busy} className="sr-only" data-testid="input-roster-file"/>
         </label>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">Accepted: .csv or Word .docx with a table and a header row. Maximum 2 MB. Required assignment fields: class, PO name/badge, FTO name/badge, and phase start date (MM/DD/YYYY). Phase defaults to Phase I when omitted. Shift, days off, emails, and patrol assignment may also be included.</p>
+      <p className="mt-2 text-xs text-muted-foreground">Accepted: .csv or Word .docx with a table and a header row. Maximum 2 MB. Required assignment fields: class, PO name/badge, FTO name/badge, and phase start date (MM/DD/YYYY). Phase defaults to Phase I when omitted. Shift, days off, emails, and patrol assignment may also be included. For 80C-1 or 80C-2, include Zone, Precinct, Shift, and the actual mapped Cruiser District.</p>
       <p className="mt-1 break-all text-xs text-muted-foreground" data-testid="text-roster-columns">Columns: {templateHeaders}</p>
       {parseError&&<p className="mt-3 rounded border border-destructive/40 bg-destructive/5 p-3 text-sm" role="alert">{parseError}</p>}
       {preview&&<div className="mt-3 rounded border bg-muted/30 p-3" data-testid="roster-import-preview">
@@ -77,8 +77,8 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
         {preview.errors.length>0&&<ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-destructive">{preview.errors.map((item,index)=><li key={index}>{item}</li>)}</ul>}
         {preview.warnings.map((item,index)=><p className="mt-2 text-sm text-warn" key={index}>{item}</p>)}
         {preview.assignments.length>0&&<div className="mt-3 max-h-56 overflow-auto rounded border bg-card">
-          <table className="w-full min-w-[650px] text-left text-xs"><thead className="bg-muted"><tr><th className="p-2">Class / phase</th><th className="p-2">PO</th><th className="p-2">FTO</th><th className="p-2">Start date</th><th className="p-2">Shift / days off</th></tr></thead>
-          <tbody>{preview.assignments.slice(0,50).map((item,index)=><tr key={index} className="border-t"><td className="p-2">{item.className} · {phaseLabel(item.phase)}</td><td className="p-2">{item.recruitName} · {item.recruitBadge}</td><td className="p-2">{preview.ftos.find(fto=>fto.badge===item.ftoBadge)?.name} · {item.ftoBadge}</td><td className="p-2">{formatDateDMY(item.phaseStartDate)}</td><td className="p-2">{item.shift ?? 'Set later'} · {item.daysOff?.length?item.daysOff.join(', '):'days off not set'}</td></tr>)}</tbody></table>
+          <table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-muted"><tr><th className="p-2">Class / phase</th><th className="p-2">PO</th><th className="p-2">FTO</th><th className="p-2">Start date</th><th className="p-2">Shift / days off</th><th className="p-2">Patrol area / assignment</th></tr></thead>
+          <tbody>{preview.assignments.slice(0,50).map((item,index)=><tr key={index} className="border-t"><td className="p-2">{item.className} · {phaseLabel(item.phase)}</td><td className="p-2">{item.recruitName} · {item.recruitBadge}</td><td className="p-2">{preview.ftos.find(fto=>fto.badge===item.ftoBadge)?.name} · {item.ftoBadge}</td><td className="p-2">{formatDateDMY(item.phaseStartDate)}</td><td className="p-2">{item.shift ?? 'Set later'} · {item.daysOff?.length?item.daysOff.join(', '):'days off not set'}</td><td className="p-2">{item.zone&&item.precinct?`Zone ${item.zone} · Precinct ${item.precinct}`:'Area not set'}{item.ftoAssignment?` · ${phaseAssignmentLabel(item.ftoAssignment,item.shift,item.cruiserDistrict)}`:''}</td></tr>)}</tbody></table>
           {preview.assignments.length>50&&<p className="p-2 text-xs text-muted-foreground">Showing the first 50 assignments; all valid rows are included when added.</p>}
         </div>}
         <button type="button" disabled={preview.errors.length>0||preview.ftos.length===0} onClick={addRoster} className="mt-3 min-h-11 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-add-roster">Add roster to this device</button>
@@ -101,6 +101,9 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
       <div className="mt-3 space-y-3">{sortedAssignments.map(assignment=>{
         const assignedFto=ftoByBadge.get(assignment.ftoBadge.toLowerCase());
         const offDays=assignment.daysOff?.length?assignment.daysOff.map(day=>['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][day]).join(', '):'Set by FTO when opening case folder';
+        const district=assignment.cruiserDistrict??(assignment.ftoAssignment&&assignment.shift
+          ?cruiserDistrictForFtoAssignment(assignment.zone??'',assignment.precinct??'',assignment.ftoAssignment,assignment.shift)
+          :undefined);
         const ftoAssignment=phaseAssignmentLabel(assignment.ftoAssignment,assignment.shift);
         const emailBody=[
           `Hello ${assignment.recruitName} and ${assignedFto?.name ?? 'FTO'},`,
@@ -112,16 +115,14 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
           `Phase: ${phaseLabel(assignment.phase)}`,
           `Start date: ${formatDateDMY(assignment.phaseStartDate)}`,
           `Shift: ${assignment.shift||'to be confirmed in the case folder'}`,
+          ...(assignment.zone&&assignment.precinct?[`Patrol area: Zone ${assignment.zone} · Precinct ${assignment.precinct}${district?` · Cruiser district ${district}`:''}`]:[]),
           `Days off: ${assignment.daysOff?.length?offDays:'to be selected by the FTO'}`,
           ...(assignment.ftoAssignment?[`FTO assignment: ${ftoAssignment}`]:[]),
           '',
           'Please coordinate any schedule or assignment questions directly.',
         ].join('\n');
         const emailHref=assignment.recruitEmail&&assignedFto?.email?`mailto:${encodeURIComponent(assignment.recruitEmail)}?${new URLSearchParams({subject:`Field training assignment · ${assignment.className}`,body:emailBody,cc:assignedFto.email}).toString()}`:undefined;
-        const district=assignment.ftoAssignment&&assignment.shift
-          ?cruiserDistrictForFtoAssignment(assignment.zone??'',assignment.precinct??'',assignment.ftoAssignment,assignment.shift)
-          :undefined;
-        const canActivate=!!assignment.shift&&(assignment.daysOff?.length??0)===requiredDaysOff(assignment.shift)&&!!assignment.zone&&!!assignment.precinct&&!!district;
+        const canActivate=!!assignment.shift&&(assignment.daysOff?.length??0)===requiredDaysOff(assignment.shift)&&!!assignment.zone&&!!assignment.precinct&&!!district&&!!assignment.ftoAssignment&&isValidFtoAssignment(assignment.zone,assignment.precinct,assignment.ftoAssignment,assignment.shift,district);
         return <article key={assignment.id} className="min-w-0 rounded border bg-card p-3" data-testid={`assignment-${assignment.id}`}>
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,.7fr)]">
             <div className="min-w-0">
@@ -129,6 +130,7 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
               <div className="mt-1 break-words text-sm">{assignment.recruitName} · PO badge {assignment.recruitBadge}</div>
               <div className="text-sm">Start date: {formatDateDMY(assignment.phaseStartDate)}</div>
               <div className="text-xs text-muted-foreground">PO email: {assignment.recruitEmail||'not provided'} · Shift: {assignment.shift||'not set'} · Days off: {offDays}</div>
+              {assignment.zone&&assignment.precinct&&<div className="text-xs text-muted-foreground">Patrol area: Zone {assignment.zone} · Precinct {assignment.precinct}{district?` · Cruiser district ${district}`:''}</div>}
               <div className="mt-2 text-xs text-muted-foreground">FTO assignment: {assignment.ftoAssignment?ftoAssignment:'Complete in the phase case folder'}</div>
             </div>
             <label className="min-w-0 space-y-1 text-xs font-semibold">Assigned FTO

@@ -5,7 +5,9 @@ import {
   type TrainingAssignment, type Weekday,
 } from './model.js';
 import { parseDateDMY, requiredDaysOff } from './training-calendar.js';
-import { cruiserDistrictForFtoAssignment, PatrolAssignmentMetadataSchema } from './cpd-geography.js';
+import {
+  cruiserDistrictForFtoAssignment, isUniversalFtoAssignment, isValidFtoAssignment, PatrolAssignmentMetadataSchema,
+} from './cpd-geography.js';
 
 export type AssignmentDraft = Omit<TrainingAssignment, 'id'>;
 export interface ParsedRoster {
@@ -149,9 +151,15 @@ export function parseRosterRows(rows: string[][]): ParsedRoster {
     const precinct=getValue(row,columns,'precinct');
     const ftoAssignment=getValue(row,columns,'ftoAssignment');
     const explicitDistrict=getValue(row,columns,'cruiserDistrict');
-    const districtFromAssignment=ftoAssignment?cruiserDistrictForFtoAssignment(zone,precinct,ftoAssignment,shiftValue,explicitDistrict):undefined;
-    if(ftoAssignment&&!districtFromAssignment) rowErrors.push('FTO assignment must match a mapped cruiser district and the selected shift suffix');
-    const cruiserDistrict=explicitDistrict||districtFromAssignment;
+    const districtFromAssignment=ftoAssignment&&!isUniversalFtoAssignment(ftoAssignment)
+      ?cruiserDistrictForFtoAssignment(zone,precinct,ftoAssignment,shiftValue)
+      :undefined;
+    const cruiserDistrict=explicitDistrict||districtFromAssignment||'';
+    if(isUniversalFtoAssignment(ftoAssignment)&&!explicitDistrict) {
+      rowErrors.push('Cruiser District is required for 80C-1 and 80C-2 so the mapped patrol area is preserved');
+    } else if(ftoAssignment&&!isValidFtoAssignment(zone,precinct,ftoAssignment,shiftValue,cruiserDistrict)) {
+      rowErrors.push('FTO assignment must match the selected patrol area, mapped cruiser district, and shift');
+    }
     if(zone||precinct||cruiserDistrict||ftoAssignment) {
       const metadata=PatrolAssignmentMetadataSchema.safeParse({zone,precinct,cruiserDistrict,shift:shiftValue,ftoAssignment:ftoAssignment||undefined});
       if(!metadata.success) rowErrors.push(...metadata.error.issues.map(issue=>issue.message));
@@ -202,6 +210,6 @@ export async function parseRosterFile(file: File): Promise<ParsedRoster> {
 }
 
 export const ROSTER_CSV_TEMPLATE = [
-  'Class,PO Name,PO Badge,PO Email,FTO Name,FTO Badge,FTO Email,Phase,Phase Start Date,Shift,Days Off,Zone,Precinct,FTO Assignment',
+  'Class,PO Name,PO Badge,PO Email,FTO Name,FTO Badge,FTO Email,Phase,Phase Start Date,Shift,Days Off,Zone,Precinct,Cruiser District,FTO Assignment',
   'Class name,,,,FTO name,FTO badge,,,MM/DD/YYYY,A-Co,Sunday;Saturday,,,,',
 ].join('\n');

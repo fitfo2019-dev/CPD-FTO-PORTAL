@@ -8,7 +8,7 @@ import { PageHead, Panel } from '@/components/bits.js';
 import { Form } from '@/components/ui/form.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
 import { useWorkspace } from '@/state/workspace.js';
-import { CPD_GEOGRAPHY, cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, cpdPrecinctsForZone } from '@/lib/cpd-geography.js';
+import { CPD_GEOGRAPHY, cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, ftoCruiserDistrictsForShift, cpdPrecinctsForZone, isUniversalFtoAssignment, isValidFtoAssignment } from '@/lib/cpd-geography.js';
 import { assignmentToCaseFolder, TrainingAssignmentsPanel } from '@/components/training-assignments-panel.js';
 import { PHASES, PHASE_LENGTH_WEEKS, SHIFTS, SHIFT_LABEL, WEEKDAYS, phaseLabel, type Phase, type PhaseCaseFolder, type Shift, type TrainingAssignment, type Weekday } from '@/lib/model.js';
 import { createPhaseWeekRanges, currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getCaseFolderWeekRanges, getSundaySaturdayWeek, parseDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
@@ -39,8 +39,12 @@ const setupSchema=z.object({
   ftoAssignment:z.string().min(1,'Select an FTO assignment.'),
   daysOff:z.array(daySchema),
 }).superRefine((value,context)=>{
-  if(!cruiserDistrictForFtoAssignment(value.zone,value.precinct,value.ftoAssignment,value.shift,value.cruiserDistrict)) {
-    context.addIssue({code:'custom',path:['ftoAssignment'],message:'Choose an FTO assignment that matches the selected shift and patrol area.'});
+  if(!isValidFtoAssignment(value.zone,value.precinct,value.ftoAssignment,value.shift,value.cruiserDistrict)) {
+    if(isUniversalFtoAssignment(value.ftoAssignment)) {
+      context.addIssue({code:'custom',path:['cruiserDistrict'],message:'Select a mapped cruiser district for this patrol area and shift.'});
+    } else {
+      context.addIssue({code:'custom',path:['ftoAssignment'],message:'Choose an FTO assignment that matches the selected shift and patrol area.'});
+    }
   }
   const shift=value.shift as Shift;
   if(SHIFTS.includes(shift)&&value.daysOff.length!==requiredDaysOff(shift)) {
@@ -99,7 +103,7 @@ function valuesFromAssignment(assignment:TrainingAssignment,ftos:{badge:string;n
     scheduledWeeks:saved?.scheduledWeeks??PHASE_LENGTH_WEEKS[assignment.phase],
     shift:assignment.shift??saved?.shift??'',
     zone:assignment.zone??saved?.zone??'',precinct:assignment.precinct??saved?.precinct??'',
-    cruiserDistrict:assignment.cruiserDistrict??saved?.cruiserDistrict??'',
+    cruiserDistrict:assignment.cruiserDistrict??saved?.cruiserDistrict??cruiserDistrictForFtoAssignment(assignment.zone??saved?.zone??'',assignment.precinct??saved?.precinct??'',assignment.ftoAssignment??saved?.ftoAssignment??'',assignment.shift??saved?.shift??'')??'',
     ftoAssignment:assignment.ftoAssignment??saved?.ftoAssignment??'',
     daysOff:assignment.daysOff?.length?assignment.daysOff:saved?.daysOff??[],
     phaseWeekRanges:saved?.phaseWeekRanges??createPhaseWeekRanges(assignment.phase,assignment.phaseStartDate)
@@ -132,6 +136,8 @@ export default function PhaseSetupPage() {
   const shift=form.watch('shift');
   const zone=form.watch('zone');
   const precinct=form.watch('precinct');
+  const cruiserDistrict=form.watch('cruiserDistrict');
+  const ftoAssignment=form.watch('ftoAssignment');
   const daysOff=form.watch('daysOff') as Weekday[];
   const phaseWeekRanges=form.watch('phaseWeekRanges')??[];
   const fieldError=(name:keyof SetupValues)=>form.formState.errors[name]?.message?.toString();
@@ -153,6 +159,18 @@ export default function PhaseSetupPage() {
       return;
     }
     form.reset(valuesFromFolder(folder,ws.ftoDirectory));
+  }
+
+  function selectFtoAssignment(assignment:string) {
+    form.setValue('ftoAssignment',assignment,{shouldDirty:true,shouldValidate:true});
+    if(isUniversalFtoAssignment(assignment)) {
+      const currentDistrict=form.getValues('cruiserDistrict');
+      if(!ftoCruiserDistrictsForShift(zone,precinct,shift).includes(currentDistrict)) {
+        form.setValue('cruiserDistrict','',{shouldDirty:true,shouldValidate:true});
+      }
+    } else {
+      form.setValue('cruiserDistrict',cruiserDistrictForFtoAssignment(zone,precinct,assignment,shift)??'',{shouldDirty:true,shouldValidate:true});
+    }
   }
 
   function save(values:SetupValues) {
@@ -219,7 +237,7 @@ export default function PhaseSetupPage() {
               </div>
                 {(!ftoBadge||!assignedFtoProfile)&&<p role="alert" className="text-sm font-semibold text-destructive">The assigned FTO is unavailable. Ask the FTO Coordinator to confirm the roster assignment before saving.</p>}
             </fieldset>
-            <Field label="Shift / company" error={fieldError('shift')}>{canManageAssignment?<SearchableSelect {...form.register('shift')} value={shift} className={selectInput} onChange={event=>{form.setValue('shift',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-shift"><option value="">Select shift / company</option>{SHIFT_ORDER.map(value=><option key={value} value={value}>{SHIFT_LABEL[value]}</option>)}</SearchableSelect>:<input {...form.register('shift')} className={textInput} readOnly data-testid="select-shift"/>}</Field>
+            <Field label="Shift / company" error={fieldError('shift')}>{canManageAssignment?<SearchableSelect {...form.register('shift')} value={shift} className={selectInput} onChange={event=>{form.setValue('shift',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});form.setValue('cruiserDistrict','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-shift"><option value="">Select shift / company</option>{SHIFT_ORDER.map(value=><option key={value} value={value}>{SHIFT_LABEL[value]}</option>)}</SearchableSelect>:<input {...form.register('shift')} className={textInput} readOnly data-testid="select-shift"/>}</Field>
             <Field label="Phase" error={fieldError('phase')}>{canManageAssignment?<SearchableSelect {...form.register('phase')} value={phaseValue} className={selectInput} onChange={event=>{
               const selectedPhase=event.target.value as SetupValues['phase'];
               form.setValue('phase',selectedPhase,{shouldDirty:true,shouldValidate:true});
@@ -249,9 +267,34 @@ export default function PhaseSetupPage() {
               {fieldError('phaseWeekRanges')&&<p className="text-sm text-destructive" role="alert">{fieldError('phaseWeekRanges')}</p>}
               <p className="text-xs text-muted-foreground">The date ranges set the workbook’s phase-week tabs. Extra approved weeks are included with Week 4 in Excel.</p>
             </fieldset>
-            <Field label="Patrol zone" error={fieldError('zone')}>{canManageAssignment?<SearchableSelect {...form.register('zone')} value={zone} className={selectInput} onChange={event=>{form.setValue('zone',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('precinct','',{shouldDirty:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-zone"><option value="">Select zone</option>{CPD_GEOGRAPHY.map(item=><option key={item.zone} value={item.zone}>Zone {item.zone}</option>)}</SearchableSelect>:<input {...form.register('zone')} className={textInput} readOnly data-testid="select-zone"/>}</Field>
-            <Field label="Precinct" error={fieldError('precinct')}>{canManageAssignment?<SearchableSelect {...form.register('precinct')} value={precinct} className={selectInput} disabled={!zone} onChange={event=>{form.setValue('precinct',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-precinct"><option value="">Select precinct</option>{cpdPrecinctsForZone(zone).map(item=><option key={item.precinct} value={item.precinct}>Precinct {item.precinct}</option>)}</SearchableSelect>:<input {...form.register('precinct')} className={textInput} readOnly data-testid="select-precinct"/>}</Field>
-            <Field label="FTO assignment" error={fieldError('ftoAssignment')}><input {...form.register('ftoAssignment')} className={textInput} list={canManageAssignment?'fto-assignment-options':undefined} autoComplete="off" readOnly={!canManageAssignment} disabled={canManageAssignment&&(!precinct||!shift)} placeholder={canManageAssignment?(shift?'Type or select assignment code':'Select shift first'):undefined} onChange={event=>form.setValue('ftoAssignment',event.target.value.toUpperCase(),{shouldDirty:true,shouldValidate:true})} data-testid="input-fto-assignment"/>{canManageAssignment&&<datalist id="fto-assignment-options">{ftoAssignmentsForPrecinct(zone,precinct,shift).map(value=><option key={value} value={value}/>)}</datalist>}</Field>
+            <Field label="Patrol zone" error={fieldError('zone')}>{canManageAssignment?<SearchableSelect {...form.register('zone')} value={zone} className={selectInput} onChange={event=>{form.setValue('zone',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('precinct','',{shouldDirty:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});form.setValue('cruiserDistrict','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-zone"><option value="">Select zone</option>{CPD_GEOGRAPHY.map(item=><option key={item.zone} value={item.zone}>Zone {item.zone}</option>)}</SearchableSelect>:<input {...form.register('zone')} className={textInput} readOnly data-testid="select-zone"/>}</Field>
+            <Field label="Precinct" error={fieldError('precinct')}>{canManageAssignment?<SearchableSelect {...form.register('precinct')} value={precinct} className={selectInput} disabled={!zone} onChange={event=>{form.setValue('precinct',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});form.setValue('cruiserDistrict','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-precinct"><option value="">Select precinct</option>{cpdPrecinctsForZone(zone).map(item=><option key={item.precinct} value={item.precinct}>Precinct {item.precinct}</option>)}</SearchableSelect>:<input {...form.register('precinct')} className={textInput} readOnly data-testid="select-precinct"/>}</Field>
+            <fieldset className="grid gap-2">
+              <legend className="text-sm font-semibold">FTO assignment</legend>
+              {fieldError('ftoAssignment')&&<p className="text-xs font-normal text-destructive" role="alert">{fieldError('ftoAssignment')}</p>}
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="FTO assignment choices" data-testid="group-fto-assignments">
+                {ftoAssignmentsForPrecinct(zone,precinct,shift).map(value=>{
+                  const universal=isUniversalFtoAssignment(value);
+                  const mappedDistrict=universal?undefined:cruiserDistrictForFtoAssignment(zone,precinct,value,shift);
+                  const isWagon=!!mappedDistrict&&mappedDistrict===`${precinct}8`;
+                  const detail=universal
+                    ?'User-requested option · not established by the SOP'
+                    :isWagon
+                      ?`Precinct ${precinct} wagon · ${SHIFT_LABEL[shift as Shift]}`
+                      :`Mapped cruiser district ${mappedDistrict}`;
+                  return <label key={value} className={`flex min-h-12 items-center gap-3 rounded border p-3 text-sm ${ftoAssignment===value?'border-primary bg-primary/5 ring-1 ring-primary':'bg-card'} ${!canManageAssignment?'opacity-80':''}`}>
+                    <input {...form.register('ftoAssignment')} type="radio" value={value} checked={ftoAssignment===value} disabled={!canManageAssignment} onChange={()=>selectFtoAssignment(value)} data-testid={`radio-fto-assignment-${value}`}/>
+                    <span className="min-w-0"><b className="block">{value}</b><span className="text-xs text-muted-foreground">{detail}</span></span>
+                    {universal&&<span className="ml-auto shrink-0 rounded border border-destructive/30 px-2 py-1 text-[10px] font-bold uppercase text-destructive">User request</span>}
+                  </label>;
+                })}
+              </div>
+            </fieldset>
+            {isUniversalFtoAssignment(ftoAssignment)
+              ?<Field label="Mapped cruiser district" error={fieldError('cruiserDistrict')}>{canManageAssignment
+                ?<SearchableSelect {...form.register('cruiserDistrict')} value={cruiserDistrict} className={selectInput} disabled={!precinct||!shift} onChange={event=>form.setValue('cruiserDistrict',event.target.value,{shouldDirty:true,shouldValidate:true})} data-testid="select-universal-cruiser-district"><option value="">Select mapped district</option>{ftoCruiserDistrictsForShift(zone,precinct,shift).map(value=><option key={value} value={value}>{value}</option>)}</SearchableSelect>
+                :<input {...form.register('cruiserDistrict')} className={textInput} readOnly data-testid="select-universal-cruiser-district"/>}</Field>
+              :cruiserDistrict&&<p className="text-sm text-muted-foreground" data-testid="text-mapped-cruiser-district">Mapped cruiser district: <b>{cruiserDistrict}</b></p>}
             {shift&&<fieldset>
               <legend className="label-caps mb-2">Days off · select exactly {requiredDaysOff(shift as Shift)}</legend>
               <div className="grid gap-2">{WEEKDAYS.map(({value,label})=><label key={value} className="flex min-h-11 items-center gap-2 rounded border bg-card px-3 text-sm"><input type="checkbox" checked={daysOff.includes(value)} onChange={event=>form.setValue('daysOff',event.target.checked?[...daysOff,value].sort((a,b)=>a-b) as Weekday[]:daysOff.filter(day=>day!==value),{shouldDirty:true,shouldValidate:true})} data-testid={`checkbox-day-off-${label.toLowerCase()}`}/>{label}</label>)}</div>

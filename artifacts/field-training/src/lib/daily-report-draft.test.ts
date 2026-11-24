@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { PhaseCaseFolder } from './model.js';
+import { phaseAssignmentLabel, type PhaseCaseFolder } from './model.js';
 import { createDailyReportDraft } from './daily-report-draft.js';
 
 const folder:PhaseCaseFolder={
@@ -36,4 +36,15 @@ test('new drafts leave the Limbo window with standard categorical defaults',()=>
   assert.equal(next.limboDay,false);
   assert.equal(next.ratings.dutyReadiness.rating,'A');
   assert.equal(next.date,'2026-11-25');
+});
+
+test('universal assignment code and actual mapped district carry into daily paperwork labels',()=>{
+  const universalFolder:PhaseCaseFolder={...folder,shift:'DMW',cruiserDistrict:'9150',ftoAssignment:'80C-1'};
+  const draft=createDailyReportDraft(universalFolder,'2026-11-25');
+  assert.equal(draft.zone,'3');
+  assert.equal(draft.precinct,'15');
+  assert.equal(draft.shift,'DMW');
+  assert.equal(draft.cruiserDistrict,'9150');
+  assert.equal(draft.ftoAssignment,'80C-1');
+  assert.equal(phaseAssignmentLabel(draft.ftoAssignment,draft.shift,draft.cruiserDistrict),'80C-1 · District 9150 · DMW');
 });

@@ -15,7 +15,7 @@ export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XL
     ['Probationary Officer Weekly Performance Summary · U-10.173'],
     ['DEVICE-LOCAL RECORD · Not submitted or digitally signed'],
     ['PO', safe(first.recruitName), 'Badge', safe(first.recruitBadge), 'Class', safe(first.className ?? '')],
-    ['FTO', safe(first.ftoName), 'Phase', first.phase, 'Week of', week ? formatDateDMY(week.start) : '', 'FTO Assignment', safe(phaseAssignmentLabel(first.ftoAssignment,first.shift))],
+    ['FTO', safe(first.ftoName), 'Phase', first.phase, 'Week of', week ? formatDateDMY(week.start) : '', 'FTO Assignment', safe(phaseAssignmentLabel(first.ftoAssignment,first.shift,first.cruiserDistrict))],
     ['Phase week', first.phaseWeek ?? 'Not confirmed', 'FTO week', first.ftoWeek ?? 'Not confirmed'],
     ['Source daily logs', reports.map(report=>safe(report.id)).join(', ')],
     ['Rating counts', `${ratingReports.length} daily performance logs reviewed; unreviewed ratings excluded`],

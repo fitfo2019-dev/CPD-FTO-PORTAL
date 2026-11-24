@@ -28,7 +28,7 @@ export function PrintableWeeklySummary({
   assignment?: string;
 }) {
   const first = reports[0];
-  const assignmentLabel=assignment??phaseAssignmentLabel(first?.ftoAssignment,first?.shift);
+  const assignmentLabel=assignment??phaseAssignmentLabel(first?.ftoAssignment,first?.shift,first?.cruiserDistrict);
   return (
     <section
       className="print-summary"

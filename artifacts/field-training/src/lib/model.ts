@@ -1,4 +1,6 @@
-import { isValidAssignment, PatrolAssignmentMetadataSchema } from './cpd-geography.js';
+import {
+  isValidAssignment, isUniversalFtoAssignment, isValidFtoAssignment, PatrolAssignmentMetadataSchema,
+} from './cpd-geography.js';
 import { SUBMITTED_PRIMARY_CHECKLISTS, SUBMITTED_SUPPLEMENTAL_CHECKLISTS } from './manual-form-checklists.js';
 import { ARREST_CLASSIFICATION_VERSION, type ArrestSeverity, type ArrestType } from './arrest-classification.js';
 import {
@@ -646,9 +648,10 @@ export function shiftDisplayLabel(shift: ReportShift): string {
 export function shiftCodeLabel(shift: ReportShift): string {
   return shift in SHIFT_LABEL ? shift : `Legacy: ${shift}`;
 }
-export function phaseAssignmentLabel(ftoAssignment?: string, shift?: ReportShift): string {
+export function phaseAssignmentLabel(ftoAssignment?: string, shift?: ReportShift, cruiserDistrict?: string): string {
   if (!ftoAssignment) return 'Not recorded';
-  return shift ? `${ftoAssignment} · ${shiftCodeLabel(shift)}` : ftoAssignment;
+  const districtContext=isUniversalFtoAssignment(ftoAssignment)&&cruiserDistrict?` · District ${cruiserDistrict}`:'';
+  return `${ftoAssignment}${districtContext}${shift ? ` · ${shiftCodeLabel(shift)}` : ''}`;
 }
 export type Status = 'draft'|'fto_signed'|'recruit_signed'|'locked';
 export const STATUS_LABEL: Record<Status,string> = { draft:'Draft', fto_signed:'Legacy status · signature not verified', recruit_signed:'Legacy status · signature not verified', locked:'Locked on this device' };
@@ -873,6 +876,7 @@ export interface Report {
   createdAt: string; updatedAt: string;
 }
 export interface Task { id: string; phase: Phase; group: string; title: string; done: boolean; by?: string; at?: string; }
+export interface Task { id: string; phase: Phase; group: string; title: string; done: boolean; by?: string; at?: string; }
 export interface LawReviewRecord {
   id: string;
   assignmentId: string;
@@ -939,8 +943,13 @@ export function validateReport(r: Report): string[] {
   const req: [keyof Report, string][] = [['date','Shift date'],['shift','Shift'],['recruitName','Recruit name'],['recruitBadge','Recruit badge'],['ftoName','FTO name'],['ftoBadge','FTO badge']];
   for (const [k,l] of req) if (!String(r[k] ?? '').trim()) errs.push(l + ' is required');
   if (!isValidAssignment(r.zone, r.precinct, r.cruiserDistrict, r.shift)) errs.push('Valid Division patrol assignment (Zone, Precinct, and FTO Assignment) is required');
-  if (r.ftoAssignment && !PatrolAssignmentMetadataSchema.safeParse(r).success)
+  if (isUniversalFtoAssignment(r.ftoAssignment)) {
+    if (!isValidFtoAssignment(r.zone,r.precinct,r.ftoAssignment,r.shift,r.cruiserDistrict)) {
+      errs.push('Universal FTO assignment requires a mapped cruiser district compatible with the patrol area and shift');
+    }
+  } else if (r.ftoAssignment && !PatrolAssignmentMetadataSchema.safeParse(r).success) {
     errs.push('FTO call-sign must match the separately recorded patrol geography and shift');
+  }
   if (!PHASES.includes(r.phase)) errs.push('Phase is required');
   for (const [label,value] of [['Phase week',r.phaseWeek],['FTO week',r.ftoWeek]] as const) {
     if (value !== undefined && (!Number.isInteger(value) || value < 1)) errs.push(`${label} must be a positive whole number`);

@@ -89,7 +89,7 @@ function People({report}:{report:Report}) {
     <span><b>Probationary Officer</b>{report.recruitName} · Badge {report.recruitBadge}</span>
     <span><b>FTO</b>{report.ftoName} · Badge {report.ftoBadge}</span>
     <span><b>Class</b>{report.className||'—'}</span>
-    <span><b>FTO assignment</b>{phaseAssignmentLabel(report.ftoAssignment,report.shift)}</span>
+    <span><b>FTO assignment</b>{phaseAssignmentLabel(report.ftoAssignment,report.shift,report.cruiserDistrict)}</span>
   </div>;
 }
 

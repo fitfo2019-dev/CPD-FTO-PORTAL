@@ -59,6 +59,7 @@ export default function WeeklyAcknowledgementPage() {
   const assignment = phaseAssignmentLabel(
     assignmentSource?.ftoAssignment ?? activeFolder?.ftoAssignment,
     assignmentSource?.shift ?? activeFolder?.shift,
+    assignmentSource?.cruiserDistrict ?? activeFolder?.cruiserDistrict,
   );
   const stored = selectedWeek
     ? ws.weeklyAcknowledgements.find(ack => ack.weekStart === selectedWeek.start && ack.recruitBadge === recruitBadge)

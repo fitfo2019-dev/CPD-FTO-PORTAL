@@ -88,7 +88,7 @@ export default function Dashboard() {
         <div><span className="label-caps">Probationary Officer</span><b className="mt-1 block break-words">{folder.recruitName} · #{folder.recruitBadge}</b></div>
         <div><span className="label-caps">Class and phase</span><b className="mt-1 block break-words">{folder.className} · {phaseLabel}</b></div>
         <div><span className="label-caps">Assigned FTO</span><b className="mt-1 block break-words">{folder.ftoName} · #{folder.ftoBadge}</b></div>
-        <div><span className="label-caps">FTO assignment</span><b className="mt-1 block break-words">{phaseAssignmentLabel(folder.ftoAssignment,folder.shift)}</b></div>
+        <div><span className="label-caps">FTO assignment</span><b className="mt-1 block break-words">{phaseAssignmentLabel(folder.ftoAssignment,folder.shift,folder.cruiserDistrict)}</b></div>
       </div>
     </Panel>}
 
@@ -106,7 +106,7 @@ export default function Dashboard() {
       <Panel title="Recent shift records" action={<Link href="/reports" className="inline-flex items-center gap-1 text-sm font-semibold hover:underline" data-testid="link-all-reports">Saved records <ArrowRight className="h-3.5 w-3.5"/></Link>}>
         {sorted.length===0?<div className="p-6 text-sm text-muted-foreground">No daily records yet. Set up the phase folder, then start the shift workspace.</div>:
           <ul className="divide-y">{sorted.slice(0,6).map(report=><li key={report.id}><Link href={`/reports/${report.id}`} data-testid={`row-recent-${report.id}`} className="flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60">
-            <div className="min-w-0 flex-1 text-sm"><b className="block truncate">{report.recruitName} · #{report.recruitBadge}</b><span className="text-xs text-muted-foreground">{formatDateDMY(report.date)} · {phaseAssignmentLabel(report.ftoAssignment,report.shift)}</span></div>
+            <div className="min-w-0 flex-1 text-sm"><b className="block truncate">{report.recruitName} · #{report.recruitBadge}</b><span className="text-xs text-muted-foreground">{formatDateDMY(report.date)} · {phaseAssignmentLabel(report.ftoAssignment,report.shift,report.cruiserDistrict)}</span></div>
             <span className="hidden text-xs text-muted-foreground md:block">{evaluationProgress(report)}</span><StatusPill s={report.status}/><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground"/>
           </Link></li>)}</ul>}
       </Panel>

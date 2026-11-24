@@ -46,7 +46,7 @@ export function PrintableMonthlySummary({
   const first = reports[0];
   const activityRows = Math.max(...DAILY_ACTIVITY_COLUMNS.map(column => column.keys.length));
   const monthDates = reports.map(report => report.date).sort();
-  const assignments = [...new Set(reports.map(report => phaseAssignmentLabel(report.ftoAssignment, report.shift)))].join(', ');
+  const assignments = [...new Set(reports.map(report => phaseAssignmentLabel(report.ftoAssignment, report.shift, report.cruiserDistrict)))].join(', ');
   return (
     <section className="print-monthly" aria-hidden="true" data-testid="print-monthly-summary">
       <header className="print-monthly-header">

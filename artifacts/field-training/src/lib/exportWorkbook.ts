@@ -42,7 +42,7 @@ const ratingCounts = (reports: Report[]) =>
     rating,
     reports.filter(report=>!!report.ratingsReviewedAt&&!report.limboDay).reduce((total, report) => total + CATEGORIES.filter(category => effectiveCategoryRating(report,category) === rating).length, 0),
   ])) as Record<Exclude<Rating, ''>, number>;
-const assignmentValue = (report: Report) => phaseAssignmentLabel(report.ftoAssignment, report.shift);
+const assignmentValue = (report: Report) => phaseAssignmentLabel(report.ftoAssignment, report.shift, report.cruiserDistrict);
 
 function autosize(workbook: XLSX.WorkBook) {
   const gridBorder = {

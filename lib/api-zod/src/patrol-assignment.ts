@@ -40,6 +40,9 @@ export const CPD_GEOGRAPHY = [
 export const TACTICAL_CALL_SIGNS = ["80C-1", "80C-2"] as const;
 export const isTacticalCallSign = (value: unknown): value is typeof TACTICAL_CALL_SIGNS[number] =>
   typeof value === "string" && TACTICAL_CALL_SIGNS.some(code => code === value);
+export const UNIVERSAL_FTO_ASSIGNMENTS = TACTICAL_CALL_SIGNS;
+export const isUniversalFtoAssignment = (value: string | undefined): value is typeof UNIVERSAL_FTO_ASSIGNMENTS[number] =>
+  isTacticalCallSign(value);
 
 type PrecinctEntry = { readonly precinct: string; readonly cruiserDistricts: readonly string[] };
 export const cpdPrecinctsForZone = (zone: string): readonly PrecinctEntry[] =>
@@ -48,18 +51,20 @@ export const cpdDistrictsForPrecinct = (zone: string, precinct: string): readonl
   cpdPrecinctsForZone(zone).find(item => item.precinct === precinct)?.cruiserDistricts ?? [];
 const isMidwatch = (shift: string) => shift === "DMW" || shift === "EMW";
 const isCompany = (shift: string) => ["A-Co","B-Co","C-Co"].includes(shift);
+const isMidwatchDistrict = (district: string) => /^9\d{3}$/.test(district);
 const precinctWagonNumber = (zone: string, precinct: string) =>
   cpdPrecinctsForZone(zone).some(item => item.precinct === precinct) ? `${precinct}8` : undefined;
 
 export const ftoAssignmentSuffixesForShift = (shift: string): string[] =>
   ({ DMW:["D1","D2"], EMW:["E1","E2"], "A-Co":["A"], "B-Co":["B"], "C-Co":["C"] }[shift] ?? []);
-const districtsForShift = (zone: string, precinct: string, shift: string) =>
+export const ftoCruiserDistrictsForShift = (zone: string, precinct: string, shift: string) =>
   cpdDistrictsForPrecinct(zone, precinct).filter(district =>
-    isMidwatch(shift) ? district.startsWith("9") : isCompany(shift) && !district.startsWith("9"));
+    isMidwatch(shift) ? isMidwatchDistrict(district) : isCompany(shift) && !isMidwatchDistrict(district));
+const districtsForShift = ftoCruiserDistrictsForShift;
 
 export function isValidAssignment(zone: string, precinct: string, district: string, shift?: string): boolean {
   if (cpdDistrictsForPrecinct(zone, precinct).includes(district)) {
-    if (shift && (isMidwatch(shift) || isCompany(shift))) return district.startsWith("9") === isMidwatch(shift);
+    if (shift && (isMidwatch(shift) || isCompany(shift))) return isMidwatchDistrict(district) === isMidwatch(shift);
     return true; // Historical records without a mapped modern shift remain readable.
   }
   return (!shift || isCompany(shift)) && precinctWagonNumber(zone, precinct) === district;
@@ -70,9 +75,9 @@ export function cruiserDistrictForFtoAssignment(
 ): string | undefined {
   if (isTacticalCallSign(assignment)) {
     // Tactical call-sign and official cruiser district are separate data.
-    return shift === "C-Co" && explicitDistrict &&
-      cpdDistrictsForPrecinct(zone, precinct).includes(explicitDistrict) &&
-      !explicitDistrict.startsWith("9") ? explicitDistrict : undefined;
+    return explicitDistrict && districtsForShift(zone, precinct, shift).includes(explicitDistrict)
+      ? explicitDistrict
+      : undefined;
   }
   const district = districtsForShift(zone, precinct, shift).find(value =>
     ftoAssignmentSuffixesForShift(shift).some(suffix => (isMidwatch(shift)
@@ -84,16 +89,30 @@ export function cruiserDistrictForFtoAssignment(
     [1,2].some(seat => `${wagon}${suffix}${seat}` === assignment)) ? wagon : undefined;
 }
 
-export function ftoAssignmentsForPrecinct(zone: string, precinct: string, shift: string, explicitDistrict?: string): string[] {
+export function ftoAssignmentsForPrecinct(zone: string, precinct: string, shift: string, _explicitDistrict?: string): string[] {
   const districts = districtsForShift(zone, precinct, shift);
   const suffixes = ftoAssignmentSuffixesForShift(shift);
-  if (isMidwatch(shift)) return districts.flatMap(district => suffixes.map(suffix => `${district}${suffix}`));
+  if (!districts.length || !suffixes.length) return [];
+  if (isMidwatch(shift)) return [
+    ...districts.flatMap(district => suffixes.map(suffix => `${district}${suffix}`)),
+    ...UNIVERSAL_FTO_ASSIGNMENTS,
+  ];
   const base = districts.flatMap(district => suffixes.map(suffix => `${district}${suffix}`));
   const seats = districts.flatMap(district => suffixes.flatMap(suffix => [`${district}${suffix}1`,`${district}${suffix}2`]));
   const wagon = precinctWagonNumber(zone, precinct);
   const wagons = wagon ? suffixes.flatMap(suffix => [1,2].map(seat => `${wagon}${suffix}${seat}`)) : [];
-  const tactical = TACTICAL_CALL_SIGNS.filter(code => cruiserDistrictForFtoAssignment(zone, precinct, code, shift, explicitDistrict));
-  return [...base, ...seats, ...wagons, ...tactical];
+  return [...base, ...seats, ...wagons, ...UNIVERSAL_FTO_ASSIGNMENTS];
+}
+
+export function isValidFtoAssignment(
+  zone: string, precinct: string, assignment: string, shift: string, cruiserDistrict?: string,
+): boolean {
+  if (!ftoAssignmentSuffixesForShift(shift).length) return false;
+  if (isTacticalCallSign(assignment)) {
+    return !!cruiserDistrict && districtsForShift(zone, precinct, shift).includes(cruiserDistrict);
+  }
+  const inferredDistrict = cruiserDistrictForFtoAssignment(zone, precinct, assignment, shift);
+  return !!inferredDistrict && (!cruiserDistrict || inferredDistrict === cruiserDistrict);
 }
 
 export function assignmentFromPrecinctAndDistrict(precinct: string, cruiserDistrict: string) {

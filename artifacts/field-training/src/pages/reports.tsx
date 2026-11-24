@@ -53,7 +53,7 @@ export default function Reports() {
                 <td className="px-3 py-2.5"><Link href={'/reports/'+r.id} className="font-bold underline-offset-2 hover:underline">PO {r.recruitName} #{r.recruitBadge}</Link></td>
                 <td className="px-3 py-2.5 mono whitespace-nowrap">{formatDateDMY(r.date)} <span className="text-muted-foreground">· {shiftCodeLabel(r.shift)}</span></td>
                  <td className="px-3 py-2.5">{phaseLabel(r.phase)}</td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">{phaseAssignmentLabel(r.ftoAssignment,r.shift)}</td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">{phaseAssignmentLabel(r.ftoAssignment,r.shift,r.cruiserDistrict)}</td>
                  <td className="px-3 py-2.5">{evaluationProgress(r)}</td>
                  <td className="px-3 py-2.5 mono">{Object.values(activityTotals(r)).reduce((sum, count) => sum + count, 0)}</td>
                 <td className="px-3 py-2.5"><StatusPill s={r.status} /></td>

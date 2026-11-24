@@ -675,7 +675,7 @@ export default function ReportEditor() {
            <F l="Assigned FTO badge"><input className={inp+' mono'} value={r.ftoBadge} readOnly data-testid="input-fto-badge" /></F>
           <F l="Patrol zone"><input className={inp} value={r.zone ? `Zone ${r.zone}` : 'Not assigned'} disabled data-testid="input-zone" /></F>
           <F l="Precinct"><input className={inp} value={r.precinct ? `Precinct ${r.precinct}` : 'Not assigned'} disabled data-testid="input-precinct" /></F>
-          <F l="FTO Assignment"><input className={inp} value={phaseAssignmentLabel(r.ftoAssignment,r.shift)} disabled data-testid="input-fto-assignment" /></F>
+          <F l="FTO Assignment"><input className={inp} value={phaseAssignmentLabel(r.ftoAssignment,r.shift,r.cruiserDistrict)} disabled data-testid="input-fto-assignment" /></F>
         </fieldset>
         {week && <div className="border-t px-4 py-3 text-sm" data-testid="text-report-week">
           <b>Training week:</b> Sunday {formatDateDMY(week.start)} – Saturday {formatDateDMY(week.end)}.

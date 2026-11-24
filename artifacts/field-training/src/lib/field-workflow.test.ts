@@ -2,13 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
 import { buildClassWorkbook } from './exportWorkbook.js';
-import { CATEGORIES, PHASES, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, SEG_CATEGORIES, DEFAULT_NO_CATEGORIES, DAILY_DUTY_CHECKLIST, defaultReportingForDutyRecord, defaultRatings, emptyRatings, emptyDailyActivitySummary, evaluationProgress, canViewClass, isTechnicalRole, requiredSupplementalForms, newRunChecklist, hasRunChecklistEdits, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, validateReport, type TrainingRun, type WeeklyPerformanceLogEntry } from './model.js';
+import { CATEGORIES, PHASES, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, SEG_CATEGORIES, DEFAULT_NO_CATEGORIES, DAILY_DUTY_CHECKLIST, defaultReportingForDutyRecord, defaultRatings, emptyRatings, emptyDailyActivitySummary, evaluationProgress, canViewClass, isTechnicalRole, requiredSupplementalForms, newRunChecklist, hasRunChecklistEdits, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, phaseAssignmentLabel, validateReport, type TrainingRun, type WeeklyPerformanceLogEntry } from './model.js';
 import { createEmptyWorkspace } from './empty-workspace.js';
 import { seedReports } from './seed.js';
 import { BUILDING_SEARCH_DISPATCH_CODES, DEFAULT_RUN_TYPE_CODES, SITUATION_FOUND_NA, formatRadioCode, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode, isEligibleCitationSummons, RADIO_CODES, RADIO_CODE_SOURCE_LABEL, suggestRunTypeFromDispatchedCode } from './radio-codes.js';
 import { currentDateTimeMDY, formatDateEntryMDY, formatDateTimeEntryMDY, splitDateTimeEntryMDY, getNextReportDate, getPhaseScheduleInfo } from './training-calendar.js';
 import { activityTotals, manualActivityEntryForTotal, runActivityValidationError, runDerivedActivityCounts } from './run-activity.js';
-import { cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, isValidAssignment } from './cpd-geography.js';
+import { cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, isValidAssignment, isValidFtoAssignment } from './cpd-geography.js';
 import { getRunDirectivePrompts } from './directive-prompts.js';
 import { normalizePreviewRole, ROLES } from './model.js';
 import { FTO_HELP, UPLOADED_FORM_SOURCES } from './fto-help.js';
@@ -257,6 +257,34 @@ test('phase assignments include two-officer day units and precinct-number PTV wa
   assert.ok(dmwAssignments.includes('9150D1'));
   assert.ok(dmwAssignments.includes('9150D2'));
   assert.ok(dmwAssignments.every(value=>!value.startsWith('158')));
+  const precinctNineDay=ftoAssignmentsForPrecinct('2','9','A-Co');
+  assert.ok(precinctNineDay.includes('90A'));
+  assert.ok(!precinctNineDay.includes('9090A'));
+  assert.ok(ftoAssignmentsForPrecinct('2','9','DMW').includes('9090D1'));
+  assert.ok(!ftoAssignmentsForPrecinct('2','9','DMW').includes('90D1'));
+});
+
+test('universal assignments validate with actual geography and keep the code in workbook exports',()=>{
+  const report=seedReports()[0];
+  report.zone='3';
+  report.precinct='15';
+  report.shift='DMW';
+  report.cruiserDistrict='9150';
+  report.ftoAssignment='80C-1';
+  assert.equal(isValidFtoAssignment(report.zone,report.precinct,report.ftoAssignment,report.shift,report.cruiserDistrict),true);
+  assert.equal(validateReport(report).some(error=>error.includes('Universal FTO assignment requires')),false);
+  assert.equal(phaseAssignmentLabel(report.ftoAssignment,report.shift,report.cruiserDistrict),'80C-1 · District 9150 · DMW');
+
+  const workbook=buildClassWorkbook([report]);
+  const rows=XLSX.utils.sheet_to_json<(string|number)[]>(workbook.Sheets['Daily Summary Index'],{header:1});
+  const assignmentIndex=rows[0].indexOf('FTO Assignment');
+  assert.equal(rows[1][assignmentIndex],'80C-1 · District 9150 · DMW');
+
+  report.cruiserDistrict='150';
+  assert.equal(isValidFtoAssignment(report.zone,report.precinct,report.ftoAssignment,report.shift,report.cruiserDistrict),false);
+  assert.ok(validateReport(report).some(error=>error.includes('Universal FTO assignment requires')));
+  assert.equal(isValidFtoAssignment('3','15','158C1','C-Co','158'),true);
+  assert.equal(isValidFtoAssignment('3','15','158C1','DMW','158'),false);
 });
 
 test('Limbo logs have no default SEG ratings and do not require rating validation',()=>{
