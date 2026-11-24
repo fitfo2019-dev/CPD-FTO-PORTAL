@@ -4,7 +4,8 @@ import express, { type RequestHandler } from "express";
 import type pg from "pg";
 import { agencyIdentityFromClaims, type AgencyIdentity } from "../src/security/agencyIdentity.js";
 import { createTrainingPacketsRouter, safePacketTree, PACKET_SEG_KEYS } from "../src/routes/training-packets.js";
-import { createAgencyPacketStore, PacketError } from "../src/lib/agency-packet-store.js";
+import { createAgencyPacketStore, encodePacketCursor, PacketError } from "../src/lib/agency-packet-store.js";
+import { hashUserIdentifier } from "../src/utils/cryptoUtils.js";
 import { CATEGORIES } from "../../field-training/src/lib/model.js";
 import { CompletePacketInput } from "../src/lib/packet-contract.js";
 
@@ -130,4 +131,149 @@ test("coordinator read scope is specific to its server roster identity, never a 
   assert.equal(read?.parameters?.[0], "FTO_COORDINATOR");
   assert.match(String(read?.parameters?.[1]), /^[a-f0-9]{64}$/);
   assert.match(String(read?.parameters?.[2]), /^[a-f0-9]{64}$/);
+});
+
+test("packet history cursors cannot cross FTO or Coordinator roster scopes", async () => {
+  type ScopedPacket = {
+    row: Record<string, unknown>;
+    ftoId: string;
+    ftoBadge: string;
+    coordinatorId: string;
+  };
+  const coordinator = { id: "assigned-coordinator", badge: "coord-badge", role: "FTO_COORDINATOR" as const };
+  const otherCoordinator = { id: "other-coordinator", badge: "other-coord-badge", role: "FTO_COORDINATOR" as const };
+  const otherFto = { id: "other-fto", badge: "other-fto-badge", role: "FTO" as const };
+  const packets: ScopedPacket[] = [];
+  const addPackets = (prefix: string, count: number, owner: AgencyIdentity, assignedCoordinator: string) => {
+    for (let index = 0; index < count; index++) {
+      const id = `${prefix}-${String(index).padStart(3, "0")}`;
+      packets.push({
+        ftoId: owner.id,
+        ftoBadge: owner.badge,
+        coordinatorId: assignedCoordinator,
+        row: {
+          id,
+          assignment_id: `${prefix}-assignment`,
+          record_date: "2026-11-23",
+          phase: 1,
+          server_version: 1,
+          report: { id },
+          submission_status: "submitted",
+          content_hash: "a".repeat(64),
+          released_to_po: false,
+          released_at: null,
+          withdrawn_at: null,
+          withdrawal_reason: null,
+          amendment_of: null,
+          amendment_reason: null,
+          acknowledgment: null,
+        },
+      });
+    }
+  };
+  addPackets("fto-a", 101, fto, otherCoordinator.id);
+  addPackets("fto-0", 4, otherFto, otherCoordinator.id);
+  const calls: Array<{ sql: string; parameters: unknown[] }> = [];
+  const client = {
+    async query(sql: string, parameters: unknown[] = []) {
+      if (sql.includes("FROM agency_training.packets p JOIN agency_training.packet_assignments")) {
+        calls.push({ sql, parameters });
+        // Model the roster predicate against fixture assignments while also
+        // asserting every DB read carries that predicate and the keyset bound.
+        assert.match(sql, /WHERE \(a\.active AND pa\.active AND/);
+        assert.match(sql, /\(p\.record_date, p\.id\) < \(\$8::date, \$9::text\)/);
+        const [role, identityHash, badgeHash, , coordinatorId, , , afterDate, afterId, limit] = parameters;
+        const visible = packets.filter(packet => {
+          if (role === "FTO")
+            return hashUserIdentifier(packet.ftoId) === identityHash &&
+              hashUserIdentifier(packet.ftoBadge) === badgeHash;
+          if (role === "FTO_COORDINATOR")
+            return packet.coordinatorId === coordinatorId ||
+              hashUserIdentifier(packet.coordinatorId) === identityHash;
+          return false;
+        }).filter(packet => afterDate == null || String(packet.row.record_date) < String(afterDate) ||
+          (String(packet.row.record_date) === String(afterDate) &&
+            String(packet.row.id) < String(afterId)))
+          .sort((left, right) => String(right.row.record_date).localeCompare(String(left.row.record_date)) ||
+            String(right.row.id).localeCompare(String(left.row.id)))
+          .slice(0, Number(limit))
+          .map(packet => packet.row);
+        return { rows: visible };
+      }
+      return { rows: [] };
+    },
+    release() {},
+  };
+  const store = createAgencyPacketStore({ connect: async () => client } as unknown as pg.Pool);
+  const readPage = (identity: AgencyIdentity, cursor?: string) =>
+    store.readPage(identity, audit, cursor);
+  const firstFtoPage = await readPage(fto);
+  assert.equal(firstFtoPage.data.length, 100);
+  assert.equal(firstFtoPage.hasMore, true);
+  const ftoCursor = encodePacketCursor(
+    String(firstFtoPage.data.at(-1)!.record_date),
+    String(firstFtoPage.data.at(-1)!.id),
+  );
+  const secondFtoPage = await readPage(fto, ftoCursor);
+  assert.equal(secondFtoPage.data.length, 1);
+  assert.equal(secondFtoPage.hasMore, false);
+  assert.ok([...firstFtoPage.data, ...secondFtoPage.data].every(packet =>
+    String(packet.assignment_id) === "fto-a-assignment"));
+
+  // A cursor copied from one signed-in person must still use the next
+  // request's identity and roster, rather than carrying authorization.
+  const reusedByOtherFto = await readPage(otherFto, ftoCursor);
+  assert.ok(reusedByOtherFto.data.length > 0);
+  assert.ok(reusedByOtherFto.data.every(packet => String(packet.assignment_id) === "fto-0-assignment"));
+
+  // Cursor contents are not trusted as authorization either: moving its
+  // position to the start of the sort range may change pagination, not scope.
+  const editedCursor = encodePacketCursor("2026-11-23", "zzzz");
+  const editedByOtherFto = await readPage(otherFto, editedCursor);
+  assert.ok(editedByOtherFto.data.length > 0);
+  assert.ok(editedByOtherFto.data.every(packet => String(packet.assignment_id) === "fto-0-assignment"));
+
+  // Coordinator pagination remains limited to packets assigned in its
+  // roster, even with another Coordinator's cursor.
+  const coordinatorPackets: ScopedPacket[] = [];
+  for (let index = 0; index < 101; index++) {
+    const id = `coord-a-${String(index).padStart(3, "0")}`;
+    coordinatorPackets.push({
+      ftoId: fto.id,
+      ftoBadge: fto.badge,
+      coordinatorId: coordinator.id,
+      row: { ...packets[0]!.row, id, assignment_id: "coord-a-assignment" },
+    });
+  }
+  for (let index = 0; index < 3; index++) {
+    const id = `coord-0-${String(index).padStart(3, "0")}`;
+    coordinatorPackets.push({
+      ftoId: otherFto.id,
+      ftoBadge: otherFto.badge,
+      coordinatorId: otherCoordinator.id,
+      row: { ...packets[0]!.row, id, assignment_id: "coord-b-assignment" },
+    });
+  }
+  packets.push(...coordinatorPackets);
+  const firstCoordinatorPage = await readPage(coordinator);
+  assert.equal(firstCoordinatorPage.data.length, 100);
+  assert.equal(firstCoordinatorPage.hasMore, true);
+  const coordinatorCursor = encodePacketCursor(
+    String(firstCoordinatorPage.data.at(-1)!.record_date),
+    String(firstCoordinatorPage.data.at(-1)!.id),
+  );
+  const secondCoordinatorPage = await readPage(coordinator, coordinatorCursor);
+  assert.equal(secondCoordinatorPage.data.length, 1);
+  assert.ok([...firstCoordinatorPage.data, ...secondCoordinatorPage.data].every(packet =>
+    String(packet.assignment_id) === "coord-a-assignment"));
+  const reusedByOtherCoordinator = await readPage(otherCoordinator, coordinatorCursor);
+  assert.ok(reusedByOtherCoordinator.data.length > 0);
+  assert.ok(reusedByOtherCoordinator.data.every(packet => String(packet.assignment_id) === "coord-b-assignment"));
+
+  assert.ok(calls.every(call => call.parameters[0] === "FTO" || call.parameters[0] === "FTO_COORDINATOR"));
+  const ftoRead = calls.find(call => call.parameters[0] === "FTO");
+  assert.ok(ftoRead?.sql.includes("a.fto_id_hash = $2 AND a.fto_badge_hash = $3"));
+  const coordinatorRead = calls.find(call => call.parameters[0] === "FTO_COORDINATOR");
+  assert.ok(coordinatorRead?.sql.includes("pc.coordinator_id=$5"));
+  assert.ok(coordinatorRead?.sql.includes("a.coordinator_id_hash = $2"));
 });
