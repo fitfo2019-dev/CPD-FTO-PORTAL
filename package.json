@@ -6,6 +6,7 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "start": "node artifacts/api-server/dist/index.mjs",
+    "prebuild:api": "pnpm run snapshot:context",
     "build:api": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server run typecheck && pnpm --filter @workspace/api-server run build:release",
     "snapshot:context": "pnpm --filter @workspace/scripts exec tsx src/snapshot-context.ts",
     "context:write": "pnpm --filter @workspace/scripts exec tsx src/write-context.ts",

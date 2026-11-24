@@ -9,8 +9,13 @@ import { createPhaseWeekRanges, getPhaseWeekNumber, getSundaySaturdayWeek } from
 import { applyApprovedPhaseExtensions, approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests } from '@/lib/phase-extension.js';
 import { CURRENT_PACKET_INDEX_VERSION, migrateOperationalReferenceReviews, reconcileOperationalReferences, resolveOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
-import { uploadPacketBatch } from '@/lib/training-packet-sync.js';
 import { preserveProtectedPackets } from '@/lib/protected-packets.js';
+import { uploadPacketBatch,finalizePacketDraft } from '@/lib/training-packet-sync.js';
+import { getTrainingPacket } from '@workspace/api-client-react';
+import { validateReportsForExport } from '@/lib/export-validation.js';
+import { validateReport } from '@/lib/model.js';
+import { packetSubmissionReady } from '@workspace/api-zod/packet-readiness';
+import { assertAssignmentMetadata, assertTacticalAssignmentMetadata } from '@/lib/assignment-metadata.js';
 
 export type VaultState = 'none' | 'unlocked';
 export type PacketSyncState = 'idle' | 'uploading' | 'failed' | 'synchronized';
@@ -50,6 +55,8 @@ interface Ctx {
   setupAndSave(pass: string): Promise<void>; unlockAndRestore(pass: string): Promise<void>; saveNow(): Promise<void>; overwriteOtherSessions(): Promise<void>; refreshRecoverySnapshots(): Promise<void>; restoreRecoverySnapshot(id: string): Promise<void>; lockNow(reason?: string): void; dismissLockedNotice(): void; dismissOverwrittenElsewhere(): void;
   resetWorkspace(): void;
   syncPackets(): Promise<void>;
+  finalizePacket(id:string):Promise<void>;
+  openPacketCorrection(id:string):Promise<void>;
   packetSyncState: PacketSyncState; packetSyncError: string | null;
   getOperationalPacket(report: Report): OperationalPacket;
   segTaskDirectory: typeof SEG_TASK_DIRECTORY;
@@ -85,7 +92,8 @@ function upsertReportAndWeeklyUaLog(workspace:Workspace, inputReport:Report):Wor
   if (workspace.reports.some(item => item.id === inputReport.id && (item.syncStatus === 'synchronized_complete' || item.syncAttemptPending))) {
     throw new Error('This packet has been synchronized and is sealed. Request an authorized correction.');
   }
-  inputReport = { ...inputReport, syncStatus: 'local_draft_pending', serverVersion: 0 };
+  inputReport = { ...inputReport, syncStatus: 'local_draft_pending',
+    serverVersion: workspace.reports.find(item=>item.id===inputReport.id)?.serverVersion??inputReport.serverVersion??0 };
   const report=reconcileDeficiencyRatings(inputReport,resolveOperationalPacket(inputReport,[...workspace.phaseFolders,...(workspace.caseFolder?[workspace.caseFolder]:[])],workspace.substationOrientations));
   const reports=workspace.reports.some(item=>item.id===report.id)
     ?workspace.reports.map(item=>item.id===report.id?report:item)
@@ -190,6 +198,7 @@ function migrateGeography(value: { zone?: unknown; precinct?: unknown; cruiserDi
 function migrateCaseFolder(value:unknown):PhaseCaseFolder|undefined {
   if(!isRecord(value)) return undefined;
   const raw=value as PhaseCaseFolder&{beat?:unknown};
+  assertTacticalAssignmentMetadata(raw);
   const phase=Number(raw.phase);
   if(![1,2,3,4].includes(phase)||!SHIFTS.includes(raw.shift as Shift)) return undefined;
   const {beat:_oldAreaField,...folderWithoutOldField}=raw;
@@ -607,6 +616,7 @@ export function WorkspaceProvider({
       migratedReports = data.reports.filter(saved=>[1,2,3,4].includes(Number(saved.phase))).map(saved => {
         if (saved.syncStatus === 'synchronized_complete' || saved.syncAttemptPending) return saved;
         const raw = saved as Report & { beat?: unknown; ratings?: unknown };
+        assertTacticalAssignmentMetadata(raw);
         const { beat: _oldAreaField, ...reportWithoutOldField } = raw;
         const geography = migrateGeography(raw);
         const evaluation = migrateRatings(raw.ratings, raw.legacyEvaluation);
@@ -638,6 +648,10 @@ export function WorkspaceProvider({
         };
       });
       restoredCaseFolder=migrateCaseFolder(data.caseFolder);
+      data.assignments?.forEach(assertTacticalAssignmentMetadata);
+      data.ftoPhaseSignups?.forEach(signup=>{
+        if(signup.patrolAssignment) assertAssignmentMetadata(signup.patrolAssignment);
+      });
     } catch (e) {
       s.lock();
       throw e;
@@ -771,6 +785,75 @@ export function WorkspaceProvider({
     } finally { syncing.current = false; syncAbort.current = null; }
   }, [previewOnly, vault, online, persist, refreshPending]);
 
+  const finalizeOperations=useRef(new Map<string,string>());
+  const finalizePacket=useCallback(async(id:string)=>{
+    if(recoverySyncReviewRef.current)
+      throw new Error('Save the restored workspace locally before submitting packets.');
+    if(previewOnly||vault!=='unlocked'||!online||editorDirtyRef.current||syncing.current)
+      throw new Error('Save open edits and unlock the online local vault before submitting.');
+    const report=wsRef.current.reports.find(item=>item.id===id);
+    if(!report) throw new Error('Save the daily report before submitting.');
+    if(report.syncStatus==='synchronized_complete') throw new Error('This packet is already submitted. Open packet submissions for its status.');
+    const errors=validateReport(report);
+    if(errors.length) throw new Error(errors[0]);
+    if(!packetSubmissionReady(report as unknown as Record<string,unknown>))
+      throw new Error('Review and save the duty sheet, every run form, and the daily evaluation before final submission.');
+    syncing.current=true;
+    const controller=new AbortController();syncAbort.current=controller;
+    try {
+      await persist(wsRef.current);
+      const synced=await storage.current.syncPacketBatch<Workspace>(changes=>uploadPacketBatch(changes,controller.signal));
+      if(controller.signal.aborted) throw new Error('Submission interrupted. Local drafts were retained.');
+      let current=synced??wsRef.current;
+      wsRef.current=current;setWs(current);
+      const version=current.reports.find(item=>item.id===id)?.serverVersion;
+      if(!version) throw new Error('The server has not acknowledged this draft.');
+      const key=`${id}:${version}`;
+      const operation=finalizeOperations.current.get(key)??crypto.randomUUID();
+      finalizeOperations.current.set(key,operation);
+      try {await finalizePacketDraft(id,version,operation,controller.signal);}
+      catch(error) {
+        // A lost success response or a reload must not cause a second submit.
+        const saved=await getTrainingPacket(id,{signal:controller.signal});
+        const authoritative=saved.data.find(item=>item.id===id);
+        if(authoritative?.sync_status!=='synchronized_complete'||authoritative.server_version!==version) throw error;
+      }
+      if(controller.signal.aborted) throw new Error('Submission response interrupted. Check shared packet status before retrying.');
+      current={...current,reports:current.reports.map(item=>item.id===id
+        ?{...item,status:'locked' as const,syncStatus:'synchronized_complete' as const,serverVersion:version}:item)};
+      await storage.current.saveWorkspace(current);
+      wsRef.current=current;setWs(current);setDirty(false);
+      finalizeOperations.current.delete(key);
+      await refreshPending();
+    } finally {syncing.current=false;if(syncAbort.current===controller)syncAbort.current=null;}
+  },[previewOnly,vault,online,persist,refreshPending]);
+
+  const openPacketCorrection=useCallback(async(id:string)=>{
+    if(previewOnly||vault!=='unlocked'||!online||editorDirtyRef.current||syncing.current)
+      throw new Error('Save open edits and unlock the online vault before opening a correction.');
+    syncing.current=true;
+    const controller=new AbortController();syncAbort.current=controller;
+    try {
+      const response=await getTrainingPacket(id,{signal:controller.signal});
+      const record=response.data.find(item=>item.id===id);
+      if(!record||record.sync_status!=='local_draft_pending') throw new Error('This packet has not been returned for correction.');
+      const existing=wsRef.current.reports.find(item=>item.id===id);
+      if(existing&&existing.syncStatus!=='synchronized_complete'&&existing.serverVersion===record.server_version)
+        return; // Preserve an already opened correction and any locally authored changes.
+      if(existing&&existing.syncStatus!=='synchronized_complete')
+        throw new Error('A different local draft already exists. It was not overwritten.');
+      const report=validateReportsForExport([record.report])[0];
+      if(controller.signal.aborted) throw new Error('Opening the correction was interrupted.');
+      await persist(wsRef.current);
+      const correction={...report,status:'draft' as const,syncStatus:'local_draft_pending' as const,
+        serverVersion:record.server_version,ratingsReviewedAt:undefined};
+      const next={...wsRef.current,reports:existing
+        ?wsRef.current.reports.map(item=>item.id===id?correction:item):[correction,...wsRef.current.reports]};
+      await storage.current.saveWorkspace(next,{correction:{id,version:record.server_version}});
+      wsRef.current=next;setWs(next);setDirty(false);setEpoch(value=>value+1);await refreshPending();
+    } finally {syncing.current=false;if(syncAbort.current===controller)syncAbort.current=null;}
+  },[previewOnly,vault,online,persist,refreshPending]);
+
   const loadLocalChatDrafts = useCallback(() => previewOnly
     ? Promise.resolve(previewChatDrafts)
     : storage.current.getLocalOnlyDrafts<LocalChatDraft>(), [previewOnly, previewChatDrafts]);
@@ -809,6 +892,7 @@ export function WorkspaceProvider({
       setEpoch(value => value + 1);
     },
     setCaseFolder: (caseFolder) => mutate(w => {
+      assertAssignmentMetadata(caseFolder);
       const folders=w.phaseFolders??[];
       const index=folders.findIndex(existing=>sameCaseFolder(existing,caseFolder));
       const phaseFolders=index<0?[...folders,caseFolder]:folders.map((existing,i)=>i===index?caseFolder:existing);
@@ -858,18 +942,31 @@ export function WorkspaceProvider({
       assignments.forEach(item=>{
         const key=[item.className.toLowerCase(),item.recruitBadge.toLowerCase(),item.phase,item.phaseStartDate].join('|');
         const old=byIdentity.get(key);
-        byIdentity.set(key,{...old,...item,id:old?.id??item.id,recruitEmail:item.recruitEmail??old?.recruitEmail,shift:item.shift??old?.shift,daysOff:item.daysOff??old?.daysOff,zone:item.zone??old?.zone,precinct:item.precinct??old?.precinct,cruiserDistrict:item.cruiserDistrict??old?.cruiserDistrict,ftoAssignment:item.ftoAssignment??old?.ftoAssignment});
+        const merged={...old,...item,id:old?.id??item.id,recruitEmail:item.recruitEmail??old?.recruitEmail,shift:item.shift??old?.shift,daysOff:item.daysOff??old?.daysOff,zone:item.zone??old?.zone,precinct:item.precinct??old?.precinct,cruiserDistrict:item.cruiserDistrict??old?.cruiserDistrict,ftoAssignment:item.ftoAssignment??old?.ftoAssignment};
+        assertAssignmentMetadata(merged);
+        byIdentity.set(key,merged);
       });
       return {...w,ftoDirectory:[...directory.values()],assignments:[...byIdentity.values()]};
     }),
     loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft,
-    upsertAssignment: (assignment) => mutate(w=>({...w,assignments:w.assignments.some(item=>item.id===assignment.id)?w.assignments.map(item=>item.id===assignment.id?assignment:item):[...w.assignments,assignment]})),
+    upsertAssignment: (assignment) => mutate(w=>{
+      assertAssignmentMetadata(assignment);
+      return {...w,assignments:w.assignments.some(item=>item.id===assignment.id)?w.assignments.map(item=>item.id===assignment.id?assignment:item):[...w.assignments,assignment]};
+    }),
     upsertReport: (r) => mutate(w => upsertReportAndWeeklyUaLog(w,r)),
     upsertWeeklyAcknowledgement: (ack) => mutate(w => ({ ...w, weeklyAcknowledgements: w.weeklyAcknowledgements.some(x => x.id === ack.id) ? w.weeklyAcknowledgements.map(x => x.id === ack.id ? ack : x) : [ack, ...w.weeklyAcknowledgements] })),
     upsertWeeklyPerformanceLog:(log)=>mutate(w=>({...w,weeklyPerformanceLogs:(w.weeklyPerformanceLogs??[]).some(item=>item.id===log.id)?w.weeklyPerformanceLogs.map(item=>item.id===log.id?log:item):[log,...(w.weeklyPerformanceLogs??[])]})),
     upsertSubstationOrientation:(record)=>mutate(w=>({...w,substationOrientations:(w.substationOrientations??[]).some(item=>item.id===record.id)?w.substationOrientations.map(item=>item.id===record.id?record:item):[record,...(w.substationOrientations??[])]})),
      upsertFtoPhasePosting:(posting)=>mutate(w=>({...w,ftoPhasePostings:(w.ftoPhasePostings??[]).some(item=>item.id===posting.id)?w.ftoPhasePostings.map(item=>item.id===posting.id?posting:item):[posting,...(w.ftoPhasePostings??[])]})),
-     upsertFtoPhaseSignup:(signup)=>mutate(w=>({...w,ftoPhaseSignups:(w.ftoPhaseSignups??[]).some(item=>item.id===signup.id)?w.ftoPhaseSignups.map(item=>item.id===signup.id?signup:item):[signup,...(w.ftoPhaseSignups??[])]})),
+     upsertFtoPhaseSignup:(signup)=>mutate(w=>{
+       const assignment=w.assignments.find(item=>item.id===signup.selectedAssignmentId);
+       const metadata=assignment?.zone&&assignment.precinct&&assignment.cruiserDistrict&&assignment.shift
+         ?{zone:assignment.zone,precinct:assignment.precinct,cruiserDistrict:assignment.cruiserDistrict,shift:assignment.shift,ftoAssignment:assignment.ftoAssignment}
+         :signup.patrolAssignment;
+       if(metadata) assertAssignmentMetadata(metadata);
+       const saved={...signup,patrolAssignment:metadata};
+       return {...w,ftoPhaseSignups:(w.ftoPhaseSignups??[]).some(item=>item.id===signup.id)?w.ftoPhaseSignups.map(item=>item.id===signup.id?saved:item):[saved,...(w.ftoPhaseSignups??[])]};
+     }),
      upsertCoverageRequest:(request)=>mutate(w=>({...w,coverageRequests:(w.coverageRequests??[]).some(item=>item.id===request.id)?w.coverageRequests.map(item=>item.id===request.id?request:item):[request,...(w.coverageRequests??[])]})),
       upsertLawReviewRecord:(record)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).some(item=>item.id===record.id)?w.lawReviewRecords.map(item=>item.id===record.id?record:item):[record,...(w.lawReviewRecords??[])]})),
       deleteLawReviewRecord:(id)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).filter(item=>item.id!==id)})),
@@ -880,10 +977,10 @@ export function WorkspaceProvider({
     }),
     toggleTask: (id, by) => mutate(w => ({ ...w, tasks: w.tasks.map((t: Task) => t.id !== id ? t : t.done ? { ...t, done: false, by: undefined, at: undefined } : { ...t, done: true, by, at: new Date().toISOString() }) })),
     openVault: (i) => { if (!previewOnly) setIntent(i); }, closeVault: () => setIntent(null),
-    setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, packetSyncState, packetSyncError, lockNow, dismissLockedNotice: () => setLockedNotice(false),
+    setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, finalizePacket, openPacketCorrection, packetSyncState, packetSyncError, lockNow, dismissLockedNotice: () => setLockedNotice(false),
     dismissOverwrittenElsewhere: () => setOverwrittenElsewhere(false),
     resetWorkspace: () => { rev.current++; setWs(previewOnly ? (hasCustomPreviewWorkspace ? previewWorkspaceFactory.current() : createUiPreviewWorkspace(wsRef.current.role)) : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setOverwrittenElsewhere(false); setEpoch(e => e + 1); },
-  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly, previewLabel, hasCustomPreviewWorkspace]);
+  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, finalizePacket, openPacketCorrection, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly, previewLabel, hasCustomPreviewWorkspace]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }

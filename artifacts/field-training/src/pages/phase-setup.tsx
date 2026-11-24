@@ -35,10 +35,11 @@ const setupSchema=z.object({
   shift:z.string().refine(value=>SHIFTS.includes(value as Shift),'Select a Columbus shift.'),
   zone:z.string().min(1,'Select a zone.'),
   precinct:z.string().min(1,'Select a precinct.'),
+  cruiserDistrict:z.string(),
   ftoAssignment:z.string().min(1,'Select an FTO assignment.'),
   daysOff:z.array(daySchema),
 }).superRefine((value,context)=>{
-  if(!cruiserDistrictForFtoAssignment(value.zone,value.precinct,value.ftoAssignment,value.shift)) {
+  if(!cruiserDistrictForFtoAssignment(value.zone,value.precinct,value.ftoAssignment,value.shift,value.cruiserDistrict)) {
     context.addIssue({code:'custom',path:['ftoAssignment'],message:'Choose an FTO assignment that matches the selected shift and patrol area.'});
   }
   const shift=value.shift as Shift;
@@ -82,7 +83,7 @@ function valuesFromFolder(folder:PhaseCaseFolder,ftos:{badge:string;name:string}
     assignmentId:folder.assignmentId??'',className:folder.className??'',recruitName:folder.recruitName,recruitBadge:folder.recruitBadge,
     ftoName:assignedFto?.name??folder.ftoName,ftoBadge:assignedFto?.badge??folder.ftoBadge,phase:String(folder.phase) as SetupValues['phase'],
     phaseStartDate:formatDateDMY(folder.phaseStartDate),scheduledWeeks:folder.scheduledWeeks??phaseWeekRanges.length,
-    shift:folder.shift,zone:folder.zone,precinct:folder.precinct,
+    shift:folder.shift,zone:folder.zone,precinct:folder.precinct,cruiserDistrict:folder.cruiserDistrict,
     ftoAssignment:folder.ftoAssignment??'',daysOff:folder.daysOff,
     phaseWeekRanges:phaseWeekRanges
       .map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),
@@ -98,6 +99,7 @@ function valuesFromAssignment(assignment:TrainingAssignment,ftos:{badge:string;n
     scheduledWeeks:saved?.scheduledWeeks??PHASE_LENGTH_WEEKS[assignment.phase],
     shift:assignment.shift??saved?.shift??'',
     zone:assignment.zone??saved?.zone??'',precinct:assignment.precinct??saved?.precinct??'',
+    cruiserDistrict:assignment.cruiserDistrict??saved?.cruiserDistrict??'',
     ftoAssignment:assignment.ftoAssignment??saved?.ftoAssignment??'',
     daysOff:assignment.daysOff?.length?assignment.daysOff:saved?.daysOff??[],
     phaseWeekRanges:saved?.phaseWeekRanges??createPhaseWeekRanges(assignment.phase,assignment.phaseStartDate)
@@ -119,7 +121,7 @@ export default function PhaseSetupPage() {
     if(activeFolder) return valuesFromFolder(activeFolder,ws.ftoDirectory);
     return {assignmentId:'',className:'',recruitName:'',recruitBadge:'',ftoName:'',ftoBadge:'',
       phase:'1',
-      phaseStartDate:'',scheduledWeeks:PHASE_LENGTH_WEEKS[1],phaseWeekRanges:[],shift:'',zone:'',precinct:'',ftoAssignment:'',daysOff:[]};
+      phaseStartDate:'',scheduledWeeks:PHASE_LENGTH_WEEKS[1],phaseWeekRanges:[],shift:'',zone:'',precinct:'',cruiserDistrict:'',ftoAssignment:'',daysOff:[]};
   },[ws.caseFolder,ws.phaseFolders,ws.assignments,ws.ftoDirectory]);
   const form=useForm<SetupValues>({resolver:zodResolver(setupSchema),defaultValues:defaults,mode:'onChange'});
   useEffect(()=>{if(!form.formState.isDirty)form.reset(defaults);},[defaults,form.formState.isDirty,form.reset]);
@@ -167,7 +169,7 @@ export default function PhaseSetupPage() {
       scheduledWeeks:values.scheduledWeeks,
       phaseWeekRanges:values.phaseWeekRanges.map(range=>({startDate:parseDateDMY(range.startDate)!,endDate:parseDateDMY(range.endDate)!})),
       zone:values.zone,precinct:values.precinct,
-      cruiserDistrict:cruiserDistrictForFtoAssignment(values.zone,values.precinct,values.ftoAssignment,values.shift)??'',
+      cruiserDistrict:cruiserDistrictForFtoAssignment(values.zone,values.precinct,values.ftoAssignment,values.shift,values.cruiserDistrict)??'',
       ftoAssignment:values.ftoAssignment,daysOff:values.daysOff,
       openedAt:new Date().toISOString(),
     };

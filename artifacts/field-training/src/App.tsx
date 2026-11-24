@@ -9,6 +9,9 @@ import { TooltipProvider } from '@/components/ui/tooltip.js';
 import NotFound from '@/pages/not-found.js';
 import { Redirect, Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { WorkspaceProvider, useWorkspace } from '@/state/workspace.js';
+import { PacketReviewProvider } from '@/state/packet-review.js';
+import { PacketReviewGate } from '@/components/packet-review/gate.js';
+import PacketSubmissionsPage from '@/pages/packet-submissions.js';
 import { Shell } from '@/components/shell.js';
 import Dashboard from '@/pages/dashboard.js';
 import Reports from '@/pages/reports.js';
@@ -182,6 +185,9 @@ function ClerkWorkspaceSessionPurger() {
 
 function WorkspaceRoutes() {
   const { epoch, ws } = useWorkspace();
+  const [path]=useLocation();
+  // This route authorizes through the signed server role, never the local role preview.
+  if(path==='/packet-submissions') return <RoutedErrorBoundary><PacketSubmissionsPage/></RoutedErrorBoundary>;
   // Fail closed in the COC preview: no draft/class route is rendered.
   // This UI boundary is not a substitute for server-side packet authorization.
   if (isTechnicalRole(ws.role)) return <RoutedErrorBoundary><Switch>
@@ -258,7 +264,10 @@ function DemoWorkspace() {
   return (
     <WorkspaceProvider>
       <ClerkWorkspaceSessionPurger />
-      <Shell><WorkspaceRoutes /></Shell>
+      <PacketReviewProvider>
+        <PacketReviewGate/>
+        <Shell><WorkspaceRoutes /></Shell>
+      </PacketReviewProvider>
     </WorkspaceProvider>
   );
 }
@@ -274,7 +283,7 @@ function DevelopmentUiPreviewContent() {
       >
         DISPOSABLE UI PREVIEW · Fictional {ROLE_LABEL[ws.role]} workspace · Memory only, clears on refresh · No operational or shared-service access
       </div>
-      <Shell><WorkspaceRoutes /></Shell>
+      <PacketReviewProvider><Shell><WorkspaceRoutes /></Shell></PacketReviewProvider>
     </div>
   );
 }
@@ -304,7 +313,7 @@ function DevelopmentFtoTestPacketPreview() {
             <span className="mx-2 hidden sm:inline">|</span>
             <span>Sample records only. No signatures, official approvals, release, or agency sync. Changes stay in memory; refresh or reset restores this packet.</span>
           </div>
-          <Shell><WorkspaceRoutes /></Shell>
+          <PacketReviewProvider><Shell><WorkspaceRoutes /></Shell></PacketReviewProvider>
         </div>
       </WorkspaceProvider>
     </WouterRouter>

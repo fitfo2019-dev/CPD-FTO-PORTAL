@@ -9,3 +9,9 @@
 - [Staging and handover](developer-staging-boundary.md) — no extra developer password; the whole site goes to Columbus; configuration snapshots are not full backups.
 - [Agency packet boundary](agency-packet-boundary.md) — offline-first complete packets; signed agency identity plus server roster controls sync; local saving never uploads.
 - [Shared type freshness](shared-type-freshness.md) — missing API exports in the portal checker can mean stale declaration output, not absent source functions.
+- [Date and time entry](date-time-entry.md) — verify real keystrokes, not just filled values; use explicit 24-hour entry instead of locale-dependent AM/PM controls.
+- [Traffic-stop entry](traffic-stop-entry.md) — enter 10-6 first, then ask high risk in a separate popup; load only the selected primary form.
+- [Academy workflow boundaries](academy-workflow-boundaries.md) — extensions are not academy workflow; substitute-coverage requests and decisions should sync and notify.
+- [Manual contract exports](manual-contract-exports.md) — generated API barrels are replaced by code generation; expose hand-written shared validators through a separate package subpath.
+- [Packet review workflow](packet-review-workflow.md) — assigned Coordinator routing, mandatory red acknowledgment, and separate acknowledgment/approval statuses.
+- [Verification boundaries](verification-boundaries.md) — Vite/Node JSX and emulated/real PostgreSQL differ; preserve component and restricted-role database checks.

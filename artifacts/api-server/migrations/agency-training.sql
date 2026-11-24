@@ -31,7 +31,7 @@ CREATE TABLE agency_training.packets (
   phase integer NOT NULL CHECK (phase BETWEEN 1 AND 4),
   operation_id uuid UNIQUE NOT NULL,
   content_hash char(64) NOT NULL,
-  server_version integer NOT NULL DEFAULT 1 CHECK (server_version = 1),
+  server_version integer NOT NULL DEFAULT 1 CHECK (server_version >= 1),
   released_to_po boolean NOT NULL DEFAULT false,
   released_at timestamptz,
   released_by_hash char(64),
@@ -40,6 +40,10 @@ CREATE TABLE agency_training.packets (
   withdrawal_reason text,
   amendment_of text UNIQUE REFERENCES agency_training.packets(id),
   amendment_reason text,
+  submission_status text NOT NULL DEFAULT 'local_draft_pending'
+    CHECK (submission_status IN ('local_draft_pending','submitted')),
+  finalization_operation_id uuid UNIQUE,
+  submitted_at timestamptz,
   report jsonb NOT NULL,
   committed_at timestamptz NOT NULL DEFAULT now(),
   CHECK (NOT released_to_po OR (released_at IS NOT NULL AND released_by_hash IS NOT NULL AND withdrawn_at IS NULL)),
@@ -61,7 +65,7 @@ CREATE TABLE agency_training.packet_events (
   actor_hash char(64) NOT NULL,
   actor_role text NOT NULL,
   client_ip_hash char(64) NOT NULL,
-  event_type text NOT NULL CHECK (event_type IN ('READ','COMMIT','RELEASE','WITHDRAW','ACKNOWLEDGE')),
+  event_type text NOT NULL CHECK (event_type IN ('READ','COMMIT','DRAFT_SYNC','SUBMIT','RELEASE','WITHDRAW','ACKNOWLEDGE')),
   operation_id uuid UNIQUE,
   request_hash char(64),
   content_hash char(64),
@@ -75,8 +79,12 @@ COMMIT;
 -- Use a separate non-owner runtime DB role. Grant schema USAGE, assignment
 -- SELECT on assignments; packet_assignments and packets SELECT/INSERT;
 -- packet_acknowledgments SELECT/INSERT; packet_events SELECT/INSERT and sequence USAGE.
--- Grant UPDATE ONLY on packets(released_to_po, released_at, released_by_hash,
--- withdrawn_at, withdrawn_by_hash, withdrawal_reason).
+-- Also apply packet-review and packet-guards before enabling the service.
+-- Grant UPDATE ONLY on packets(operation_id,content_hash,report,server_version,
+-- submission_status,finalization_operation_id,submitted_at,released_to_po,
+-- released_at,released_by_hash,withdrawn_at,withdrawn_by_hash,withdrawal_reason).
+-- The snapshot guard permits draft edits but rejects submitted-content edits.
+-- Submitted history is separately preserved in immutable submission snapshots.
 -- Never grant table-wide UPDATE, DELETE, TRUNCATE or ownership.
 -- Backups, retention, encryption at rest and immutable SIEM retention are
 -- agency infrastructure responsibilities, not guarantees of this SQL file.

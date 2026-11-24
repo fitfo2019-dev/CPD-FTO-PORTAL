@@ -299,14 +299,14 @@ content_type = "text/markdown"
 id = "GEw4cUu2PgVFTIvl-ltKs"
 uri = "file://dist-production.zip"
 type = "unspecified"
-title = "Verified API handover ZIP"
-description = "API-only deployment package with agency migration, protected resources and updated handover manual. Standalone boot and archive integrity verified; agency configuration and approved user-facing sync controls remain pending."
+title = "Corrected API Handover Package — Latest"
+description = "Replaces the earlier archive. Includes the corrected PO release/withdrawal and exact-version protections, migrations, runtime and handover guide. API-only; no production deployment."
 logical_id = "53770732-0f29-44f2-b2d6-4f0a761fe5c5"
-content_hash = "sha256:cce7ef6135275be52cb60d5b7d8a960cab12da128944f4345a91cc3af5cace71"
-size = 9967111
-mtime_ms = 1795442205446
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/53770732-0f29-44f2-b2d6-4f0a761fe5c5/3aafce0a-b816-4a2b-a977-6a7510b65eb3"
-storage_version_token = "1795442377607359"
+content_hash = "sha256:531e6b54ae66e0917b7337e68ee455f0f530ca3592f656f98e7c022215c34129"
+size = 10071541
+mtime_ms = 1795467147772
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/53770732-0f29-44f2-b2d6-4f0a761fe5c5/05e629c2-b438-460a-b224-b9c07379ee53"
+storage_version_token = "1795467232268907"
 content_type = "application/octet-stream"
 
 [[outputs]]
@@ -461,4 +461,60 @@ size = 166910
 mtime_ms = 1795451633936
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/6cc273c3-de6c-45fd-94b9-3cacf694b05c/bfc3849e-2363-49a8-81ad-ac15f4703d90"
 storage_version_token = "1795451641221985"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "NYahmHma3xlqkzPPREOCi"
+uri = "file://generated-artifacts/shell-capitalization-preview.jpg"
+type = "image"
+title = "Preview — shell capitalization with original input casing"
+description = "Uppercase website controls with mixed-case narrative and CAD inputs left unchanged. This is a style preview only; no operational records are loaded or saved."
+logical_id = "a20ba350-04d1-44c9-b341-06cd5ab95003"
+content_hash = "sha256:fe96687dc2f4492fbc735aa75840b022c7e907c2a25a5b18f121523af64cda7d"
+size = 78880
+mtime_ms = 1795453897494
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/a20ba350-04d1-44c9-b341-06cd5ab95003/253abc22-fffc-4b1d-8db4-58d80f6d95b8"
+storage_version_token = "1795453927538174"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "UfRt_r674llgVF6NrElbM"
+uri = "file://generated-artifacts/coordinator-packet-workflow-preview.jpg"
+type = "image"
+title = "Preview — Coordinator inbox, acknowledgment, and approval"
+description = "Proposed controls and exact FTO status sequence. No officer names, sample records, or operational data are loaded. The real workflow is not integrated yet."
+logical_id = "7dbfe034-6502-41d6-b46e-9c5a44ce8806"
+content_hash = "sha256:bcade47593e5f6987843a6258392b842e5bb4750f95e1f4b6f4e149a78ddf059"
+size = 126213
+mtime_ms = 1795454225665
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/7dbfe034-6502-41d6-b46e-9c5a44ce8806/a6c039ea-8943-43e1-aa8c-0cbcedbef013"
+storage_version_token = "1795454247218482"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "XKxuZ5_ncwOPfg4-yoTC1"
+uri = "file://generated-artifacts/high-risk-stop-control-preview.jpg"
+type = "image"
+title = "High risk? — new-run and run-details preview"
+description = "Screenshot of the current Yes/No control. No is the ordinary Traffic Stop default; Yes selects High Risk Traffic Stop. No sign-in or saved records are used."
+logical_id = "3bbcebc5-f32d-419d-aeb9-21de639691b8"
+content_hash = "sha256:ce415a70ed3d238dd46e8ac86bae37648d3eb426ba2c6a87d1a34f298a47bca7"
+size = 70009
+mtime_ms = 1795460867521
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/3bbcebc5-f32d-419d-aeb9-21de639691b8/50f5bf5b-529c-48a8-b67f-9bb0cb957acd"
+storage_version_token = "1795460893219690"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "N3hDQPMLKlkCQXaYaZ5-0"
+uri = "file://generated-artifacts/traffic-stop-popup-preview.jpg"
+type = "image"
+title = "10-6 High-Risk Popup"
+description = "Preview only: after entering 10-6, answer Yes or No in a separate popup. Yes opens only High Risk Traffic Stop; No opens only Traffic Stop."
+logical_id = "b2f61668-b384-4c97-a9b5-419059b8ceb2"
+content_hash = "sha256:a4c6d4f25e9ca961970412f308fc6c309f9526946248e9416efcd3fd20e3e3ef"
+size = 17886
+mtime_ms = 1795465294256
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/b2f61668-b384-4c97-a9b5-419059b8ceb2/e0f44498-be02-452f-93fc-ea528dc8e4d3"
+storage_version_token = "1795465377939619"
 content_type = "image/jpeg"

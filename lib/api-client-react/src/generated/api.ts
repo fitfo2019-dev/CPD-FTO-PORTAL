@@ -32,8 +32,16 @@ import type {
   DispatchIncidentEnvelope,
   DispatchIncidentLookupInput,
   HealthEnvelope,
+  ListPacketSubmissionsParams,
   MockLoginEnvelope,
   MockLoginInput,
+  PacketCoordinatorAssignment,
+  PacketCoordinatorInput,
+  PacketReviewActionInput,
+  PacketReviewContext,
+  PacketSubmission,
+  PacketSubmissionDetail,
+  PacketSubmissionPage,
   PhaseExtensionRequestInput,
   PhaseExtensionRequestsEnvelope,
   PhaseExtensionReviewInput,
@@ -44,10 +52,12 @@ import type {
   StagingTrainingInput,
   StagingTrainingUpdate,
   TrainingPacketAcknowledgmentInput,
+  TrainingPacketFinalizationInput,
   TrainingPacketReviewInput,
   TrainingPacketSyncEnvelope,
   TrainingPacketSyncInput,
   TrainingPacketSyncReadinessEnvelope,
+  TrainingPacketSyncRecord,
   TrainingPacketWithdrawalInput,
   TrainingPacketsEnvelope
 } from './api.schemas';
@@ -78,6 +88,463 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetPacketReviewContextUrl = () => {
+
+
+
+
+  return `/api/v1/packet-review/context`
+}
+
+export const getPacketReviewContext = async ( options?: Parameters<typeof customFetch>[1]): Promise<PacketReviewContext> => {
+
+  return customFetch<PacketReviewContext>(getGetPacketReviewContextUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPacketReviewContextQueryKey = () => {
+    return [
+    `/api/v1/packet-review/context`
+    ] as const;
+    }
+
+
+export const getGetPacketReviewContextQueryOptions = <TData = Awaited<ReturnType<typeof getPacketReviewContext>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketReviewContext>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPacketReviewContextQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPacketReviewContext>>> = ({ signal }) => getPacketReviewContext({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPacketReviewContext>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPacketReviewContextQueryResult = NonNullable<Awaited<ReturnType<typeof getPacketReviewContext>>>
+export type GetPacketReviewContextQueryError = ErrorType<unknown>
+
+
+export function useGetPacketReviewContext<TData = Awaited<ReturnType<typeof getPacketReviewContext>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketReviewContext>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPacketReviewContext>>,
+          TError,
+          Awaited<ReturnType<typeof getPacketReviewContext>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPacketReviewContext<TData = Awaited<ReturnType<typeof getPacketReviewContext>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketReviewContext>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPacketReviewContext>>,
+          TError,
+          Awaited<ReturnType<typeof getPacketReviewContext>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPacketReviewContext<TData = Awaited<ReturnType<typeof getPacketReviewContext>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketReviewContext>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetPacketReviewContext<TData = Awaited<ReturnType<typeof getPacketReviewContext>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketReviewContext>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPacketReviewContextQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdatePacketCoordinatorUrl = () => {
+
+
+
+
+  return `/api/v1/packet-review/coordinator`
+}
+
+export const updatePacketCoordinator = async (packetCoordinatorInput: PacketCoordinatorInput, options?: Parameters<typeof customFetch>[1]): Promise<PacketCoordinatorAssignment> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PacketCoordinatorAssignment>(getUpdatePacketCoordinatorUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(packetCoordinatorInput)
+  }
+);}
+
+
+
+
+
+export const getUpdatePacketCoordinatorMutationKey = () => ['updatePacketCoordinator'] as const;
+
+export const getUpdatePacketCoordinatorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePacketCoordinator>>, TError,UpdatePacketCoordinatorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePacketCoordinator>>, TError,UpdatePacketCoordinatorMutationVariables, TContext> => {
+
+const mutationKey = getUpdatePacketCoordinatorMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePacketCoordinator>>, UpdatePacketCoordinatorMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updatePacketCoordinator(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePacketCoordinatorMutationResult = NonNullable<Awaited<ReturnType<typeof updatePacketCoordinator>>>
+    export type UpdatePacketCoordinatorMutationBody = BodyType<PacketCoordinatorInput>
+    export type UpdatePacketCoordinatorMutationError = ErrorType<unknown>
+    export type UpdatePacketCoordinatorMutationVariables = {data: BodyType<PacketCoordinatorInput>}
+
+    export const useUpdatePacketCoordinator = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePacketCoordinator>>, TError,UpdatePacketCoordinatorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updatePacketCoordinator>>,
+        TError,
+        UpdatePacketCoordinatorMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdatePacketCoordinatorMutationOptions(options), queryClient);
+    }
+
+export const getListPacketSubmissionsUrl = (params?: ListPacketSubmissionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/packet-review/submissions?${stringifiedParams}` : `/api/v1/packet-review/submissions`
+}
+
+export const listPacketSubmissions = async (params?: ListPacketSubmissionsParams, options?: Parameters<typeof customFetch>[1]): Promise<PacketSubmissionPage> => {
+
+  return customFetch<PacketSubmissionPage>(getListPacketSubmissionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPacketSubmissionsQueryKey = (params?: ListPacketSubmissionsParams,) => {
+    return [
+    `/api/v1/packet-review/submissions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPacketSubmissionsQueryOptions = <TData = Awaited<ReturnType<typeof listPacketSubmissions>>, TError = ErrorType<unknown>>(params?: ListPacketSubmissionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPacketSubmissions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPacketSubmissionsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPacketSubmissions>>> = ({ signal }) => listPacketSubmissions(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPacketSubmissions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListPacketSubmissionsQueryResult = NonNullable<Awaited<ReturnType<typeof listPacketSubmissions>>>
+export type ListPacketSubmissionsQueryError = ErrorType<unknown>
+
+
+export function useListPacketSubmissions<TData = Awaited<ReturnType<typeof listPacketSubmissions>>, TError = ErrorType<unknown>>(
+ params: undefined |  ListPacketSubmissionsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPacketSubmissions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPacketSubmissions>>,
+          TError,
+          Awaited<ReturnType<typeof listPacketSubmissions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPacketSubmissions<TData = Awaited<ReturnType<typeof listPacketSubmissions>>, TError = ErrorType<unknown>>(
+ params?: ListPacketSubmissionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPacketSubmissions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPacketSubmissions>>,
+          TError,
+          Awaited<ReturnType<typeof listPacketSubmissions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPacketSubmissions<TData = Awaited<ReturnType<typeof listPacketSubmissions>>, TError = ErrorType<unknown>>(
+ params?: ListPacketSubmissionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPacketSubmissions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useListPacketSubmissions<TData = Awaited<ReturnType<typeof listPacketSubmissions>>, TError = ErrorType<unknown>>(
+ params?: ListPacketSubmissionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPacketSubmissions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListPacketSubmissionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPacketSubmissionUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/packet-review/submissions/${id}`
+}
+
+export const getPacketSubmission = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<PacketSubmissionDetail> => {
+
+  return customFetch<PacketSubmissionDetail>(getGetPacketSubmissionUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPacketSubmissionQueryKey = (id: string,) => {
+    return [
+    `/api/v1/packet-review/submissions/${id}`
+    ] as const;
+    }
+
+
+export const getGetPacketSubmissionQueryOptions = <TData = Awaited<ReturnType<typeof getPacketSubmission>>, TError = ErrorType<unknown>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketSubmission>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPacketSubmissionQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPacketSubmission>>> = ({ signal }) => getPacketSubmission(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPacketSubmission>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPacketSubmissionQueryResult = NonNullable<Awaited<ReturnType<typeof getPacketSubmission>>>
+export type GetPacketSubmissionQueryError = ErrorType<unknown>
+
+
+export function useGetPacketSubmission<TData = Awaited<ReturnType<typeof getPacketSubmission>>, TError = ErrorType<unknown>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketSubmission>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPacketSubmission>>,
+          TError,
+          Awaited<ReturnType<typeof getPacketSubmission>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPacketSubmission<TData = Awaited<ReturnType<typeof getPacketSubmission>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketSubmission>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPacketSubmission>>,
+          TError,
+          Awaited<ReturnType<typeof getPacketSubmission>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPacketSubmission<TData = Awaited<ReturnType<typeof getPacketSubmission>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketSubmission>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetPacketSubmission<TData = Awaited<ReturnType<typeof getPacketSubmission>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPacketSubmission>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPacketSubmissionQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getActOnPacketSubmissionUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/packet-review/submissions/${id}`
+}
+
+export const actOnPacketSubmission = async (id: string,
+    packetReviewActionInput: PacketReviewActionInput, options?: Parameters<typeof customFetch>[1]): Promise<PacketSubmission> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PacketSubmission>(getActOnPacketSubmissionUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(packetReviewActionInput)
+  }
+);}
+
+
+
+
+
+export const getActOnPacketSubmissionMutationKey = () => ['actOnPacketSubmission'] as const;
+
+export const getActOnPacketSubmissionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actOnPacketSubmission>>, TError,ActOnPacketSubmissionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof actOnPacketSubmission>>, TError,ActOnPacketSubmissionMutationVariables, TContext> => {
+
+const mutationKey = getActOnPacketSubmissionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof actOnPacketSubmission>>, ActOnPacketSubmissionMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  actOnPacketSubmission(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActOnPacketSubmissionMutationResult = NonNullable<Awaited<ReturnType<typeof actOnPacketSubmission>>>
+    export type ActOnPacketSubmissionMutationBody = BodyType<PacketReviewActionInput>
+    export type ActOnPacketSubmissionMutationError = ErrorType<unknown>
+    export type ActOnPacketSubmissionMutationVariables = {id: string;data: BodyType<PacketReviewActionInput>}
+
+    export const useActOnPacketSubmission = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actOnPacketSubmission>>, TError,ActOnPacketSubmissionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof actOnPacketSubmission>>,
+        TError,
+        ActOnPacketSubmissionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getActOnPacketSubmissionMutationOptions(options), queryClient);
+    }
 
 export const getListStagingTrainingRecordsUrl = () => {
 
@@ -1054,8 +1521,8 @@ export const getSyncTrainingPacketsUrl = () => {
 }
 
 /**
- * The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. A successful commit returns server-confirmed sync status.
- * @summary Commit a batch of complete local packets as the assigned FTO
+ * Synchronization never submits a packet. Drafts are visible only to their assigned FTO and remain editable until the separate explicit finalization operation.
+ * @summary Save editable packet drafts as the assigned FTO
  */
 export const syncTrainingPackets = async (trainingPacketSyncInput: TrainingPacketSyncInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketSyncEnvelope> => {
 
@@ -1121,7 +1588,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type SyncTrainingPacketsMutationVariables = {data: BodyType<TrainingPacketSyncInput>}
 
     /**
- * @summary Commit a batch of complete local packets as the assigned FTO
+ * @summary Save editable packet drafts as the assigned FTO
  */
 export const useSyncTrainingPackets = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncTrainingPackets>>, TError,SyncTrainingPacketsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1399,6 +1866,96 @@ export const useWithdrawTrainingPacket = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getWithdrawTrainingPacketMutationOptions(options), queryClient);
+    }
+
+export const getFinalizeTrainingPacketUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/training-packets/${id}/finalize`
+}
+
+/**
+ * Rechecks the active server roster and draft version. Only this operation makes a packet visible to its assigned Coordinator and PO.
+ * @summary Explicitly finalize a saved draft for its assigned Coordinator
+ */
+export const finalizeTrainingPacket = async (id: string,
+    trainingPacketFinalizationInput: TrainingPacketFinalizationInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketSyncRecord> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingPacketSyncRecord>(getFinalizeTrainingPacketUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trainingPacketFinalizationInput)
+  }
+);}
+
+
+
+
+
+export const getFinalizeTrainingPacketMutationKey = () => ['finalizeTrainingPacket'] as const;
+
+export const getFinalizeTrainingPacketMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext> => {
+
+const mutationKey = getFinalizeTrainingPacketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof finalizeTrainingPacket>>, FinalizeTrainingPacketMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  finalizeTrainingPacket(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FinalizeTrainingPacketMutationResult = NonNullable<Awaited<ReturnType<typeof finalizeTrainingPacket>>>
+    export type FinalizeTrainingPacketMutationBody = BodyType<TrainingPacketFinalizationInput>
+    export type FinalizeTrainingPacketMutationError = ErrorType<ApiError>
+    export type FinalizeTrainingPacketMutationVariables = {id: string;data: BodyType<TrainingPacketFinalizationInput>}
+
+    /**
+ * @summary Explicitly finalize a saved draft for its assigned Coordinator
+ */
+export const useFinalizeTrainingPacket = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof finalizeTrainingPacket>>,
+        TError,
+        FinalizeTrainingPacketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getFinalizeTrainingPacketMutationOptions(options), queryClient);
     }
 
 export const getGetTrainingPacketUrl = (id: string,) => {

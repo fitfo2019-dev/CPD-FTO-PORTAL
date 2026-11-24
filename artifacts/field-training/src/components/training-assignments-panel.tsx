@@ -62,7 +62,7 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
         <button type="button" onClick={downloadTemplate} className="inline-flex min-h-11 items-center gap-2 rounded border bg-card px-4 text-sm font-semibold"><Download className="h-4 w-4"/>Download CSV template</button>
         <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded bg-primary px-4 text-sm font-semibold text-primary-foreground">
           <Upload className="h-4 w-4"/>{busy?'Reading file…':'Choose CSV or Word file'}
-          <input type="file" accept=".csv,.docx,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFileChange} disabled={busy} className="sr-only" data-testid="input-roster-file"/>
+          <input type="file" accept=".csv,.xlsx,.docx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFileChange} disabled={busy} className="sr-only" data-testid="input-roster-file"/>
         </label>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Accepted: .csv or Word .docx with a table and a header row. Maximum 2 MB. Required assignment fields: class, PO name/badge, FTO name/badge, and phase start date (MM/DD/YYYY). Phase defaults to Phase I when omitted. Shift, days off, emails, and patrol assignment may also be included.</p>

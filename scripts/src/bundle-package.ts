@@ -153,6 +153,7 @@ async function bundlePackage(): Promise<void> {
   await writeFile(join(outputDir, "HANDOVER_MANUAL.md"), handoverManual, "utf8");
   await cp(join(apiRoot, "migrations"), join(outputDir, "migrations"), { recursive: true });
   const migrationFiles = await listFilesRecursively(join(outputDir, "migrations"));
+  await cp(join(workspaceRoot,"docs/ASSIGNMENT_INTEGRATION.md"),join(outputDir,"ASSIGNMENT_INTEGRATION.md"));
 
   const resourceSourceDir = join(apiRoot, "resources");
   const resourceOutputDir = join(outputDir, "resources");
@@ -161,7 +162,8 @@ async function bundlePackage(): Promise<void> {
   const archiveEntries = [
     "package.json",
     "HANDOVER_MANUAL.md",
-    ...migrationFiles.map(path => join("migrations", path)),
+    "ASSIGNMENT_INTEGRATION.md",
+    ...migrationFiles.map(path=>join("migrations",path)),
     ...resourceFiles.map((path) => join("resources", path)),
     ...runtimeFiles.map((entry) =>
       entry.name === "index.mjs" ? "index.js" : entry.name,

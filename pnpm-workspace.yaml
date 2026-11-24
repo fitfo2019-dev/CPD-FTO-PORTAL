@@ -61,6 +61,8 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  # Keep one React ref/type identity across UI libraries and workspace packages.
+  "@types/react": "19.3.0"
   "proxy-addr@^2": "^2.0.8"
   "source-map-js@^1": "^1.2.2"
   "body-parser@^2": "^2.4.0"

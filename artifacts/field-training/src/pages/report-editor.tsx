@@ -17,7 +17,7 @@ import { isValidAssignment } from '@/lib/cpd-geography.js';
 import { PrintableDailyLog } from '@/components/printable-daily-log.js';
 import { PrintableDailyForms } from '@/components/printable-daily-forms.js';
 import { activityDiscrepancies, activityTotals, buildClearanceDocuments, clearanceDerivedActivityCounts, manualActivityEntryForTotal, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
-import { checklistForMetadata, toggleChecklistSection } from '@/lib/run-checklist-state.js';
+import { checklistForMetadata, resetPrimaryChecklist, toggleChecklistSection } from '@/lib/run-checklist-state.js';
 import { buildRunNarrativeDraft } from '@/lib/run-narrative-draft.js';
 import { isRtRestricted } from '@/lib/model.js';
 import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatRadioCode, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes.js';
@@ -29,7 +29,11 @@ import { getRunWorkflowSteps, runSheetReviewSnapshot, type RunSheetKey, type Run
 import { restoreDispatchPrefillFields, serializeDispatchPrefillFields } from '@/lib/dispatch-prefill.js';
 import { RunStepRail, SheetStatus, sheetHasEdits } from '@/components/run-sheet-workflow.js';
 import { NewRunDialog, type NewRunSeed } from '@/components/new-run-dialog.js';
+import { TrafficStopRiskPrompt } from '@/components/traffic-stop-risk-choice.js';
+import { formatTimeEntry24H } from '@/lib/training-calendar.js';
 import '@/components/run-sheet-workflow.css';
+
+import { PacketSubmitControl } from '@/components/packet-review/submit-control.js';
 
 type EditorStage = 'shift'|'duty'|'runs'|'activity'|'evaluation'|'narrative';
 const EDITOR_STAGES: {id:EditorStage;label:string;hash:string}[] = [
@@ -61,16 +65,12 @@ function checklistHelp(form:string,meaning:string) {
 function dutyChecklistHelp(section:string,item:string) {
   return `Reporting for Duty · ${section}: indicates the PO ${item.toLowerCase()}. Clearing an applicable task creates a UA deficiency. Use the section's Not applicable control when the section does not apply.`;
 }
-function runTypeCodeHelp(kind:PrimaryRunForm) {
-  if(kind==='traffic_stop')return 'Traffic Stop is fixed to 10-6 · Traffic Violator/Complaint.';
-  if(kind==='domestic_incident')return 'Defaults to 10-17 · Domestic Violence. Situation Found can use any listed code.';
-  if(kind==='traffic_crash')return 'Defaults to 10-4 · property-damage crash. Change to the applicable injury or hit-skip code when needed.';
-  if(kind==='high_risk_stop')return 'Defaults to 10-6. Change to the original dispatched code if it was different.';
-  if(kind==='building_search')return 'No single code represents every building search; choose the actual dispatched code.';
-  if(kind==='self_initiated')return 'No single code represents every self-initiated run; choose the actual code.';
-  return 'Choose the actual dispatched code; calls for service can use different 10-codes.';
-}
 
+function authoredReportSnapshot(report:Report|undefined):string {
+  if(!report)return 'null';
+  const {serverVersion:_version,syncStatus:_sync,...authored}=report;
+  return JSON.stringify(authored);
+}
 export default function ReportEditor() {
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
@@ -84,7 +84,7 @@ export default function ReportEditor() {
   const existing = isNew ? undefined : ws.reports.find(r => r.id === params.id);
   const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? createDailyReportDraft(ws.caseFolder,getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0]) : undefined);
   const operationalPacket = useOperationalStateMachine(r);
-  const [initialReport] = useState(()=>JSON.stringify(r ?? null));
+  const [initialReport] = useState(()=>authoredReportSnapshot(r));
   const [dateText, setDateText] = useState(() => r ? formatDateDMY(r.date) : '');
   const [showErr, setShowErr] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -125,6 +125,9 @@ export default function ReportEditor() {
   const [sheetReviews, setSheetReviews] = useState<Partial<Record<RunSheetKey,string>>>({});
   const [legacyReviewSheets, setLegacyReviewSheets] = useState<RunSheetKey[]|null>(null);
   const [newRunOpen, setNewRunOpen] = useState(false);
+  const [riskPrompt,setRiskPrompt]=useState(false);
+  const [riskCandidate,setRiskCandidate]=useState<PrimaryRunForm|''>('');
+  const [riskCodeDirty,setRiskCodeDirty]=useState(false);
   const [confirmAction, setConfirmAction] = useState<{title:string;body:string;label:string;action:()=>void}|null>(null);
   const [stage, setStage] = useState<EditorStage>(()=>EDITOR_STAGES.find(item=>`#${item.hash}`===window.location.hash)?.id??'shift');
   const [oviProcessed, setOviProcessed] = useState(false);
@@ -198,11 +201,14 @@ export default function ReportEditor() {
   const isLimboDay=!!r?.limboDay;
   const citationSummonsRecorded=isEligibleCitationSummons({runKind,clearanceCode});
 
-  const baseline = useMemo(() => JSON.stringify(existing ?? null), [existing]);
+  const baseline = useMemo(() => authoredReportSnapshot(existing), [existing]);
+  useEffect(()=>{
+    if(existing?.syncStatus==='synchronized_complete') setR(structuredClone(existing));
+  },[existing?.syncStatus,existing?.serverVersion]);
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
   const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== '' || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runLocationCity.trim() !== '' || runLocationState.trim() !== '' || runLocationZip.trim() !== '' || runZone.trim() !== '' || runCruiserDistrict.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
-  const isDirty = !!r && (JSON.stringify(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
+  const isDirty = !!r && (authoredReportSnapshot(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
   useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
   useEffect(() => {
@@ -224,7 +230,7 @@ export default function ReportEditor() {
 
   if (!r) return <div className="py-20 text-center"><div className="mono text-5xl font-bold text-muted-foreground">{isNew ? <Lock className="mx-auto h-10 w-10" /> : '404'}</div><p className="mt-2">{isNew ? ws.caseFolder ? 'Complete the shift schedule and valid Zone → Precinct → FTO Assignment in phase setup before starting this shift.' : 'Complete phase setup before starting a shift.' : 'Report not found.'}</p><Link href={isNew ? '/phase-setup' : '/reports'} className="underline font-semibold mt-3 inline-block">{isNew ? 'Open phase setup' : 'Back to saved records'}</Link></div>;
 
-  const locked = r.status === 'locked' || r.syncStatus === 'synchronized_complete' || r.syncAttemptPending === true;
+  const locked = r.status === 'locked' || r.syncStatus === 'synchronized_complete' || existing?.syncStatus === 'synchronized_complete' || r.syncAttemptPending === true;
   const editable = !locked && r.status === 'draft' && ws.role === 'fto';
   const commentsEditable = !locked && r.status === 'fto_signed' && ws.role === 'po';
   const set = <K extends keyof Report>(k: K, v: Report[K]) => setR(x => x && ({ ...x, deficiencyAutomationEnabled:k==='reportingForDuty'?true:x.deficiencyAutomationEnabled, ratingsReviewedAt: undefined, [k]: v }));
@@ -426,6 +432,7 @@ export default function ReportEditor() {
     // Narrative Addition review depends on the narrative text: re-confirm it, never auto-confirm.
   };
   const resetRunForm = () => {
+    setRiskPrompt(false);setRiskCodeDirty(false);setRiskCandidate('');
     setRunOpen(false);
     deficiencyEditor.resetIncident();
     const pendingId=editingRunId??runDraftId;
@@ -446,6 +453,7 @@ export default function ReportEditor() {
     setRunNarrative(''); setRunChecklist(newRunChecklist('call_for_service')); setDirectiveReviews({}); 
   };
   const editRun = (run: TrainingRun) => {
+    setRiskPrompt(false);setRiskCodeDirty(false);setRiskCandidate('');
     setRunOpen(true);
     deficiencyEditor.resetIncident();
     setChargeText((run.charges??[]).map(charge=>charge.description).join('\n'));
@@ -495,7 +503,7 @@ export default function ReportEditor() {
     const occurred = splitDateTimeEntryMDY(seed.occurredAtText);
     if (occurred.date) { setRunDateTimeText(seed.occurredAtText); setRunTimeText(occurred.time); }
     setRunDispatchedAtText(seed.dispatchedAtText); setRunClearedAtText(seed.clearedAtText);
-    setNewRunOpen(false); setStage('runs'); setRunStep('details');
+    setNewRunOpen(false); setStage('runs'); setRunStep(kind==='traffic_stop'||kind==='high_risk_stop'?'primary':'details');
     setRunOpen(true);
   };
   const requestNewRun = () => {
@@ -507,24 +515,27 @@ export default function ReportEditor() {
   };
   const applyRunKind = (next: PrimaryRunForm) => {
     const dispatched=next==='call_for_service'?true:next==='self_initiated'?false:runDispatched;
-    const mode:TrainingRun['trafficMode']=next==='traffic_stop'?'motor_vehicle':'none';
+    const stopSwitch=(runKind==='traffic_stop'||runKind==='high_risk_stop')&&(next==='traffic_stop'||next==='high_risk_stop');
+    const mode:TrainingRun['trafficMode']=stopSwitch?trafficMode:next==='traffic_stop'?'motor_vehicle':'none';
     const previousKind = runKind;
     setRunKind(next);setRunDispatched(dispatched);setTrafficMode(mode);
     setDispatchedCode(current=>current||DEFAULT_RUN_TYPE_CODES[next]||'');
     // Primary task indices mean different things per form: reset them; keep supplement answers.
-    setRunChecklist(prev=>checklistForMetadata({...runMeta,runKind:next,trafficMode:mode,isDispatched:dispatched},Object.fromEntries(Object.entries(prev).filter(([key])=>!key.startsWith('task-')&&key!=='na-task'))));
+    setRunChecklist(prev=>resetPrimaryChecklist({...runMeta,runKind:next,trafficMode:mode,isDispatched:dispatched},prev));
     setDirectiveReviews(current=>{const copy={...current};delete copy[previousKind];return copy;});
     setSheetReviews(current=>{const copy={...current};delete copy.primary;return copy;});
     setRunError('');
   };
-  const requestRunKind = (next: PrimaryRunForm) => {
-    if (next===runKind) return;
+  const requestRunKind = (next: PrimaryRunForm,openPrimary=false) => {
+    if (next===runKind) {if(openPrimary)setRunStep('primary');return;}
+    const apply=()=>{applyRunKind(next);if(openPrimary)setRunStep('primary');};
     if (sheetHasEdits('primary',runKind,runChecklist,directiveReviews as Record<string,unknown>) || sheetReviews.primary) {
-      setConfirmAction({title:`Change the primary form to ${PRIMARY_RUN_FORMS.find(form=>form.key===next)?.label}?`,body:'The current primary checklist answers and its directive review apply to a different form and will be reset. Attached forms keep their answers.',label:'Change and reset primary sheet',action:()=>applyRunKind(next)});
+      setConfirmAction({title:`Change the primary form to ${PRIMARY_RUN_FORMS.find(form=>form.key===next)?.label}?`,body:'The current primary checklist answers and its directive review apply to a different form and will be reset. Attached forms keep their answers.',label:'Change and reset primary sheet',action:apply});
       return;
     }
-    applyRunKind(next);
+    apply();
   };
+  const askStopRisk=(next:PrimaryRunForm=runKind)=>{setRiskCandidate(next);setRiskPrompt(true);};
   const quickAddLock = (form: SupplementalRunForm): string|undefined => {
     if (form==='building_search'&&runKind==='building_search') return 'Primary form is already Building Search';
     if (form==='arrest_process'&&arrestMade) return 'Required because an arrest is recorded';
@@ -644,7 +655,7 @@ export default function ReportEditor() {
         <p className="border-b px-4 py-3 text-sm text-muted-foreground">The assigned FTO’s name and badge come from the phase assignment and are saved as this report’s identity snapshot.</p>
         <fieldset disabled={!editable} className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
           <F l="Shift date (MM/DD/YYYY)"><input type="text" inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={dateText} onChange={e=>{const value=formatDateEntryMDY(e.target.value);setDateText(value);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,value));applyShiftDate(value);}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const today=currentDateTimeMDY().date;setDateText(today);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,today));applyShiftDate(today);}}} data-testid="input-date" /><span className="text-xs font-normal text-muted-foreground">Slashes are added automatically. Enter ? then press Enter for today.</span></F>
-           <F l="Shift time"><input required type="time" className={inp+' mono'} value={r.shiftStartTime??''} onChange={event=>set('shiftStartTime',event.target.value)} data-testid="input-shift-start-time" /><span className="text-xs font-normal text-muted-foreground">Enter the actual shift start time in 24-hour format.</span></F>
+           <F l="Shift time"><input required type="text" inputMode="numeric" maxLength={5} placeholder="HH:MM" className={inp+' mono'} value={r.shiftStartTime??''} onChange={event=>set('shiftStartTime',formatTimeEntry24H(event.target.value))} data-testid="input-shift-start-time" /><span className="text-xs font-normal text-muted-foreground">Use 24-hour time, for example 08:30 or 17:30. Type four digits; the colon is added automatically.</span></F>
           <F l="Shift (from case folder)"><input className={inp} value={shiftDisplayLabel(r.shift)} disabled data-testid="input-shift" /></F>
           <F l="Phase (from case folder)"><input className={inp} value={phaseLabel(r.phase)} disabled data-testid="input-phase" /></F>
           <F l="Probationary Officer (PO)"><input className={inp} value={r.recruitName} onChange={e=>set('recruitName',e.target.value)} data-testid="input-po-name" /></F>
@@ -730,15 +741,23 @@ export default function ReportEditor() {
             <p className="mb-3 rounded border bg-card px-3 py-2 text-xs text-muted-foreground">These run facts are shared by every sheet in this run. Attached sheets inherit the incident, location, date and time, PO, FTO, unit, and cruiser.</p>
             <fieldset disabled={!editable} className="grid gap-3 sm:grid-cols-2">
               <F l="Primary form">
-                 <SearchableSelect className={inp} value={runKind} onChange={e=>requestRunKind(e.target.value as PrimaryRunForm)} data-testid="select-run-kind">
+                 <SearchableSelect className={inp} value={runKind} onChange={e=>{
+                   const next=e.target.value as PrimaryRunForm;
+                   if(next==='traffic_stop'||next==='high_risk_stop')askStopRisk(next);
+                   else requestRunKind(next);
+                 }} data-testid="select-run-kind">
                    {PRIMARY_RUN_FORMS.map(form=><option key={form.key} value={form.key}>{form.label}</option>)}
                  </SearchableSelect>
               </F>
                 {['call_for_service','self_initiated'].includes(runKind)
                   ? <p className="text-xs text-muted-foreground sm:col-span-2">{runKind==='call_for_service'?'Call for Service is the default for each new run.':'Use Self-Initiated Run / Training when the PO initiates the activity.'} Choose a dedicated form when the manual calls for one.</p>
                   : <F l="Run origin"><SearchableSelect className={inp} value={runDispatched?'call_for_service':'self_initiated'} onChange={e=>{const dispatched=e.target.value==='call_for_service';setRunDispatched(dispatched);recompute({isDispatched:dispatched});setRunError('');}} data-testid="select-run-origin"><option value="call_for_service">Call for Service / dispatched</option><option value="self_initiated">Self-initiated</option></SearchableSelect></F>}
+                 {(runKind==='traffic_stop'||runKind==='high_risk_stop')&&<div className="sm:col-span-2">
+                   <button type="button" className="min-h-10 rounded border bg-card px-3 text-sm font-semibold"
+                     onClick={()=>askStopRisk()} data-testid="button-change-stop-type">Change Stop Type</button>
+                 </div>}
                  <F l="Run event date · MM/DD/YYYY"><input required inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={runDateTimeParts.date} onChange={event=>{const date=formatDateEntryMDY(event.target.value);setRunDateTimeText(`${date}${runTimeText?` ${runTimeText}`:''}`);setRunError('');}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const now=currentDateTimeMDY();setRunDateTimeText(`${now.date} ${now.time}`);setRunTimeText(now.time);setRunError('');}}} data-testid="input-run-date" /></F>
-                 <F l="Run event time"><input required type="time" className={inp+' mono'} value={runTimeText} onChange={event=>{const time=event.target.value;setRunTimeText(time);setRunDateTimeText(current=>{const date=splitDateTimeEntryMDY(current).date;return date?`${date}${time?` ${time}`:''}`:'';});setRunError('');}} data-testid="input-run-time" /><span className="text-xs font-normal text-muted-foreground">Enter the time the call was aired or initiated. Correct dispatch details as needed.</span></F>
+                 <F l="Run event time"><input required type="text" inputMode="numeric" maxLength={5} placeholder="HH:MM" className={inp+' mono'} value={runTimeText} onChange={event=>{const time=formatTimeEntry24H(event.target.value);setRunTimeText(time);setRunDateTimeText(current=>{const date=splitDateTimeEntryMDY(current).date;return date?`${date}${time?` ${time}`:''}`:'';});setRunError('');}} data-testid="input-run-time" /><span className="text-xs font-normal text-muted-foreground">Use 24-hour time for when the call was aired or initiated, for example 08:30 or 17:30. The colon is added automatically.</span></F>
                  <F l="Incident Number"><input className={inp} value={incidentNumber} onChange={event=>setIncidentNumber(event.target.value)} maxLength={120} data-testid="input-run-incident-number" /></F>
                  <F l="Unit / cruiser assignment"><input className={inp+' mono'} value={runUnitNumber} onChange={event=>setRunUnitNumber(event.target.value)} maxLength={40} placeholder="Assigned unit or cruiser" data-testid="input-run-unit-number" /></F>
                  <F l="Dispatched at · MM/DD/YYYY HH:MM"><input className={inp+' mono'} value={runDispatchedAtText} onChange={event=>setRunDispatchedAtText(event.target.value)} maxLength={16} placeholder="Optional" data-testid="input-run-dispatched-at" /></F>
@@ -753,9 +772,13 @@ export default function ReportEditor() {
                 <F l="Run type / 10-code">
                   <div className="flex min-w-0">
                     <span className={radioCodePrefix} aria-hidden="true">10-</span>
-                    <input aria-label="Dispatched code without 10 prefix" className={radioCodeInput+(runKind==='traffic_stop'?' bg-muted':'')} value={dispatchedCode} onChange={e=>setDispatchedCode(normalizeRadioCode(e.target.value))} list="radio-code-list" placeholder="6 or 17A" data-testid="input-dispatched-code" />
+                    <input aria-label="Dispatched code without 10 prefix" className={radioCodeInput+(runKind==='traffic_stop'?' bg-muted':'')} value={dispatchedCode}
+                      onChange={e=>{setDispatchedCode(normalizeRadioCode(e.target.value));setRiskCodeDirty(true);}}
+                      onBlur={()=>{if(riskCodeDirty){setRiskCodeDirty(false);if(dispatchedCode==='6')askStopRisk();}}}
+                      onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();setRiskCodeDirty(false);if(dispatchedCode==='6')askStopRisk();}}}
+                      list="radio-code-list" placeholder="6 or 17A" data-testid="input-dispatched-code" />
                   </div>
-                  <span className="text-xs text-muted-foreground">{runTypeCodeHelp(runKind)}{dispatchedCode?` ${RADIO_CODES[dispatchedCode]??'Unlisted code — confirm against approved code table'}`:''}</span>
+                  {dispatchedCode&&<span className="text-xs text-muted-foreground">{RADIO_CODES[dispatchedCode]??'Unlisted code — confirm against approved code table'}</span>}
                </F>
                 <F l="Situation found code">
                     <div className="flex min-w-0">{situationFoundCode&&situationFoundCode!==SITUATION_FOUND_NA&&<span className={radioCodePrefix} aria-hidden="true">10-</span>}<input aria-label="Situation found code" className={radioCodeInput} value={situationFoundCode} onChange={e=>setSituationFoundCode(normalizeSituationFoundCode(e.target.value))} list="radio-code-list" placeholder="Optional" data-testid="input-situation-found-code" /></div>
@@ -981,11 +1004,9 @@ export default function ReportEditor() {
 
       {stage==='activity'&&<>
       <Panel id="activity-summary" title="Daily Activity Summary" className="mb-4 scroll-mt-28">
-        <div className="border-b px-4 py-3 text-sm text-muted-foreground">
-          Totals combine manual entries with clearance-derived counts from newly created, reviewed run records. Run activity checkboxes remain supporting evidence only.
-          <div className="mt-2 text-foreground">1V uses the explicitly selected Traffic Citations metric, otherwise Solve Citation/Summons* for traffic stops, otherwise PremierOne Reports. These distinct metrics are not counted twice. 3V adds the approved arrest-report, prisoner, case-report, affidavit, and individual-charge counts. Existing legacy runs are not recounted automatically.</div>
+        {activityMismatchFields.length>0&&<div className="border-b px-4 py-3 text-sm text-muted-foreground">
           {activityMismatchFields.length>0&&<div role="note" className="mt-2 rounded border border-accent bg-accent/10 p-2.5 text-foreground" data-testid="status-activity-discrepancy"><b>Review the daily statistics against run records</b><p className="mt-1 text-xs text-muted-foreground">The portal did not change either value.</p><ul className="mt-1 grid gap-1 text-xs sm:grid-cols-2">{activityMismatchFields.map(({key,label})=><li key={key}><b>{label}:</b> daily statistic {totalActivity[key]} · run checkboxes {runDerivedActivity[key]}</li>)}</ul></div>}
-        </div>
+        </div>}
         <fieldset disabled={!editable} className="grid grid-cols-1 border-l border-t sm:grid-cols-2 xl:grid-cols-4">
           {DAILY_ACTIVITY_COLUMNS.map(column => (
             <section key={column.title} className="min-w-0 border-b border-r bg-card" data-testid={`activity-group-${column.title.toLowerCase().replaceAll(/[^a-z0-9]+/g,'-')}`}>
@@ -1041,6 +1062,7 @@ export default function ReportEditor() {
       </Panel>
       </>}
 
+      <PacketSubmitControl reportId={r.id} disabled={isDirty||runFormDirty||isNew}/>
       <div className="editor-savebar" data-testid="bar-daily-save">
         <button type="button" disabled={EDITOR_STAGES[0].id===stage} onClick={()=>{const i=EDITOR_STAGES.findIndex(item=>item.id===stage);setStage(EDITOR_STAGES[Math.max(0,i-1)].id);window.scrollTo({top:0});}} className="inline-flex min-h-10 items-center gap-1 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-40" data-testid="button-stage-back"><ChevronLeft className="h-4 w-4"/>Back</button>
         <span className="editor-savebar-state" data-testid="status-daily-save">
@@ -1052,7 +1074,9 @@ export default function ReportEditor() {
           <button type="button" disabled={EDITOR_STAGES[EDITOR_STAGES.length-1].id===stage} onClick={()=>{const i=EDITOR_STAGES.findIndex(item=>item.id===stage);setStage(EDITOR_STAGES[Math.min(EDITOR_STAGES.length-1,i+1)].id);window.scrollTo({top:0});}} className="inline-flex min-h-10 items-center gap-1 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-40" data-testid="button-stage-next">Next<ChevronRight className="h-4 w-4"/></button>
         </span>
       </div>
-      <NewRunDialog open={newRunOpen} defaultUnit={r.reportingForDuty?.cruiserId||r.reportingForDuty?.unitNumber||''} onCancel={()=>setNewRunOpen(false)} onConfirm={startNewRun}/>
+      <NewRunDialog open={newRunOpen&&editable} defaultUnit={r.reportingForDuty?.cruiserId||r.reportingForDuty?.unitNumber||''} onCancel={()=>setNewRunOpen(false)} onConfirm={startNewRun}/>
+      <TrafficStopRiskPrompt open={riskPrompt&&editable} onOpenChange={setRiskPrompt} kind={riskCandidate} code={dispatchedCode}
+        testId="dialog-run-high-risk" onChange={next=>{setRiskPrompt(false);requestRunKind(next,true);}}/>
       <AlertDialog open={!!confirmAction} onOpenChange={open=>{if(!open)setConfirmAction(null);}}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>{confirmAction?.title}</AlertDialogTitle><AlertDialogDescription>{confirmAction?.body}</AlertDialogDescription></AlertDialogHeader>

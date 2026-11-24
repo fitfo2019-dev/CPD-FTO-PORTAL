@@ -47,11 +47,23 @@ export function formatDateEntryMDY(value: string): string {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
+/** Predictable 24-hour typing, independent of the browser's AM/PM controls. */
+export function formatTimeEntry24H(value: string): string {
+  const separated = /^(\d{1,2}):(\d{0,2})$/.exec(value);
+  if (separated) return `${separated[1].padStart(2, '0')}:${separated[2]}`;
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+  return digits.length <= 2 ? digits : `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
 export function formatDateTimeEntryMDY(value: string): string {
   if (value.trim() === '?') return '?';
+  // Keep separators while the FTO types. Removing a space or colon on each
+  // keystroke makes a prefilled date appear to refuse its time.
+  const separated = /^(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}):(\d{0,2})$/.exec(value);
+  if (separated) return `${separated[1]} ${separated[2].padStart(2, '0')}:${separated[3]}`;
   const digits = value.replace(/\D/g, '').slice(0, 12);
   const date = formatDateEntryMDY(digits.slice(0, 8));
-  if (digits.length <= 8) return date;
+  if (digits.length <= 8) return digits.length === 8 && /\s$/.test(value) ? `${date} ` : date;
   const timeDigits = digits.slice(8);
   const time = timeDigits.length <= 2
     ? timeDigits

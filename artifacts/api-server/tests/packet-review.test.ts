@@ -12,6 +12,7 @@ import { createTrainingPacketsRouter } from "../src/routes/training-packets.js";
 import { hashUserIdentifier as hash } from "../src/utils/cryptoUtils.js";
 import type { AgencyIdentity } from "../src/security/agencyIdentity.js";
 import { CompletePacketsEnvelope } from "../src/lib/packet-contract.js";
+import {createPacketReviewStore} from "../src/lib/packet-review-store.js";
 
 const coordinator: AgencyIdentity = { id: "coordinator", badge: "10", role: "FTO_COORDINATOR" };
 const po: AgencyIdentity = { id: "po", badge: "20", role: "PO" };
@@ -36,34 +37,46 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
     started = true;
     pool = new pg.Pool({ host: dir, port, user: "packet_test", database: "postgres", max: 6 });
     await pool.query(readFileSync(new URL("../migrations/agency-training.sql", import.meta.url), "utf8"));
+    await pool.query(readFileSync(new URL("../migrations/agency-training-packet-review.sql", import.meta.url), "utf8"));
+    await pool.query(readFileSync(new URL("../migrations/agency-training-packet-guards.sql", import.meta.url), "utf8"));
     const db = pool;
     const store = createAgencyPacketStore(db);
     const assignment = randomUUID();
     const otherAssignment = randomUUID();
-    const seedAssignment = async (id: string, className: string, coordinatorId: string) => db.query(
+    const seedAssignment = async (id: string, className: string, coordinatorId: string,assignedPo=po) => db.query(
       `INSERT INTO agency_training.assignments
        (id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,po_id_hash,po_badge_hash,po_name,
-        coordinator_id_hash,starts_on,ends_on)
-       VALUES ($1,$2,1,$3,$4,'Synthetic FTO',$5,$6,'Synthetic PO',$7,'2026-01-01','2026-12-31')`,
-      [id, className, hash(fto.id), hash(fto.badge), hash(po.id), hash(po.badge), hash(coordinatorId)],
+         coordinator_id_hash,starts_on,ends_on,fto_id,fto_badge,po_id,po_badge,coordinator_id)
+        VALUES ($1,$2,1,$3,$4,'Synthetic FTO',$5,$6,'Synthetic PO',$7,'2026-01-01','2026-12-31',$8,$9,$10,$11,$12)`,
+      [id, className, hash(fto.id), hash(fto.badge), hash(assignedPo.id), hash(assignedPo.badge), hash(coordinatorId),
+        fto.id,fto.badge,assignedPo.id,assignedPo.badge,coordinatorId],
     );
-    await seedAssignment(assignment, "Class A", "another-coordinator");
-    // Coordinator scope comes from another roster assignment in the SAME class.
-    await seedAssignment(randomUUID(), "Class A", coordinator.id);
-    await seedAssignment(otherAssignment, "Class B", "another-coordinator");
-    // Avoid duplicate FTO upload matches while retaining active class scope.
-    await db.query("UPDATE agency_training.assignments SET fto_id_hash=$1 WHERE coordinator_id_hash=$2",
-      [hash("another-fto"), hash(coordinator.id)]);
+    await seedAssignment(assignment, "Class A", coordinator.id);
+    await seedAssignment(randomUUID(), "Class A", "same-class-outsider",{...po,id:"other-po",badge:"21"});
+    await seedAssignment(otherAssignment, "Class B", "another-coordinator",{...po,id:"class-b-po",badge:"22"});
+    await db.query("INSERT INTO agency_training.coordinator_directory(id,name) VALUES ($1,'Test Coordinator')",[coordinator.id]);
+    const assigned=createPacketReviewStore(db);
+    await assigned.assign(po,{po_id:po.id,coordinator_id:coordinator.id,expected_revision:0});
     const report = { id: "original", date: "2026-11-23", phase: 1, className: "Class A",
       recruitBadge: po.badge, ftoBadge: fto.badge, recruitName: "Synthetic PO", ftoName: "Synthetic FTO",
       status: "recruit_signed", signatures: { recruit: { signed: true } }, runs: [], ratings: {},
-      activity: {}, reportingForDuty: {}, narrative: "", remedial: "", recruitComments: "" };
+      activity: {}, reportingForDuty: {reviewedAt:"2026-11-23T12:00:00Z"},ratingsReviewedAt:"2026-11-23T12:00:00Z",
+      narrative: "", remedial: "", recruitComments: "" };
+    const approve=async(content:typeof report,packetStore=store)=>{
+      await packetStore.finalize(fto,content.id,randomUUID(),1,audit());
+      await assert.rejects(packetStore.review(coordinator,audit(),content.id,"release",change(content)),denied("PACKET_APPROVAL_REQUIRED"));
+      const submission=(await assigned.list(coordinator,0)).items.find(item=>item.packet_id===content.id)!;
+      await assigned.act(coordinator,submission.id,{operation_id:randomUUID(),action:"acknowledge",note:""});
+      await assigned.detail(coordinator,submission.id);
+      await assigned.act(coordinator,submission.id,{operation_id:randomUUID(),action:"approve",note:"Reviewed"});
+    };
     const upload = { operation_id: randomUUID(), base_version: 0, report };
     await store.sync(fto, audit(), [upload]);
     const review = change(report);
     await t.test("forged client signature and status do not release or acknowledge an upload", async () => {
       assert.deepEqual(await store.read(po, audit()), []);
-      const record = (await store.read(coordinator, audit(), report.id))[0];
+      assert.deepEqual(await store.read(coordinator,audit()),[]);
+      const record = (await store.read(fto, audit(), report.id))[0];
       assert.equal(record.released_to_po, false);
       assert.equal(record.acknowledgment, null);
       assert.equal(record.content_hash, review.content_hash);
@@ -71,12 +84,14 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
       await assert.rejects(store.review(fto, audit(), report.id, "release", review), denied("PACKET_REVIEW_FORBIDDEN"));
       await assert.rejects(store.review(po, audit(), report.id, "acknowledge", review), denied("PACKET_NOT_FOUND"));
     });
+    await approve(report);
     await t.test("class access fails closed for another coordinator, badge, inactive assignment and class", async () => {
       await assert.rejects(store.review({ ...coordinator, id: "outsider" }, audit(), report.id, "release", review), denied("PACKET_NOT_FOUND"));
+      await assert.rejects(store.read({...coordinator,id:"same-class-outsider"},audit(),report.id),denied("PACKET_NOT_FOUND"));
       await db.query("UPDATE agency_training.packet_assignments SET active=false WHERE packet_id=$1", [report.id]);
       await assert.rejects(store.review(coordinator, audit(), report.id, "release", review), denied("PACKET_NOT_FOUND"));
       await db.query("UPDATE agency_training.packet_assignments SET active=true WHERE packet_id=$1", [report.id]);
-      const other = { ...report, id: "other-class", className: "Class B" };
+      const other = { ...report, id: "other-class", className: "Class B",recruitBadge:"22" };
       await store.sync(fto, audit(), [{ ...upload, operation_id: randomUUID(), report: other }]);
       await assert.rejects(store.review(coordinator, audit(), other.id, "release", change(other)), denied("PACKET_NOT_FOUND"));
     });
@@ -111,12 +126,13 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
       await assert.rejects(store.read(po, audit(), report.id), denied("PACKET_NOT_FOUND"));
       await assert.rejects(store.review(coordinator, audit(), report.id, "release", change(report)), denied("PACKET_WITHDRAWN"));
       assert.equal((await store.read(coordinator, audit(), report.id))[0].acknowledgment.comments, "Reviewed, not agreement.");
-      await assert.rejects(store.sync(fto, audit(), [{ ...upload, operation_id: randomUUID(), report: { ...report, narrative: "Overwrite" } }]), denied("PACKET_ALREADY_SYNCHRONIZED"));
+      await assert.rejects(store.sync(fto, audit(), [{ ...upload, operation_id: randomUUID(), report: { ...report, narrative: "Overwrite" } }]), denied("PACKET_ALREADY_SUBMITTED"));
       const replacement = { ...report, id: "replacement", narrative: "Corrected" };
       const replacementUpload = { operation_id: randomUUID(), base_version: 0, report: replacement,
         amendment_of: report.id, amendment_reason: "Corrected narrative after withdrawal." };
       await store.sync(fto, audit(), [replacementUpload]);
       await store.sync(fto, audit(), [replacementUpload]);
+      await approve(replacement);
       const replacementRecord = (await store.read(coordinator, audit(), replacement.id))[0];
       assert.equal(replacementRecord.released_to_po, false);
       assert.equal(replacementRecord.acknowledgment, null);
@@ -130,6 +146,7 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
     await t.test("withdrawal racing acknowledgment never acknowledges a closed packet", async () => {
       const concurrent = { ...report, id: "concurrent" };
       await store.sync(fto, audit(), [{ ...upload, operation_id: randomUUID(), report: concurrent }]);
+      await approve(concurrent);
       await store.review(coordinator, audit(), concurrent.id, "release", change(concurrent));
       const results = await Promise.allSettled([
         store.review(coordinator, audit(), concurrent.id, "withdraw", { ...change(concurrent), reason: "Correction" }),
@@ -147,6 +164,7 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
     await t.test("audit failure rolls back release", async () => {
       const failing = { ...report, id: "audit-failure" };
       await store.sync(fto, audit(), [{ ...upload, operation_id: randomUUID(), report: failing }]);
+      await approve(failing);
       await assert.rejects(store.review(coordinator, { ...audit(), requestId: "invalid-uuid" }, failing.id, "release", change(failing)));
       assert.equal((await store.read(coordinator, audit(), failing.id))[0].released_to_po, false);
     });
@@ -154,20 +172,29 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
       await db.query(`CREATE ROLE packet_runtime LOGIN;
         GRANT USAGE ON SCHEMA agency_training TO packet_runtime;
         GRANT SELECT ON agency_training.assignments TO packet_runtime;
+        GRANT SELECT ON agency_training.coordinator_directory TO packet_runtime;
+        GRANT SELECT,INSERT ON agency_training.po_coordinators,agency_training.packet_submissions,
+          agency_training.packet_review_events,agency_training.packet_review_operations TO packet_runtime;
+        GRANT UPDATE(state,reviewed_at,review_note) ON agency_training.packet_submissions TO packet_runtime;
         GRANT SELECT, INSERT ON agency_training.packets, agency_training.packet_assignments,
           agency_training.packet_acknowledgments, agency_training.packet_events TO packet_runtime;
         GRANT USAGE ON ALL SEQUENCES IN SCHEMA agency_training TO packet_runtime;
-        GRANT UPDATE (released_to_po, released_at, released_by_hash, withdrawn_at, withdrawn_by_hash,
+        GRANT UPDATE (report,operation_id,content_hash,server_version,submission_status,finalization_operation_id,submitted_at,
+          released_to_po, released_at, released_by_hash, withdrawn_at, withdrawn_by_hash,
           withdrawal_reason) ON agency_training.packets TO packet_runtime;`);
+      await db.query(`GRANT EXECUTE ON FUNCTION agency_training.lock_packet_assignment(text,text,text),
+        agency_training.lock_active_packet_coordinator(text) TO packet_runtime;`);
       const limitedPool = new pg.Pool({ host: dir, port, user: "packet_runtime", database: "postgres" });
       try {
         const limited = createAgencyPacketStore(limitedPool);
         const leastPrivilege = { ...report, id: "least-privilege" };
         await limited.sync(fto, audit(), [{ ...upload, operation_id: randomUUID(), report: leastPrivilege }]);
+        await approve(leastPrivilege,limited);
         await limited.review(coordinator, audit(), leastPrivilege.id, "release", change(leastPrivilege));
         await limited.review(po, audit(), leastPrivilege.id, "acknowledge", change(leastPrivilege));
         await limited.review(coordinator, audit(), leastPrivilege.id, "withdraw", { ...change(leastPrivilege), reason: "Correction" });
         await assert.rejects(limitedPool.query("UPDATE agency_training.packets SET report='{}'::jsonb WHERE id=$1", [leastPrivilege.id]));
+        await assert.rejects(limitedPool.query("UPDATE agency_training.packet_submissions SET report='{}'::jsonb WHERE packet_id=$1",[leastPrivilege.id]));
         await assert.rejects(limitedPool.query("DELETE FROM agency_training.packet_events"));
         await assert.rejects(limitedPool.query("DELETE FROM agency_training.packet_acknowledgments"));
       } finally { await limitedPool.end(); }
@@ -184,7 +211,7 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
             CHECK (event_type IN ('READ','COMMIT')), occurred_at timestamptz NOT NULL DEFAULT now());
           INSERT INTO agency_training.packets VALUES ('legacy',true,'{"narrative":"Keep original"}');
           INSERT INTO agency_training.packet_events(event_type) VALUES ('COMMIT');`);
-        await legacy.query(readFileSync(new URL("../migrations/agency-training-packet-review.sql", import.meta.url), "utf8"));
+        await legacy.query(readFileSync(new URL("../migrations/agency-training-release-upgrade.sql", import.meta.url), "utf8"));
         const packet = (await legacy.query("SELECT * FROM agency_training.packets")).rows[0];
         assert.equal(packet.released_to_po, false);
         assert.deepEqual(packet.report, { narrative: "Keep original" });

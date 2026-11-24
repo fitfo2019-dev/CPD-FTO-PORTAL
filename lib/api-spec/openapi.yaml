@@ -21,6 +21,71 @@ tags:
   - name: training-packets
     description: Agency-roster-authorized training packet sync and reads
 paths:
+  /v1/packet-review/context:
+    get:
+      operationId: getPacketReviewContext
+      tags: [packet-review]
+      responses:
+        "200":
+          description: Verified account context and mandatory receipt gate
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketReviewContext" }
+  /v1/packet-review/coordinator:
+    put:
+      operationId: updatePacketCoordinator
+      tags: [packet-review]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PacketCoordinatorInput" }
+      responses:
+        "200":
+          description: Server-confirmed Coordinator assignment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketCoordinatorAssignment" }
+  /v1/packet-review/submissions:
+    get:
+      operationId: listPacketSubmissions
+      tags: [packet-review]
+      parameters:
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: Scoped, paginated submission inbox and FTO status list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketSubmissionPage" }
+  /v1/packet-review/submissions/{id}:
+    get:
+      operationId: getPacketSubmission
+      tags: [packet-review]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Immutable submitted packet and its review history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketSubmissionDetail" }
+    post:
+      operationId: actOnPacketSubmission
+      tags: [packet-review]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PacketReviewActionInput" }
+      responses:
+        "200":
+          description: Server-confirmed review action
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketSubmission" }
   /v1/staging/training-records:
     get:
       operationId: listStagingTrainingRecords
@@ -243,8 +308,8 @@ paths:
     post:
       operationId: syncTrainingPackets
       tags: [training-packets]
-      summary: Commit a batch of complete local packets as the assigned FTO
-      description: The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. A successful commit returns server-confirmed sync status.
+      summary: Save editable packet drafts as the assigned FTO
+      description: Synchronization never submits a packet. Drafts are visible only to their assigned FTO and remain editable until the separate explicit finalization operation.
       requestBody:
         required: true
         content:
@@ -347,6 +412,33 @@ paths:
               schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
         default:
           description: Authentication, scope, conflict, validation or storage error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/finalize:
+    post:
+      operationId: finalizeTrainingPacket
+      tags: [training-packets]
+      summary: Explicitly finalize a saved draft for its assigned Coordinator
+      description: Rechecks the active server roster and draft version. Only this operation makes a packet visible to its assigned Coordinator and PO.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketFinalizationInput" }
+      responses:
+        "200":
+          description: Finalized packet receipt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketSyncRecord" }
+        default:
+          description: Identity, assignment, validation, or version failure
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
@@ -644,6 +736,96 @@ paths:
               schema: { $ref: "#/components/schemas/ApiError" }
 components:
   schemas:
+    PacketCoordinator:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+    PacketCoordinatorAssignment:
+      type: object
+      required: [po_id, po_badge, coordinator_id, revision]
+      properties:
+        po_id: { type: string }
+        po_badge: { type: string }
+        coordinator_id: { type: string }
+        revision: { type: integer, minimum: 1 }
+    PacketCoordinatorInput:
+      type: object
+      additionalProperties: false
+      required: [po_id, coordinator_id, expected_revision]
+      properties:
+        po_id: { type: string, minLength: 1, maxLength: 256 }
+        coordinator_id: { type: string, minLength: 1, maxLength: 256 }
+        expected_revision: { type: integer, minimum: 0 }
+    PacketReviewContext:
+      type: object
+      required: [available, account_id, role, coordinators, assignments, pending_count, pending]
+      properties:
+        available: { type: boolean }
+        account_id: { type: string }
+        role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+        coordinators:
+          type: array
+          items: { $ref: "#/components/schemas/PacketCoordinator" }
+        assignments:
+          type: array
+          items: { $ref: "#/components/schemas/PacketCoordinatorAssignment" }
+        pending_count: { type: integer, minimum: 0 }
+        pending:
+          anyOf:
+            - { $ref: "#/components/schemas/PacketSubmission" }
+            - { type: "null" }
+    PacketSubmission:
+      type: object
+      required: [id, packet_id, packet_version, coordinator_id, coordinator_name, state, record_date, po_name, fto_name, submitted_at, acknowledged_at, reviewed_at, review_note]
+      properties:
+        id: { type: string, format: uuid }
+        packet_id: { type: string }
+        packet_version: { type: integer, minimum: 1 }
+        coordinator_id: { type: string }
+        coordinator_name: { type: string }
+        state: { type: string, enum: [submitted, acknowledged, approved, correction_requested, withdrawn] }
+        record_date: { type: string }
+        po_name: { type: string }
+        fto_name: { type: string }
+        submitted_at: { type: string }
+        acknowledged_at: { type: ["string", "null"] }
+        reviewed_at: { type: ["string", "null"] }
+        review_note: { type: string }
+    PacketSubmissionPage:
+      type: object
+      required: [items, has_more, next_offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PacketSubmission" }
+        has_more: { type: boolean }
+        next_offset: { type: integer, minimum: 0 }
+    PacketSubmissionHistory:
+      type: object
+      required: [action, occurred_at, note]
+      properties:
+        action: { type: string }
+        occurred_at: { type: string }
+        note: { type: string }
+    PacketSubmissionDetail:
+      type: object
+      required: [submission, report, history]
+      properties:
+        submission: { $ref: "#/components/schemas/PacketSubmission" }
+        report: { $ref: "#/components/schemas/TrainingPacketReport" }
+        history:
+          type: array
+          items: { $ref: "#/components/schemas/PacketSubmissionHistory" }
+    PacketReviewActionInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, action, note]
+      properties:
+        operation_id: { type: string, format: uuid }
+        action: { type: string, enum: [acknowledge, approve, return] }
+        note: { type: string, maxLength: 5000 }
     PhaseExtensionRequestInput:
       type: object
       additionalProperties: false
@@ -786,6 +968,13 @@ components:
         amendment_of: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
         amendment_reason: { type: string, minLength: 1, maxLength: 4000 }
         report: { $ref: "#/components/schemas/TrainingPacketReport" }
+    TrainingPacketFinalizationInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, base_version]
+      properties:
+        operation_id: { type: string, format: uuid }
+        base_version: { type: integer, minimum: 1 }
     TrainingPacketSyncInput:
       type: object
       additionalProperties: false
@@ -804,7 +993,7 @@ components:
         id: { type: string, minLength: 1, maxLength: 128 }
         operation_id: { type: string, format: uuid }
         server_version: { type: integer, minimum: 1 }
-        sync_status: { type: string, enum: [synchronized_complete] }
+        sync_status: { type: string, enum: [local_draft_pending, synchronized_complete] }
     TrainingPacketSyncEnvelope:
       type: object
       additionalProperties: false
@@ -865,7 +1054,7 @@ components:
         record_date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
         phase: { type: integer, minimum: 1, maximum: 4 }
         server_version: { type: integer, minimum: 1 }
-        sync_status: { type: string, enum: [synchronized_complete] }
+        sync_status: { type: string, enum: [local_draft_pending, synchronized_complete] }
         report: { $ref: "#/components/schemas/TrainingPacketReport" }
         content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
         released_to_po: { type: boolean }

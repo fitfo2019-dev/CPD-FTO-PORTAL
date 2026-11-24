@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isTacticalCallSign, PatrolAssignmentMetadataSchema } from './cpd-geography.js';
 import {
   CATEGORIES,
   DAILY_ACTIVITY_FIELDS,
@@ -174,7 +175,11 @@ const reportSchema = z.object({
   }),
   createdAt: z.string(),
   updatedAt: z.string(),
-}).passthrough();
+}).passthrough().superRefine((value,context)=>{
+  if(!isTacticalCallSign(value.ftoAssignment)) return;
+  const metadata=PatrolAssignmentMetadataSchema.safeParse(value);
+  if(!metadata.success) metadata.error.issues.forEach(issue=>context.addIssue({...issue,code:'custom'}));
+});
 
 const acknowledgementSchema = z.object({
   id: z.string(),

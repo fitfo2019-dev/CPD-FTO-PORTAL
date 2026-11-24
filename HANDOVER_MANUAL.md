@@ -75,26 +75,39 @@ record date. No matching or ambiguous assignment returns 403.
 `POST /api/v1/training-packets/sync` commits at most 100 complete packet
 snapshots in a single transaction, with a bounded 2 MB body. It binds packet
 IDs to the matching server assignment. The assigned FTO is the only uploader.
-Already committed packets accept only exact operation/content retries; other
-attempts return 409. A successful receipt atomically seals the encrypted local
-packet as `synchronized_complete` and records its server version. Locking or
+Draft receipts remain `local_draft_pending`, do not create inbox items and leave
+the packet editable. A changed draft increments its server version; stale or
+conflicting operations return 409. Only explicit FTO finalization creates a
+versioned immutable submission and seals the local packet. Submitted content
+accepts only exact operation/content retries, never an overwrite. Locking or
 signing out aborts the client request and clears access to the in-memory key.
 If the server committed before disconnection, retry resolves through the
 idempotent receipt; the client never assumes a timeout means “not committed.”
+A retry that observes explicit finalization on another device additionally
+verifies the submitted version through an authenticated read before sealing.
 
 `GET /api/v1/training-packets` and `GET /api/v1/training-packets/:id`
-read only the signed-in identity's assignment scope. FTOs see their assignments;
-coordinators see only assignments whose coordinator identity hash matches.
+read only the signed-in identity's assignment scope. Only the assigned FTO sees
+pending drafts. Submitted packets use the PO's verified Coordinator selection,
+or the trusted roster's Coordinator hash when no selection exists.
 PO reads additionally require the server-owned `released_to_po` flag.
-That flag defaults false; **the PO release/signature workflow is not
-implemented in this pass**. Uploading does not create electronic signatures,
-validate client-provided signature blocks, or authorize PO release.
+That flag defaults false. Coordinator release requires review of the exact
+snapshot and approval of its current submission. PO acknowledgment records
+receipt of that released content, not agreement or an electronic signature.
+Permanent withdrawal preserves the original, acknowledgment and audit history;
+a separately identified replacement requires fresh submission and review.
+Uploading never authorizes PO release or validates client-provided signatures.
+The submission-list and submission-detail routes enforce that same release
+boundary for the exact current version. PO history is limited to that released
+submission; earlier internal correction history remains available only to
+authorized staff.
 
 Database packet events record request IDs and HMAC-pseudonymized actor/IP
 identities; request middleware also emits the existing JSONL audit stream.
-Give the runtime DB role only the documented SELECT/INSERT permissions, no
-schema ownership or UPDATE/DELETE/TRUNCATE permissions. The trusted roster and
-PO-release administration process uses a separate identity. The agency remains
+Give the runtime DB role only the documented SELECT/INSERT and column-specific
+UPDATE permissions, with the snapshot guard installed. Never grant schema
+ownership, authority-table updates, or DELETE/TRUNCATE permissions. Trusted roster
+provisioning uses a separate administrative identity. The agency remains
 responsible for retention, immutable SIEM storage, database encryption and
 backups. Changing the HMAC key requires a coordinated roster-hash migration.
 
@@ -726,3 +739,118 @@ Weekly views, print forms, workbook forms, and monthly exports share the
 category-ceiling calculation. Export strings are guarded against formula
 prefixes, including leading whitespace/control characters. Authentication,
 proxy routing, CSP, vault cryptography, and disk retention are unchanged.
+
+## Central database clean-room handover for Columbus IT
+
+This application has two deliberately separate database paths. Neither path is
+configured by this handover document, and no live agency connection is enabled
+by default:
+
+1. **Synthetic staging** is test-only and uses `process.env.DATABASE_URL` for a
+   disposable PostgreSQL database in a detached development environment. Set
+   `SYNTHETIC_STAGING_ENABLED=true` only there, after reviewing
+   `docs/SYNTHETIC_STAGING.md` and applying its synthetic-only schema. It accepts
+   only clearly identified fictional test records. Never point it at a city,
+   production, existing Replit, or operational database. The agency release
+   removes this route and its repository at compile time.
+2. **Real packet review** uses the separately gated `AGENCY_DATABASE_URL`,
+   `AGENCY_PACKET_SYNC_ENABLED=true`, signed Clerk role/badge/verification claim
+   paths, and the agency-managed `AUDIT_ID_HMAC_KEY`. It does not fall back to
+   `DATABASE_URL`. Without all of these and trusted active roster data, uploads
+   and review fail closed and remain only in the FTO's encrypted local vault.
+   Replit development storage is not a substitute for an agency-approved data
+   store. A generic Replit `DATABASE_URL` is never authorization to store live
+   training files.
+
+### Columbus IT deployment sequence
+
+1. Name the agency system owner, data owner, security approver and operational
+   support contact. Confirm the approved PostgreSQL service, jurisdiction,
+   retention, backup/recovery process, encryption, audit retention, incident
+   response, and applicable policy. The software handover is not a CJIS or other
+   compliance certification.
+2. Have the database/security owner provision an **empty, dedicated agency
+   database or isolated schema** and a separate non-owner application runtime
+   role. Use TLS with certificate and hostname validation. Restrict network
+   ingress to the approved application runtime address/host identity and permit
+   only the minimum database egress through the city's approved firewall, VPN or
+   private link. Verify the actual hosting runtime can reach that route before
+   entering credentials; a city-only address is not reachable from Replit merely
+   because it exists. Never add a firewall exception or public database port
+   without city approval.
+3. Build the agency release and review the included migrations before running
+   them. The DBA—not application startup—backs up the target according to city
+   policy, verifies the target database identity, and applies in this order:
+   `migrations/agency-training.sql` for a new database. For an existing canonical
+   packet database, apply `migrations/agency-training-release-upgrade.sql` only
+   if it lacks the release/withdrawal/acknowledgment schema, then apply
+   `migrations/agency-training-draft-finalization.sql` only if it lacks draft
+   status/version fields. Existing authenticated releases, withdrawals and PO
+   acknowledgments remain preserved; unreleased uploads become private drafts,
+   not Coordinator submissions. Inventory and reconcile any older sealed local
+   copies with their FTOs before a live cutover; never rewrite their local vaults
+   or infer a new submission from synchronization.
+   Then apply `migrations/agency-training-packet-review.sql` and
+   `migrations/agency-training-packet-guards.sql` in that order. These are
+   single-application, DBA-reviewed migrations, not application startup scripts.
+   Do not run synthetic-staging schema against this database. Review the narrow
+   SQL-function ownership and role grants described alongside that migration.
+4. Populate the trusted active `assignments` roster and verified
+   `coordinator_directory` using a city-controlled process. No API, browser form,
+   upload, or local role switch can provision an account's identity/agency role.
+   `packet_assignments` is only the per-packet link to that canonical roster;
+   never replace it with another roster layout. The review migration adds
+   nullable raw Clerk subject/badge metadata to `assignments`. A trusted agency
+   process must provision those verified values consistently with the existing
+   HMAC hashes before final submission can work. No identity is inferred from a
+   packet, reversed from a hash or automatically backfilled. Older released
+   records retain hash-scoped access without that new metadata.
+   Configure the existing Clerk integration to emit signed, agency-approved
+   verification, role and badge claims, then set the matching claim paths. Never
+   treat typed form values or preview role selectors as proof of identity.
+5. The API operator enters the agency connection and `AGENCY_*` enable/identity
+   settings through the hosting platform's approved secret/environment settings
+   interface. Do not write connection strings, passwords, tokens, certificates,
+   or real claim values into a repository, build output, ticket, test fixture,
+   terminal transcript, or this manual. Keep production and test connections
+   distinct. The environment currently inspected for this branch had none of the
+   agency database/identity settings configured.
+6. Before allowing real records, conduct the agency-approved end-to-end test
+   with designated test accounts and non-operational test material: PO chooses a
+   real directory entry; FTO syncs a draft (visible only as local/server draft to
+   its FTO); FTO explicitly finalizes; only that Coordinator receives an inbox
+   item; that Coordinator sees and acknowledges the red blocking receipt; the FTO
+   sees **PACKET ACKNOWLEDGE**; the Coordinator opens the immutable submitted
+   version and approves it; the FTO then sees **COMPLETE**. Separately verify a
+   written correction reason, a new version, fresh acknowledgment, reassignment,
+   denial of the old Coordinator, duplicate network retries, audit history, and
+   separate devices. Verify no sample packets or arbitrary test accounts remain.
+   Do not use operational packet text for a connectivity test.
+7. Monitor API/database availability, deny-by-default authorization, failed
+   writes, backups/restores and audit events through city-approved channels. If
+   the database is unreachable or a claim/roster does not match, the system must
+   report failure, not show success; no local draft is discarded. Keep a tested
+   incident and recovery plan. Disable packet sync and return to local drafts if
+   authorization, routing or integrity cannot be confirmed.
+
+### What the portal does after approved activation
+
+Final submission commits the sealed report version, submission row, and audit
+entry in one database transaction under the assigned Coordinator's server-side
+account ID. Each Coordinator's inbox is queried using the verified signed ID;
+other Coordinators cannot open that submission. While unacknowledged items exist,
+the portal refreshes the count every five seconds and when the Coordinator
+returns to the page, and a server gate blocks other agency API actions until
+acknowledgment. This is authenticated polling, not an email/SMS/mobile push or a
+claim of instantaneous network broadcast. The submitting FTO sees the server's
+acknowledged/reviewed state on the next refresh. Approval changes that submission
+to complete; a correction adds a reason and preserves the old snapshot. The FTO
+must explicitly open, edit and re-submit a correction, which requires a new
+acknowledgment. Reassignment moves open work to the new Coordinator and resets
+its receipt without altering previously approved snapshots.
+
+The source includes migration and transaction tests using disposable PostgreSQL
+and an in-memory PostgreSQL test engine, but no city database, actual city network,
+production accounts, end-to-end browser account pair or production deployment
+has been verified by this work. These require Columbus IT's approved environment
+and users.

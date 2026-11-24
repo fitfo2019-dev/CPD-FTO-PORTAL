@@ -12,6 +12,33 @@ function success(data: unknown, metadata: Record<string, unknown> = {}) {
   });
 }
 
+test('a submitted sync retry seals only after a matching authenticated read, never from the receipt alone',async t=>{
+  const report=createDailyReportDraft(createUiPreviewWorkspace().caseFolder!,'2026-11-23');
+  const operation='29b09e69-073a-4b60-b7be-564945cf587e';
+  let authoritativeStatus='local_draft_pending';
+  const calls:string[]=[];
+  t.mock.method(globalThis,'fetch',async(input:string|URL|Request)=>{
+    const url=String(input);calls.push(url);
+    return url.endsWith('/sync')?success([{
+      id:report.id,operation_id:operation,server_version:1,sync_status:'synchronized_complete',
+    }],{total_records:1,role:'FTO'}):success([{
+      id:report.id,assignment_id:'81dc3739-03c3-4cc1-bc9c-851bba10e833',record_date:report.date,
+      phase:report.phase,server_version:1,sync_status:authoritativeStatus,report,content_hash:'a'.repeat(64),
+      released_to_po:false,released_at:null,withdrawn_at:null,withdrawal_reason:null,
+      amendment_of:null,amendment_reason:null,acknowledgment:null,
+    }],{total_records:1,role:'FTO'});
+  });
+  const change={operationId:operation,recordId:report.id,baseVersion:0,value:report,attempted:true,
+    clientTimestamp:'2026-11-23T14:00:00Z'};
+  await assert.rejects(uploadPacketBatch([change]),/did not confirm an explicitly submitted packet/);
+  authoritativeStatus='synchronized_complete';
+  const [receipt]=await uploadPacketBatch([change]);
+  assert.equal(receipt.sync_status,'synchronized_complete');
+  assert.equal(receipt.submittedVerified,true);
+  assert.equal(calls.length,4);
+  assert.ok(calls.every(url=>!url.includes('/finalize')));
+});
+
 test('read helpers use bounded same-origin GETs and retain complete packet data', async t => {
   const report = createDailyReportDraft(createUiPreviewWorkspace().caseFolder!, '2026-11-23');
   const packet = { id: report.id, assignment_id: '81dc3739-03c3-4cc1-bc9c-851bba10e833',
@@ -50,7 +77,7 @@ test('reads fail explicitly for unavailable access or malformed envelopes', asyn
   assert.equal(await checkPacketService(), false);
 });
 
-test('local save never uploads; an explicit uncertain upload retries the exact snapshot and seals only on receipt', async t => {
+test('local save never uploads; an uncertain draft upload retries its exact snapshot without submitting', async t => {
   const vault = new OfflineStorage(`packet-controls-${crypto.randomUUID()}`);
   await vault.unlock(new TextEncoder().encode('fictional-packet-controls-test-passphrase'));
   const workspace = createUiPreviewWorkspace();
@@ -71,7 +98,7 @@ test('local save never uploads; an explicit uncertain upload retries the exact s
     assert.equal(payload.packets[0].report.id, report.id);
     return success(payload.packets.map((packet: { operation_id: string; report: { id: string } }) => ({
       id: packet.report.id, operation_id: packet.operation_id, server_version: 1,
-      sync_status: 'synchronized_complete',
+      sync_status: 'local_draft_pending',
     })), { total_records: payload.packets.length, role: 'FTO' });
   });
   await vault.saveWorkspace({ ...workspace, reports: [report] });
@@ -81,7 +108,7 @@ test('local save never uploads; an explicit uncertain upload retries the exact s
   assert.equal(guarded?.reports[0].syncAttemptPending, true);
   assert.notEqual(guarded?.reports[0].syncStatus, 'synchronized_complete');
   const synced = await vault.syncPacketBatch(changes => uploadPacketBatch(changes));
-  assert.equal(synced?.reports[0].syncStatus, 'synchronized_complete');
+  assert.equal(synced?.reports[0].syncStatus, 'local_draft_pending');
   assert.equal(await vault.pendingCount(), 0);
   assert.deepEqual(calls, ['/api/v1/training-packets/sync', '/api/v1/training-packets/sync']);
   vault.lock();

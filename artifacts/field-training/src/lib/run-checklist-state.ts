@@ -2,6 +2,13 @@ import { newRunChecklist, requiredSupplementalForms } from './model.js';
 
 export type RunChecklistMetadata = Parameters<typeof requiredSupplementalForms>[0];
 
+/** Primary indices are form-specific; supplemental answers belong to the run. */
+export function resetPrimaryChecklist(metadata: RunChecklistMetadata, previous: Record<string, boolean>) {
+  return checklistForMetadata(metadata, Object.fromEntries(
+    Object.entries(previous).filter(([key]) => !key.startsWith('task-') && key !== 'na-task'),
+  ));
+}
+
 export function checklistForMetadata(
   metadata: RunChecklistMetadata,
   previous: Record<string, boolean> = {},

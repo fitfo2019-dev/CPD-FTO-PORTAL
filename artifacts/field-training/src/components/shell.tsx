@@ -24,10 +24,12 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/reports', label: 'Daily Records', icon: FileText },
     { href: '/reports/weekly-summary', label: 'Weekly Packets', icon: ClipboardList },
     { href: '/agency-packets', label: 'Agency packets', icon: FileText },
+    { href: '/packet-submissions', label: 'Packet Submissions', icon: ClipboardList },
     RESOURCES,
   ],
   fto_coordinator: [
     HOME,
+    { href: '/packet-submissions', label: 'Packet Submission Inbox', icon: ClipboardList },
     { href: '/class-overview', label: 'Classes & Rosters', icon: Users },
     { href: '/phase-setup', label: 'Assignments', icon: FolderOpen },
     { href: '/substitute-fto', label: 'Coverage', icon: Users },
@@ -41,6 +43,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
   ],
   po: [
     { href: '/agency-packets', label: 'Agency packets', icon: FileText },
+    { href: '/packet-submissions', label: 'Packet Status', icon: ClipboardList },
     { href: '/role-access', label: 'Account Access', icon: Lock },
     RESOURCES,
   ],

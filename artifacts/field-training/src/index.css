@@ -527,6 +527,11 @@ main button.seg-rating-choice {
 .monthly-rating-ua,
 .monthly-rating-nrt { background-color: #fee2e2; color: #991b1b; }
 .label-caps { font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: hsl(var(--muted-foreground)); }
+/* Fixed shell links only: never inherit casing into manual forms or entered data. */
+@media screen {
+  [data-testid="nav-desktop"] > a,
+  [data-testid="nav-mobile"] > a { text-transform: uppercase; }
+}
 .text-ok { color: hsl(var(--ok)); } .text-warn { color: hsl(var(--warn)); }
 .hazard { background-image: repeating-linear-gradient(135deg, hsl(var(--accent)) 0 10px, hsl(var(--foreground)) 10px 20px); }
 .law-library-page {

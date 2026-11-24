@@ -52,7 +52,8 @@ export type SyncResult =
   | { status: "conflict"; serverVersion: number };
 export type SyncTransport = (change: PendingChange) => Promise<SyncResult>;
 export type PacketBatchReceipt = { id: string; operation_id: string;
-  server_version: number; sync_status: "synchronized_complete" };
+  server_version: number; sync_status: "local_draft_pending" | "synchronized_complete";
+  submittedVerified?:true };
 export type LocalChatDraft = {
   id: string;
   sender: string;
@@ -349,7 +350,7 @@ export class OfflineStorage {
    * Legacy workspace queue entries are never sent by syncPacketBatch(). */
   saveWorkspace<T extends { reports: Array<{ id: string; syncStatus?: string; serverVersion?: number; syncAttemptPending?: boolean }> }>(
     workspace: T,
-    options: { overwrite?: boolean } = {},
+    options: { overwrite?: boolean; correction?: {id:string;version:number} } = {},
   ): Promise<void> {
     const { key, epoch } = this.session();
     const snapshot = structuredClone(workspace);
@@ -369,6 +370,14 @@ export class OfflineStorage {
       for (const sealed of saved?.reports ?? []) {
         if (sealed.syncStatus !== "synchronized_complete") continue;
         const index = snapshot.reports.findIndex(report => report.id === sealed.id);
+        if(options.correction?.id===sealed.id) {
+          const correction=snapshot.reports[index];
+          if(!correction || correction.syncStatus!=="local_draft_pending" ||
+            correction.serverVersion!==options.correction.version || sealed.serverVersion!==options.correction.version ||
+            sealed.syncAttemptPending)
+            throw new Error("The returned correction does not match the saved submitted packet.");
+          continue;
+        }
         if (index >= 0) snapshot.reports[index] = sealed;
         else snapshot.reports.push(sealed);
       }
@@ -395,9 +404,19 @@ export class OfflineStorage {
       }
       const envelopes: Envelope[] = [];
       const ids = new Set<string>();
+      const savedWorkspace=saved;
+      const content=(report:T["reports"][number])=>{
+        const {syncStatus:_status,serverVersion:_version,...fields}=report;
+        return JSON.stringify(fields);
+      };
       for (const report of snapshot.reports) {
         if (report.syncStatus === "synchronized_complete") continue;
         const id = `packet:${report.id}`;
+        const saved=savedWorkspace?.reports.find(item=>item.id===report.id);
+        // Acknowledged drafts remain editable, but an unchanged acknowledged
+        // draft must not be queued again just because another record was saved.
+        if(!previous.has(id)&&report.serverVersion&&saved?.serverVersion===report.serverVersion&&
+          content(saved)===content(report)) continue;
         ids.add(id);
         const prior = previous.get(id);
         const change = prior && (prior.attempted || JSON.stringify(prior.value) === JSON.stringify(report)) ? prior : {
@@ -465,7 +484,8 @@ export class OfflineStorage {
       this.assertActive(epoch);
       if (receipts.length !== changes.length || new Set(receipts.map(item => item.id)).size !== changes.length ||
         changes.some(change => !receipts.some(item => item.id === change.recordId &&
-          item.operation_id === change.operationId && item.sync_status === "synchronized_complete" &&
+          item.operation_id === change.operationId &&
+          (item.sync_status === "local_draft_pending" || (item.sync_status === "synchronized_complete" && item.submittedVerified===true)) &&
           Number.isInteger(item.server_version) && item.server_version >= 1))) {
         throw new Error("Invalid packet synchronization acknowledgement.");
       }
@@ -476,7 +496,7 @@ export class OfflineStorage {
         const receipt = receipts.find(item => item.id === report.id);
         if (!receipt) return report;
         const original = changes.find(change => change.recordId === report.id)!.value as T["reports"][number];
-        return { ...original, syncStatus: "synchronized_complete" as const,
+        return { ...original, syncStatus: receipt.sync_status,
           serverVersion: receipt.server_version, syncAttemptPending: false };
       }) };
       const sealed = await this.seal(key, "workspace", next);

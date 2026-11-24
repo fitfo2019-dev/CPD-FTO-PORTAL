@@ -22,6 +22,68 @@ function createVault() {
   return { namespace, vault: new OfflineStorage(namespace) };
 }
 
+test('draft synchronization acknowledges storage without sealing and queues only subsequent edits',async()=>{
+  const {namespace,vault}=createVault();
+  await vault.unlock(passphrase);
+  const report={id:'TEST-draft',syncStatus:'local_draft_pending',serverVersion:0,narrative:'first draft'};
+  await vault.saveWorkspace({reports:[report]});
+  const next=await vault.syncPacketBatch<{reports:typeof report[]}>(async changes=>changes.map(change=>({
+    id:change.recordId,operation_id:change.operationId,server_version:1,sync_status:'local_draft_pending',
+  })));
+  assert.equal(next?.reports[0].syncStatus,'local_draft_pending');
+  assert.equal(next?.reports[0].serverVersion,1);
+  assert.equal(await vault.pendingCount(),0);
+  await vault.saveWorkspace(next!);
+  assert.equal(await vault.pendingCount(),0);
+  const changed={reports:[{...next!.reports[0],narrative:'edited after sync'}]};
+  await vault.saveWorkspace(changed);
+  assert.equal(await vault.pendingCount(),1);
+  const updated=await vault.syncPacketBatch<typeof changed>(async changes=>{
+    assert.equal(changes[0].baseVersion,1);
+    return changes.map(change=>({id:change.recordId,operation_id:change.operationId,server_version:2,sync_status:'local_draft_pending'}));
+  });
+  vault.lock();
+  const reopened=new OfflineStorage(namespace);
+  await reopened.unlock(passphrase);
+  assert.deepEqual(await reopened.get('workspace'),updated);
+  reopened.lock();
+});
+
+test('draft sync rejects a sealing receipt and preserves pending edits',async()=>{
+  const {vault}=createVault();
+  await vault.unlock(passphrase);
+  await vault.saveWorkspace({reports:[{id:'TEST-draft',narrative:'keep this'}]});
+  await assert.rejects(vault.syncPacketBatch(async changes=>changes.map(change=>({
+    id:change.recordId,operation_id:change.operationId,server_version:1,
+    sync_status:'synchronized_complete' as 'local_draft_pending',
+  }))),/acknowledgement/);
+  assert.equal(await vault.pendingCount(),1);
+  vault.lock();
+});
+
+test('only an explicit matching returned correction can replace one sealed local copy',async()=>{
+  const {vault}=createVault();await vault.unlock(passphrase);
+  const original={id:'TEST-SEALED',syncStatus:'synchronized_complete',serverVersion:3,narrative:'Submitted original'};
+  const other={id:'TEST-OTHER',syncStatus:'synchronized_complete',serverVersion:1,narrative:'Other sealed packet'};
+  const correction={...original,syncStatus:'local_draft_pending',narrative:'Corrected draft'};
+  try{
+    await vault.saveWorkspace({reports:[original,other]});
+    await vault.saveWorkspace({reports:[correction]});
+    assert.deepEqual((await vault.get<{reports:typeof original[]}>('workspace'))?.reports,[original,other]);
+    await assert.rejects(vault.saveWorkspace({reports:[correction,other]},{
+      correction:{id:original.id,version:2},
+    }),/does not match/);
+    assert.equal(await vault.pendingCount(),0);
+    await vault.saveWorkspace({reports:[correction]},{
+      correction:{id:original.id,version:3},
+    });
+    const saved=await vault.get<{reports:typeof original[]}>('workspace');
+    assert.deepEqual(saved?.reports,[correction,other]);
+    assert.equal(await vault.pendingCount(),1);
+    assert.equal(original.narrative,'Submitted original');
+  }finally{vault.lock();}
+});
+
 test('offline vault restores encrypted records and rejects a wrong passphrase', async () => {
   const { namespace, vault } = createVault();
   await vault.unlock(passphrase);
@@ -50,7 +112,7 @@ test('workspace save queues only latest complete packets, never roster or whole 
     assert.equal(changes[0].recordId, 'p1');
     assert.deepEqual(changes[0].value, { ...workspace.reports[0], narrative: 'latest' });
     return changes.map(change => ({ id: change.recordId, operation_id: change.operationId,
-      server_version: 1, sync_status: 'synchronized_complete' }));
+      server_version: 1, sync_status: 'synchronized_complete',submittedVerified:true as const }));
   });
   assert.equal(next?.reports[0].syncStatus, 'synchronized_complete');
   assert.equal(await vault.pendingCount(), 0);
@@ -123,7 +185,7 @@ test('a lost response after server commit can be reconciled after vault reopenin
     assert.equal(JSON.stringify(changes[0].value), committed?.serialized);
     // The server recognizes the already-committed operation and returns its receipt.
     return [{ id: 'p1', operation_id: changes[0].operationId,
-      server_version: 1, sync_status: 'synchronized_complete' }];
+      server_version: 1, sync_status: 'synchronized_complete',submittedVerified:true as const }];
   });
   assert.equal(acknowledged?.reports[0].syncStatus, 'synchronized_complete');
   assert.equal(acknowledged?.reports[0].syncAttemptPending, false);
@@ -284,7 +346,7 @@ test('recovery snapshots restore local work without changing the agency sync que
   await reopened.syncPacketBatch(async changes => {
     assert.equal(changes[0].operationId, originalOperationId);
     assert.deepEqual(changes[0].value, report);
-    return [{ id: 'p1', operation_id: originalOperationId, server_version: 1, sync_status: 'synchronized_complete' }];
+    return [{ id: 'p1', operation_id: originalOperationId, server_version: 1, sync_status: 'synchronized_complete',submittedVerified:true as const }];
   });
   assert.equal(await reopened.pendingCount(), 0);
 });
@@ -385,7 +447,7 @@ test('preview edits, autosave, sync, and reset never create device storage recor
     assert.equal(current!.ws.caseFolder?.recruitName, 'PREVIEW EDIT ONLY');
 
     await act(async () => {
-      await current!.submitPhaseExtensionRequest({
+      await assert.rejects(current!.submitPhaseExtensionRequest({
         id: 'preview-extension',
         className: 'UI TEST ONLY',
         recruitName: 'PREVIEW EDIT ONLY',
@@ -398,7 +460,7 @@ test('preview edits, autosave, sync, and reset never create device storage recor
         requestedWeeks: 1,
         justification: 'Preview-only test request',
         createdAt: new Date().toISOString(),
-      });
+      }),/Shared requests are disabled/);
       await current!.saveLocalChatDraft({
         id: 'preview-chat',
         sender: 'Preview user',
@@ -406,7 +468,7 @@ test('preview edits, autosave, sync, and reset never create device storage recor
         createdAt: new Date().toISOString(),
       });
     });
-    assert.equal(current!.ws.phaseExtensionRequests[0]?.id, 'preview-extension');
+    assert.equal(current!.ws.phaseExtensionRequests.some(request=>request.id==='preview-extension'),false);
     assert.equal(current!.dirty, true);
     assert.equal((await current!.loadLocalChatDrafts()).length, 1);
 

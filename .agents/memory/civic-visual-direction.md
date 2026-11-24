@@ -29,3 +29,28 @@ of the preview's typography, wording and palette.
 **How to apply:** Use the layout as a reference, not an approved replacement
 theme. Preserve current portal branding and avoid stacking whole forms into
 one continuous page.
+Website-shell controls and structural labels should display in ALL CAPS or
+initial capitalization. This applies to navigation, settings headings, profile
+links, dashboard controls, and action-button labels. Inner manual forms
+U-10.173 through U-10.192 and user-entered narratives, CAD values, and charges
+must retain their exact raw case.
+
+**Why:** The user requested shell capitalization while explicitly protecting
+non-destructive logging and administrative legal audits.
+
+**How to apply:** Use narrowly scoped CSS presentation rules on shell elements,
+not string transformations or changes to stored values. Do not let inherited
+capitalization reach the manual-form sheets or their input fields. Preview
+visible changes and obtain approval before integrating them.
+
+Do not display programming commentary, developer instructions, or task summaries
+on the portal's mounted screens. Selector and checkbox logic should run without
+printing implementation explanations into the form.
+
+**Why:** The user explicitly requested removal of commentary from the visible UI.
+
+**How to apply:** Preserve functional field labels, official manual checklist
+instructions, required confirmations, validation, and truthful data-status
+warnings. Keep implementation details in source comments or handover documents,
+not next to controls. Never alter entered text or persisted assignment values
+as part of a copy cleanup.

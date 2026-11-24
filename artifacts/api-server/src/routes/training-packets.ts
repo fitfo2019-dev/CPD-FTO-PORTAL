@@ -1,7 +1,8 @@
 import { Router, json, type RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
 import { SyncTrainingPacketsResponse, GetTrainingPacketParams, ReleaseTrainingPacketBody,
-  AcknowledgeTrainingPacketBody, WithdrawTrainingPacketBody } from "@workspace/api-zod";
+  AcknowledgeTrainingPacketBody, WithdrawTrainingPacketBody, FinalizeTrainingPacketBody } from "@workspace/api-zod";
+import { PatrolAssignmentMetadataSchema } from "@workspace/api-zod/patrol-assignment";
 import { CompletePacketInput, CompletePacketsEnvelope } from "../lib/packet-contract.js";
 import { requireAgencyIdentity, type AgencyIdentity } from "../security/agencyIdentity.js";
 import { getAgencyPacketStore, PacketError, type AgencyPacketStore, type PacketReviewAction } from "../lib/agency-packet-store.js";
@@ -121,6 +122,24 @@ export function createTrainingPacketsRouter(
       }));
     } catch (error) { sendPacketError(res, error); }
   });
+  router.post("/v1/training-packets/:id/finalize", async (req,res)=>{
+    const parsed=FinalizeTrainingPacketBody.safeParse(req.body);
+    const params=GetTrainingPacketParams.safeParse(req.params);
+    if(!parsed.success||!params.success) {
+      res.status(400).json({status:"error",error_code:"INVALID_PACKET_FINALIZATION",message:"Invalid packet finalization."});
+      return;
+    }
+    try {
+      const store=resolveStore();
+      if(!store) throw new PacketError(503,"AGENCY_STORAGE_UNAVAILABLE");
+      const receipt=await store.finalize(res.locals.agencyIdentity as AgencyIdentity,params.data.id,
+        parsed.data.operation_id,parsed.data.base_version,{
+          requestId:typeof req.id==="string"?req.id:randomUUID(),
+          clientIp:req.ip||req.socket.remoteAddress||"unknown",
+        });
+      res.json(receipt);
+    } catch(error) {sendPacketError(res,error);}
+  });
   return router;
 }
 function sendPacketError(res: import("express").Response, error: unknown): void {
@@ -141,6 +160,8 @@ export const PACKET_SEG_KEYS = [
   "arrestSituations", "problemSolving", "motivationalTraits", "taskManagement",
 ] as const;
 function completeReportStructure(report: Record<string, unknown>): boolean {
+  if(report.ftoAssignment &&
+    !PatrolAssignmentMetadataSchema.safeParse(report).success) return false;
   for (const key of ["shift", "zone", "precinct", "cruiserDistrict", "createdAt", "updatedAt"]) {
     if (typeof report[key] !== "string" || (report[key] as string).length > 120) return false;
   }

@@ -5,6 +5,188 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface PacketCoordinator {
+  id: string;
+  name: string;
+}
+
+export interface PacketCoordinatorAssignment {
+  po_id: string;
+  po_badge: string;
+  coordinator_id: string;
+  /** @minimum 1 */
+  revision: number;
+}
+
+export interface PacketCoordinatorInput {
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  po_id: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  coordinator_id: string;
+  /** @minimum 0 */
+  expected_revision: number;
+}
+
+export type PacketReviewContextRole = typeof PacketReviewContextRole[keyof typeof PacketReviewContextRole];
+
+
+export const PacketReviewContextRole = {
+  PO: 'PO',
+  FTO: 'FTO',
+  FTO_COORDINATOR: 'FTO_COORDINATOR',
+} as const;
+
+export type PacketSubmissionState = typeof PacketSubmissionState[keyof typeof PacketSubmissionState];
+
+
+export const PacketSubmissionState = {
+  submitted: 'submitted',
+  acknowledged: 'acknowledged',
+  approved: 'approved',
+  correction_requested: 'correction_requested',
+  withdrawn: 'withdrawn',
+} as const;
+
+export interface PacketSubmission {
+  id: string;
+  packet_id: string;
+  /** @minimum 1 */
+  packet_version: number;
+  coordinator_id: string;
+  coordinator_name: string;
+  state: PacketSubmissionState;
+  record_date: string;
+  po_name: string;
+  fto_name: string;
+  submitted_at: string;
+  /** @nullable */
+  acknowledged_at: string | null;
+  /** @nullable */
+  reviewed_at: string | null;
+  review_note: string;
+}
+
+export interface PacketReviewContext {
+  available: boolean;
+  account_id: string;
+  role: PacketReviewContextRole;
+  coordinators: PacketCoordinator[];
+  assignments: PacketCoordinatorAssignment[];
+  /** @minimum 0 */
+  pending_count: number;
+  pending: PacketSubmission | null;
+}
+
+export interface PacketSubmissionPage {
+  items: PacketSubmission[];
+  has_more: boolean;
+  /** @minimum 0 */
+  next_offset: number;
+}
+
+export interface PacketSubmissionHistory {
+  action: string;
+  occurred_at: string;
+  note: string;
+}
+
+export type TrainingPacketReportStatus = typeof TrainingPacketReportStatus[keyof typeof TrainingPacketReportStatus];
+
+
+export const TrainingPacketReportStatus = {
+  draft: 'draft',
+  fto_signed: 'fto_signed',
+  recruit_signed: 'recruit_signed',
+  locked: 'locked',
+} as const;
+
+export type TrainingPacketReportRunsItem = { [key: string]: unknown };
+
+export type TrainingPacketReportActivity = {[key: string]: number};
+
+export type TrainingPacketReportReportingForDuty = { [key: string]: unknown };
+
+export type TrainingPacketReportRatings = { [key: string]: unknown };
+
+export interface TrainingPacketReport {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+     */
+  id: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  date: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  /** @maxLength 120 */
+  className: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  recruitName: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  recruitBadge: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  ftoName: string;
+  /**
+     * @minLength 1
+     * @maxLength 40
+     */
+  ftoBadge: string;
+  /** @maxItems 200 */
+  runs: TrainingPacketReportRunsItem[];
+  activity: TrainingPacketReportActivity;
+  reportingForDuty: TrainingPacketReportReportingForDuty;
+  ratings: TrainingPacketReportRatings;
+  status: TrainingPacketReportStatus;
+  /** @maxLength 100000 */
+  narrative: string;
+  /** @maxLength 100000 */
+  remedial: string;
+  /** @maxLength 100000 */
+  recruitComments: string;
+  [key: string]: unknown;
+ }
+
+export interface PacketSubmissionDetail {
+  submission: PacketSubmission;
+  report: TrainingPacketReport;
+  history: PacketSubmissionHistory[];
+}
+
+export type PacketReviewActionInputAction = typeof PacketReviewActionInputAction[keyof typeof PacketReviewActionInputAction];
+
+
+export const PacketReviewActionInputAction = {
+  acknowledge: 'acknowledge',
+  approve: 'approve',
+  return: 'return',
+} as const;
+
+export interface PacketReviewActionInput {
+  operation_id: string;
+  action: PacketReviewActionInputAction;
+  /** @maxLength 5000 */
+  note: string;
+}
+
 export type PhaseExtensionRequestInputExtensionType = typeof PhaseExtensionRequestInputExtensionType[keyof typeof PhaseExtensionRequestInputExtensionType];
 
 
@@ -221,75 +403,6 @@ export interface StagingTrainingEnvelope {
   data: StagingTrainingRecord[];
 }
 
-export type TrainingPacketReportRunsItem = { [key: string]: unknown };
-
-export type TrainingPacketReportActivity = {[key: string]: number};
-
-export type TrainingPacketReportReportingForDuty = { [key: string]: unknown };
-
-export type TrainingPacketReportRatings = { [key: string]: unknown };
-
-export type TrainingPacketReportStatus = typeof TrainingPacketReportStatus[keyof typeof TrainingPacketReportStatus];
-
-
-export const TrainingPacketReportStatus = {
-  draft: 'draft',
-  fto_signed: 'fto_signed',
-  recruit_signed: 'recruit_signed',
-  locked: 'locked',
-} as const;
-
-export interface TrainingPacketReport {
-  /**
-     * @minLength 1
-     * @maxLength 128
-     * @pattern ^[A-Za-z0-9][A-Za-z0-9._:-]*$
-     */
-  id: string;
-  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
-  date: string;
-  /**
-     * @minimum 1
-     * @maximum 4
-     */
-  phase: number;
-  /** @maxLength 120 */
-  className: string;
-  /**
-     * @minLength 1
-     * @maxLength 120
-     */
-  recruitName: string;
-  /**
-     * @minLength 1
-     * @maxLength 40
-     */
-  recruitBadge: string;
-  /**
-     * @minLength 1
-     * @maxLength 120
-     */
-  ftoName: string;
-  /**
-     * @minLength 1
-     * @maxLength 40
-     */
-  ftoBadge: string;
-  /** @maxItems 200 */
-  runs: TrainingPacketReportRunsItem[];
-  activity: TrainingPacketReportActivity;
-  reportingForDuty: TrainingPacketReportReportingForDuty;
-  ratings: TrainingPacketReportRatings;
-  status: TrainingPacketReportStatus;
-  /** @maxLength 100000 */
-  narrative: string;
-  /** @maxLength 100000 */
-  remedial: string;
-  /** @maxLength 100000 */
-  recruitComments: string;
-  [key: string]: unknown;
- }
-
 export interface TrainingPacketSyncItem {
   operation_id: string;
   /** @minimum 0 */
@@ -308,6 +421,12 @@ export interface TrainingPacketSyncItem {
   report: TrainingPacketReport;
 }
 
+export interface TrainingPacketFinalizationInput {
+  operation_id: string;
+  /** @minimum 1 */
+  base_version: number;
+}
+
 export interface TrainingPacketSyncInput {
   /**
      * @minItems 1
@@ -320,6 +439,7 @@ export type TrainingPacketSyncRecordSyncStatus = typeof TrainingPacketSyncRecord
 
 
 export const TrainingPacketSyncRecordSyncStatus = {
+  local_draft_pending: 'local_draft_pending',
   synchronized_complete: 'synchronized_complete',
 } as const;
 
@@ -404,6 +524,7 @@ export type TrainingPacketRecordSyncStatus = typeof TrainingPacketRecordSyncStat
 
 
 export const TrainingPacketRecordSyncStatus = {
+  local_draft_pending: 'local_draft_pending',
   synchronized_complete: 'synchronized_complete',
 } as const;
 
@@ -927,4 +1048,11 @@ export interface ApiError {
   error_code: string;
   message: string;
 }
+
+export type ListPacketSubmissionsParams = {
+/**
+ * @minimum 0
+ */
+offset?: number;
+};
 

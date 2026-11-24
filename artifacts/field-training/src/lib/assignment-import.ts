@@ -3,7 +3,7 @@ import {
   type TrainingAssignment, type Weekday,
 } from './model.js';
 import { parseDateDMY, requiredDaysOff } from './training-calendar.js';
-import { cruiserDistrictForFtoAssignment } from './cpd-geography.js';
+import { cruiserDistrictForFtoAssignment, PatrolAssignmentMetadataSchema } from './cpd-geography.js';
 
 export type AssignmentDraft = Omit<TrainingAssignment, 'id'>;
 export interface ParsedRoster {
@@ -29,7 +29,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   zone: ['zone', 'patrol zone'],
   precinct: ['precinct', 'patrol precinct'],
   cruiserDistrict: ['cruiser district', 'district'],
-  ftoAssignment: ['fto assignment', 'patrol assignment code'],
+  ftoAssignment: ['fto assignment', 'patrol assignment code', 'call sign', 'callsign', 'tactical call sign', 'tactical identifier'],
 };
 
 function normalizeHeader(value: string) {
@@ -146,8 +146,14 @@ export function parseRosterRows(rows: string[][]): ParsedRoster {
     const zone=getValue(row,columns,'zone');
     const precinct=getValue(row,columns,'precinct');
     const ftoAssignment=getValue(row,columns,'ftoAssignment');
-    const districtFromAssignment=ftoAssignment?cruiserDistrictForFtoAssignment(zone,precinct,ftoAssignment,shiftValue):undefined;
+    const explicitDistrict=getValue(row,columns,'cruiserDistrict');
+    const districtFromAssignment=ftoAssignment?cruiserDistrictForFtoAssignment(zone,precinct,ftoAssignment,shiftValue,explicitDistrict):undefined;
     if(ftoAssignment&&!districtFromAssignment) rowErrors.push('FTO assignment must match a mapped cruiser district and the selected shift suffix');
+    const cruiserDistrict=explicitDistrict||districtFromAssignment;
+    if(zone||precinct||cruiserDistrict||ftoAssignment) {
+      const metadata=PatrolAssignmentMetadataSchema.safeParse({zone,precinct,cruiserDistrict,shift:shiftValue,ftoAssignment:ftoAssignment||undefined});
+      if(!metadata.success) rowErrors.push(...metadata.error.issues.map(issue=>issue.message));
+    }
     if (!className) rowErrors.push('training class is required');
     if (!phase) rowErrors.push('phase must be 1, 2, 3, or 4');
     if (!startDate) rowErrors.push('phase start date must use MM/DD/YYYY');
@@ -163,7 +169,7 @@ export function parseRosterRows(rows: string[][]): ParsedRoster {
       ftoBadge,phase:phase!,phaseStartDate:startDate!,shift,
       daysOff,zone:zone||undefined,
       precinct:precinct||undefined,
-      cruiserDistrict:getValue(row,columns,'cruiserDistrict')||districtFromAssignment||undefined,
+      cruiserDistrict:cruiserDistrict||undefined,
       ftoAssignment:ftoAssignment||undefined,
     });
   });
@@ -173,7 +179,14 @@ export function parseRosterRows(rows: string[][]): ParsedRoster {
 export async function parseRosterFile(file: File): Promise<ParsedRoster> {
   if (file.size > 2*1024*1024) throw new Error('Choose a file smaller than 2 MB.');
   if (/\.csv$/i.test(file.name)) return parseRosterRows(parseDelimited(await file.text()));
-  if (!/\.docx$/i.test(file.name)) throw new Error('Use a CSV file or a Word .docx file with a table whose first row contains the column names.');
+  if (/\.xlsx$/i.test(file.name)) {
+    const imported=await import('xlsx');
+    const workbook=imported.read(await file.arrayBuffer(),{type:'array',cellDates:false});
+    if(!workbook.SheetNames.length) throw new Error('The Excel workbook needs a roster worksheet.');
+    const sheet=workbook.Sheets[workbook.SheetNames[0]];
+    return parseRosterRows(imported.utils.sheet_to_json<string[]>(sheet,{header:1,raw:false,defval:''}));
+  }
+  if (!/\.docx$/i.test(file.name)) throw new Error('Use a CSV, Excel .xlsx, or Word .docx file with a header row.');
   const imported=await import('mammoth');
   const {value, messages}=await imported.convertToHtml({arrayBuffer:await file.arrayBuffer()});
   const document=new DOMParser().parseFromString(value,'text/html');

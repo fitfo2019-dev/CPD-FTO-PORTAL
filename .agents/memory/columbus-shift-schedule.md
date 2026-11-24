@@ -14,3 +14,14 @@ The program is 15 weeks: Phase I is weeks 1–4, Phase II weeks 5–8, Phase III
 **Why:** The user’s newer Phase I instruction supersedes the 2025 manual, while no update was provided for the other phases.
 
 **How to apply:** Calculate program weeks from the case-folder phase start and selected days off. For Phase I, treat every scheduled workday in week one as Limbo; keep Limbo logs unrated while retaining daily duty, activity, and run documentation.
+
+Specialized call-signs `80C-1` and `80C-2` must be stored separately from the
+official zone, precinct, company, and cruiser district. In particular, preserve
+Zone 3 / Precinct 15 / C-Company / District 153 rather than deriving Precinct 8
+from the `80C` prefix.
+
+**Why:** The user requested support for these exact tactical identifiers while
+explicitly protecting the verified geographic hierarchy.
+
+**How to apply:** Require explicit official geography for tactical identifiers.
+Do not change geographic boundaries or infer them from a tactical call-sign.

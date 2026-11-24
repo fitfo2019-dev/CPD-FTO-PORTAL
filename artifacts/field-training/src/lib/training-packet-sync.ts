@@ -1,6 +1,6 @@
 import { customFetch } from "@workspace/api-client-react";
 import { apiEndpoint } from "@workspace/api-client-react";
-import { GetTrainingPacketSyncReadinessResponse, ListTrainingPacketsResponse, SyncTrainingPacketsResponse } from "@workspace/api-zod";
+import { GetTrainingPacketSyncReadinessResponse, ListTrainingPacketsResponse, SyncTrainingPacketsResponse, FinalizeTrainingPacketResponse } from "@workspace/api-zod";
 import type { PendingChange, PacketBatchReceipt } from "./offlineStorage.js";
 
 // Generated schemas otherwise strip complete-report fields such as signatures.
@@ -33,7 +33,7 @@ export async function readSharedPackets(signal?: AbortSignal): Promise<SharedPac
   return sharedPacketsSchema.parse(response).data;
 }
 
-/** Only complete packet snapshots enter this transport; never a Workspace,
+/** Packet snapshots enter draft storage only; never official submission, a Workspace,
  * roster, chat draft, local key, or browser-provided assignment authority. */
 export async function uploadPacketBatch(
   changes: PendingChange[], signal?: AbortSignal,
@@ -46,5 +46,32 @@ export async function uploadPacketBatch(
       operation_id: change.operationId, base_version: change.baseVersion, report: change.value,
     })) }),
   });
-  return SyncTrainingPacketsResponse.parse(response).data;
+  const receipts=SyncTrainingPacketsResponse.parse(response).data;
+  return Promise.all(receipts.map(async(receipt):Promise<PacketBatchReceipt>=>{
+    if(receipt.sync_status==="local_draft_pending") return receipt;
+    // An exact retry can observe a packet explicitly finalized on another
+    // device. A sync receipt alone must never seal an editable local draft.
+    const saved=await customFetch<unknown>(apiEndpoint(`/v1/training-packets/${encodeURIComponent(receipt.id)}`),{
+      credentials:"same-origin",cache:"no-store",responseType:"json",signal:requestSignal(signal),
+    });
+    const authoritative=sharedPacketsSchema.parse(saved).data.find(item=>item.id===receipt.id);
+    if(!authoritative || authoritative.sync_status!=="synchronized_complete" ||
+      authoritative.server_version!==receipt.server_version)
+      throw new Error("The server did not confirm an explicitly submitted packet. Local records were retained.");
+    return {...receipt,submittedVerified:true};
+  }));
+}
+
+/** Explicit action only. Never called by autosave, network events, or sync. */
+export async function finalizePacketDraft(id:string,baseVersion:number,operationId:string,signal?:AbortSignal) {
+  const response=await customFetch<unknown>(apiEndpoint(`/v1/training-packets/${encodeURIComponent(id)}/finalize`),{
+    method:"POST",credentials:"same-origin",responseType:"json",
+    signal:signal?AbortSignal.any([signal,AbortSignal.timeout(15000)]):AbortSignal.timeout(15000),
+    body:JSON.stringify({operation_id:operationId,base_version:baseVersion}),
+  });
+  const receipt=FinalizeTrainingPacketResponse.parse(response);
+  if(receipt.id!==id||receipt.operation_id!==operationId||receipt.server_version!==baseVersion||
+    receipt.sync_status!=="synchronized_complete")
+    throw new Error("Invalid final-submission acknowledgement. The local record was retained.");
+  return receipt;
 }

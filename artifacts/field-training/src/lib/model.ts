@@ -1,4 +1,4 @@
-import { isValidAssignment } from './cpd-geography.js';
+import { isValidAssignment, PatrolAssignmentMetadataSchema } from './cpd-geography.js';
 import { SUBMITTED_PRIMARY_CHECKLISTS, SUBMITTED_SUPPLEMENTAL_CHECKLISTS } from './manual-form-checklists.js';
 import {
   PHASE_TIMELINE_REGISTRY,
@@ -770,6 +770,9 @@ export interface FtoPhaseSignup {
   ftoName:string;
   status:'local_unsent'|'selected_locally'|'withdrawn';
   selectedAssignmentId?:string;
+  patrolAssignment?: {
+    zone:string; precinct:string; cruiserDistrict:string; shift:Shift; ftoAssignment?:string;
+  };
   createdAt:string;
   updatedAt:string;
 }
@@ -928,6 +931,8 @@ export function validateReport(r: Report): string[] {
   const req: [keyof Report, string][] = [['date','Shift date'],['shift','Shift'],['recruitName','Recruit name'],['recruitBadge','Recruit badge'],['ftoName','FTO name'],['ftoBadge','FTO badge']];
   for (const [k,l] of req) if (!String(r[k] ?? '').trim()) errs.push(l + ' is required');
   if (!isValidAssignment(r.zone, r.precinct, r.cruiserDistrict, r.shift)) errs.push('Valid Division patrol assignment (Zone, Precinct, and FTO Assignment) is required');
+  if (r.ftoAssignment && !PatrolAssignmentMetadataSchema.safeParse(r).success)
+    errs.push('FTO call-sign must match the separately recorded patrol geography and shift');
   if (!PHASES.includes(r.phase)) errs.push('Phase is required');
   for (const [label,value] of [['Phase week',r.phaseWeek],['FTO week',r.ftoWeek]] as const) {
     if (value !== undefined && (!Number.isInteger(value) || value < 1)) errs.push(`${label} must be a positive whole number`);

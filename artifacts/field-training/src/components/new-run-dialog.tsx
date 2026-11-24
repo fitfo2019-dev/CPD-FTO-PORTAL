@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React,{ useCallback, useEffect, useRef, useState } from 'react';
 import { Search, RotateCw, PenLine } from 'lucide-react';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { PRIMARY_RUN_FORMS, type PrimaryRunForm } from '@/lib/model.js';
 import { formatDateDMY, formatDateTimeMDY } from '@/lib/training-calendar.js';
 import { lookupDispatchIncident } from '@/components/dispatch-incident-lookup.js';
 import type { DispatchIncidentPrefill } from '@/lib/dispatch-prefill.js';
+import { TrafficStopRiskPrompt } from '@/components/traffic-stop-risk-choice.js';
 import { CLEARANCE_CODES, isValidRadioCode, isValidSituationFoundCode, normalizeRadioCode, normalizeSituationFoundCode, RADIO_CODES, suggestRunTypeFromDispatchedCode } from '@/lib/radio-codes.js';
 
 export type NewRunSeed = {
@@ -53,6 +54,8 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
   const [situationFoundCode, setSituationFoundCode] = useState('');
   const [clearanceCode, setClearanceCode] = useState<NewRunSeed['clearanceCode']>('');
   const [kind, setKind] = useState<PrimaryRunForm | ''>('');
+  const [riskPrompt,setRiskPrompt]=useState(false);
+  const [riskUnanswered,setRiskUnanswered]=useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
   const [candidates, setCandidates] = useState<DispatchIncidentPrefill[]>([]);
@@ -81,6 +84,9 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
     setClearanceCode(p.clearanceCode ?? '');
     const suggestion=suggestRunTypeFromDispatchedCode(p.dispatchedCode ?? '');
     setKind(suggestion.status==='ambiguous'?'':suggestion.runKind);
+    const trafficStop=normalizeRadioCode(p.dispatchedCode??'')==='6';
+    setRiskUnanswered(trafficStop);
+    setRiskPrompt(trafficStop);
     setConfirmed(false);
     setPhase('review');
   };
@@ -89,12 +95,20 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
     const normalized=normalizeRadioCode(value);
     setFailure('');
     setCode(normalized);
+    if(normalized===code)return;
     const suggestion=suggestRunTypeFromDispatchedCode(normalized);
     setKind(suggestion.status==='ambiguous'?'':suggestion.runKind);
+    setRiskUnanswered(normalized==='6');
   };
 
-  const submitReviewedRun = (keyboardConfirmation = false) => {
-    if (!kind || (!confirmed && !keyboardConfirmation)) return;
+  const askStopRisk=()=>{
+    if(!riskUnanswered)return false;
+    setRiskPrompt(true);
+    return true;
+  };
+  const submitReviewedRun = (keyboardConfirmation = false,selectedKind:PrimaryRunForm|''=kind,riskAnswered=false) => {
+    if(riskUnanswered&&!riskAnswered){setRiskPrompt(true);return;}
+    if (!selectedKind || (!confirmed && !keyboardConfirmation)) return;
     if(!isValidRadioCode(code)||!isValidSituationFoundCode(situationFoundCode)){
       setFailure('Enter a valid dispatched or situation-found code using digits and optional letters.');
       return;
@@ -123,7 +137,7 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
       dispatchedCode: code.trim(),
       situationFoundCode: situationFoundCode.trim(),
       clearanceCode,
-      runKind: kind,
+      runKind: selectedKind,
       fromDispatch,
     });
   };
@@ -133,10 +147,11 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
     setPhase('ask'); setIncident(''); setUnit(defaultUnit); setFailure(''); setFromDispatch(false);
     setLocation(''); setLocationCity(''); setLocationState(''); setLocationZip(''); setZone(''); setCruiserDistrict('');
     setOccurred(''); setDispatchedAt(''); setClearedAt(''); setCode(''); setSituationFoundCode(''); setClearanceCode(''); setKind('');
+    setRiskPrompt(false);setRiskUnanswered(false);
     setCandidates([]); setPicked(null); setConfirmed(false);
     return () => cancelPending();
   }, [open, defaultUnit,cancelPending]);
-  useEffect(()=>{setConfirmed(false);setFailure('');},[incident,unit,location,locationCity,locationState,locationZip,zone,cruiserDistrict,occurred,dispatchedAt,clearedAt,code,situationFoundCode,clearanceCode,kind]);
+  useEffect(()=>{setConfirmed(false);setFailure('');},[incident,unit,location,locationCity,locationState,locationZip,zone,cruiserDistrict,occurred,dispatchedAt,clearedAt,code,situationFoundCode,clearanceCode]);
 
   const runLookup = async () => {
     const inc = incident.trim(); const un = unit.trim();
@@ -156,7 +171,7 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
   };
   const manual = () => { cancelPending(); setFromDispatch(false); setFailure(''); setConfirmed(false); setPhase('review'); };
 
-  return <AlertDialog open={open} onOpenChange={next => { if (!next) { cancelPending(); onCancel(); } }}>
+  return <React.Fragment><AlertDialog open={open} onOpenChange={next => { if (!next) { cancelPending(); onCancel(); } }}>
     <AlertDialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto" data-testid="dialog-new-run">
       <AlertDialogHeader>
         <AlertDialogTitle>{phase === 'review' ? 'Confirm run details' : 'Start a new run'}</AlertDialogTitle>
@@ -190,12 +205,16 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
       {phase === 'review' && <div className="grid gap-3 sm:grid-cols-2">
         {failure&&<div role="alert" className="rounded border border-warn/60 bg-warn/10 p-3 text-sm sm:col-span-2">{failure}</div>}
         <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Primary run type · required</span>
-          <select className={inp} value={kind} onChange={e => {setFailure('');setKind(e.target.value as PrimaryRunForm);}} data-testid="select-new-run-kind">
+          <select className={inp} value={kind} onChange={e => {
+            const next=e.target.value as PrimaryRunForm;
+            setFailure('');setConfirmed(false);setKind(next);
+            const stop=next==='traffic_stop'||next==='high_risk_stop';
+            setRiskUnanswered(stop);
+            if(stop){setCode(current=>current||'6');setRiskPrompt(true);}
+          }} data-testid="select-new-run-kind">
             <option value="" disabled>Select the primary form</option>
             {PRIMARY_RUN_FORMS.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
           </select>
-          {code==='6'&&<span className="text-xs text-muted-foreground">10-6 can use Traffic Stop or High Risk Traffic Stop. Choose the correct primary form.</span>}
-          {code&&code!=='6'&&<span className="text-xs text-muted-foreground">The form suggestion is based only on the dispatched code; review and change it when the actual run requires another form.</span>}
           {!kind && <span className="text-xs text-muted-foreground">Choose the primary form to continue.</span>}
         </label>
         <label className="block space-y-1"><span className="label-caps">Incident / run number</span><input className={inp + ' mono'} value={incident} maxLength={120} onChange={e => setIncident(e.target.value)} data-testid="input-review-incident" /></label>
@@ -207,7 +226,7 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
         <label className="block space-y-1"><span className="label-caps">Zone</span><input className={inp} value={zone} maxLength={40} onChange={e => setZone(e.target.value)} data-testid="input-review-zone" /></label>
         <label className="block space-y-1"><span className="label-caps">Cruiser district</span><input className={inp} value={cruiserDistrict} maxLength={40} onChange={e => setCruiserDistrict(e.target.value)} data-testid="input-review-cruiser-district" /></label>
         <label className="block space-y-1"><span className="label-caps">Incident date / event time</span><input className={inp + ' mono'} value={occurred} placeholder="MM/DD/YYYY HH:MM" onChange={e => setOccurred(e.target.value)} data-testid="input-review-occurred" /></label>
-        <label className="block space-y-1"><span className="label-caps">Dispatched 10-code · enter code only</span><input className={inp + ' mono uppercase'} value={code} placeholder="17 or 17A" onChange={e => updateDispatchedCode(e.target.value)} onKeyDown={e => { if(e.key==='Enter'){e.preventDefault();if(!kind){setFailure('This code is ambiguous. Select the correct primary form before continuing.');return;}submitReviewedRun(true);} }} list="new-run-radio-code-list" data-testid="input-review-code" /><span className="text-xs text-muted-foreground">{code?`10-${code} · ${code==='6'?'requires a form choice':(RADIO_CODES[code]??'unlisted code; confirm against the approved code table')}`:'Enter the dispatched code without the 10- prefix.'} Press Enter to open the selected form; Tab moves to the next field.</span></label>
+        <label className="block space-y-1"><span className="label-caps">Dispatched 10-code · enter code only</span><input className={inp + ' mono uppercase'} value={code} placeholder="17 or 17A" onChange={e => updateDispatchedCode(e.target.value)} onBlur={askStopRisk} onKeyDown={e => { if(e.key==='Enter'){e.preventDefault();if(askStopRisk())return;if(!kind){setFailure('This code is ambiguous. Select the correct primary form before continuing.');return;}submitReviewedRun(true);} }} list="new-run-radio-code-list" data-testid="input-review-code" /><span className="text-xs text-muted-foreground">{code?`10-${code} · ${code==='6'?'Traffic Stop':(RADIO_CODES[code]??'unlisted code; confirm against the approved code table')}`:'Enter the dispatched code without the 10- prefix.'} Press Enter to continue.</span></label>
         <label className="block space-y-1"><span className="label-caps">Situation found 10-code · optional</span><input className={inp + ' mono uppercase'} value={situationFoundCode} placeholder="Leave blank if not applicable" onChange={e => setSituationFoundCode(normalizeSituationFoundCode(e.target.value))} list="new-run-radio-code-list" data-testid="input-review-situation-found-code" /></label>
         <datalist id="new-run-radio-code-list">{Object.entries(RADIO_CODES).map(([value,label])=><option key={value} value={value}>{label}</option>)}</datalist>
         <label className="block space-y-1"><span className="label-caps">Dispatched at</span><input className={inp + ' mono'} value={dispatchedAt} placeholder="MM/DD/YYYY HH:MM" onChange={e => setDispatchedAt(e.target.value)} data-testid="input-review-dispatched-at" /></label>
@@ -225,5 +244,11 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
         {phase === 'review' && <button type="button" disabled={!kind || !confirmed} onClick={() => submitReviewedRun()} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-confirm">Open run sheet</button>}
       </AlertDialogFooter>
     </AlertDialogContent>
-  </AlertDialog>;
+  </AlertDialog>
+    <TrafficStopRiskPrompt open={open&&riskPrompt} onOpenChange={setRiskPrompt} kind={kind} code={code}
+      testId="dialog-new-run-high-risk" onChange={next=>{
+        setKind(next);setConfirmed(false);setRiskUnanswered(false);setRiskPrompt(false);
+        submitReviewedRun(true,next,true);
+      }}/>
+  </React.Fragment>;
 }
