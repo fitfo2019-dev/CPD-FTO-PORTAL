@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useAuth } from '@clerk/react';
+import { Link } from 'wouter';
 import { Panel } from '@/components/bits.js';
 import { useWorkspace } from '@/state/workspace.js';
 import { PHASE_LENGTH_WEEKS, phaseLabel, type PhaseExtensionRequest } from '@/lib/model.js';
@@ -254,7 +255,8 @@ export function PhaseExtensionPanel() {
       {remotePending&&<p role="status" className="rounded border bg-muted/40 p-3 text-sm">A request is awaiting Coordinator review. You can continue phase paperwork while it is reviewed.</p>}
       {localDraft&&<p role="status" className="rounded border bg-muted/40 p-3 text-sm">A request is saved only on this device. Use “Send saved request” above when the shared service is available.</p>}
       <button type="submit" disabled={vault!=='unlocked'||!justification.trim()||requestedWeeks<1||!Number.isInteger(requestedWeeks)||remotePending||!!localDraft||!isLoaded||!isSignedIn||(!serverRole&&!serviceError&&loading)} className="min-h-11 justify-self-start rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-submit-extension">Submit for Coordinator approval</button>
-      <p className="text-xs text-muted-foreground">{vault==='unlocked'?'Requests are sent to the authenticated shared service. If it is offline, the request remains an unsent draft on this device.':'Unlock this device’s encrypted workspace before submitting a request.'}</p>
+      <p className="text-xs text-muted-foreground">{vault==='unlocked'?'Requests are sent for Coordinator review. If the service is unavailable, the request remains an unsent draft on this device.':'Unlock saved work before submitting a request.'}</p>
+      <Link href="/resources?topic=phase-request#application-help" className="justify-self-start text-sm font-semibold text-primary underline underline-offset-2">Request status help</Link>
     </form>
   </Panel>
   </>;

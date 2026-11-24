@@ -728,7 +728,8 @@ export default function ReportEditor() {
       <Panel id="run-forms" title="Per-run paperwork" className="mb-4 scroll-mt-28">
          <div className="border-b px-4 py-3 text-sm text-muted-foreground">
             <p>Record each training run and its required paperwork. Incident number and location are optional run metadata shared with its supplemental forms and narrative continuation pages.</p>
-            <p className="mt-1"><b className="text-foreground">Prototype data boundary:</b> this fictional demonstration is not approved for operational data. Saved workspace records are encrypted on this device; printed forms and Excel exports contain these values in plain text.</p>
+            <p className="mt-1"><b className="text-foreground">Fictional preview · no operational data.</b> Saved workspace records are encrypted on this device; printed forms and Excel exports are plain text.</p>
+            <Link href="/resources?topic=local-save#application-help" className="mt-2 inline-flex text-sm font-semibold text-primary underline underline-offset-2">Save and reopen help</Link>
            <p className="mt-1"><b className="text-foreground">Daily requirements:</b> Reporting for Duty is tracked separately above; this Daily Performance Log is completed once per tour.</p>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">

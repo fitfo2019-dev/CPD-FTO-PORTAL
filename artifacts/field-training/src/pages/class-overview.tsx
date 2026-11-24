@@ -70,7 +70,7 @@ export default function ClassOverview() {
           !rating.nrtPriorUnacceptableIds?.length && 'earlier UA links',
           !rating.nrtCorrectiveActions?.trim() && 'corrective actions',
           !rating.nrtPriorDocumentationReviewed && 'prior documentation review',
-          !rating.nrtTrainingReviewed && 'training implementation review',
+          !rating.nrtTrainingReviewed && 'training review',
           !rating.nrtCoordinatorsNotified && 'FTO Coordinator notification',
           !rating.nrtFtoSergeantNotified && 'FTO Sergeant notification',
         ].filter(Boolean)

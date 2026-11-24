@@ -13,9 +13,9 @@ export function AgencyPacketAccess({ userId, authenticated, previewOnly, unlocke
   const eligible = Boolean(userId) && authenticated && !previewOnly && unlocked;
   if (!eligible) return <AgencyPacketReview packets={[]} role={null} loading={false} refreshing={false}
     canRefresh={false} unavailable={previewOnly
-      ? "Agency Records Are Not Loaded in the Fictional Workspace Preview."
-      : !authenticated ? "Sign in with Your Verified Agency Account to Access Packets."
-      : "Unlock Your Local Workspace to Access Agency Packets."}
+      ? "Packets are unavailable in this fictional preview."
+      : !authenticated ? "Sign in to your approved account to access packets."
+      : "Unlock your local workspace to access agency packets."}
     actionError="" message="" busy={false} pendingAction={null}
     onRefresh={() => {}} onRetry={() => {}} onAction={() => {}} />;
   // Lock, sign-out, preview and identity changes destroy the controller. A new

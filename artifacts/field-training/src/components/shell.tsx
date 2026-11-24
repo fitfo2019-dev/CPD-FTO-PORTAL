@@ -3,7 +3,7 @@ import { useClerk, useUser } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
-import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, BookOpen, Clock3, FileClock, RotateCcw, ShieldCheck } from 'lucide-react';
+import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp } from 'lucide-react';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
@@ -16,7 +16,7 @@ import { operatorErrorToast } from '@/lib/operator-errors.js';
 type NavItem = { href: string; label: string; icon: typeof LayoutGrid };
 
 const HOME: NavItem = { href: '/', label: 'Home', icon: LayoutGrid };
-const RESOURCES: NavItem = { href: '/resources', label: 'Resources', icon: BookOpen };
+const RESOURCES: NavItem = { href: '/resources', label: 'Help Desk', icon: CircleHelp };
 const ROLE_NAV: Record<Role, NavItem[]> = {
   fto: [
     HOME,
@@ -80,7 +80,7 @@ export function Shell({ children }: { children: ReactNode }) {
     && (unsaved || otherDirtySessions.length > 0);
   const requestLock = () => unsaved ? setConfirmLock(true) : w.lockNow();
   const requestRestore = () => {
-    if (unsaved && !window.confirm('Unsaved workspace changes will be replaced when saved work is restored. Continue?')) return;
+    if (unsaved && !window.confirm('Restoring saved work will replace unsaved changes. Continue?')) return;
     w.openVault('restore');
   };
   const guardInternalLink=(event:ReactMouseEvent<HTMLDivElement>)=>{
@@ -107,7 +107,9 @@ export function Shell({ children }: { children: ReactNode }) {
   };
   const isCommand=w.ws.role==='fto_coc';
   const visibleNav = ROLE_NAV[w.ws.role];
-  const mobileNav = visibleNav.length > 5 ? visibleNav.slice(0, 5) : visibleNav;
+  const mobileNav = visibleNav.length > 5
+    ? [...visibleNav.slice(0, 4), RESOURCES, ...visibleNav.slice(4).filter(item => item.href !== RESOURCES.href)]
+    : visibleNav;
   const activePage = visibleNav.find(n => isActive(n.href)) ?? visibleNav[0];
   const currentPage = isCommand && loc!=='/resources'
     ? 'Submitted packets'
@@ -130,7 +132,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   async function onSave() {
     try { await w.saveNow(); if (w.vault === 'unlocked') toast({ title: 'Saved locally (encrypted)' }); }
-    catch { toast({ title: 'Save failed', description: 'Local storage error. Your on-screen work is unchanged.', variant: 'destructive' }); }
+    catch { toast({ title: 'Save failed', description: 'Your edits are still on screen. Retry the save.', variant: 'destructive' }); }
   }
 
   async function onSignOut() {
@@ -177,30 +179,30 @@ export function Shell({ children }: { children: ReactNode }) {
     <div data-app-shell className="min-h-[100dvh] flex flex-col bg-background" onClickCapture={guardInternalLink}>
       <div role="note" data-testid="banner-operational-status" className="sticky top-0 z-40 border-t-[3px] border-accent bg-[#f1f3f5] px-3 py-2 text-center text-xs sm:text-sm font-semibold text-[#202934]">
         <span className="mr-2 inline-block h-2 w-2 rounded-full bg-accent align-middle" />{w.previewOnly
-          ? `Fictional ${w.previewLabel} only. Do not enter operational identifiers. Changes are temporary and clear on refresh.`
-          : 'Patrol View and report submission are unavailable. Do not enter operational incident identifiers. Records saved here are local drafts, not submitted or server-confirmed.'}
+          ? `Fictional ${w.previewLabel} · no operational identifiers · changes clear on refresh.`
+          : 'Patrol View and report submission unavailable · No operational identifiers · Local drafts are not submitted or server-confirmed.'}
       </div>
       <header className="bg-sidebar text-sidebar-foreground shadow-sm">
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
           <div className="portal-masthead">
             <div className="portal-masthead-logos">
-              <div className="portal-masthead-badge-wrap">
-                <img src={`${import.meta.env.BASE_URL}branding/silver-police-badge.png`} alt="Silver Columbus Police badge" className="portal-masthead-badge" data-testid="img-police-badge" />
-                <span className="portal-badge-easter-egg portal-badge-easter-egg-left" aria-hidden="true">27</span>
-                <span className="portal-badge-easter-egg portal-badge-easter-egg-right" aria-hidden="true">37</span>
-              </div>
               <div className="portal-masthead-city" aria-label="City of Columbus">
                 <span role="img" aria-label="The City of Columbus" className="city-wordmark block w-full" data-testid="img-columbus-logo" dangerouslySetInnerHTML={{__html:night?columbusLogoSvg.replaceAll('#E10012','#0070c0'):columbusLogoSvg}} />
               </div>
-              <img src={`${import.meta.env.BASE_URL}branding/columbus-police-patch-white-eagle.png`} alt="Columbus Police patch with white eagle" className="portal-masthead-patch" data-testid="img-police-patch" />
-            </div>
-            <div className="portal-masthead-lockup" style={{ color: night ? '#4da3ff' : '#ffffff' }}>
-              <div className="portal-masthead-division">
-                DIVISION OF POLICE:
+              <div className="portal-masthead-lockup" style={{ color: night ? '#4da3ff' : '#ffffff' }}>
+                <div className="portal-masthead-division">DIVISION OF POLICE</div>
+                <Link href="/" className="portal-masthead-name" aria-label="Field Training Officer Portal home" data-testid="link-portal-home">
+                  Field Training Officer Portal
+                </Link>
               </div>
-              <Link href="/" className="portal-masthead-name" aria-label="Field Training Officer Portal home" data-testid="link-portal-home">
-                Field Training Officer Portal
-              </Link>
+              <div className="portal-masthead-insignia">
+                <div className="portal-masthead-badge-wrap">
+                  <img src={`${import.meta.env.BASE_URL}branding/silver-police-badge.png`} alt="Silver Columbus Police badge" className="portal-masthead-badge" data-testid="img-police-badge" />
+                  <span className="portal-badge-easter-egg portal-badge-easter-egg-left" aria-hidden="true">27</span>
+                  <span className="portal-badge-easter-egg portal-badge-easter-egg-right" aria-hidden="true">37</span>
+                </div>
+                <img src={`${import.meta.env.BASE_URL}branding/columbus-police-patch-white-eagle.png`} alt="Columbus Police patch with white eagle" className="portal-masthead-patch" data-testid="img-police-patch" />
+              </div>
             </div>
           </div>
           <nav aria-label="Main navigation" className="hidden min-h-12 flex-wrap items-stretch gap-x-4 gap-y-2 border-t border-white/15 py-2 md:flex" data-testid="nav-desktop">
@@ -235,22 +237,29 @@ export function Shell({ children }: { children: ReactNode }) {
           <div data-testid="status-connection" aria-live="polite" className={cn('flex items-center gap-2 rounded-sm border px-3 py-1.5 text-xs font-semibold', w.online ? 'border-border bg-background' : 'border-accent bg-accent/10')}>
             {w.online ? <Wifi className="h-3.5 w-3.5 text-primary" /> : <WifiOff className="h-3.5 w-3.5 text-accent" />}
             {w.previewOnly
-              ? <>{w.previewLabel} · changes stay in memory until refresh</>
+              ? <>Fictional {w.previewLabel} · changes clear on refresh</>
               : w.vault === 'unlocked'
               ? unsaved
                 ? <>{w.online ? 'Online' : 'Offline'} · changes not yet saved · <span className="mono">{w.pending}</span> local records not uploaded</>
                 : <>{w.online ? 'Online' : 'Offline'} · saved on this device · <span className="mono">{w.pending}</span> local records not uploaded</>
               : unsaved
-                ? <>{w.online ? 'Online' : 'Offline'} · NOT saved · unlock the local vault to keep changes</>
-                : <>{w.online ? 'Online' : 'Offline'} · report service not connected</>}
+                ? <>{w.online ? 'Online' : 'Offline'} · not saved · unlock to keep changes</>
+                : <>{w.online ? 'Online' : 'Offline'} · report submission unavailable</>}
           </div>
           <div className="hidden text-xs text-muted-foreground lg:block" data-testid="status-vault">
             {w.previewOnly
-              ? `Fictional ${w.previewLabel} · refresh clears test changes`
+              ? `Fictional ${w.previewLabel} · refresh clears changes`
               : w.vault === 'unlocked'
-                ? (unsaved ? 'Vault open · unsaved changes' : 'Vault open · saved on this device')
-                : (unsaved ? 'Unsaved changes · not stored on this device' : 'Not saved · local changes in memory')}
+                ? (unsaved ? 'Changes unsaved · still on screen' : 'Saved on this device')
+                : (unsaved ? 'Changes unsaved · still on screen' : 'No changes saved on this device')}
           </div>
+          <Link
+            href="/resources?topic=record-status#application-help"
+            className="rounded-sm px-2 py-1 text-xs font-semibold text-primary underline underline-offset-2"
+            data-testid="link-status-help"
+          >
+            Status help
+          </Link>
           <div className="ml-auto flex w-full min-w-0 items-center gap-1.5 md:w-auto">
             {!w.previewOnly && isLoaded && isSignedIn ? (
               <button type="button" onClick={() => void onSignOut()} aria-label="Sign out" className="h-9 shrink-0 rounded-sm border px-2 text-xs font-semibold md:hidden">
@@ -269,11 +278,11 @@ export function Shell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm(`Reset the fictional ${w.previewLabel.toLowerCase()}? All in-memory test entries will be cleared.`)) w.resetWorkspace();
+                  if (window.confirm(`Reset the fictional ${w.previewLabel.toLowerCase()}? All preview entries will be cleared.`)) w.resetWorkspace();
                 }}
                 className="flex h-9 items-center gap-1.5 rounded-sm border px-3 text-sm font-semibold transition-colors hover:bg-muted"
               >
-                Reset {w.previewLabel === 'UI test workspace' ? 'test data' : w.previewLabel}
+                Reset preview
               </button>
             ) : (
               <>
@@ -290,12 +299,12 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </div>
       {w.saveError && (
-        <div role="alert" data-testid="notice-save-error" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive"><ShieldAlert className="h-4 w-4" /><span className="flex-1"><b>Local save failed.</b> Changes on screen are NOT stored. {w.saveError}</span><button className="font-semibold underline" onClick={onSave} data-testid="button-retry-save">Retry save</button></div>
+        <div role="alert" data-testid="notice-save-error" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive"><ShieldAlert className="h-4 w-4" /><span className="flex-1"><b>Local save failed.</b> Changes on screen are not stored. Keep this page open and retry.</span><button className="font-semibold underline" onClick={onSave} data-testid="button-retry-save">Retry save</button></div>
       )}
       {w.overwrittenElsewhere && (
         <div role="alert" data-testid="notice-workspace-overwritten" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <ShieldAlert className="h-4 w-4" />
-          <span className="flex-1"><b>This workspace was replaced in another tab.</b> This tab was locked so stale edits cannot overwrite the newer saved version. Unlock to continue with the latest saved work or review a recovery copy. Recovery copies expire after 7 days and are deleted after restoration.</span>
+          <span className="flex-1"><b>This workspace was replaced in another tab.</b> This tab is locked to protect the newer save. Unlock it or review a recovery copy; copies expire after 7 days or after restoration.</span>
           <button className="font-semibold underline" onClick={() => w.openVault('restore')} data-testid="button-restore-overwritten-workspace">Unlock latest saved work</button>
           <button className="text-muted-foreground" onClick={w.dismissOverwrittenElsewhere} data-testid="button-dismiss-overwritten-notice">Dismiss</button>
         </div>
@@ -326,7 +335,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <AlertTriangle className="h-5 w-5 shrink-0 text-[#8a5a00]" />
           <span className="min-w-0 flex-1">
             <b>{unsaved && otherDirtySessions.length ? 'Two sessions have unsaved changes.' : otherDirtySessions.length ? 'Another session has unsaved changes.' : 'This workspace is open in another session.'}</b>
-            <span className="block mt-1">{otherUnlockedSessions.length} other tab{otherUnlockedSessions.length === 1 ? ' is' : 's are'} open{otherDirtySessions.length ? `; ${otherDirtySessions.length} has unsaved edits` : ''}. Saving over another tab replaces its current workspace. Both sessions stay on this device; no agency upload occurs.</span>
+            <span className="block mt-1">{otherUnlockedSessions.length} other tab{otherUnlockedSessions.length === 1 ? ' is' : 's are'} open{otherDirtySessions.length ? `; ${otherDirtySessions.length} has unsaved edits` : ''}. Saving over a tab replaces its workspace. Nothing is uploaded.</span>
             {w.editorDirty && <span className="block mt-1 font-semibold">Save the open form before choosing an overwrite.</span>}
           </span>
           {w.dirty && !w.editorDirty && w.vault === 'unlocked' && (
@@ -338,7 +347,7 @@ export function Shell({ children }: { children: ReactNode }) {
       )}
       {w.lockedNotice && (
         <div className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-accent bg-accent/10 p-3 text-sm" data-testid="notice-locked">
-          <Lock className="h-4 w-4" /><span className="flex-1">{w.lockedWithUnsaved ? 'Locked after 15 minutes of inactivity. Unsaved form edits may have been lost; unlock to recover the last successful encrypted save.' : 'Locked after 15 minutes of inactivity. Decrypted data was cleared from this screen; local changes are not displayed.'}</span>
+          <Lock className="h-4 w-4" /><span className="flex-1">{w.lockedWithUnsaved ? 'Locked after 15 minutes. Unsaved edits may be lost; unlock saved work to continue.' : 'Locked after 15 minutes. Your saved work is hidden; unlock to continue.'}</span>
           <button className="font-semibold underline" onClick={() => w.openVault('restore')} data-testid="button-notice-unlock">Unlock saved work</button>
           <button className="text-muted-foreground" onClick={w.dismissLockedNotice} data-testid="button-notice-dismiss">Dismiss</button>
         </div>
@@ -416,7 +425,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Overwrite the other session?</AlertDialogTitle>
             <AlertDialogDescription>
-              Before replacing the other tab, the portal saves its unsaved workspace as an encrypted recovery copy on this device. The copy expires after 7 days or is deleted after restoration. If the other tab has an open unsaved form or is synchronizing packets, the overwrite will not proceed. This only changes local workspace data; it does not upload to the agency service.
+              An encrypted recovery copy is saved on this device before the other tab is replaced. It expires in 7 days or after restoration. Overwrite is blocked while that tab has unsaved form edits or is syncing packets. Nothing is uploaded.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -440,14 +449,14 @@ export function Shell({ children }: { children: ReactNode }) {
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={leavePage!==null} onOpenChange={open=>{if(!open)setLeavePage(null);}}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Keep this shift sheet?</AlertDialogTitle><AlertDialogDescription>An open report or run has unsaved edits. Stay on this page and finish or save the draft before leaving. If you leave, those open edits will not be kept.</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Keep this shift sheet?</AlertDialogTitle><AlertDialogDescription>Unsaved report or run edits will be lost if you leave. Stay to keep working or save the draft first.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel data-testid="button-stay-on-shift">Stay and keep working</AlertDialogCancel><AlertDialogAction data-testid="button-leave-unsaved" onClick={()=>{if(leavePage)setLocation(leavePage);setLeavePage(null);}}>Leave without saving</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
     </div>
   );
 }
 function MobileLink({ href, label, icon: Icon, active }: { href: string; label: string; icon: typeof LayoutGrid; active: boolean }) {
-  const shortLabel = label === 'Help & Resources' ? 'Help' : label;
+  const shortLabel = label;
   return <Link href={href} data-testid={`link-mobile-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`} aria-current={active ? 'page' : undefined} className={cn('flex min-h-16 min-w-[76px] shrink-0 flex-col items-center justify-center gap-1 px-2 py-2 text-center text-[0.65rem] font-semibold leading-tight', active ? 'text-sidebar-primary' : 'opacity-80')}>
     <Icon className="h-5 w-5 shrink-0" /><span>{shortLabel}</span>
   </Link>;

@@ -32,7 +32,7 @@ import CommandReviewPage from '@/pages/command-review.js';
 import WeeklyPerformanceLogPage from '@/pages/weekly-performance-log.js';
 import SubstationOrientationPage from '@/pages/substation-orientation.js';
 import RoleAccessPage from '@/pages/role-access.js';
-import { isTechnicalRole, ROLE_LABEL } from '@/lib/model.js';
+import { isTechnicalRole } from '@/lib/model.js';
 import { getNextReportDate } from '@/lib/training-calendar.js';
 import FtoClassesPage from '@/pages/fto-classes.js';
 import { PortalRouteSwitch, UiPreviewRouter } from '@/lib/portal-routing.js';
@@ -118,7 +118,7 @@ function SignInPage() {
             href={`${basePath}/ui-preview`}
             className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
-            Open UI test preview · fictional data only
+            Fictional portal preview
           </a>
           <a
             href={`${basePath}/fto-test-packet-preview/`}
@@ -130,13 +130,13 @@ function SignInPage() {
             href={`${basePath}/approval-preview`}
             className="text-sm font-semibold text-primary underline"
           >
-            Open approval previews · no sign-in needed
+            Open fictional approval-form preview
           </a>
           <a
             href="/api/preview?component=PacketReviewPreview"
             className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
-            Open packet approval preview · fictional data only
+            Open fictional packet-review preview
           </a>
         </div>
       )}
@@ -150,7 +150,7 @@ function SignUpPage() {
       <section className="w-full max-w-lg rounded-md border bg-card p-6" role="status">
         <p className="label-caps">Account access</p>
         <h1 className="mt-2 text-2xl font-bold">Account activation is invitation-only</h1>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Account invitation and verification are not available here yet. Contact FTO Office Admin for account status. Training access opens after your department email, class, and starting phase are confirmed.</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">An invitation is required. Training access opens after your department email, class, and starting phase are confirmed. If you do not have an invitation, follow your established department process.</p>
         <a href={`${basePath}/sign-in`} className="mt-5 inline-flex min-h-11 items-center rounded bg-primary px-4 text-sm font-bold text-primary-foreground">Return to sign in</a>
       </section>
     </div>
@@ -273,19 +273,7 @@ function DemoWorkspace() {
 }
 
 function DevelopmentUiPreviewContent() {
-  const { ws } = useWorkspace();
-  return (
-    <div className="min-h-screen">
-      <div
-        className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-950"
-        role="status"
-        data-testid="banner-role-preview"
-      >
-        DISPOSABLE UI PREVIEW · Fictional {ROLE_LABEL[ws.role]} workspace · Memory only, clears on refresh · No operational or shared-service access
-      </div>
-      <PacketReviewProvider><Shell><WorkspaceRoutes /></Shell></PacketReviewProvider>
-    </div>
-  );
+  return <PacketReviewProvider><Shell><WorkspaceRoutes /></Shell></PacketReviewProvider>;
 }
 
 function DevelopmentUiPreview() {
@@ -309,9 +297,9 @@ function DevelopmentFtoTestPacketPreview() {
       >
         <div className="min-h-screen">
           <div className="border-b-2 border-amber-500 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950" role="status" data-testid="banner-fto-test-packet">
-            <strong>FICTIONAL FTO TEST PACKET · TEST ONLY</strong>
+            <strong>TEST PACKET</strong>
             <span className="mx-2 hidden sm:inline">|</span>
-            <span>Sample records only. No signatures, official approvals, release, or agency sync. Changes stay in memory; refresh or reset restores this packet.</span>
+            <span>Sample records only · no signatures, approvals, release, or agency sync.</span>
           </div>
           <PacketReviewProvider><Shell><WorkspaceRoutes /></Shell></PacketReviewProvider>
         </div>

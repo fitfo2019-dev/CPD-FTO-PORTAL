@@ -1,4 +1,5 @@
 import { ArrowRight, LockKeyhole, ShieldAlert, Wrench, CheckCircle2 } from 'lucide-react';
+import { Link } from 'wouter';
 import { PageHead, Panel } from '@/components/bits.js';
 import { useWorkspace } from '@/state/workspace.js';
 
@@ -12,7 +13,7 @@ export default function RoleAccessPage() {
         <div className="border-l-4 border-accent bg-accent/5 p-4 sm:p-5" role="status" data-testid="status-po-access-pending">
           <div className="flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-warn"><LockKeyhole className="h-5 w-5"/></span>
-            <div><p className="font-semibold">Ask your training contact to confirm your account and class.</p>
+            <div><p className="font-semibold">Confirm your account and class access.</p>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Your own training records appear after your department email is verified and your class and phase are activated.</p>
             </div>
           </div>
@@ -21,7 +22,8 @@ export default function RoleAccessPage() {
             <li className="flex gap-2"><span className="font-mono font-bold text-primary">2</span><span>Confirm your class assignment.</span></li>
             <li className="flex gap-2"><span className="font-mono font-bold text-primary">3</span><span>Wait for class and phase activation.</span></li>
           </ol>
-          <p className="mt-4 flex items-center gap-2 rounded border bg-card p-3 text-xs text-muted-foreground"><ShieldAlert className="h-4 w-4 shrink-0 text-warn"/>Ask FTO Office Admin for an invitation or an update on your account status.</p>
+          <p className="mt-4 flex items-center gap-2 rounded border bg-card p-3 text-xs text-muted-foreground"><ShieldAlert className="h-4 w-4 shrink-0 text-warn"/>If an invitation or activation is missing, follow your established department process.</p>
+          <Link href="/resources?topic=account-access#application-help" className="mt-3 inline-flex text-sm font-semibold text-primary underline underline-offset-2">Account access help</Link>
         </div>
       </Panel>
     </div>;
@@ -35,12 +37,12 @@ export default function RoleAccessPage() {
           <div className="flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-warn"><ShieldAlert className="h-5 w-5"/></span>
             <div><p className="font-semibold">Record deletion is not available here.</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Only deleting training records requires separate approvals from two POLICENET admin accounts: one with SGT rank and one with LT rank. No deletion tool is connected here.</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Deletion requires separate approval from a POLICENET admin with SGT rank and one with LT rank. This portal does not offer deletion.</p>
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <ApprovalStep label="POLICENET admin · SGT rank" state="Not connected"/>
-            <ApprovalStep label="POLICENET admin · LT rank" state="Not connected"/>
+            <ApprovalStep label="POLICENET admin · SGT rank" state="Unavailable here"/>
+            <ApprovalStep label="POLICENET admin · LT rank" state="Unavailable here"/>
           </div>
           <div className="rounded border-l-4 border-primary bg-primary/[0.04] p-3 text-sm">
             <p className="font-semibold">Your boundary</p>
@@ -53,12 +55,12 @@ export default function RoleAccessPage() {
 
   return <div className="mx-auto max-w-3xl">
     <PageHead kicker="POLICENET · technical work" title="Prepare and test changes"/>
-    <Panel title="Technical tools are not connected">
+    <Panel title="Technical test tools are unavailable">
       <div className="space-y-4 p-4 sm:p-5" role="status" data-testid="status-policenet-tools-unavailable">
         <div className="flex items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"><Wrench className="h-5 w-5"/></span>
           <div><p className="font-semibold">Your next step is technical preparation.</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">POLICENET staff prepare and test technical changes. Technical test tools are not available for this account.</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">POLICENET staff prepare and test technical changes. Approved test tools are unavailable for this account.</p>
           </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -66,7 +68,7 @@ export default function RoleAccessPage() {
           <TechStep title="Test" detail="Use an approved test environment"/>
             <TechStep title="Delete records" detail="Requires separate SGT- and LT-rank admin approvals"/>
         </div>
-        <p className="flex items-center gap-2 rounded border bg-muted/50 p-3 text-sm text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0"/>Operational training records are not available to this technical role.</p>
+        <p className="flex items-center gap-2 rounded border bg-muted/50 p-3 text-sm text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0"/>This role cannot access operational training records.</p>
       </div>
     </Panel>
   </div>;

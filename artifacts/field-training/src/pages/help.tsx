@@ -23,6 +23,8 @@ import { useWorkspace } from '@/state/workspace.js';
 import type { LawReviewRecord } from '@/lib/model.js';
 import manualIndexText from '@/assets/fto-manual-index.json?raw';
 
+import { ApplicationHelpDesk } from '@/components/application-help-desk.js';
+
 type Group =
   | 'Columbus City Code'
   | 'Division Directives'
@@ -399,7 +401,7 @@ export default function HelpPage() {
 
   return (
     <div className="law-library-page mx-auto max-w-[1440px]">
-      <PageHead kicker="Field Training Officer Portal · Columbus" title="Resources">
+      <PageHead kicker="Field Training Officer Portal · Columbus" title="Help Desk">
         <a
           href={DIRECTIVE_PDF_INDEX_SOURCE}
           target="_blank"
@@ -411,8 +413,8 @@ export default function HelpPage() {
         </a>
       </PageHead>
 
+      <ApplicationHelpDesk />
       <GeographyMapPanel />
-
       <section className="uploaded-resources" aria-labelledby="uploaded-resources-title" data-testid="section-uploaded-resources">
         <div className="uploaded-resources-heading">
           <div>
@@ -424,7 +426,7 @@ export default function HelpPage() {
           </span>
         </div>
         <p className="uploaded-resources-note">
-          Some examples may contain personal details or internal contact information. Downloads require sign-in; follow agency handling rules and verify current law and policy before relying on these references.
+          Downloads may contain personal or internal information. Handle them under agency rules; verify current law and policy in official sources.
         </p>
         {resourcesLoading ? (
           <div className="uploaded-resources-grid" aria-busy="true" aria-label="Loading reference documents">
@@ -474,16 +476,16 @@ export default function HelpPage() {
 
       <header className="library-intro">
         <div className="library-intro-copy">
-          <p className="library-eyebrow"><LibraryBig size={15} aria-hidden="true" /> Law Library · Working reference desk</p>
-          <h2>Find the source.<br /><span>Get back to the work.</span></h2>
-          <p className="library-intro-text">Search the manual and directive list, or open the complete official codes, casebook, glossary, and case-law collections below.</p>
+          <p className="library-eyebrow"><LibraryBig size={15} aria-hidden="true" /> Existing sources</p>
+          <h2>Resources / Law Library</h2>
+          <p className="library-intro-text">Search the manual, directives, forms, and official legal references.</p>
         </div>
         <div className="library-count-strip" aria-label="Catalog contents">
           <div><strong>{DIVISION_DIRECTIVES.length}</strong><span>directive titles</span></div>
           <div><strong>{DIRECTIVE_PDF_LINKS.length}</strong><span>public PDFs</span></div>
           <div><strong>{MANUAL_PASSAGES.length}</strong><span>manual passages</span></div>
         </div>
-        <p className="library-source-date">Official sources require internet · Directive PDFs checked {DIRECTIVE_PDF_INDEX_VERIFIED_ON}</p>
+        <p className="library-source-date">Directive PDFs checked {DIRECTIVE_PDF_INDEX_VERIFIED_ON}</p>
       </header>
 
       <section className="library-search-area" aria-label="Search the library">
@@ -705,17 +707,17 @@ export default function HelpPage() {
                   )}
                   {ws.role === 'po' && !canAcknowledgeReview && (
                     <p className="library-review-unavailable" role="status">
-                      No class assignment is linked to this signed-in account in this device’s workspace, so a PO review cannot be recorded.
+                      No class assignment is available for this account, so a PO review cannot be recorded.
                     </p>
                   )}
                   {ws.role === 'fto' && !signedInFto && (
                     <p className="library-review-unavailable" role="status">
-                      Sign in with an FTO directory account to select an assigned PO. The role preview alone cannot identify FTO permissions.
+                      FTO access is not confirmed in this preview. Use an approved account to open assigned PO sources.
                     </p>
                   )}
                   {canAssignReview && !selectedReviewAssignment && (
                     <p className="library-review-unavailable" role="status">
-                      No authorized PO assignment is available for this account in this device’s workspace.
+                      No assigned class is available for this account.
                     </p>
                   )}
                   <p className="library-review-local" data-testid="status-law-review-storage">

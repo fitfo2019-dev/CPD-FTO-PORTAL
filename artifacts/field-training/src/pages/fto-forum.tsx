@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'wouter';
 import { MessageSquare, Save, Trash2 } from 'lucide-react';
 import { PageHead, Panel } from '@/components/bits.js';
 import { useToast } from '@/hooks/use-toast.js';
@@ -95,7 +96,8 @@ export default function FtoForumPage() {
     </PageHead>
     <Panel title={previewOnly ? 'Unsent test drafts · memory only' : 'Unsent message drafts · this device only'} data-testid="panel-fto-forum">
       <div className="border-b bg-warn/5 px-4 py-3 text-sm">
-        <b>{online ? 'Chat is not connected.' : 'You are offline.'}</b> These are unsent drafts; they are not delivered to other FTOs or the FTO Coordinator. You can delete them at any time.
+        <b>Messages cannot be sent from this page.</b> Drafts stay on this device and are not delivered to other FTOs or the FTO Coordinator. You can delete them.
+        <Link href="/resources?topic=record-status#application-help" className="ml-2 font-semibold text-primary underline underline-offset-2">Draft status help</Link>
       </div>
       <div className="p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">

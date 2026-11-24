@@ -54,7 +54,9 @@ Current application: dashboard, Daily Performance Log builder, training competen
 ## User preferences
 
 Use professional grammar and punctuation throughout the site. Before integrating
-requested interface copy changes, show the user a preview and get approval.
+any requested website UI change, including copy or layout, show the user a preview
+and get explicit approval.
+Routine screens should show task information, actions, values, and actionable feedback—not repeated explanations or developer notes. Put practical application-use steps, expected results, and recovery guidance in the existing searchable Help Desk. Keep operational policy in its cited source library. Preserve role boundaries, truthful local/uploaded states, unsaved-work warnings, and irreversible-action confirmations; do not invent policy or support contacts. A task assignment is not UI approval.
 
 Follow the current FTO manual and the workflow requirements below. Use the exact descriptive rating labels and SEG definitions; do not create numeric performance scores.
 

@@ -6,6 +6,9 @@ import {
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/model.js";
 import type { AgencyPacket, AgencyPacketsEnvelope, PacketReviewAction, PacketReviewDraft } from "@/lib/agency-packets.js";
 
+import { Link } from "wouter";
+import "./agency-packet-review.css";
+
 type Role = AgencyPacketsEnvelope["metadata"]["role"];
 export type AgencyPacketReviewProps = {
   packets: AgencyPacket[]; role: Role | null; loading: boolean; refreshing: boolean;
@@ -61,10 +64,10 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
   const subtitle = role === "FTO_COORDINATOR" ? "Review committed training records before releasing an immutable packet to the officer."
     : role === "PO" ? "Read released packets for your training record and acknowledge receipt of review."
     : role === "FTO" ? "Read-only view of packets you uploaded. Release and acknowledgment are handled by others."
-    : "Immutable training record packets reviewed through the agency server.";
+    : "View packet status and preserved history.";
   const listTitle = role === "FTO_COORDINATOR" ? "Authorized class packets" : role === "PO" ? "Your released packets" : role === "FTO" ? "Your uploaded packets" : "Packets";
-  const listSub = role === "FTO_COORDINATOR" ? "Scoped by the agency server to your authorized training classes."
-    : role === "PO" ? "Only packets the server released to you are shown."
+  const listSub = role === "FTO_COORDINATOR" ? "Only packets for your authorized training classes are shown."
+    : role === "PO" ? "Only released packets are shown."
     : role === "FTO" ? "Packets returned for your assignments. Read-only." : "";
 
   return (
@@ -73,10 +76,11 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
       <div className="apr-title-row">
         <div><h1>Agency packets</h1><p>{subtitle}</p></div>
         <div className="apr-title-actions">
+          <Link href="/resources?topic=packet-status#application-help" className="apr-help-link" data-testid="link-packet-status-help">Packet status help</Link>
           <button type="button" className="apr-refresh" onClick={onRefresh} disabled={!canRefresh || busy || refreshing} data-testid="button-refresh-packets">
             <RefreshCw size={13} className={refreshing ? "apr-spin" : undefined} />{refreshing ? "Refreshing" : "Refresh"}
           </button>
-          <span className="apr-refresh-note" data-testid="text-refresh-state">{!canRefresh ? "Agency Reads Disabled" : refreshing ? "Checking agency server" : "Updates every 30 seconds"}</span>
+          <span className="apr-refresh-note" data-testid="text-refresh-state">{!canRefresh ? "Packet updates unavailable" : refreshing ? "Checking status" : "Updates every 30 seconds"}</span>
         </div>
       </div>
 
@@ -102,7 +106,7 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
           {unavailable ? <div className="apr-empty" role="alert" data-testid="status-packets-unavailable"><div className="apr-empty-icon err"><AlertCircle size={17} /></div><h3>Packets unavailable</h3><p>{unavailable}</p>
               <button className="apr-button" type="button" onClick={onRefresh} disabled={!canRefresh || busy || refreshing} data-testid="button-try-refresh"><RefreshCw size={12} />Try refresh</button></div>
             : loading ? [0, 1, 2].map(i => <div className="apr-skel" key={i} aria-hidden><i style={{ width: "45%" }} /><i style={{ width: "70%" }} /><i style={{ width: "55%" }} /></div>)
-            : roleMissing ? <div className="apr-empty" role="alert" data-testid="status-role-missing"><div className="apr-empty-icon err"><AlertCircle size={17} /></div><h3>Role not confirmed</h3><p>The agency server did not return a recognized role for this account. No packet actions are available.</p></div>
+            : roleMissing ? <div className="apr-empty" role="alert" data-testid="status-role-missing"><div className="apr-empty-icon err"><AlertCircle size={17} /></div><h3>Role not confirmed</h3><p>Your account role could not be confirmed. No packet actions are available.</p></div>
             : visible.length ? visible.map(p => {
               const wf = workflowOf(p);
               return <button key={p.id} type="button" className={`apr-row ${selected?.id === p.id ? "selected" : ""}`} onClick={() => setSelectedId(p.id)} aria-pressed={selected?.id === p.id} data-testid={`button-packet-${p.id}`}>
@@ -116,13 +120,13 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
                 <p>{role === "PO" ? "When your coordinator releases a packet, it will appear here. Draft and withdrawn packets are not visible to you."
                   : role === "FTO" ? "Packets you commit through sync will appear here as read-only records."
                   : "Committed daily records for your authorized classes will appear here for review."}</p></div>}
-          <div className="apr-list-foot"><LockKeyhole size={11} /><span>Access is scoped by the agency server. Role shown here comes only from the server response.</span></div>
+          <div className="apr-list-foot"><LockKeyhole size={11} /><span>Your confirmed account role determines which packets and actions are available.</span></div>
         </section>
 
         <section className="apr-detail" aria-label="Packet snapshot">
           {unavailable ? <div className="apr-empty" role="alert"><div className="apr-empty-icon err"><AlertCircle size={17} /></div><h3>Packet snapshot unavailable</h3><p>No record details are shown. No packet state has been changed.</p></div>
             : loading ? <div className="apr-snapshot" aria-busy="true">{[0, 1, 2, 3].map(i => <div className="apr-skel" key={i} style={{ border: 0 }}><i style={{ width: "35%" }} /><i /><i style={{ width: "80%" }} /></div>)}</div>
-            : roleMissing ? <div className="apr-empty"><div className="apr-empty-icon err"><LockKeyhole size={17} /></div><h3>No access confirmed</h3><p>Sign in again or contact your training coordinator if this continues.</p></div>
+            : roleMissing ? <div className="apr-empty"><div className="apr-empty-icon err"><LockKeyhole size={17} /></div><h3>No access confirmed</h3><p>Sign in again. If your role remains unavailable, follow your established department process.</p></div>
             : selected && role ? <PacketDetail key={stateKey(selected)} packet={selected} role={role} locked={locked} onAction={props.onAction} />
             : <div className="apr-empty"><div className="apr-empty-icon"><FileText size={17} /></div><h3>{role === "PO" ? "No released packets yet" : "Select a packet"}</h3>
                 <p>{role === "PO" ? "Packets appear here only after coordinator release. Committed and withdrawn records remain hidden from this view." : "Choose a packet from the list to inspect its immutable snapshot."}</p></div>}
@@ -257,7 +261,7 @@ function PacketDetail({ packet, role, locked, onAction }: {
         <label className="apr-confirm"><input type="checkbox" checked={reviewed} disabled={locked} onChange={e => setReviewed(e.target.checked)} data-testid="checkbox-coordinator-reviewed" />
           <span>I reviewed the complete snapshot above and confirm it is the packet I intend to release to {text(r.recruitName)}.</span></label>
         <div className="apr-actions"><button type="button" className="apr-button primary" disabled={!reviewed || locked} onClick={() => onAction(packet, { action: "release" })} data-testid="button-release-packet"><Check size={13} />Release for PO review</button></div>
-        <p className="apr-help">Release uses the server workflow state, not values inside the uploaded record. The packet snapshot cannot be edited after commit.</p>
+          <p className="apr-help">Release follows the packet’s recorded status, not text inside the uploaded file. The snapshot cannot be edited after commit.</p>
       </>}
       {wf === "released" && ack && <div className="apr-ack" style={{ marginTop: 0, marginBottom: 12 }}><CheckCircle2 size={14} /><span>PO review receipt recorded {when(ack.acknowledged_at)}. Receipt is not agreement and is not an electronic signature.</span></div>}
       {wf !== "withdrawn" ? <>

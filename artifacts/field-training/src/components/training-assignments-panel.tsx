@@ -1,5 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
 import { Download, Mail, Upload } from 'lucide-react';
+import { Link } from 'wouter';
 import { Panel } from '@/components/bits.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
 import { useToast } from '@/hooks/use-toast.js';
@@ -59,17 +60,18 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
   return <Panel title="FTO Coordinator · roster and phase assignments" className="mb-4" data-testid="panel-training-assignments">
     <div className="p-4">
       <div className="mb-3 rounded border border-warn/40 bg-warn/10 p-3 text-sm" role="status">
-        <b>Roster changes are saved on this device only.</b> Importing a roster does not activate Phase I, invite POs, confirm roles, or make the roster official. Ask FTO Office Admin to complete class activation.
+        <b>Roster changes are saved on this device only.</b> Importing does not activate phases, invite POs, confirm roles, or make the roster official.
       </div>
-      <p className="text-sm text-muted-foreground">Upload one row per PO assignment. Repeating an FTO in the file builds a unique badge-number directory automatically. Rows with PO fields blank add an FTO only. Names remain on this device and are not uploaded.</p>
+      <p className="text-sm text-muted-foreground">Import one row per PO assignment. Imported names stay on this device.</p>
+      <Link href="/resources?topic=roster-import#application-help" className="mt-2 inline-flex text-sm font-semibold text-primary underline underline-offset-2">Roster import help</Link>
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" onClick={downloadTemplate} className="inline-flex min-h-11 items-center gap-2 rounded border bg-card px-4 text-sm font-semibold"><Download className="h-4 w-4"/>Download CSV template</button>
         <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded bg-primary px-4 text-sm font-semibold text-primary-foreground">
-          <Upload className="h-4 w-4"/>{busy?'Reading file…':'Choose CSV or Word file'}
+          <Upload className="h-4 w-4"/>{busy?'Reading file…':'Choose a roster file'}
           <input type="file" accept=".csv,.xlsx,.docx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFileChange} disabled={busy} className="sr-only" data-testid="input-roster-file"/>
         </label>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">Accepted: .csv or Word .docx with a table and a header row. Maximum 2 MB. Required assignment fields: class, PO name/badge, FTO name/badge, and phase start date (MM/DD/YYYY). Phase defaults to Phase I when omitted. Shift, days off, emails, and patrol assignment may also be included. For 80C-1 or 80C-2, include Zone, Precinct, Shift, and the actual mapped Cruiser District.</p>
+      <p className="mt-2 text-xs text-muted-foreground">CSV, Excel XLSX, or Word DOCX table with a header row · up to 2 MB · required: class, PO name/badge, FTO name/badge, and phase start date.</p>
       <p className="mt-1 break-all text-xs text-muted-foreground" data-testid="text-roster-columns">Columns: {templateHeaders}</p>
       {parseError&&<p className="mt-3 rounded border border-destructive/40 bg-destructive/5 p-3 text-sm" role="alert">{parseError}</p>}
       {preview&&<div className="mt-3 rounded border bg-muted/30 p-3" data-testid="roster-import-preview">

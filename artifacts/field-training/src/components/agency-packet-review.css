@@ -6,6 +6,7 @@
 .apr-title-row h1{font:800 clamp(26px,3.2vw,34px)/1.12 Manrope,sans-serif;letter-spacing:-.045em;color:var(--navy);margin:0}
 .apr-title-row p{color:var(--muted);font-size:13px;margin:8px 0 0;max-width:620px}
 .apr-title-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.apr-help-link{min-height:24px;color:#315d74;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:2px}
 .apr-refresh{height:36px;display:inline-flex;align-items:center;gap:8px;padding:0 12px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:#53666d;font-size:12px}
 .apr-refresh:hover:not(:disabled){background:#f2f6f3}.apr-refresh:disabled{opacity:.45;cursor:not-allowed}
 .apr-refresh-note{font:10px 'DM Mono',monospace;color:#899698}

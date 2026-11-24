@@ -291,30 +291,37 @@ body { text-rendering: optimizeLegibility; }
 .portal-masthead-logos {
   display: grid;
   width: 100%;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr) minmax(0, 1.1fr);
   align-items: center;
   column-gap: clamp(.75rem, 2vw, 1.75rem);
 }
-.portal-masthead-city { width: min(100%, 18.5rem); justify-self: center; }
+.portal-masthead-city { width: min(100%, 18.5rem); justify-self: start; }
 .portal-masthead-lockup {
+  grid-column: 2;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(0.4rem, 0.75vw, 0.6rem);
+  gap: .1rem;
   min-width: 0;
   text-align: center;
-  white-space: nowrap;
+}
+.portal-masthead-insignia {
+  grid-column: 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: clamp(.15rem, .6vw, .55rem);
+  min-width: 0;
 }
 .portal-masthead-badge-wrap,
 .portal-masthead-patch {
-  height: clamp(5.5rem, 8vw, 7.5rem);
+  height: clamp(4.5rem, 6.5vw, 6rem);
   max-width: 100%;
   object-fit: contain;
 }
 .portal-masthead-badge-wrap {
   position: relative;
-  justify-self: center;
   width: fit-content;
   line-height: 0;
 }
@@ -338,12 +345,12 @@ body { text-rendering: optimizeLegibility; }
 }
 .portal-badge-easter-egg-left { left: 20%; transform: rotate(-4deg); }
 .portal-badge-easter-egg-right { right: 20%; transform: rotate(4deg); }
-.portal-masthead-patch { justify-self: center; }
+.portal-masthead-patch { flex: 0 1 auto; }
 .portal-masthead-division,
 header a.portal-masthead-name {
   color: inherit;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: clamp(.85rem, 1.25vw, 1rem);
+  font-size: clamp(.78rem, 1.1vw, .95rem);
   font-weight: 600;
   letter-spacing: .035em;
   line-height: 1.4;
@@ -351,16 +358,22 @@ header a.portal-masthead-name {
 }
 header a.portal-masthead-name {
   display: block;
-  white-space: nowrap;
+  max-width: 100%;
+  white-space: normal;
 }
 @media (max-width: 639px) {
   .portal-masthead { gap: .1rem; padding-block: .7rem .65rem; }
-  .portal-masthead-logos { column-gap: .6rem; }
+  .portal-masthead-logos {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto;
+    column-gap: .45rem;
+  }
+  .portal-masthead-city { width: 100%; max-width: 8.5rem; }
   .portal-masthead-badge-wrap,
-  .portal-masthead-patch { height: 5rem; }
-  .portal-masthead-lockup { gap: .45rem; }
+  .portal-masthead-patch { height: 3.4rem; }
+  .portal-masthead-insignia { gap: .1rem; }
+  .portal-masthead-lockup { gap: .05rem; }
   .portal-masthead-division,
-  header a.portal-masthead-name { font-size: clamp(.48rem, 2.2vw, .65rem); letter-spacing: .02em; }
+  header a.portal-masthead-name { font-size: clamp(.48rem, 2.1vw, .65rem); letter-spacing: .01em; }
 }
 h1, h1 * {
   font-family: var(--app-font-display);
@@ -984,7 +997,7 @@ main button.seg-rating-choice {
 }
 @media (max-width: 520px) {
   .library-intro { display: block; padding: .45rem .65rem; }
-  .library-intro::after, .library-intro-copy, .law-library-page .library-source-button { display: none; }
+  .library-intro::after, .law-library-page .library-source-button { display: none; }
   .library-source-date { margin: 0; font-size: .58rem; }
   .library-count-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; }
   .library-count-strip > div { padding-inline: .4rem; }
