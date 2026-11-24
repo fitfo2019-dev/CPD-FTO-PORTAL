@@ -88,7 +88,12 @@ export function collectDeficiencies(report: Report, packet: OperationalPacket): 
       id, runId: exception.runId, category, tasks: [], narrative: report.deficiencyNarratives?.[id] ?? '', reviewed:true,
     };
     group.reviewed=group.reviewed&&exception.reviewed;
-    group.tasks.push({ id: exception.id, label: exception.task, reference: exception.reference });
+    group.tasks.push({
+      id: exception.id,
+      label: exception.task,
+      reference: exception.reference,
+      ...(exception.failureActions?.length?{failureActions:[...exception.failureActions]}:{}),
+    });
     groups.set(id, group);
   }
   return [...groups.values()];

@@ -472,6 +472,7 @@ export interface TrainingRun {
   narrativeAdditionRequired: boolean;
   formStatus: 'not_started'|'in_progress'|'complete';
   checklist: Record<string, boolean>;
+  checklistFailures?: Record<string, string[]>;
   directiveReviews?:DirectiveReviews;
   checklistReviewedAt?: string;
   narrative: string;
@@ -836,7 +837,7 @@ export interface ChecklistDeficiencyGroup {
   id: string;
   runId?: string;
   category: Category;
-  tasks: { id: string; label: string; reference?: string }[];
+  tasks: { id: string; label: string; reference?: string; failureActions?: string[] }[];
   narrative: string;
   reviewed?: boolean;
 }

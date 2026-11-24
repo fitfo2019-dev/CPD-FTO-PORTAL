@@ -130,7 +130,41 @@ test('class workbook uses the same packet coordinates and shields exception task
   assert.deepEqual(pages.slice(1).map(row => row[3]), packet.pages.map(page => page.reference));
   const exceptions = XLSX.utils.sheet_to_json(workbook.Sheets['Checklist Exceptions'], { header: 1 }) as unknown[][];
   assert.equal(exceptions[1][2], packet.exceptions[0].reference);
-  assert.equal(exceptions[1][8], 'SEG mapping and FTO rating decision required');
+  assert.equal(exceptions[1][9], 'SEG mapping and FTO rating decision required');
+});
+
+test('workbook rows carry selected failure actions in bold red without expanding one task',()=>{
+  const run=makeRun('specific-failure',{
+    checklist:{...newRunChecklist('building_search'),'task-67':false},
+    checklistFailures:{'task-67':['Documented entry in CAD','Documented exit in CAD']},
+  });
+  const workbook=buildClassWorkbook([{...report,runs:[run]}]);
+  const checklist=workbook.Sheets['Run Checklist'];
+  const checklistRows=XLSX.utils.sheet_to_json<(string|number)[]>(checklist,{header:1});
+  const checklistHeaders=checklistRows[0] as string[];
+  const failureIndex=checklistHeaders.indexOf('Specific failure actions');
+  const rowIndex=checklistRows.findIndex(row=>row[checklistHeaders.indexOf('Checklist item')]==='CAD Documentation (entry, exit, secure)');
+  assert.ok(rowIndex>0);
+  assert.equal(checklistRows[rowIndex][failureIndex],'Documented entry in CAD\nDocumented exit in CAD');
+  const checklistCell=checklist[XLSX.utils.encode_cell({r:rowIndex,c:failureIndex})];
+  assert.equal(checklistCell.s.font.bold,true);
+  assert.equal(checklistCell.s.font.color.rgb,'FF9B1C1C');
+
+  const exceptions=workbook.Sheets['Checklist Exceptions'];
+  const exceptionRows=XLSX.utils.sheet_to_json<(string|number)[]>(exceptions,{header:1});
+  const exceptionHeaders=exceptionRows[0] as string[];
+  const exceptionFailureIndex=exceptionHeaders.indexOf('Specific failure actions');
+  assert.equal(exceptionRows[1][exceptionFailureIndex],'Documented entry in CAD\nDocumented exit in CAD');
+  const exceptionCell=exceptions[XLSX.utils.encode_cell({r:1,c:exceptionFailureIndex})];
+  assert.equal(exceptionCell.s.font.bold,true);
+  assert.equal(exceptionCell.s.font.color.rgb,'FF9B1C1C');
+  assert.equal(exceptionRows.length,2,'specific actions stay attached to one parent task');
+  const exportedBytes=XLSX.write(workbook,{type:'buffer',bookType:'xlsx'});
+  assert.ok(exportedBytes.length>0);
+  const exported=XLSX.read(exportedBytes,{type:'buffer'});
+  const exportedChecklist=exported.Sheets['Run Checklist'];
+  const exportedCell=exportedChecklist[XLSX.utils.encode_cell({r:rowIndex,c:failureIndex})];
+  assert.equal(exportedCell.v,'Documented entry in CAD\nDocumented exit in CAD');
 });
 
 test('changed packet sources invalidate reference review without rewriting historical text or training time', () => {

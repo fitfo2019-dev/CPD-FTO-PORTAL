@@ -20,6 +20,7 @@ import {
 } from './training-calendar.js';
 import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from './narrative-continuation.js';
 import { orientationPrintLayout } from './orientation-print-layout.js';
+import { runFailureActionChoices } from './run-checklist-failures.js';
 
 export const CURRENT_PACKET_INDEX_VERSION = 2;
 
@@ -50,6 +51,7 @@ export interface OperationalException {
   readonly runId?: string;
   readonly taskKey: string;
   readonly task: string;
+  readonly failureActions?: readonly string[];
   readonly section: string;
   readonly page: number;
   readonly reference?: string;
@@ -89,13 +91,14 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
     pages.push(result);
     return result;
   };
-  const captureException = (page: OperationalPage, taskKey: string, task: string, section: string, reviewed: boolean) => {
+  const captureException = (page: OperationalPage, taskKey: string, task: string, section: string, reviewed: boolean, failureActions?: readonly string[]) => {
     exceptions.push(Object.freeze({
       id: `${report.id}:${page.id}:${taskKey}`,
       reportId: report.id,
       runId: page.runId,
       taskKey,
       task,
+      ...(failureActions?.length ? { failureActions:Object.freeze([...failureActions]) } : {}),
       section,
       page: page.page,
       reference: page.reference,
@@ -134,7 +137,15 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
         for (const item of section.items) {
           const key = `${prefix}${index++}`;
           if (run.checklist[key] === false) {
-            captureException(page, key, item.label, section.title, !!run.checklistReviewedAt && run.formStatus === 'complete');
+            const failureActions=run.checklistFailures?.[key];
+            if(failureActions) {
+              const form=page.kind==='supplement'?(page.supplement??run.runKind):run.runKind;
+              const choices=runFailureActionChoices(form,key,item.label);
+              if(!choices||failureActions.length===0||new Set(failureActions).size!==failureActions.length||failureActions.some(action=>!choices.includes(action))) {
+                throw new Error(`Run ${run.id} has invalid specific failure details for ${key}.`);
+              }
+            }
+            captureException(page, key, item.label, section.title, !!run.checklistReviewedAt && run.formStatus === 'complete',failureActions);
           }
         }
       }

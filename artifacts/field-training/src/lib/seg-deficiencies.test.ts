@@ -80,6 +80,42 @@ test('unchecked tasks project UA immediately but articulation is reviewable only
   assert.equal(reviewedGroup?.tasks[0]?.reference,'W1D1P2');
 });
 
+test('specific primary and supplemental actions remain evidence under their source run and SEG mappings',()=>{
+  const sourceRun={
+    ...run('specific-actions'),
+    arrestMade:true,
+    checklist:{
+      ...newRunChecklist('building_search',['arrest_process']),
+      'task-67':false,
+      'supp-arrest_process-0':false,
+    },
+    checklistFailures:{
+      'task-67':['Documented entry in CAD'],
+      'supp-arrest_process-0':['Gapped the handcuffs'],
+    },
+  };
+  const report={...base(),runs:[sourceRun]};
+  const operational=packet(report);
+  assert.deepEqual(operational.exceptions.map(exception=>exception.failureActions),[
+    ['Documented entry in CAD'],
+    ['Gapped the handcuffs'],
+  ]);
+  const groups=collectDeficiencies(report,operational);
+  assert.equal(groups.length,2);
+  for(const exception of operational.exceptions){
+    const page=operational.pages.find(item=>item.page===exception.page);
+    const form=page?.supplement??sourceRun.runKind;
+    const group=groups.find(item=>item.category===SEG_TASK_DIRECTORY[`${form}:${exception.taskKey}`]);
+    assert.ok(group);
+    assert.equal(group.runId,sourceRun.id);
+    assert.ok(group.tasks.some(task=>task.id===exception.id&&task.failureActions?.[0]===exception.failureActions?.[0]));
+  }
+  const reconciled=reconcileDeficiencyRatings(report,operational);
+  assert.ok(!reconciled.ratings.contentAccuracy.justification.includes('Documented entry in CAD'),'selected actions are evidence, not generated narrative');
+  assert.ok(groups.some(group=>group.tasks.some(task=>task.failureActions?.includes('Gapped the handcuffs'))));
+  assert.ok(!reconciled.ratings.initiatingArrests.justification.includes('provided additional training'));
+});
+
 test('manual overrides restore the old category and preserve long narratives; rechecking restores the baseline',()=>{
   const nonSafetyRun={...run(),runKind:'call_for_service' as const,checklist:newRunChecklist('call_for_service')};
   nonSafetyRun.checklist['task-0']=false;

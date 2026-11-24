@@ -26,7 +26,10 @@ export function DeficiencyDialog({ group, onNarrative, onOverride, onClose }: {
           </select>
         </label>
         <div className="rounded border bg-muted/20 p-3 text-sm" data-testid="deficiency-sources">
-          {group.tasks.map(task => <p key={task.id}><b className="mono">{task.reference ?? 'Coordinate pending phase schedule'}</b> — {task.label}</p>)}
+          {group.tasks.map(task => <div key={task.id}>
+            <p><b className="mono">{task.reference ?? 'Coordinate pending phase schedule'}</b> — {task.label}</p>
+            {task.failureActions?.map(action=><p key={action} className="pl-4 font-bold text-destructive">{action}</p>)}
+          </div>)}
         </div>
         <label className="grid gap-1 text-sm font-semibold">FTO articulation
           <textarea rows={7} value={group.narrative} onChange={event => onNarrative(event.target.value)}

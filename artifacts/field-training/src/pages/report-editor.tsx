@@ -17,7 +17,7 @@ import { isValidAssignment } from '@/lib/cpd-geography.js';
 import { PrintableDailyLog } from '@/components/printable-daily-log.js';
 import { PrintableDailyForms } from '@/components/printable-daily-forms.js';
 import { activityDiscrepancies, activityTotals, buildClearanceDocuments, clearanceDerivedActivityCounts, manualActivityEntryForTotal, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
-import { checklistForMetadata, resetPrimaryChecklist, toggleChecklistSection } from '@/lib/run-checklist-state.js';
+import { checklistForMetadata, resetPrimaryChecklist } from '@/lib/run-checklist-state.js';
 import { buildRunNarrativeDraft } from '@/lib/run-narrative-draft.js';
 import { isRtRestricted } from '@/lib/model.js';
 import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatRadioCode, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes.js';
@@ -33,12 +33,16 @@ import { ArrestClassificationFields } from '@/components/arrest-classification-f
 import { RunStepRail, SheetStatus, sheetHasEdits } from '@/components/run-sheet-workflow.js';
 import { NewRunDialog, type NewRunSeed } from '@/components/new-run-dialog.js';
 import { TrafficStopRiskPrompt } from '@/components/traffic-stop-risk-choice.js';
+import { RunChecklistFailureDialog } from '@/components/run-checklist-failure-dialog.js';
 import { formatTimeEntry24H } from '@/lib/training-calendar.js';
+import { runFailureActionChoices, runChecklistFailureSummaries, type RunChecklistSourceForm } from '@/lib/run-checklist-failures.js';
 import '@/components/run-sheet-workflow.css';
 
 import { PacketSubmitControl } from '@/components/packet-review/submit-control.js';
 
 type EditorStage = 'shift'|'duty'|'runs'|'activity'|'evaluation'|'narrative';
+type FailurePromptTarget = { form:RunChecklistSourceForm;key:string;label:string;choices:readonly string[];mode:'clear'|'edit' };
+type ChecklistActionTarget = { form:RunChecklistSourceForm;key:string;label:string };
 const EDITOR_STAGES: {id:EditorStage;label:string;hash:string}[] = [
   {id:'shift',label:'Shift',hash:'shift-details'},
   {id:'duty',label:'Reporting for Duty',hash:'duty-form'},
@@ -133,8 +137,16 @@ export default function ReportEditor() {
   const [narrativeAdditionRequired, setNarrativeAdditionRequired] = useState(false);
   const [runNarrative, setRunNarrative] = useState('');
   const [runChecklist, setRunChecklistState] = useState<Record<string, boolean>>(()=>newRunChecklist('call_for_service'));
+  const [runChecklistFailures, setRunChecklistFailuresState] = useState<Record<string,string[]>>({});
+  const [failurePrompt, setFailurePrompt] = useState<FailurePromptTarget|null>(null);
+  const [failurePromptSelection, setFailurePromptSelection] = useState<string[]>([]);
+  const [failurePromptQueue, setFailurePromptQueue] = useState<FailurePromptTarget[]>([]);
   const setRunChecklist: typeof setRunChecklistState = update => {
     setRunChecklistState(update);
+    setR(current => current && ({ ...current, deficiencyAutomationEnabled: true, ratingsReviewedAt: undefined }));
+  };
+  const setRunChecklistFailures: typeof setRunChecklistFailuresState = update => {
+    setRunChecklistFailuresState(update);
     setR(current => current && ({ ...current, deficiencyAutomationEnabled: true, ratingsReviewedAt: undefined }));
   };
   const [directiveReviews,setDirectiveReviews]=useState<Partial<Record<DirectiveReviewForm,DirectiveReviewRecord>>>({});
@@ -150,10 +162,10 @@ export default function ReportEditor() {
       transportDestination:arrestMade&&transported?transportDestination.trim()||undefined:undefined,
       transportDestinationType:arrestMade&&transported?transportDestinationType:undefined,
       clearanceCode,
-      oviProcessed, narrativeAdditionRequired, checklist: runChecklist, narrative: runNarrative, directiveReviews,
+       oviProcessed, narrativeAdditionRequired, checklist: runChecklist, checklistFailures:runChecklistFailures, narrative: runNarrative, directiveReviews,
       formStatus: runNarrative.trim() ? 'complete' : 'in_progress',
     };
-  }, [r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, transportDestinationType, clearanceCode, arrestProcessRequired, buildingSearchRequired, oviProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runNarrative, directiveReviews]);
+  }, [r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, transportDestinationType, clearanceCode, arrestProcessRequired, buildingSearchRequired, oviProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runChecklistFailures, runNarrative, directiveReviews]);
   const deficiencyEditor = useDeficiencyEditor(r, setR, getOperationalPacket, candidateRun, r?.status === 'draft' && ws.role === 'fto');
   const parsedDate = parseDateDMY(dateText);
   const runDateTimeParts = splitDateTimeEntryMDY(runDateTimeText);
@@ -173,7 +185,7 @@ export default function ReportEditor() {
   const runMeta = { runKind, trafficMode, isDispatched:runDispatched, arrestMade, transportedAfterArrest:arrestMade && transported, arrestProcessRequired, buildingSearchRequired, oviProcessed, oviProcessRequired, narrativeAdditionRequired };
   const requiredSupplements = requiredSupplementalForms(runMeta);
   const workflowDraft: RunWorkflowDraft = {
-    ...runMeta, checklist: runChecklist, directiveReviews, narrative: runNarrative,
+    ...runMeta, checklist: runChecklist, checklistFailures:runChecklistFailures, directiveReviews, narrative: runNarrative,
     arrestClassificationVersion: editingRunId ? r?.runs.find(run=>run.id===editingRunId)?.arrestClassificationVersion ?? 1 : 1,
     arrestSeverity, arrestType,
     incidentNumber: incidentNumber.trim() || undefined, location: runLocation.trim() || undefined,
@@ -353,6 +365,95 @@ export default function ReportEditor() {
     recompute({transportedAfterArrest:value});
     
   };
+  const openFailurePrompt=(target:ChecklistActionTarget,mode:'clear'|'edit')=>{
+    const choices=runFailureActionChoices(target.form,target.key,target.label);
+    if(!choices)return;
+    setFailurePromptQueue([]);
+    setFailurePrompt({ ...target, choices, mode });
+    setFailurePromptSelection([...(runChecklistFailures[target.key]??[])]);
+  };
+  const closeFailurePrompt=()=>{
+    const next=failurePromptQueue[0];
+    setFailurePromptQueue(current=>current.slice(1));
+    if(next){
+      setFailurePrompt(next);
+      setFailurePromptSelection([...(runChecklistFailures[next.key]??[])]);
+    }else{
+      setFailurePrompt(null);
+      setFailurePromptSelection([]);
+    }
+  };
+  const cancelFailurePrompt=()=>{
+    // Clearing is staged until confirmation, so cancel leaves the checkbox and its
+    // saved details untouched. Bulk clears continue to the next combined item.
+    closeFailurePrompt();
+  };
+  const confirmFailurePrompt=()=>{
+    if(!failurePrompt||!failurePromptSelection.length)return;
+    setRunChecklist(current=>({...current,[failurePrompt.key]:false}));
+    setRunChecklistFailures(current=>({...current,[failurePrompt.key]:[...failurePromptSelection]}));
+    setRunError('');
+    closeFailurePrompt();
+  };
+  const changeRunChecklistItem=(target:ChecklistActionTarget,checked:boolean)=>{
+    if(checked){
+      setRunChecklist(current=>({...current,[target.key]:true}));
+      setRunChecklistFailures(current=>{
+        if(!(target.key in current))return current;
+        const next={...current};delete next[target.key];return next;
+      });
+      setRunError('');
+      return;
+    }
+    const choices=runFailureActionChoices(target.form,target.key,target.label);
+    if(choices){
+      openFailurePrompt(target,'clear');
+      return;
+    }
+    setRunChecklist(current=>({...current,[target.key]:false}));
+    setRunChecklistFailures(current=>{
+      if(!(target.key in current))return current;
+      const next={...current};delete next[target.key];return next;
+    });
+    setRunError('');
+  };
+  const clearChecklistItems=(targets:ChecklistActionTarget[],notApplicableKey:string)=>{
+    const changed=targets.filter(target=>runChecklist[target.key]!==false);
+    const updates:Record<string,boolean>={[notApplicableKey]:false};
+    const queued:FailurePromptTarget[]=[];
+    for(const target of changed){
+      const choices=runFailureActionChoices(target.form,target.key,target.label);
+      if(choices){
+        // Keep combined items checked until their individual failure is confirmed.
+        updates[target.key]=true;
+        queued.push({...target,choices,mode:'clear'});
+      }else updates[target.key]=false;
+    }
+    setRunChecklist(current=>({...current,...updates}));
+    setRunChecklistFailures(current=>{
+      const next={...current};
+      changed.forEach(target=>{delete next[target.key];});
+      return next;
+    });
+    setFailurePromptQueue(queued.slice(1));
+    if(queued[0]){
+      setFailurePrompt(queued[0]);
+      setFailurePromptSelection([]);
+    }else{
+      setFailurePrompt(null);
+      setFailurePromptSelection([]);
+    }
+    setRunError('');
+  };
+  const selectChecklistItems=(targets:ChecklistActionTarget[],notApplicableKey:string)=>{
+    setRunChecklist(current=>({...current,[notApplicableKey]:false,...Object.fromEntries(targets.map(target=>[target.key,true]))}));
+    setRunChecklistFailures(current=>{
+      const next={...current};
+      targets.forEach(target=>{delete next[target.key];});
+      return next;
+    });
+    setRunError('');
+  };
 
   const addRun = () => {
     if (!r || !editable) return;
@@ -421,7 +522,7 @@ export default function ReportEditor() {
       activityFlags:{...activityFlags}, situationFoundCode,
       transportedAfterArrest: arrestMade && transported, arrestProcessRequired, buildingSearchRequired, oviProcessRequired, oviProcessed, narrativeAdditionRequired,
       formStatus: !!runNarrative.trim() ? 'complete' : 'in_progress',
-      checklist: { ...runChecklist }, directiveReviews:directiveReviewsToSave, checklistReviewedAt:new Date().toISOString(), narrative: runNarrative,
+      checklist: { ...runChecklist }, ...(Object.keys(runChecklistFailures).length?{checklistFailures:structuredClone(runChecklistFailures)}:{}), directiveReviews:directiveReviewsToSave, checklistReviewedAt:new Date().toISOString(), narrative: runNarrative,
     };
     nextRun.generatedDocuments=buildClearanceDocuments(nextRun);
     setR(current=>current && ({...current,ratingsReviewedAt:undefined,runs: previous ? current.runs.map(item => item.id === previous.id ? nextRun : item) : [...current.runs, nextRun]}));
@@ -458,7 +559,13 @@ export default function ReportEditor() {
     setIncidentNumber(''); setRunLocation(''); setRunLocationCity(''); setRunLocationState(''); setRunLocationZip(''); setRunZone(''); setRunCruiserDistrict(''); generatedNarrativeRef.current = '';
     setTrafficMode('none'); setArrestMade(false); setTransported(false); setTransportDestination(''); setTransportDestinationType(undefined); setArrestProcessRequired(false); setBuildingSearchRequired(false); setOviProcessRequired(false); setOviProcessed(false); setNarrativeAdditionRequired(false);
     setActivityFlags({}); setDispatchedCode(''); setSituationFoundCode(''); setClearanceCode('');
-    setRunNarrative(''); setRunChecklist(newRunChecklist('call_for_service')); setDirectiveReviews({}); 
+    setRunNarrative('');
+    setRunChecklist(newRunChecklist('call_for_service'));
+    setRunChecklistFailures({});
+    setFailurePrompt(null);
+    setFailurePromptQueue([]);
+    setFailurePromptSelection([]);
+    setDirectiveReviews({});
   };
   const editRun = (run: TrainingRun) => {
     setRiskPrompt(false);setRiskCodeDirty(false);setRiskCandidate('');
@@ -482,7 +589,7 @@ export default function ReportEditor() {
     setTransported(run.transportedAfterArrest); setTransportDestination(run.transportDestination??''); setTransportDestinationType(run.transportDestinationType); setArrestProcessRequired(!!run.arrestProcessRequired); setBuildingSearchRequired(!!run.buildingSearchRequired); setOviProcessRequired(!!run.oviProcessRequired); setOviProcessed(run.oviProcessed);
     setNarrativeAdditionRequired(run.narrativeAdditionRequired);
     setDirectiveReviews(run.directiveReviews??{});
-    setRunNarrative(run.narrative); setRunChecklist(run.checklist ?? {});
+    setRunNarrative(run.narrative); setRunChecklist(run.checklist ?? {});setRunChecklistFailures(run.checklistFailures??{});
     setSheetReviews({});
     setLegacyReviewSheets(run.checklistReviewedAt ? ['primary' as RunSheetKey, ...requiredSupplementalForms(run)] : null);
     setStage('runs');
@@ -530,6 +637,7 @@ export default function ReportEditor() {
     setDispatchedCode(current=>current||DEFAULT_RUN_TYPE_CODES[next]||'');
     // Primary task indices mean different things per form: reset them; keep supplement answers.
     setRunChecklist(prev=>resetPrimaryChecklist({...runMeta,runKind:next,trafficMode:mode,isDispatched:dispatched},prev));
+    setRunChecklistFailures(current=>Object.fromEntries(Object.entries(current).filter(([key])=>!/^task-\d+$/.test(key))));
     setDirectiveReviews(current=>{const copy={...current};delete copy[previousKind];return copy;});
     setSheetReviews(current=>{const copy={...current};delete copy.primary;return copy;});
     setRunError('');
@@ -854,17 +962,17 @@ export default function ReportEditor() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="font-semibold text-sm" title={RUN_FORM_GUIDANCE[runKind]}>{selectedForm.label}</div>
                 <div className="flex flex-wrap gap-2">
-                  <label className="flex min-h-11 items-center gap-2 rounded border px-3 text-sm font-semibold"><input type="checkbox" disabled={!editable} checked={!!runChecklist['na-task']} onChange={event=>{const notApplicable=event.target.checked;setRunChecklist(current=>({...current,'na-task':notApplicable,...(notApplicable?Object.fromEntries(checkItems.map((_,index)=>[`task-${index}`,false])):{})}));if(notApplicable&&primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);setRunError('');}} data-testid="checkbox-run-na"/>Not applicable</label>
-                   <button type="button" disabled={!editable} onClick={()=>{const select=!primaryChecklistAllChecked;setRunChecklist(current=>({...current,'na-task':false,...Object.fromEntries(checkItems.map((_,index)=>[`task-${index}`,select]))}));if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,select);setRunError('');}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-run-checklist">{primaryChecklistAllChecked?'Deselect all':'Select all'}</button>
-                  <button type="button" disabled={!editable} onClick={()=>{setRunChecklist(current=>({...current,'na-task':false,...Object.fromEntries(checkItems.map((_,index)=>[`task-${index}`,false]))}));if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);setRunError('');}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid="button-clear-run-checklist">Clear all checkboxes</button>
+                <label className="flex min-h-11 items-center gap-2 rounded border px-3 text-sm font-semibold"><input type="checkbox" disabled={!editable} checked={!!runChecklist['na-task']} onChange={event=>{const notApplicable=event.target.checked;setRunChecklist(current=>({...current,'na-task':notApplicable,...(notApplicable?Object.fromEntries(checkItems.map((_,index)=>[`task-${index}`,false])):{})}));if(notApplicable){setRunChecklistFailures(current=>{const next={...current};checkItems.forEach((_,index)=>{delete next[`task-${index}`];});return next;});}if(notApplicable&&primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);setRunError('');}} data-testid="checkbox-run-na"/>Not applicable</label>
+                    <button type="button" disabled={!editable} onClick={()=>{const targets=primaryChecklistGroups.flatMap(group=>group.items.map((item,index)=>({form:runKind,key:`task-${group.start+index}`,label:item.label})));if(primaryChecklistAllChecked)clearChecklistItems(targets,'na-task');else selectChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,!primaryChecklistAllChecked);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-run-checklist">{primaryChecklistAllChecked?'Deselect all':'Select all'}</button>
+                   <button type="button" disabled={!editable} onClick={()=>{const targets=primaryChecklistGroups.flatMap(group=>group.items.map((item,index)=>({form:runKind,key:`task-${group.start+index}`,label:item.label})));clearChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid="button-clear-run-checklist">Clear all checkboxes</button>
                 </div>
               </div>
                 <details className="mt-2 rounded border bg-muted/30 p-2 text-xs"><summary className="cursor-pointer font-semibold">{RUN_FORM_GUIDANCE[runKind]}</summary><p className="mt-1">The segments below follow the selected manual form. Hover or focus each item for its meaning. Check only when the PO completed the action acceptably; clear it if not completed acceptably, not applicable, or performed by the FTO, and document deficiencies or training in the narrative.</p></details>
                 <p className="my-2 rounded border border-warn/50 bg-warn/10 p-2 text-xs">Run checklist items start checked. Review every segment before saving; clear any item the PO did not complete acceptably or that did not apply.</p>
                <div className="mt-2 grid gap-3">
-                      {primaryChecklistGroups.map(group=><fieldset key={group.title} disabled={!editable||!!runChecklist['na-task']} className="rounded border p-3">
-                        {group.title&&<legend className="px-2 text-xs font-bold"><button type="button" disabled={!editable||!!runChecklist['na-task']} aria-label={`Toggle ${group.title} checklist`} aria-pressed={group.items.every((_,index)=>runChecklist[`task-${group.start+index}`]!==false)} onClick={()=>{const result=toggleChecklistSection(runChecklist,'task-',group.start,group.items.length,'na-task');setRunChecklist(result.checklist);if(primaryDirectiveIndex>=group.start&&primaryDirectiveIndex<group.start+group.items.length)setDirectiveReviewFlags(runKind,result.checked);setRunError('');}} data-testid={`button-toggle-run-section-${runKind}-${group.start}`}>{group.title}</button></legend>}
-                       <div className="grid gap-2 sm:grid-cols-2">{group.items.map((item,index)=>{const itemIndex=group.start+index;return <label key={itemIndex} title={checklistHelp(selectedForm.label,item.help)} aria-label={`${item.label}. ${item.help}`} className="flex items-start gap-2 rounded-sm py-1 text-xs leading-5"><input type="checkbox" checked={runChecklist[`task-${itemIndex}`]!==false} onChange={e=>{setRunChecklist(x=>({...x,[`task-${itemIndex}`]:e.target.checked}));setRunError('');}} data-testid={`checkbox-run-task-${itemIndex}`} /><span>{item.label}</span></label>})}</div>
+                       {primaryChecklistGroups.map(group=><fieldset key={group.title} disabled={!editable||!!runChecklist['na-task']} className="rounded border p-3">
+                         {group.title&&<legend className="px-2 text-xs font-bold"><button type="button" disabled={!editable||!!runChecklist['na-task']} aria-label={`Toggle ${group.title} checklist`} aria-pressed={group.items.every((_,index)=>runChecklist[`task-${group.start+index}`]!==false)} onClick={()=>{const targets=group.items.map((item,index)=>({form:runKind,key:`task-${group.start+index}`,label:item.label}));const allChecked=targets.every(target=>runChecklist[target.key]!==false);if(allChecked)clearChecklistItems(targets,'na-task');else selectChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=group.start&&primaryDirectiveIndex<group.start+group.items.length)setDirectiveReviewFlags(runKind,!allChecked);}} data-testid={`button-toggle-run-section-${runKind}-${group.start}`}>{group.title}</button></legend>}
+                        <div className="grid gap-2 sm:grid-cols-2">{group.items.map((item,index)=>{const itemIndex=group.start+index;const key=`task-${itemIndex}`;const target={form:runKind,key,label:item.label};const actionChoices=runFailureActionChoices(runKind,key,item.label);return <div key={itemIndex} className="rounded-sm py-1"><label title={checklistHelp(selectedForm.label,item.help)} aria-label={`${item.label}. ${item.help}`} className="flex items-start gap-2 text-xs leading-5"><input type="checkbox" checked={runChecklist[key]!==false} onChange={e=>changeRunChecklistItem(target,e.target.checked)} data-testid={`checkbox-run-task-${itemIndex}`} /><span className="min-w-0">{item.label}{runChecklistFailures[key]?.map(action=><span key={action} className="block text-muted-foreground">Not completed: <strong className="font-bold text-destructive">{action}</strong></span>)}</span></label>{actionChoices&&runChecklist[key]===false&&<button type="button" onClick={()=>openFailurePrompt(target,'edit')} className="ml-6 mt-1 min-h-8 text-left text-xs font-semibold text-primary underline" data-testid={`button-edit-run-failure-${itemIndex}`}>{runChecklistFailures[key]?.length?'Edit specific actions':'Add specific actions'}</button>}</div>})}</div>
                     </fieldset>)}
                      {primaryDirectiveIndex>=0&&runChecklist[`task-${primaryDirectiveIndex}`]!==false&&<DirectiveReviewEditor value={primaryDirectiveReview} disabled={!editable} dataTestId={`directive-review-${runKind}`} onChange={(field,value)=>updateDirectiveReview(runKind,field,value)}/>}
                </div>
@@ -883,14 +991,14 @@ export default function ReportEditor() {
                  return <div key={supplement} className="mt-3 rounded border border-accent/40 bg-accent/5 p-3" data-testid={`section-supplement-${supplement}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2"><div className="font-semibold text-sm" title={SUPPLEMENTAL_FORM_GUIDANCE[supplement]}>{form.label}</div>
                       {supplementItems.length>0&&<div className="flex flex-wrap gap-2">
-                        <label className="flex min-h-11 items-center gap-2 rounded border px-3 text-sm font-semibold"><input type="checkbox" disabled={!editable} checked={!!runChecklist[`na-supp-${supplement}`]} onChange={event=>{const notApplicable=event.target.checked;setRunChecklist(current=>({...current,[`na-supp-${supplement}`]:notApplicable,...(notApplicable?Object.fromEntries(supplementItems.map((_,index)=>[`supp-${supplement}-${index}`,false])):{})}));if(notApplicable&&supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);setRunError('');}} data-testid={`checkbox-supplement-na-${supplement}`}/>Not applicable</label>
-                        <button type="button" disabled={!editable} onClick={()=>{const select=!supplementAllChecked;setRunChecklist(current=>({...current,[`na-supp-${supplement}`]:false,...Object.fromEntries(supplementItems.map((_,index)=>[`supp-${supplement}-${index}`,select]))}));if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,select);setRunError('');}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-toggle-supplement-${supplement}`}>{supplementAllChecked?'Deselect all':'Select all'}</button>
-                        <button type="button" disabled={!editable} onClick={()=>{setRunChecklist(current=>({...current,[`na-supp-${supplement}`]:false,...Object.fromEntries(supplementItems.map((_,index)=>[`supp-${supplement}-${index}`,false]))}));if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);setRunError('');}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid={`button-clear-supplement-${supplement}`}>Clear all checkboxes</button>
+                        <label className="flex min-h-11 items-center gap-2 rounded border px-3 text-sm font-semibold"><input type="checkbox" disabled={!editable} checked={!!runChecklist[`na-supp-${supplement}`]} onChange={event=>{const notApplicable=event.target.checked;setRunChecklist(current=>({...current,[`na-supp-${supplement}`]:notApplicable,...(notApplicable?Object.fromEntries(supplementItems.map((_,index)=>[`supp-${supplement}-${index}`,false])):{})}));if(notApplicable){setRunChecklistFailures(current=>{const next={...current};supplementItems.forEach((_,index)=>{delete next[`supp-${supplement}-${index}`];});return next;});}if(notApplicable&&supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);setRunError('');}} data-testid={`checkbox-supplement-na-${supplement}`}/>Not applicable</label>
+                         <button type="button" disabled={!editable} onClick={()=>{const targets=groups.flatMap(group=>group.items.map((item,index)=>({form:supplement,key:`supp-${supplement}-${group.start+index}`,label:item.label})));if(supplementAllChecked)clearChecklistItems(targets,`na-supp-${supplement}`);else selectChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,!supplementAllChecked);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-toggle-supplement-${supplement}`}>{supplementAllChecked?'Deselect all':'Select all'}</button>
+                         <button type="button" disabled={!editable} onClick={()=>{const targets=groups.flatMap(group=>group.items.map((item,index)=>({form:supplement,key:`supp-${supplement}-${group.start+index}`,label:item.label})));clearChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid={`button-clear-supplement-${supplement}`}>Clear all checkboxes</button>
                       </div>}
                    </div>
                      <p className="mt-2 rounded border bg-muted/30 p-2 text-xs">{SUPPLEMENTAL_FORM_GUIDANCE[supplement]}</p>
                      {supplementItems.length>0?<><details className="mt-2 rounded border bg-muted/30 p-2 text-xs"><summary className="cursor-pointer font-semibold">How to review this form</summary><p className="mt-1">Hover or focus each item for its meaning. Check only when the PO completed the action acceptably. Clear it if not completed acceptably, not applicable, or performed by the FTO; document deficiencies and training in the narrative.</p></details>
-                      <div className="mt-2 grid gap-3">{groups.map(group=><fieldset key={group.title||group.start} disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} className="rounded border border-accent/30 p-3">{group.title&&<legend className="px-2 text-xs font-bold"><button type="button" disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} aria-label={`Toggle ${group.title} checklist`} aria-pressed={group.items.every((_,index)=>runChecklist[`supp-${supplement}-${group.start+index}`]!==false)} onClick={()=>{const result=toggleChecklistSection(runChecklist,`supp-${supplement}-`,group.start,group.items.length,`na-supp-${supplement}`);setRunChecklist(result.checklist);if(supplementDirectiveIndex>=group.start&&supplementDirectiveIndex<group.start+group.items.length)setDirectiveReviewFlags(supplement,result.checked);setRunError('');}} data-testid={`button-toggle-supplement-section-${supplement}-${group.start}`}>{group.title}</button></legend>}<div className="grid gap-2 sm:grid-cols-2">{group.items.map((item,index)=>{const itemIndex=group.start+index;return <label key={itemIndex} title={checklistHelp(form.label,item.help)} aria-label={`${item.label}. ${item.help}`} className="flex items-start gap-2 rounded-sm py-1 text-xs leading-5"><input type="checkbox" checked={runChecklist[`supp-${supplement}-${itemIndex}`]!==false} onChange={event=>{setRunChecklist(x=>({...x,[`supp-${supplement}-${itemIndex}`]:event.target.checked}));setRunError('');}} data-testid={`checkbox-supplement-${supplement}-${itemIndex}`} /><span>{item.label}</span></label>})}</div></fieldset>)}</div>
+                       <div className="mt-2 grid gap-3">{groups.map(group=><fieldset key={group.title||group.start} disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} className="rounded border border-accent/30 p-3">{group.title&&<legend className="px-2 text-xs font-bold"><button type="button" disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} aria-label={`Toggle ${group.title} checklist`} aria-pressed={group.items.every((_,index)=>runChecklist[`supp-${supplement}-${group.start+index}`]!==false)} onClick={()=>{const targets=group.items.map((item,index)=>({form:supplement,key:`supp-${supplement}-${group.start+index}`,label:item.label}));const allChecked=targets.every(target=>runChecklist[target.key]!==false);if(allChecked)clearChecklistItems(targets,`na-supp-${supplement}`);else selectChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=group.start&&supplementDirectiveIndex<group.start+group.items.length)setDirectiveReviewFlags(supplement,!allChecked);}} data-testid={`button-toggle-supplement-section-${supplement}-${group.start}`}>{group.title}</button></legend>}<div className="grid gap-2 sm:grid-cols-2">{group.items.map((item,index)=>{const itemIndex=group.start+index;const key=`supp-${supplement}-${itemIndex}`;const target={form:supplement,key,label:item.label};const actionChoices=runFailureActionChoices(supplement,key,item.label);return <div key={itemIndex} className="rounded-sm py-1"><label title={checklistHelp(form.label,item.help)} aria-label={`${item.label}. ${item.help}`} className="flex items-start gap-2 text-xs leading-5"><input type="checkbox" checked={runChecklist[key]!==false} onChange={event=>changeRunChecklistItem(target,event.target.checked)} data-testid={`checkbox-supplement-${supplement}-${itemIndex}`} /><span className="min-w-0">{item.label}{runChecklistFailures[key]?.map(action=><span key={action} className="block text-muted-foreground">Not completed: <strong className="font-bold text-destructive">{action}</strong></span>)}</span></label>{actionChoices&&runChecklist[key]===false&&<button type="button" onClick={()=>openFailurePrompt(target,'edit')} className="ml-6 mt-1 min-h-8 text-left text-xs font-semibold text-primary underline" data-testid={`button-edit-supplement-failure-${supplement}-${itemIndex}`}>{runChecklistFailures[key]?.length?'Edit specific actions':'Add specific actions'}</button>}</div>})}</div></fieldset>)}</div>
                      {supplementDirectiveIndex>=0&&runChecklist[`supp-${supplement}-${supplementDirectiveIndex}`]!==false&&<DirectiveReviewEditor value={supplementDirectiveReview} disabled={!editable} dataTestId={`directive-review-${supplement}`} onChange={(field,value)=>updateDirectiveReview(supplement,field,value)}/>}</>:<p className="mt-2 text-xs text-muted-foreground">The submitted form has no separate checkbox list here.</p>}
                      {supplement==='narrative_addition'&&<p className="mt-2 rounded border bg-card p-2 text-xs">The continuation pages print the run narrative written on the Narrative &amp; save sheet. Changing that narrative requires this sheet to be reviewed again.</p>}
                      {sheetReviewFooter(supplement)}
@@ -929,11 +1037,19 @@ export default function ReportEditor() {
                    const item=SUPPLEMENTAL_RUN_FORMS.find(form=>form.key===key);
                    return item ? `${item.label}${item.formNumber ? ` · ${item.formNumber}` : ''}` : '';
                  }).filter(Boolean);
+                 const failureSummaries=runChecklistFailureSummaries(run);
                 return <li key={run.id} className="py-3" data-testid={`row-training-run-${run.id}`}>
                    <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><div className="font-semibold text-sm">{form?.label ?? 'Training run'}</div><div className="text-xs text-muted-foreground">{formatDateTimeMDY(run.occurredAt)} · {run.isDispatched?'Dispatched':'Self-initiated'}</div></div><button type="button" disabled={!editable} onClick={()=>requestEditRun(run)} className="rounded border px-2 py-1 text-xs font-semibold disabled:opacity-50" data-testid={`button-edit-run-${run.id}`}>Edit</button><button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>set('runs',r.runs.filter(item=>item.id!==run.id))})} aria-label="Remove run" className="rounded border p-1.5 text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}><Trash className="h-4 w-4" /></button></div>
                   <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]"><span className="rounded bg-muted px-2 py-0.5" data-testid={`status-run-form-${run.id}`}>{run.formStatus.replace('_',' ')}</span>{supplements.map(name=><span key={name} className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5">{name}</span>)}</div>
                    <p className="mt-1 text-xs">Run: {run.dispatchedCode ? `10-${run.dispatchedCode}`:'Not recorded'} · Found: {run.situationFoundCode ? formatRadioCode(run.situationFoundCode):'Not recorded'} · Clearance: {run.clearanceCode || 'Not recorded'}</p>
                       {run.runKind==='traffic_stop'&&<p className="mt-1 text-xs">Traffic violator: {run.trafficMode.replace('_',' ')}{run.activityFlags?.solveCitationSummons?' · Solve Citation/Summons selected':''}</p>}
+                   {failureSummaries.length>0&&<div className="mt-2 rounded border border-destructive/30 bg-destructive/5 p-2" data-testid={`list-run-failures-${run.id}`}>
+                     <div className="text-xs font-bold">Unchecked run checklist items</div>
+                     <ul className="mt-1 space-y-1">{failureSummaries.map(item=><li key={item.key} className="text-xs">
+                       <span>{item.label}</span>
+                       {item.failureActions.map(action=><span key={action} className="ml-2 block text-muted-foreground">Not completed: <strong className="font-bold text-destructive">{action}</strong></span>)}
+                     </li>)}</ul>
+                   </div>}
                   {run.narrative && <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{run.narrative}</p>}
                 </li>;
               })}</ul>}
@@ -1094,6 +1210,16 @@ export default function ReportEditor() {
       <NewRunDialog open={newRunOpen&&editable} defaultUnit={r.reportingForDuty?.cruiserId||r.reportingForDuty?.unitNumber||''} onCancel={()=>setNewRunOpen(false)} onConfirm={startNewRun}/>
       <TrafficStopRiskPrompt open={riskPrompt&&editable} onOpenChange={setRiskPrompt} kind={riskCandidate} code={dispatchedCode}
         testId="dialog-run-high-risk" onChange={next=>{setRiskPrompt(false);requestRunKind(next,true);}}/>
+      <RunChecklistFailureDialog
+        open={!!failurePrompt}
+        parentLabel={failurePrompt?.label??''}
+        choices={failurePrompt?.choices??[]}
+        selected={failurePromptSelection}
+        mode={failurePrompt?.mode??'clear'}
+        onSelectedChange={setFailurePromptSelection}
+        onCancel={()=>{if(failurePrompt)cancelFailurePrompt();}}
+        onConfirm={confirmFailurePrompt}
+      />
       <AlertDialog open={!!confirmAction} onOpenChange={open=>{if(!open)setConfirmAction(null);}}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>{confirmAction?.title}</AlertDialogTitle><AlertDialogDescription>{confirmAction?.body}</AlertDialogDescription></AlertDialogHeader>

@@ -1624,16 +1624,18 @@ main button.seg-rating-choice {
   .print-run-fields b { font-size: 6pt; text-transform: uppercase; }
    .print-run-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); margin-bottom: 4px; }
   .print-run-legend { margin-bottom: 6px; padding: 4px; background: #eef1f4; font-size: 7pt; }
-    .print-run-checkgroup,
-    .print-run-checklist { margin: 2px 0; border: 1px solid #888; padding: 2px 4px; break-inside: avoid; page-break-inside: avoid; }
+     .print-run-checkgroup,
+     .print-run-checklist { margin: 1px 0; border: 1px solid #888; padding: 1px 3px; break-inside: avoid; page-break-inside: avoid; }
     .print-run-checkgroup h2,
-    .print-run-checklist h2 { margin: 0 0 2px; font-size: 6.7pt; }
+     .print-run-checklist h2 { margin: 0 0 1px; font-size: 6.5pt; }
     .print-run-checkgroup ul,
-    .print-run-checklist ul { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1px 6px; margin: 0; padding: 0; list-style: none; }
+     .print-run-checklist ul { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 0 5px; margin: 0; padding: 0; list-style: none; }
     .print-run-checkgroup li,
-    .print-run-checklist li { display: flex; align-items: start; gap: 2px; margin: 0 0 1px; font-size: 6.3pt; line-height: 1.05; break-inside: avoid; page-break-inside: avoid; }
+     .print-run-checklist li { display: flex; align-items: start; gap: 2px; margin: 0; font-size: 6pt; line-height: 1; break-inside: avoid; page-break-inside: avoid; }
     .print-run-checkgroup li b,
     .print-run-checklist li b { min-width: 8px; }
+    .print-run-failure-detail { display: block; margin-left: 9px; color: #222; }
+    .print-run-failure-detail strong { color: #9b1c1c; font-weight: 700; }
    .print-run-checklist > p { margin: 0 0 3px; font-size: 6pt; }
     .print-directive-review { margin: 2px 0; padding: 2px 4px; border: 1px solid #888; font-size: 5.7pt; line-height: 1.05; overflow-wrap: anywhere; }
     .print-material-checks { margin: 2px 0; }

@@ -21,9 +21,10 @@ export const modules: ModuleMap = {
   "./components/mockups/high-risk-stop/Current.tsx": () => import("../components/mockups/high-risk-stop/Current.tsx"),
   "./components/mockups/high-risk-stop/PromptFlow.tsx": () => import("../components/mockups/high-risk-stop/PromptFlow.tsx"),
   "./components/mockups/operations/AuditPulse.tsx": () => import("../components/mockups/operations/AuditPulse.tsx"),
-  "./components/mockups/orientation-editable/EditableOrientation.tsx": () => import("../components/mockups/orientation-editable/EditableOrientation.tsx"),
   "./components/mockups/packet-history/PacketHistoryFiltersPreview.tsx": () => import("../components/mockups/packet-history/PacketHistoryFiltersPreview.tsx"),
   "./components/mockups/packet-upload/DraftFinalizationPreview.tsx": () => import("../components/mockups/packet-upload/DraftFinalizationPreview.tsx"),
   "./components/mockups/packet-upload/PacketUploadPreview.tsx": () => import("../components/mockups/packet-upload/PacketUploadPreview.tsx"),
-  "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx")
+  "./components/mockups/orientation-editable/EditableOrientation.tsx": () => import("../components/mockups/orientation-editable/EditableOrientation.tsx"),
+  "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx"),
+  "./components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx": () => import("../components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx")
 };

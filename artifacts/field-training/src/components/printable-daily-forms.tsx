@@ -137,7 +137,7 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
        <Field label="Arrest / transport" value={`${run.arrestMade?'Arrest made':'No arrest'}${run.transportedAfterArrest?` · ${run.transportDestinationType??'destination type not recorded'} · transported to ${run.transportDestination?.trim()||'destination not recorded'}`:''}`}/>
       <Field label="OVI processed" value={run.oviProcessed?'Yes':'No'}/>
     </div>
-    <Checklist title="Primary form checklist" sections={RUN_CHECKLIST_SECTIONS[run.runKind]} state={run.checklist} prefix="task-" notApplicable={!!run.checklist['na-task']}/>
+    <Checklist title="Primary form checklist" sections={RUN_CHECKLIST_SECTIONS[run.runKind]} state={run.checklist} failures={run.checklistFailures} prefix="task-" notApplicable={!!run.checklist['na-task']}/>
      <DirectiveReviewPrint run={run} formKey={run.runKind} prefix="task-"/>
      <section className="print-run-narrative"><b>Run narrative</b><p>{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the following narrative continuation page'}.`:run.narrative||'—'}</p></section>
     <footer className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.</footer>
@@ -163,7 +163,7 @@ function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{
       <Field label="Dispatched" value={run.isDispatched?'Yes':'No'}/>
       <Field label="Traffic violator" value={run.trafficMode==='none'?'—':run.trafficMode.replace('_',' ')}/>
     </div>
-     {RUN_SUPPLEMENT_CHECKLIST_SECTIONS[formKey].length>0&&<Checklist title={`${form?.label||'Supplemental'} checklist`} sections={RUN_SUPPLEMENT_CHECKLIST_SECTIONS[formKey]} state={run.checklist} prefix={`supp-${formKey}-`} notApplicable={!!run.checklist[`na-supp-${formKey}`]}/>}
+    {RUN_SUPPLEMENT_CHECKLIST_SECTIONS[formKey].length>0&&<Checklist title={`${form?.label||'Supplemental'} checklist`} sections={RUN_SUPPLEMENT_CHECKLIST_SECTIONS[formKey]} state={run.checklist} failures={run.checklistFailures} prefix={`supp-${formKey}-`} notApplicable={!!run.checklist[`na-supp-${formKey}`]}/>}
      <DirectiveReviewPrint run={run} formKey={formKey} prefix={`supp-${formKey}-`}/>
      <section className="print-run-narrative"><b>Related primary narrative</b><p>{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the narrative continuation page'}.`:run.narrative||'—'}</p></section>
     <footer className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.</footer>
@@ -214,11 +214,11 @@ function NarrativeContinuationPages({report,run,pageReferences}:{report:Report;r
 }
 
 
-function Checklist({title,sections,state,prefix,notApplicable}:{title:string;sections:readonly {title:string;items:readonly {label:string;help:string}[]}[];state:Record<string,boolean>;prefix:string;notApplicable:boolean}) {
+function Checklist({title,sections,state,failures,prefix,notApplicable}:{title:string;sections:readonly {title:string;items:readonly {label:string;help:string}[]}[];state:Record<string,boolean>;failures?:Record<string,string[]>;prefix:string;notApplicable:boolean}) {
   let offset=0;
   return <section className="print-run-checklist">
     <h2>{title}</h2><p>Not applicable: {notApplicable?'Yes':'No'} · ☒ checked · ☐ unchecked. New task items start checked; the FTO must verify each item and clear anything not completed acceptably.</p>
-    {sections.map(section=>{const start=offset;offset+=section.items.length;return <section className="print-run-checkgroup" key={section.title||start}>{section.title&&<h3>{section.title}</h3>}<ul>{section.items.map((item,index)=><li key={start+index} title={item.help}><b>{state[`${prefix}${start+index}`]!==false?'☒':'☐'}</b>{item.label}</li>)}</ul></section>})}
+    {sections.map(section=>{const start=offset;offset+=section.items.length;return <section className="print-run-checkgroup" key={section.title||start}>{section.title&&<h3>{section.title}</h3>}<ul>{section.items.map((item,index)=>{const key=`${prefix}${start+index}`;return <li key={start+index} title={item.help}><b>{state[key]!==false?'☒':'☐'}</b><span>{item.label}{failures?.[key]?.map(action=><span className="print-run-failure-detail" key={action}><span>Not completed: </span><strong>{action}</strong></span>)}</span></li>})}</ul></section>})}
   </section>;
 }
 

@@ -38,7 +38,11 @@ test("the generated-contract bridge preserves complete report details rather tha
   const report = {
     id: "packet-1", date: "2026-11-23", phase: 1, className: "test",
     recruitName: "Test PO", recruitBadge: "99", ftoName: "Test FTO", ftoBadge: "1234",
-    runs: [], activity: {}, reportingForDuty: {}, ratings: {}, narrative: "full narrative",
+    runs: [{
+      id:"run-specific-failure",runKind:"traffic_stop",
+      checklist:{"task-6":false},
+      checklistFailures:{"task-6":["Marked the call number"]},
+    }], activity: {}, reportingForDuty: {}, ratings: {}, narrative: "full narrative",
     remedial: "", recruitComments: "", status: "draft", signatures: {}, shift: "A-Co",
     zone: "1", precinct: "1", cruiserDistrict: "11", createdAt: "", updatedAt: "",
     checklistDeficiencies: [{ category: "dutyReadiness", narrative: "Preserve this evidence" }],
@@ -47,6 +51,7 @@ test("the generated-contract bridge preserves complete report details rather tha
     { operation_id: crypto.randomUUID(), base_version: 0, report },
   ] });
   assert.deepEqual(result.packets[0].report.checklistDeficiencies, report.checklistDeficiencies);
+  assert.deepEqual(result.packets[0].report.runs, report.runs);
   assert.equal(result.packets[0].report.date, report.date);
 });
 test("packet tree rejects prototype pollution, deep nesting and non-JSON values without damaging ordinary prose", () => {

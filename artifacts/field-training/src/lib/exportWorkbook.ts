@@ -135,6 +135,17 @@ function autosize(workbook: XLSX.WorkBook) {
         if (ratingStyle) ratingCell.s = { ...ratingCell.s, ...ratingStyle, alignment: { horizontal: 'center', vertical: 'center' }, border: gridBorder };
       }
     }
+    if(name==='Run Checklist'||name==='Checklist Exceptions') {
+      const failureColumn=Array.from({length:range.e.c+1},(_,column)=>
+        current[XLSX.utils.encode_cell({r:0,c:column})]?.v==='Specific failure actions'?column:-1,
+      ).find(column=>column>=0)??-1;
+      if(failureColumn>=0)for(let row=1;row<=range.e.r;row++){
+        const address=XLSX.utils.encode_cell({r:row,c:failureColumn});
+        const cell=current[address];
+        if(!cell||typeof cell.v!=='string'||!cell.v.trim())continue;
+        cell.s={...cell.s,font:{...(cell.s?.font??{}),bold:true,color:{rgb:'FF9B1C1C'}}};
+      }
+    }
     current['!cols'] = Array.from({ length: range.e.c + 1 }, (_, column) => {
       let max = 10;
       for (let row = range.s.r; row <= range.e.r; row++) {
@@ -230,7 +241,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
     'Remedial training', 'Remedial part', 'PO comments', 'PO comments part',
   ]];
   const runChecklistRows: (string | number)[][] = [[
-    'Probationary Officer', 'Badge', 'Date', 'Shift', 'FTO Assignment', 'Run time', 'Primary form', 'Checklist segment', 'Checklist item', 'Completed', 'Not applicable to category', 'Form status', 'Checklist reviewed at', 'Source log ID', 'Run ID',
+    'Probationary Officer', 'Badge', 'Date', 'Shift', 'FTO Assignment', 'Run time', 'Primary form', 'Checklist segment', 'Checklist item', 'Specific failure actions', 'Completed', 'Not applicable to category', 'Form status', 'Checklist reviewed at', 'Source log ID', 'Run ID',
   ]];
   const weeklyRunChecklistRows: (string|number)[][]=[['Class','Probationary Officer','Badge','Phase','FTO Assignment','Week start','Form','Checklist segment','Checklist item','Reviewed forms','Checked count','Not applicable forms','Source daily logs','Source run IDs']];
   const weeklyRunChecklist = new Map<string,{className:string;po:string;badge:string;phase:number;assignment:string;week:string;form:string;segment:string;item:string;formCount:number;checked:number;notApplicable:number;logs:Set<string>;runs:Set<string>}>();
@@ -355,7 +366,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
       for (const item of checklistRows) {
         runChecklistRows.push([
            safeText(report.recruitName),safeText(report.recruitBadge),formatDateDMY(report.date),
-           safeText(report.shift),safeText(assignmentValue(report)),safeText(formatDateTimeMDY(run.occurredAt)),safeText(item.form),safeText(item.segment),safeText(item.label),
+            safeText(report.shift),safeText(assignmentValue(report)),safeText(formatDateTimeMDY(run.occurredAt)),safeText(item.form),safeText(item.segment),safeText(item.label),safeText(run.checklistFailures?.[item.key]?.join('\n')??''),
           run.checklist[item.key]===true?'Yes':'No',run.checklist[item.notApplicableKey]===true?'Yes':'No',safeText(run.formStatus),safeText(run.checklistReviewedAt ?? 'Not reviewed'),safeText(report.id),safeText(run.id),
         ]);
         if (!reviewedComplete || !week) continue;
@@ -474,7 +485,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
       }),
     ]],
     ['Checklist Exceptions', [
-      ['Daily log ID', 'Shift date', 'Training-folder reference', 'Page', 'Run ID', 'Section', 'Task', 'Checklist reviewed', 'Attribution status', 'FTO articulation'],
+      ['Daily log ID', 'Shift date', 'Training-folder reference', 'Page', 'Run ID', 'Section', 'Task', 'Specific failure actions', 'Checklist reviewed', 'Attribution status', 'FTO articulation'],
       ...reports.flatMap(report => {
         const packet=resolveOperationalPacket(report,folders,orientations);
         const groups=collectDeficiencies(report,packet);
@@ -482,7 +493,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
           const group=groups.find(group=>group.tasks.some(task=>task.id===item.id));
           return [
         report.id, report.date, item.reference ?? 'Unavailable: phase schedule required', item.page, item.runId ?? '',
-        item.section, item.task, item.reviewed ? 'Yes' : 'No',
+        item.section, item.task, item.failureActions?.join('\n')??'', item.reviewed ? 'Yes' : 'No',
         group?`UA source: ${CATEGORY_LABEL[group.category]}`:'SEG mapping and FTO rating decision required',
         group?.narrative??'',
       ];});

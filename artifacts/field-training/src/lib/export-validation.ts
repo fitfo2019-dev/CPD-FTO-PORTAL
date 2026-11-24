@@ -7,6 +7,9 @@ import {
   PRIMARY_RUN_FORMS,
   PHASES,
   RATINGS,
+  requiredSupplementalForms,
+  RUN_CHECKLIST_SECTIONS,
+  RUN_SUPPLEMENT_CHECKLIST_SECTIONS,
   SUPPLEMENTAL_RUN_FORMS,
   type Report,
   type Phase,
@@ -14,6 +17,7 @@ import {
   type WeeklyPacketAcknowledgement,
   type WeeklyPerformanceLog,
 } from './model.js';
+import { runFailureActionChoices } from './run-checklist-failures.js';
 
 const phaseSchema = z.custom<Phase>(value=>Number.isInteger(value)&&PHASES.includes(value as Phase),'Phase must be configured in the phase registry');
 const ratingSchema = z.enum([...RATINGS, '']);
@@ -99,6 +103,7 @@ const trainingRunSchema = z.object({
   narrativeAdditionRequired: z.boolean(),
   formStatus: z.enum(['not_started', 'in_progress', 'complete']),
   checklist: booleanRecordSchema,
+  checklistFailures: z.record(z.string(), z.array(z.string().min(1)).min(1)).optional(),
   directiveReviews: z.partialRecord(
     z.enum([...PRIMARY_RUN_FORMS.map(form => form.key), ...SUPPLEMENTAL_RUN_FORMS.map(form => form.key)]),
     directiveReviewSchema,
@@ -106,6 +111,35 @@ const trainingRunSchema = z.object({
   checklistReviewedAt: z.string().optional(),
   narrative: z.string(),
 }).passthrough().superRefine((run,context)=>{
+  for (const [itemKey, selected] of Object.entries(run.checklistFailures ?? {})) {
+    let sourceForm: typeof run.runKind | typeof SUPPLEMENTAL_RUN_FORMS[number]['key'] | undefined;
+    let sourceLabel: string | undefined;
+    const primaryMatch = /^task-(\d+)$/.exec(itemKey);
+    const supplementMatch = /^supp-(arrest_process|ovi_process|building_search)-(\d+)$/.exec(itemKey);
+    if (primaryMatch) {
+      sourceForm = run.runKind;
+      const index = Number(primaryMatch[1]);
+      sourceLabel = RUN_CHECKLIST_SECTIONS[run.runKind].flatMap(section => section.items)[index]?.label;
+    } else if (supplementMatch) {
+      sourceForm = supplementMatch[1] as typeof SUPPLEMENTAL_RUN_FORMS[number]['key'];
+      const index = Number(supplementMatch[2]);
+      sourceLabel = RUN_SUPPLEMENT_CHECKLIST_SECTIONS[sourceForm].flatMap(section => section.items)[index]?.label;
+    }
+    const choices = sourceForm && sourceLabel
+      ? runFailureActionChoices(sourceForm, itemKey, sourceLabel)
+      : undefined;
+    const sourceApplicable = sourceForm===run.runKind
+      ? run.checklist['na-task']!==true
+      : !!sourceForm && requiredSupplementalForms(run).includes(sourceForm as typeof SUPPLEMENTAL_RUN_FORMS[number]['key'])
+        && run.checklist[`na-supp-${sourceForm}`]!==true;
+    if (!choices || !sourceApplicable || run.checklist[itemKey] !== false || new Set(selected).size !== selected.length || selected.some(action => !choices.includes(action))) {
+      context.addIssue({
+        code:'custom',
+        path:['checklistFailures',itemKey],
+        message:'Specific failure actions must be valid choices for an unchecked combined checklist item.',
+      });
+    }
+  }
   if(run.arrestClassificationVersion!==ARREST_CLASSIFICATION_VERSION
     ||run.clearanceCode!=='3V'||!run.arrestMade||!run.transportedAfterArrest)return;
   if(!run.arrestSeverity) context.addIssue({
@@ -136,7 +170,7 @@ const reportSchema = z.object({
   notApplicableCategories:z.array(categorySchema).optional(),
   checklistDeficiencies:z.array(z.object({
     id:z.string(),runId:z.string().optional(),category:categorySchema,narrative:z.string(),
-    tasks:z.array(z.object({id:z.string(),label:z.string(),reference:z.string().optional()})),
+    tasks:z.array(z.object({id:z.string(),label:z.string(),reference:z.string().optional(),failureActions:z.array(z.string().min(1)).min(1).optional()})),
     reviewed:z.boolean().optional(),
   })).optional(),
   id: z.string(),

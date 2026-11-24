@@ -81,3 +81,14 @@ test('saved stop types use exactly their selected primary in checklist, narrativ
     assert.ok(!checklist.some(row => row.includes(otherTask)));
   }
 });
+
+test('print packet keeps the parent checklist label neutral and highlights only selected failure actions',()=>{
+  const checklist=newRunChecklist('traffic_stop');
+  checklist['task-6']=false;
+  const run={...base,checklist,checklistFailures:{'task-6':['Marked the call number']}};
+  const html=renderToStaticMarkup(<PrintableDailyForms report={{...seedReports()[0],runs:[run]}}/>);
+  assert.ok(html.includes('Marked with call number and location'));
+  assert.ok(html.includes('<span>Not completed: </span><strong>Marked the call number</strong>'));
+  assert.ok(html.includes('class="print-run-failure-detail"'));
+  assert.equal((html.match(/<strong>Marked the call number<\/strong>/g)??[]).length,1);
+});

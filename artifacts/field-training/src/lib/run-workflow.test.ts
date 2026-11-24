@@ -50,7 +50,10 @@ test('review snapshots change for edited sheet answers or shared metadata, not u
   const original=runSheetReviewSnapshot(source,'primary');
   assert.equal(runSheetReviewSnapshot({...source,oviProcessRequired:true},'primary'),original);
   assert.equal(runSheetReviewSnapshot({...source,checklist:{...source.checklist,'supp-building_search-2':false}},'primary'),original);
+  assert.equal(runSheetReviewSnapshot({...source,checklistFailures:{'supp-building_search-2':['example detail']}},'primary'),original);
   assert.notEqual(runSheetReviewSnapshot({...source,checklist:{...source.checklist,'task-0':false}},'primary'),original);
+  const selected={...source,checklist:{...source.checklist,'task-17':false},checklistFailures:{'task-17':['Obtained identification']}};
+  assert.notEqual(runSheetReviewSnapshot({...selected,checklistFailures:{'task-17':['Gathered relevant information']}},'primary'),runSheetReviewSnapshot(selected,'primary'));
   assert.notEqual(runSheetReviewSnapshot({...source,location:'Edited location'},'primary'),original);
   assert.notEqual(runSheetReviewSnapshot({...source,unitNumber:'TEST-B'},'primary'),original);
   assert.notEqual(runSheetReviewSnapshot({...source,endedAt:'2026-11-23T15:30:00Z'},'primary'),original);
