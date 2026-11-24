@@ -1,96 +1,160 @@
-# Synthetic 205-packet stress run
+# Synthetic four-phase packet stress test
 
-## Result
+## Result and readiness findings
 
-The packet queue now drains from one explicit sync orchestration in sequential
-requests. Each request is kept under both existing limits: 100 packet records
-and 2 MiB of serialized UTF-8 JSON. The client acknowledges each successful
-batch before continuing. If a response is lost, that batch retains its exact
-encrypted snapshot and operation IDs; prior batches remain acknowledged and
-later batches remain unattempted. A packet too large to fit by itself fails
-before it is marked attempted. Draft synchronization never finalizes a packet.
+The isolated four-phase run passed with a deterministic cohort of 100 fictional
+recruits across all 15 configured program weeks. It created 6,800 daily reports,
+1,500 weekly performance logs, 400 phase assignments/folders, 400 orientation
+records, and 1,500 training runs. All 6,800 reports passed the existing report
+validator. IDs, recruit attribution, weekly source links, phase/week labels,
+and the long-text end markers were checked.
 
-No visible interface changed.
+**Priority 1 — class workbook scale needs review before a full-cohort operational
+export.** The supported workbook builder serialized successfully, but the
+full-cohort workbook took 93.1 seconds to build and serialize and produced a
+561,401,599-byte XLSX with 1,520 worksheets. The test verified the workbook’s
+record counts and narrative endings in memory and confirmed XLSX serialization;
+it did not open the file in Excel or LibreOffice. Do not treat this run as proof
+that a full-class export is usable on operational devices.
+
+**Priority 2 — the complete reports view is slow at this scale in the test
+environment.** The mounted React reports page rendered 6,800 rows in 5.32
+seconds and filtered to the 1,200 Phase IV rows in 2.15 seconds in JSDOM. This
+is a reproducible signal, not a real-browser performance measurement.
+
+The API lifecycle, encrypted local persistence, exact retry, paged list, detail
+reads and explicit finalization passed. No production or policy change was made.
+The existing 205-packet bounded client-queue test remains in place.
+
+## Cohort and coverage
+
+The fixture is stable and clearly synthetic (`FICTIONAL TEST ONLY`, `TEST-4P-*`,
+`TEST-SCENARIO-*`). It contains no real names, badges, incidents, signatures or
+official decisions. Each recruit has one assignment and phase folder for each
+phase, every scheduled workday, one weekly log per phase-week, and unique daily,
+run, weekly-log and orientation IDs.
+
+| Program phase | Configured weeks | Fictional daily reports |
+| --- | ---: | ---: |
+| Phase I | 4 | 2,000 |
+| Phase II | 4 | 2,000 |
+| Phase III | 4 | 1,600 |
+| Phase IV | 3 | 1,200 |
+| **Total** | **15** | **6,800** |
+
+Each recruit has 68 scheduled daily reports (20 + 20 + 16 + 12), 15 weekly
+performance logs and 15 sample runs. Limbo days are represented according to
+the existing schedule helpers. Long daily narratives include ending markers in
+Phase I and Phase IV. Eight first/last-day Phase I–IV boundary views and one
+Phase IV final-week print view for each of the 100 recruits were rendered. The
+full cohort workbook contains 6,800 daily index rows, 400 phase-summary rows,
+1,500 weekly-summary rows and 6,802 daily narrative rows.
+
+The roster importer accepted all 400 phase assignments. The reports page was
+mounted with the cohort, displayed all 6,800 rows, and its phase selector
+filtered the list to exactly 1,200 Phase IV reports. Workbook assertions
+verified daily IDs, phase totals, weekly row counts and the long-narrative end
+marker. The packet print/page model and printable React view were exercised at
+phase boundaries.
+
+## Local lifecycle and API behavior
+
+The full 6,800-report workspace was saved with the encrypted `OfflineStorage`
+path and reopened from a fresh storage instance. The raw IndexedDB workspace
+value was confirmed to be ciphertext, not readable narrative text. A separate
+100-packet Phase IV selection exercised editable draft sync in batches. A
+simulated lost response was retried after reopen using the same 100 operation
+IDs and contents. One packet was explicitly finalized locally; the other 99
+remained editable drafts.
+
+The API test ran against a fresh in-memory PGlite database, an ephemeral
+`127.0.0.1` loopback server, and a test-only FTO identity. It seeded only the
+100 explicit Phase IV final-week assignments, checked readiness, synced
+editable drafts, retried one exact request after discarding its response,
+rejected a stale-version edit, paged all 100 list records, read all 100 details,
+and explicitly finalized the selected Phase IV report for each recruit.
+Retrieved report IDs, badges, names, phase and narrative endings were checked
+against the requested recruit. Draft sync created no submission events;
+finalization did not release a packet, create an acknowledgment, or add a
+signature.
+
+| API measure | Recorded result |
+| --- | ---: |
+| Readiness / draft sync | 20.98 ms / 881.99 ms |
+| Upload batches | 71 + 29 packets |
+| Serialized batch bodies | 2,079,744 + 891,275 bytes (2 MiB limit) |
+| Upload batch elapsed time | 279.40 + 194.90 ms |
+| Bounded collection pages | 69 + 31 records |
+| Collection / 100 detail reads | 386.38 ms / 352.60 ms |
+| 100 explicit finalizations | 860.66 ms |
+| API test total | 6,251.87 ms |
+| Expected API failures | 2: invalid mixed batch rolled back; stale version rejected |
+| Exact request retries | 1 |
+| Released / PO-acknowledged packets | 0 / 0 |
+| API cleanup | Verified: this test’s assignment, packet, event, submission and coordinator rows removed |
+
+## Recorded test-process measurements
+
+These are representative measurements from isolated test-process runs in this
+workspace; times vary by machine.
+
+| Stage | Result |
+| --- | ---: |
+| Fictional cohort JSON size (reports, weekly logs, assignments) | 117,460,532 bytes |
+| Fixture generation and integrity checks | 928.40 ms |
+| Encrypted save of all daily reports | 5,295.79 ms |
+| Encrypted workspace reopen | 1,497.25 ms |
+| Reports view: initial 6,800 rows | 5,323.12 ms |
+| Reports view: filter to Phase IV | 2,151.45 ms |
+| Printable Phase IV views / rendered markup | 100 / 2,548,065 bytes in 381.31 ms |
+| Full XLSX: worksheets / serialized size | 1,520 / 561,401,599 bytes |
+| Workbook build, XLSX serialization and boundary exports | 86,436.05 ms |
+| XLSX serialization portion | 46,339.14 ms |
+| Local interrupted request / exact retry | 1 / 100 packet operations |
+| Local explicitly finalized / remaining drafts | 1 / 99 |
 
 ## Reproduction
 
-Run from the workspace root:
+Run from the workspace root. The commands use test processes and do not start a
+preview or connect to an agency service:
 
 ```sh
 pnpm run typecheck:libs
+pnpm --filter @workspace/field-training run typecheck
 pnpm run typecheck:field-training:tests
-pnpm --filter @workspace/field-training exec tsx --test --test-name-pattern='LR-14|oversized packet' src/lib/launch-readiness.test.ts
-pnpm --filter @workspace/field-training exec tsx --test src/lib/test-packet.test.ts
+TZ=America/New_York TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json \
+  pnpm --filter @workspace/scripts exec tsx --test \
+  ../artifacts/field-training/src/lib/four-phase-packet-stress.test.tsx
+TZ=America/New_York TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json \
+  pnpm --filter @workspace/scripts exec tsx --test \
+  ../artifacts/field-training/src/lib/test-packet.test.ts
 pnpm --filter @workspace/api-server run typecheck
-pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/test/packet-stress.test.ts
+pnpm --filter @workspace/scripts exec tsx --test \
+  ../artifacts/api-server/test/packet-stress.test.ts
 ```
 
-The fixture `createFtoPacketStressWorkspace()` deterministically creates 205
-unique fictional POs, phase folders, local assignments, packet IDs and varied
-narratives. The client test saves the records into a passphrase-encrypted
-IndexedDB emulator, locks and reopens it, commits one simulated batch and
-simulates a lost response after the next batch commits. It verifies exact retry
-identities and contents, the acknowledged/unconfirmed/unprocessed boundaries,
-all-request limits, and an empty queue after retry. A separate oversized
-single-record test confirms that the request is not attempted and cancellation
-does not start another request.
+The cohort test constructs the fixture twice and compares all report and weekly
+log IDs plus the long-text ending marker. Storage uses unique namespaces in
+`fake-indexeddb`; its records exist only for the test process and are discarded
+when that process exits. The API test deletes its own rows, checks that they are
+gone, closes PGlite and stops the loopback server.
 
-The API stress test creates a fresh in-memory PGlite database, applies the
-packet schema and review guards, seeds only fictional FTO/PO assignments,
-starts an ephemeral loopback HTTP server, and injects a test-only FTO identity.
-It verifies mixed-batch rollback, size-aware upload, idempotent replay after a
-discarded response, stale-version conflict, 205 individual detail reads,
-bounded collection reads, and explicit finalization of each of the 205 packets.
-It then removes only its own rows, verifies the test class has no remaining
-assignments, packets or submissions, closes the database, and stops the server.
-These tests issue no requests to the preview, agency adapter, external service,
-or operational database.
+## Boundaries and limitations
 
-## Recorded local run
-
-Measurements below are illustrative results from one Node test run in this
-workspace; timings vary by machine. “Local storage” and “browser” responsiveness
-are measured only through `fake-indexeddb`, not a real browser.
-
-| Stage | Result |
-| --- | --- |
-| Fictional packet count | 205 |
-| Encrypted local save | 232 ms |
-| Reopen/unlock | 102 ms |
-| Client retry and queue drain | 1,496 ms |
-| Client request attempts | 4, including one exact retry |
-| Client serialized request sizes | 2,056,509; 2,091,151; 2,091,151; 1,795,581 bytes |
-| API upload batch sizes | 62, 57, 53, 33 packets |
-| API serialized request sizes | 2,075,484; 2,025,365; 2,082,921; 1,327,629 bytes |
-| API readiness / draft sync | 43 ms / 1,901 ms |
-| API batch times, including database work | 241; 323; 179; 239 ms |
-| API collection / individual detail reads | 118 ms for 100; 876 ms for all 205 |
-| Explicit finalization of 205 packets | 1,828 ms |
-| API test total | 7,985 ms |
-| Exercised failures / retry | Invalid mixed batch rolled back; stale version rejected; one exact retry |
-| Cleanup | Verified |
-| Release / PO acknowledgment | Not performed |
-
-## Coverage boundaries
-
-- The portal’s class posting, sign-up, roster import and assignment editor store
-  local device data; they cannot provision the trusted server roster. The test
-  therefore seeds fictional assignments only in its disposable PGlite database.
-  This is test authority, not official assignment or agency provisioning.
-- The supported roster parser accepts all 205 synthetic CSV rows, and the
-  deterministic workspace contains the class, phase, assignments and complete
-  packet-shaped entries. The React setup/import/report screens were not driven
-  in a real browser, so field-level UI entry, keystrokes, rendering and save
-  behavior remain unverified at that boundary.
-- The shared collection endpoint currently returns at most 100 records and has
-  no paging parameter. The test checks that cap and individually reads all 205
-  records. Browsing the complete history in one collection view remains outside
-  this test’s verified behavior.
-- The recorded client measurements use an IndexedDB emulator. A limited local
-  Chromium follow-up now exercises the roster and packet screens and measures
-  the encrypted storage module with actual browser IndexedDB and Web Crypto.
-  The built-in preview does not allow signed-in vault or sync operations; see
-  `docs/PACKET_BROWSER_TEST.md` for results and coverage gaps. This does not
-  certify operational browser storage, network interruption, or device behavior.
-- This test does not certify production PostgreSQL, agency identity, physical
-  devices, agency networks, printing or office-suite acceptance.
+- The environment was Node.js v24.22.3, `fake-indexeddb`, Node Web Crypto, JSDOM,
+  Vite server-side module loading, in-memory PGlite and loopback HTTP. No open
+  preview, production database, agency service, real account or external
+  endpoint was used.
+- The API assignment rows were explicitly seeded in disposable test storage.
+  This is not a test of agency roster provisioning or operational permissions.
+- The page view was mounted in JSDOM, not a real browser. Browser layout,
+  scrolling, input behavior at scale, device performance and signed-in UI were
+  not measured.
+- Print verification rendered page-model and React markup for eight phase
+  boundaries. It did not generate/inspect PDF bytes, run `window.print`, certify
+  pagination on paper, or test a physical printer.
+- Workbook serialization succeeded and its in-memory records were checked, but
+  the 561 MB output was not opened in a desktop spreadsheet application.
+- The run does not establish live database throughput, identity configuration,
+  network interruption behavior, device quota, agency acceptance or operational
+  readiness.

@@ -5,7 +5,10 @@ import express, { type RequestHandler } from "express";
 import type pg from "pg";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
-import { createFtoPacketStressWorkspace, FTO_PACKET_STRESS_COUNT } from "../../field-training/src/lib/test-packet.js";
+import {
+  createFtoFourPhasePacketStressWorkspace,
+  FTO_FOUR_PHASE_STRESS_COUNT,
+} from "../../field-training/src/lib/test-packet.js";
 import { createTrainingPacketsRouter } from "../src/routes/training-packets.js";
 import { createAgencyPacketStore } from "../src/lib/agency-packet-store.js";
 import type { AgencyIdentity } from "../src/security/agencyIdentity.js";
@@ -34,7 +37,7 @@ async function withServer(app: express.Express, run: (base: string) => Promise<v
   }
 }
 
-test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explicitly submitted", async () => {
+test("synthetic four-phase API cohort stays bounded, retry-safe, scoped, and explicitly submitted", async () => {
   const startedAt = performance.now();
   const db = new PGlite();
   const migration = (name: string) =>
@@ -64,14 +67,18 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
     const app = express();
     app.use("/api", createTrainingPacketsRouter(auth, () => store));
 
-    const workspace = createFtoPacketStressWorkspace();
-    const reports = workspace.reports.map((report, index) => ({
+    const workspace = createFtoFourPhasePacketStressWorkspace();
+    const cohortReports = workspace.reports;
+    const reports = cohortReports
+      .filter(report => report.phase === 4 && report.phaseWeek === 3 && report.date === "2025-04-17")
+      .map((report, index) => ({
       ...report,
       ftoBadge: fto.badge,
       ftoName: "Synthetic Stress FTO",
       narrative: `${report.narrative}\n${`Synthetic additional scenario detail ${index + 1}. `.repeat(350 + index % 400)}`,
     })) as unknown as Array<Record<string, unknown>>;
-    assert.equal(reports.length, FTO_PACKET_STRESS_COUNT);
+    assert.equal(cohortReports.length, 6_800);
+    assert.equal(reports.length, FTO_FOUR_PHASE_STRESS_COUNT);
 
     await query("INSERT INTO agency_training.coordinator_directory (id,name) VALUES ($1,$2)",
       [coordinatorId, "Synthetic Test Coordinator"]);
@@ -80,16 +87,21 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
     for (const report of reports) {
       const poBadge = String(report.recruitBadge);
       const poId = `SYNTHETIC-account-${poBadge}`;
+      const folder = workspace.phaseFolders.find(item =>
+        item.recruitBadge === poBadge && item.phase === report.phase,
+      );
+      assert.ok(folder);
       const assignmentId = randomUUID();
       assignmentIds.push(assignmentId);
       poIds.push(poId);
       await query(`INSERT INTO agency_training.assignments
         (id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,po_id_hash,po_badge_hash,po_name,
          coordinator_id_hash,starts_on,ends_on,fto_id,fto_badge,po_id,po_badge,coordinator_id)
-        VALUES ($1,$2,1,$3,$4,'Synthetic Stress FTO',$5,$6,$7,$8,'2025-01-01','2025-12-31',$9,$10,$11,$12,$13)`,
-        [assignmentId, report.className, hashUserIdentifier(fto.id), hashUserIdentifier(fto.badge),
+        VALUES ($1,$2,$3,$4,$5,'Synthetic Stress FTO',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+        [assignmentId, report.className, report.phase, hashUserIdentifier(fto.id), hashUserIdentifier(fto.badge),
           hashUserIdentifier(poId), hashUserIdentifier(poBadge), report.recruitName,
-          hashUserIdentifier(coordinatorId), fto.id, fto.badge, poId, poBadge, coordinatorId]);
+          hashUserIdentifier(coordinatorId), folder.phaseStartDate,
+          folder.phaseWeekRanges.at(-1)!.endDate, fto.id, fto.badge, poId, poBadge, coordinatorId]);
       await query(`INSERT INTO agency_training.po_coordinators
         (po_id,po_id_hash,po_badge,coordinator_id) VALUES ($1,$2,$3,$4)`,
         [poId, hashUserIdentifier(poId), poBadge, coordinatorId]);
@@ -106,6 +118,8 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
       detailReadMilliseconds: 0,
       finalizationMilliseconds: 0,
       listRecords: 0,
+      listPages: 0,
+      listPageSizes: [] as number[],
       detailReads: 0,
       failures: 0,
       retries: 0,
@@ -134,7 +148,7 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
       assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packets")).rows[0]?.n, 0);
 
       let offset = 0;
-      const snapshotHashes=new Map<string,string>();
+      const snapshotHashes = new Map<string, string>();
       let interruptedBody: string | undefined;
       const draftSyncStarted = performance.now();
       while (offset < operations.length) {
@@ -158,12 +172,20 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
           method: "POST", headers: { "content-type": "application/json" }, body,
         });
         assert.equal(response.status, 200, "synthetic packet batch should be accepted");
-        const receipts = await response.json() as { data: Array<{ id: string; operation_id: string; server_version: number; sync_status: string;content_hash:string }> };
+        const receipts = await response.json() as {
+          data: Array<{
+            id: string;
+            operation_id: string;
+            server_version: number;
+            sync_status: string;
+            content_hash: string;
+          }>;
+        };
         assert.equal(receipts.data.length, batch.length);
         assert.ok(receipts.data.every(receipt => receipt.sync_status === "local_draft_pending" && receipt.server_version === 1));
-        for(const receipt of receipts.data){
-          assert.match(receipt.content_hash,/^[a-f0-9]{64}$/);
-          snapshotHashes.set(receipt.id,receipt.content_hash);
+        for (const receipt of receipts.data) {
+          assert.match(receipt.content_hash, /^[a-f0-9]{64}$/);
+          snapshotHashes.set(receipt.id, receipt.content_hash);
         }
         metrics.batchMilliseconds.push(performance.now() - batchStarted);
 
@@ -188,7 +210,10 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
       assert.ok(metrics.batchBytes.every(size => size <= MAX_BODY_BYTES));
       assert.ok(metrics.batchSizes.some(size => size < MAX_PACKETS),
         "the varied full packet payload should exercise the body-size boundary");
-      assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packets WHERE submission_status='local_draft_pending'")).rows[0]?.n, FTO_PACKET_STRESS_COUNT);
+      assert.equal(
+        (await query("SELECT count(*)::int AS n FROM agency_training.packets WHERE submission_status='local_draft_pending'")).rows[0]?.n,
+        FTO_FOUR_PHASE_STRESS_COUNT,
+      );
       assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packet_submissions")).rows[0]?.n, 0,
         "draft synchronization must not create final submissions");
       assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packet_events WHERE event_type='SUBMIT'")).rows[0]?.n, 0);
@@ -207,24 +232,59 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
       ])).rows[0]?.server_version, 1, "conflict must not overwrite the acknowledged version");
 
       const listStarted = performance.now();
-      const listResponse = await fetch(base);
-      assert.equal(listResponse.status, 200);
-      const list = await listResponse.json() as { data: Array<{ id: string }>; metadata: { total_records: number } };
-      assert.ok(list.data.length>0&&list.data.length<=100,"collection reads are bounded by count and serialized bytes");
-      assert.equal(list.metadata.total_records, list.data.length);
+      const listIds = new Set<string>();
+      let cursor: string | null = null;
+      do {
+        const listResponse = await fetch(`${base}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
+        assert.equal(listResponse.status, 200);
+        const list = await listResponse.json() as {
+          data: Array<{ id: string }>;
+          metadata: { total_records: number; has_more: boolean; next_cursor: string | null };
+        };
+        assert.ok(list.data.length > 0 && list.data.length <= 100,
+          "collection reads are bounded by count and serialized bytes");
+        assert.equal(list.metadata.total_records, list.data.length);
+        for (const packet of list.data) assert.ok(!listIds.has(packet.id), "paged list returned a duplicate packet");
+        for (const packet of list.data) listIds.add(packet.id);
+        metrics.listPages++;
+        metrics.listPageSizes.push(list.data.length);
+        cursor = list.metadata.next_cursor;
+        assert.equal(list.metadata.has_more, cursor !== null);
+      } while (cursor);
+      assert.equal(listIds.size, FTO_FOUR_PHASE_STRESS_COUNT);
       metrics.listReadMilliseconds = performance.now() - listStarted;
-      metrics.listRecords = list.data.length;
+      metrics.listRecords = listIds.size;
       const seenDetails = new Set<string>();
       const detailStarted = performance.now();
       for (const report of reports) {
         const response = await fetch(`${base}/${encodeURIComponent(String(report.id))}`);
         assert.equal(response.status, 200);
-        const packet = await response.json() as { data: Array<{ id: string; sync_status: string }> };
+        const packet = await response.json() as {
+          data: Array<{
+            id: string;
+            sync_status: string;
+            report: {
+              id: string;
+              recruitBadge: string;
+              recruitName: string;
+              phase: number;
+              narrative: string;
+            };
+          }>;
+        };
         assert.equal(packet.data.length, 1);
         assert.equal(packet.data[0]?.sync_status, "local_draft_pending");
+        const expected = reports.find(item => item.id === report.id)!;
+        assert.equal(packet.data[0]?.report.id, report.id);
+        assert.equal(packet.data[0]?.report.recruitBadge, expected.recruitBadge);
+        assert.equal(packet.data[0]?.report.recruitName, expected.recruitName);
+        assert.equal(packet.data[0]?.report.phase, 4);
+        assert.ok(packet.data[0]?.report.narrative.endsWith(
+          String(expected.narrative).slice(-40),
+        ), `retrieved narrative ended unexpectedly for ${String(report.id)}`);
         seenDetails.add(packet.data[0]!.id);
       }
-      assert.equal(seenDetails.size, FTO_PACKET_STRESS_COUNT);
+      assert.equal(seenDetails.size, FTO_FOUR_PHASE_STRESS_COUNT);
       metrics.detailReads = seenDetails.size;
       metrics.detailReadMilliseconds = performance.now() - detailStarted;
 
@@ -234,19 +294,33 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
         const response = await fetch(`${base}/${encodeURIComponent(String(report.id))}/finalize`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ operation_id: randomUUID(), content_hash:snapshotHashes.get(String(report.id)) }),
+          body: JSON.stringify({
+            operation_id: randomUUID(),
+            content_hash: snapshotHashes.get(String(report.id)),
+          }),
         });
         assert.equal(response.status, 200, "explicit synthetic finalization should be accepted");
-        const result = await response.json() as {data:Array<{ id: string; server_version: number; sync_status: string }>};
-        const receipt=result.data[0]!;
+        const result = await response.json() as {
+          data: Array<{ id: string; server_version: number; sync_status: string }>;
+        };
+        const receipt = result.data[0]!;
         assert.equal(receipt.id, report.id);
         assert.equal(receipt.server_version, 1);
         assert.equal(receipt.sync_status, "submitted_complete");
       }
       metrics.finalizationMilliseconds = performance.now() - finalizationStarted;
-      assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packets WHERE submission_status='submitted'")).rows[0]?.n, FTO_PACKET_STRESS_COUNT);
-      assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packet_submissions")).rows[0]?.n, FTO_PACKET_STRESS_COUNT);
-      assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packet_events WHERE event_type='SUBMIT'")).rows[0]?.n, FTO_PACKET_STRESS_COUNT);
+      assert.equal(
+        (await query("SELECT count(*)::int AS n FROM agency_training.packets WHERE submission_status='submitted'")).rows[0]?.n,
+        FTO_FOUR_PHASE_STRESS_COUNT,
+      );
+      assert.equal(
+        (await query("SELECT count(*)::int AS n FROM agency_training.packet_submissions")).rows[0]?.n,
+        FTO_FOUR_PHASE_STRESS_COUNT,
+      );
+      assert.equal(
+        (await query("SELECT count(*)::int AS n FROM agency_training.packet_events WHERE event_type='SUBMIT'")).rows[0]?.n,
+        FTO_FOUR_PHASE_STRESS_COUNT,
+      );
       assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packets WHERE released_to_po")).rows[0]?.n, 0);
       assert.equal((await query("SELECT count(*)::int AS n FROM agency_training.packet_acknowledgments")).rows[0]?.n, 0);
 
@@ -259,9 +333,13 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
 
     // Remove only this test class, then assert that its disposable data is gone.
     const packetIds = reports.map(report => String(report.id));
-    await query(`DELETE FROM agency_training.packet_review_events WHERE submission_id IN
-      (SELECT id FROM agency_training.packet_submissions WHERE packet_id=ANY($1::text[]))`, [packetIds]);
+    const submissionIds = (await query(
+      "SELECT id::text FROM agency_training.packet_submissions WHERE packet_id=ANY($1::text[])",
+      [packetIds],
+    )).rows.map(row => String(row.id));
+    await query("DELETE FROM agency_training.packet_review_events WHERE submission_id=ANY($1::uuid[])", [submissionIds]);
     await query("DELETE FROM agency_training.packet_submissions WHERE packet_id=ANY($1::text[])", [packetIds]);
+    await query("DELETE FROM agency_training.packet_acknowledgments WHERE packet_id=ANY($1::text[])", [packetIds]);
     await query("DELETE FROM agency_training.packet_events WHERE packet_id=ANY($1::text[])", [packetIds]);
     await query("DELETE FROM agency_training.packets WHERE id=ANY($1::text[])", [packetIds]);
     await query("DELETE FROM agency_training.packet_assignments WHERE packet_id=ANY($1::text[])", [packetIds]);
@@ -270,16 +348,35 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
     await query("DELETE FROM agency_training.coordinator_directory WHERE id=$1", [coordinatorId]);
     const remaining = await query(`SELECT
       (SELECT count(*)::int FROM agency_training.assignments WHERE class_name=$1) AS assignments,
-      (SELECT count(*)::int FROM agency_training.packets WHERE id LIKE 'fto-stress-packet-%') AS packets,
-      (SELECT count(*)::int FROM agency_training.packet_submissions) AS submissions`,
-      [reports[0]?.className]);
-    assert.deepEqual(remaining.rows[0], { assignments: 0, packets: 0, submissions: 0 });
+      (SELECT count(*)::int FROM agency_training.packets WHERE id=ANY($2::text[])) AS packets,
+      (SELECT count(*)::int FROM agency_training.packet_assignments WHERE packet_id=ANY($2::text[])) AS packet_assignments,
+      (SELECT count(*)::int FROM agency_training.packet_events WHERE packet_id=ANY($2::text[])) AS events,
+      (SELECT count(*)::int FROM agency_training.packet_acknowledgments WHERE packet_id=ANY($2::text[])) AS acknowledgments,
+      (SELECT count(*)::int FROM agency_training.packet_submissions WHERE packet_id=ANY($2::text[])) AS submissions,
+      (SELECT count(*)::int FROM agency_training.packet_review_events WHERE submission_id=ANY($3::uuid[])) AS review_events,
+      (SELECT count(*)::int FROM agency_training.po_coordinators WHERE po_id=ANY($4::text[])) AS po_coordinators,
+      (SELECT count(*)::int FROM agency_training.coordinator_directory WHERE id=$5) AS coordinators`,
+      [reports[0]?.className, packetIds, submissionIds, poIds, coordinatorId]);
+    assert.deepEqual(remaining.rows[0], {
+      assignments: 0,
+      packets: 0,
+      packet_assignments: 0,
+      events: 0,
+      acknowledgments: 0,
+      submissions: 0,
+      review_events: 0,
+      po_coordinators: 0,
+      coordinators: 0,
+    });
     cleanupVerified = true;
 
     const totalMilliseconds = performance.now() - startedAt;
     console.log("SYNTHETIC_PACKET_STRESS_METRICS " + JSON.stringify({
       environment: "Node test runner + in-memory PGlite + loopback HTTP",
       packets: metrics.packets,
+      fullCohortRecruits: FTO_FOUR_PHASE_STRESS_COUNT,
+      fullCohortDailyReports: cohortReports.length,
+      finalizationSelectedBy: "one explicitly selected Phase IV final-week report per fictional recruit",
       batchCount: metrics.batchSizes.length,
       batchSizes: metrics.batchSizes,
       serializedBatchBytes: metrics.batchBytes,
@@ -290,6 +387,8 @@ test("synthetic 205-packet API run stays bounded, retry-safe, scoped, and explic
       detailReadMilliseconds: Math.round(metrics.detailReadMilliseconds * 100) / 100,
       finalizationMilliseconds: Math.round(metrics.finalizationMilliseconds * 100) / 100,
       listRecords: metrics.listRecords,
+      listPages: metrics.listPages,
+      listPageSizes: metrics.listPageSizes,
       individualDetailReads: metrics.detailReads,
       failures: metrics.failures,
       exactRequestRetries: metrics.retries,

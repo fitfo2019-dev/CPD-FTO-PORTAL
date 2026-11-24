@@ -84,6 +84,7 @@ test('the supported roster importer accepts the complete fictional 205-PO stress
         'Sunday;Saturday',
         '1',
         '1',
+        '10',
         '10A',
       ];
     }),

@@ -27,6 +27,8 @@ export const FTO_TEST_PACKET_RECRUIT = 'Jordan Sample';
 export const FTO_TEST_PACKET_BADGE = 'TEST-042';
 export const FTO_PACKET_STRESS_CLASS = 'FICTIONAL TEST ONLY · 205 PACKET STRESS CLASS';
 export const FTO_PACKET_STRESS_COUNT = 205;
+export const FTO_FOUR_PHASE_STRESS_CLASS = 'FICTIONAL TEST ONLY · FOUR-PHASE STRESS CLASS';
+export const FTO_FOUR_PHASE_STRESS_COUNT = 100;
 
 const FTO_NAME = 'Casey Training Example';
 const FTO_BADGE = 'TEST-FTO';
@@ -105,9 +107,9 @@ function phaseFolders(): PhaseCaseFolder[] {
 function assignmentsFor(folders: PhaseCaseFolder[]): TrainingAssignment[] {
   return folders.map((folder) => ({
     id: folder.assignmentId!,
-    className: FTO_TEST_PACKET_CLASS,
-    recruitName: FTO_TEST_PACKET_RECRUIT,
-    recruitBadge: FTO_TEST_PACKET_BADGE,
+    className: folder.className ?? FTO_TEST_PACKET_CLASS,
+    recruitName: folder.recruitName,
+    recruitBadge: folder.recruitBadge,
     ftoBadge: FTO_BADGE,
     phase: folder.phase,
     phaseStartDate: folder.phaseStartDate,
@@ -123,7 +125,7 @@ function assignmentsFor(folders: PhaseCaseFolder[]): TrainingAssignment[] {
 function sampleRatings(phase: Phase, dayIndex: number): Report['ratings'] {
   const ratings = defaultRatings();
   const eligibleForRt = CATEGORIES.filter((category) =>
-    !['dutyReadiness', 'routineDriving', 'emergencyPursuit', 'initiatingArrests', 'handlingPrisoners', 'vehicleStops', 'buildingSearch', 'patDownSearches'].includes(category),
+    !['dutyReadiness', 'routineDriving', 'emergencyPursuit', 'initiatingArrests', 'handlingPrisoners', 'vehicleStops', 'buildingSearch', 'patDownSearches', 'threatAssessment', 'runApproach'].includes(category),
   );
   if (eligibleForRt.length) {
     const category = eligibleForRt[(phase + dayIndex) % eligibleForRt.length];
@@ -245,10 +247,10 @@ function orientations(folders: PhaseCaseFolder[]): SubstationOrientationRecord[]
       ? longNarrative('Orientation walkthrough', 40, 'FICTIONAL ORIENTATION END MARKER — this is sample checklist text, not an official acknowledgment.')
       : `${PACKET_NOTICE}\nPhase ${folder.phase} fictional orientation example. Review the equipment and workspace checklist with the sample recruit; no official approval is recorded.`;
     return {
-      id: `fto-test-orientation-${folder.phase}`,
-      className: FTO_TEST_PACKET_CLASS,
-      recruitName: FTO_TEST_PACKET_RECRUIT,
-      recruitBadge: FTO_TEST_PACKET_BADGE,
+      id: `fto-test-orientation-${folder.phase}-${folder.recruitBadge}`,
+      className: folder.className ?? FTO_TEST_PACKET_CLASS,
+      recruitName: folder.recruitName,
+      recruitBadge: folder.recruitBadge,
       ftoName: FTO_NAME,
       ftoBadge: FTO_BADGE,
       phase: folder.phase,
@@ -268,7 +270,7 @@ function weeklyLogs(reports: Report[]): WeeklyPerformanceLog[] {
   const uniqueWeeks = new Map<string, Report>();
   for (const report of reports) {
     const week = getSundaySaturdayWeek(report.date);
-    if (week) uniqueWeeks.set(`${report.phase}:${week.start}`, report);
+    if (week) uniqueWeeks.set(`${report.className}:${report.recruitBadge}:${report.phase}:${week.start}`, report);
   }
   return [...uniqueWeeks.values()].map((report, index) => {
     const week = getSundaySaturdayWeek(report.date)!;
@@ -277,20 +279,20 @@ function weeklyLogs(reports: Report[]): WeeklyPerformanceLog[] {
       ? longNarrative('Weekly corrective-practice narrative', 115, 'FICTIONAL WEEKLY LOG END MARKER — all workbook and print continuation parts should remain available.')
       : `${PACKET_NOTICE} Weekly reflection ${index + 1}: repeat the exercise, note one observed strength, and state a practical next step.`;
     return {
-      id: `fto-test-weekly-${report.phase}-${week.start}`,
+      id: `fto-test-weekly-${report.phase}-${week.start}-${report.recruitBadge}`,
       weekStart: week.start,
       weekEnd: week.end,
       weekNumber: PHASE_PROGRAM_WEEK_START[report.phase] + (report.phaseWeek ?? 1) - 1,
       phase: report.phase,
       phaseWeek: report.phaseWeek,
       ftoWeek: report.ftoWeek,
-      className: FTO_TEST_PACKET_CLASS,
-      recruitName: FTO_TEST_PACKET_RECRUIT,
-      recruitBadge: FTO_TEST_PACKET_BADGE,
+      className: report.className ?? FTO_TEST_PACKET_CLASS,
+      recruitName: report.recruitName,
+      recruitBadge: report.recruitBadge,
       ftoName: FTO_NAME,
       ftoBadge: FTO_BADGE,
       entries: [{
-        id: `fto-test-weekly-entry-${report.phase}-${week.start}`,
+        id: `fto-test-weekly-entry-${report.phase}-${week.start}-${report.recruitBadge}`,
         kind: 'strength',
         category: 'publicPoliceInteraction',
         totalTime: '',
@@ -445,6 +447,155 @@ export function createFtoPacketStressWorkspace(count = FTO_PACKET_STRESS_COUNT):
     weeklyAcknowledgements: [],
     weeklyPerformanceLogs: [],
     substationOrientations: [],
+    ftoPhasePostings: [],
+    ftoPhaseSignups: [],
+    coverageRequests: [],
+    lawReviewRecords: [],
+    phaseExtensionRequests: [],
+  };
+}
+
+/**
+ * Deterministic, test-only cohort spanning the complete configured program.
+ * Each fictional recruit has every scheduled workday, one weekly log per
+ * phase-week, and one phase folder/assignment/orientation for each phase.
+ */
+export function createFtoFourPhasePacketStressWorkspace(
+  count = FTO_FOUR_PHASE_STRESS_COUNT,
+): Workspace {
+  if (!Number.isInteger(count) || count < FTO_FOUR_PHASE_STRESS_COUNT) {
+    throw new RangeError(`The four-phase synthetic cohort requires at least ${FTO_FOUR_PHASE_STRESS_COUNT} recruits.`);
+  }
+  const base = createFtoTestPacketWorkspace();
+  const phases = [1, 2, 3, 4] as Phase[];
+  const phaseStarts = {} as Record<Phase, string>;
+  let nextPhaseStart = '2025-01-05';
+  for (const phase of phases) {
+    phaseStarts[phase] = nextPhaseStart;
+    const next = new Date(`${nextPhaseStart}T00:00:00.000Z`);
+    next.setUTCDate(next.getUTCDate() + PHASE_LENGTH_WEEKS[phase] * 7);
+    nextPhaseStart = next.toISOString().slice(0, 10);
+  }
+
+  const folders = Array.from({ length: count }, (_, recruitIndex) => {
+    const suffix = String(recruitIndex + 1).padStart(3, '0');
+    const recruitName = `Jordan Sample ${suffix}`;
+    const recruitBadge = `TEST-4P-${suffix}`;
+    return phases.map(phase => {
+      const source = base.phaseFolders.find(folder => folder.phase === phase)!;
+      return {
+        ...source,
+        assignmentId: `fto-stress4-assignment-${suffix}-p${phase}`,
+        className: FTO_FOUR_PHASE_STRESS_CLASS,
+        recruitName,
+        recruitBadge,
+        phaseStartDate: phaseStarts[phase],
+        scheduledWeeks: PHASE_LENGTH_WEEKS[phase],
+        phaseWeekRanges: createPhaseWeekRanges(phase, phaseStarts[phase]),
+        openedAt: timeAt(phaseStarts[phase], 12, 0),
+      };
+    });
+  }).flat();
+
+  const reports: Report[] = [];
+  let runIndex = 0;
+  for (let folderIndex = 0; folderIndex < folders.length; folderIndex++) {
+    const folder = folders[folderIndex]!;
+    const phase = folder.phase;
+    const recruitIndex = Math.floor(folderIndex / phases.length);
+    for (const range of folder.phaseWeekRanges) {
+      for (let offset = 0; offset < 7; offset++) {
+        const dateValue = new Date(`${range.startDate}T00:00:00.000Z`);
+        dateValue.setUTCDate(dateValue.getUTCDate() + offset);
+        const date = dateValue.toISOString().slice(0, 10);
+        const weekday = dateValue.getUTCDay() as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+        if (date < folder.phaseStartDate || folder.daysOff.includes(weekday)) continue;
+
+        const schedule = getPhaseScheduleInfo(
+          phase, date, folder.phaseStartDate, folder.daysOff, folder.phaseWeekRanges,
+        );
+        if (!schedule.phaseWeek || !schedule.scheduledDay) continue;
+        const suffix = String(recruitIndex + 1).padStart(3, '0');
+        const template = base.reports.find(report => report.phase === phase)!;
+        const isLongBoundary = recruitIndex === 0 && (
+          (phase === 1 && schedule.phaseWeek === PHASE_LENGTH_WEEKS[phase] && schedule.scheduledDay === 5) ||
+          (phase === 4 && schedule.phaseWeek === PHASE_LENGTH_WEEKS[phase] && schedule.scheduledDay === 4)
+        );
+        const reportId = `fto-stress4-report-${suffix}-p${phase}-${date}`;
+        const report: Report = {
+          ...structuredClone(template),
+          id: reportId,
+          date,
+          phase,
+          phaseWeek: schedule.phaseWeek,
+          ftoWeek: schedule.programWeek,
+          limboDay: schedule.limboDay,
+          shift: folder.shift,
+          zone: folder.zone,
+          precinct: folder.precinct,
+          cruiserDistrict: folder.cruiserDistrict,
+          ftoAssignment: folder.ftoAssignment,
+          className: FTO_FOUR_PHASE_STRESS_CLASS,
+          recruitName: folder.recruitName,
+          recruitBadge: folder.recruitBadge,
+          ftoName: FTO_NAME,
+          ftoBadge: FTO_BADGE,
+          activity: emptyDailyActivitySummary(),
+          ratings: schedule.limboDay
+            ? emptyRatings()
+            : sampleRatings(phase, recruitIndex + schedule.scheduledDay),
+          ratingsReviewedAt: schedule.limboDay ? undefined : timeAt(date, 17, 0),
+          narrative: isLongBoundary
+            ? longNarrative(
+              `Four-phase cohort ${suffix} · Phase ${phase} · ${date}`,
+              100,
+              `FICTIONAL END MARKER ${suffix} · PHASE ${phase} · ${date} · complete narrative retained.`,
+            )
+            : `${PACKET_NOTICE}\nCohort ${suffix}, Phase ${phase}, program week ${schedule.programWeek}, phase week ${schedule.phaseWeek}, scheduled day ${schedule.scheduledDay}. ` +
+              `Fictional practice focused on ${PHASE_NARRATIVES[phase - 1].toLowerCase()} End of sample entry ${suffix}-${date}.`,
+          remedial: `${PACKET_NOTICE} Fictional coaching reflection for recruit ${suffix}, phase ${phase}, ${date}.`,
+          recruitComments: `${PACKET_NOTICE} Fictional recruit reflection ${suffix}-${date}; no attestation or signature.`,
+          reportingForDuty: {
+            ...structuredClone(template.reportingForDuty),
+            cruiserId: `TEST-CRUISER-${phase}`,
+            reviewedAt: timeAt(date, 8, 5),
+            notes: `${PACKET_NOTICE} Sample duty checklist ${suffix}-${date}.`,
+          },
+          runs: schedule.scheduledDay === 1
+            ? [{
+              ...sampleRun(phase, schedule.phaseWeek, date, runIndex++),
+              id: `fto-stress4-run-${suffix}-p${phase}-${date}`,
+              incidentNumber: `TEST-SCENARIO-${suffix}-P${phase}-${date}`,
+            }]
+            : [],
+          status: 'draft',
+          signatures: {},
+          createdAt: timeAt(date, 17, 5),
+          updatedAt: timeAt(date, 17, 5),
+          syncStatus: 'local_draft_pending',
+          serverVersion: 0,
+          serverContentHash: undefined,
+          draftSyncPending: true,
+          syncAttemptPending: undefined,
+        };
+        report.activity[DAILY_ACTIVITY_FIELDS[(phase + schedule.scheduledDay) % DAILY_ACTIVITY_FIELDS.length]!.key] =
+          1 + (schedule.scheduledDay % 3);
+        reports.push(report);
+      }
+    }
+  }
+
+  return {
+    ...base,
+    reports,
+    tasks: [],
+    caseFolder: folders[0],
+    phaseFolders: folders,
+    ftoDirectory: [{ badge: FTO_BADGE, name: FTO_NAME }],
+    assignments: assignmentsFor(folders),
+    weeklyAcknowledgements: [],
+    weeklyPerformanceLogs: weeklyLogs(reports),
+    substationOrientations: orientations(folders),
     ftoPhasePostings: [],
     ftoPhaseSignups: [],
     coverageRequests: [],
