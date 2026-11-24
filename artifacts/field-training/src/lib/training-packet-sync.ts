@@ -26,6 +26,36 @@ export type PacketHistoryFilters = {
   dateFrom?: string;
   dateTo?: string;
 };
+export type SharedPacketHistory = {
+  data: SharedPacket[];
+  filters: PacketHistoryFilters;
+  nextCursor: string | undefined;
+  hasMore: boolean;
+  complete: boolean;
+  blocked: boolean;
+  seenCursors: Set<string>;
+  seenPacketIds: Set<string>;
+};
+
+export class PacketHistoryCursorError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PacketHistoryCursorError";
+  }
+}
+
+export function createSharedPacketHistory(filters: PacketHistoryFilters = {}): SharedPacketHistory {
+  return {
+    data: [],
+    filters: { ...filters },
+    nextCursor: undefined,
+    hasMore: true,
+    complete: false,
+    blocked: false,
+    seenCursors: new Set(),
+    seenPacketIds: new Set(),
+  };
+}
 
 function requestSignal(signal?: AbortSignal) {
   const timeout = AbortSignal.timeout(15000);
@@ -55,9 +85,18 @@ export async function readSharedPacketsPage(
   const response = await customFetch<unknown>(apiEndpoint(`/v1/training-packets${query}`), {
     credentials: "same-origin", cache: "no-store", responseType: "json", signal: requestSignal(signal),
   });
-  const page = sharedPacketsSchema.parse(response);
+  let page: ReturnType<typeof sharedPacketsSchema.parse>;
+  try {
+    page = sharedPacketsSchema.parse(response);
+  } catch (error) {
+    if (error instanceof z.ZodError && error.issues.some(issue => issue.path.at(-1) === "next_cursor"))
+      throw new PacketHistoryCursorError("The agency packet history returned an invalid continuation cursor.");
+    throw error;
+  }
   if (page.metadata.has_more !== Boolean(page.metadata.next_cursor))
-    throw new Error("The agency packet history returned invalid continuation metadata.");
+    throw new PacketHistoryCursorError("The agency packet history returned invalid continuation metadata.");
+  if (page.metadata.has_more && !page.metadata.next_cursor?.trim())
+    throw new PacketHistoryCursorError("The agency packet history returned an empty continuation cursor.");
   return {
     data: page.data,
     hasMore: page.metadata.has_more,
@@ -65,23 +104,65 @@ export async function readSharedPacketsPage(
   };
 }
 
+/** Accept a confirmed page without advancing state on a failed or unsafe response. */
+export async function continueSharedPacketHistory(
+  history: SharedPacketHistory,
+  signal?: AbortSignal,
+  onPage?: (history: SharedPacketHistory) => void,
+  maxPages = Number.POSITIVE_INFINITY,
+): Promise<SharedPacketHistory> {
+  if (history.blocked)
+    throw new PacketHistoryCursorError("The agency packet history has an unsafe page. Refresh it to start over safely.");
+  let pagesRead = 0;
+  while (!history.complete && pagesRead < maxPages) {
+    const cursor = history.nextCursor;
+    if (cursor !== undefined && (!cursor.trim() || cursor.length > 256 || history.seenCursors.has(cursor))) {
+      history.blocked = true;
+      throw new PacketHistoryCursorError("The agency packet history returned a repeated or invalid cursor. Refresh it to start over safely.");
+    }
+
+    let page: SharedPacketPage;
+    try {
+      page = await readSharedPacketsPage(cursor, signal, history.filters);
+    } catch (error) {
+      if (error instanceof PacketHistoryCursorError) history.blocked = true;
+      throw error;
+    }
+
+    const nextCursor = page.nextCursor ?? undefined;
+    if (page.hasMore && (!nextCursor || nextCursor === cursor || history.seenCursors.has(nextCursor))) {
+      history.blocked = true;
+      throw new PacketHistoryCursorError("The agency packet history returned a repeated or invalid cursor. Previously loaded records were preserved.");
+    }
+    const pageIds = new Set<string>();
+    if (page.data.some(packet => {
+      if (history.seenPacketIds.has(packet.id) || pageIds.has(packet.id)) return true;
+      pageIds.add(packet.id);
+      return false;
+    })) {
+      history.blocked = true;
+      throw new PacketHistoryCursorError("The agency packet history repeated a record. Previously loaded records were preserved.");
+    }
+
+    if (cursor !== undefined) history.seenCursors.add(cursor);
+    for (const id of pageIds) history.seenPacketIds.add(id);
+    history.data = [...history.data, ...page.data];
+    history.nextCursor = nextCursor;
+    history.hasMore = page.hasMore;
+    history.complete = !page.hasMore;
+    onPage?.(history);
+    pagesRead++;
+  }
+  return history;
+}
+
 /** Returned copies stay separate from the encrypted local workspace. */
 export async function readSharedPackets(
   signal?: AbortSignal, filters: PacketHistoryFilters = {},
 ): Promise<SharedPacket[]> {
-  const data: SharedPacket[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | undefined;
-  while (true) {
-    const page = await readSharedPacketsPage(cursor, signal, filters);
-    data.push(...page.data);
-    if (!page.hasMore) return data;
-    const nextCursor = page.nextCursor;
-    if (!nextCursor || seenCursors.has(nextCursor))
-      throw new Error("The agency packet history could not be continued safely.");
-    seenCursors.add(nextCursor);
-    cursor = nextCursor;
-  }
+  const history = createSharedPacketHistory(filters);
+  await continueSharedPacketHistory(history, signal);
+  return history.data;
 }
 
 /** Packet snapshots enter draft storage only; never official submission, a Workspace,

@@ -518,3 +518,17 @@ mtime_ms = 1795465294256
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/b2f61668-b384-4c97-a9b5-419059b8ceb2/e0f44498-be02-452f-93fc-ea528dc8e4d3"
 storage_version_token = "1795465377939619"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "xqL-72D8zzsRdLnWW5sEh"
+uri = "file://generated-artifacts/packet-history-continuation-preview.html"
+type = "html"
+title = "Shared Records continuation preview"
+description = "Updated visual preview with the final “Continue loading records” action, one-page continuation, retained recruit/date filters, and unchanged local drafts."
+logical_id = "3ab2d141-6edf-468e-90d5-d4c58d8e427a"
+content_hash = "sha256:8316ca9db0673b7cc0dfe113fb325c1d7e141c7fc04d07c862510bfa23bc7ab0"
+size = 3638
+mtime_ms = 1795526122601
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/3ab2d141-6edf-468e-90d5-d4c58d8e427a/2ae27333-7506-49ad-9153-f734dd2acb19"
+storage_version_token = "1795526123370706"
+content_type = "text/html"

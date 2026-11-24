@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, CloudUpload, FileText, Home, Loader2, LockKeyhole, RefreshCw, Save, ShieldCheck, Wifi, WifiOff } from 'lucide-react';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { useWorkspace } from '@/state/workspace.js';
-import { checkPacketService, readSharedPacketsPage, type PacketHistoryFilters, type SharedPacket } from '@/lib/training-packet-sync.js';
+import {
+  checkPacketService, continueSharedPacketHistory, createSharedPacketHistory, PacketHistoryCursorError,
+  type PacketHistoryFilters, type SharedPacket, type SharedPacketHistory,
+} from '@/lib/training-packet-sync.js';
 import { packetUploadBlock, queuedReports } from '@/lib/packet-upload-controls.js';
 import { formatDateDMY } from '@/lib/training-calendar.js';
 import './packet-transfer.css';
@@ -22,10 +25,13 @@ export function PacketTransferPanel() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
+  const [continuingHistory, setContinuingHistory] = useState(false);
+  const [historyReadFailed, setHistoryReadFailed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const request = useRef<AbortController | null>(null);
+  const history = useRef<SharedPacketHistory>(createSharedPacketHistory());
   const mounted = useRef(true);
   const action = useRef(false);
   useEffect(() => {
@@ -42,6 +48,8 @@ export function PacketTransferPanel() {
     ftoView: w.ws.role === 'fto', count: pending.length, savedCount: w.pending });
   const snapshot = JSON.stringify(pending);
   const failed = w.ws.reports.some(report => report.syncAttemptPending) || w.packetSyncState === 'failed';
+  const canContinueHistory = shared !== null && historyReadFailed && historyHasMore &&
+    historyCursor !== null && !history.current.blocked;
 
   async function checkAccess() {
     if (disabledReads || action.current) return;
@@ -64,50 +72,75 @@ export function PacketTransferPanel() {
   async function refresh(filters: PacketHistoryFilters = appliedFilters) {
     if (disabledReads || action.current) return;
     action.current = true;
+    history.current = createSharedPacketHistory(filters);
     const controller = new AbortController(); request.current = controller;
-    setRefreshing(true); setReadError(null);
+    setHistoryCursor(null); setHistoryHasMore(false);
+    setRefreshing(true); setContinuingHistory(false); setHistoryReadFailed(false);
+    setRefreshedAt(null); setReadError(null);
     try {
-      const page = await readSharedPacketsPage(undefined, controller.signal, filters);
+      await continueSharedPacketHistory(history.current, controller.signal, current => {
+        if (!controller.signal.aborted && mounted.current) {
+          setShared([...current.data]);
+          setHistoryCursor(current.nextCursor ?? null);
+          setHistoryHasMore(current.hasMore);
+          setAppliedFilters(filters);
+          setRefreshedAt(new Date().toLocaleString());
+        }
+      }, 1);
       if (!controller.signal.aborted && mounted.current) {
-        setShared(page.data); setHistoryCursor(page.nextCursor); setHistoryHasMore(page.hasMore);
-        setAppliedFilters(filters); setRefreshedAt(new Date().toLocaleString());
+        setHistoryReadFailed(false);
       }
-    } catch {
+    } catch (error) {
       if (!controller.signal.aborted && mounted.current) {
-        setReadError('Refresh Failed. Previously Loaded Records May Be Stale. Local Drafts Were Not Changed. Try Again.');
+        setReadError(packetHistoryErrorMessage(error, history.current, shared !== null));
+        setHistoryReadFailed(true);
+        setHistoryCursor(history.current.nextCursor ?? null);
+        setHistoryHasMore(history.current.hasMore);
       }
     } finally {
       action.current = false;
-      if (!controller.signal.aborted && mounted.current) setRefreshing(false);
+      if (!controller.signal.aborted && mounted.current) {
+        setRefreshing(false);
+        setContinuingHistory(false);
+      }
     }
   }
   async function loadOlderHistory() {
-    const cursor = historyCursor;
-    if (!cursor || !historyHasMore || disabledReads || action.current) return;
+    if (!history.current.nextCursor || !historyHasMore || disabledReads || action.current || history.current.blocked) return;
     action.current = true;
     const controller = new AbortController(); request.current = controller;
-    setRefreshing(true); setReadError(null);
+    setRefreshing(true); setContinuingHistory(true);
     try {
-      const page = await readSharedPacketsPage(cursor, controller.signal, appliedFilters);
+      await continueSharedPacketHistory(history.current, controller.signal, current => {
+        if (!controller.signal.aborted && mounted.current) {
+          setShared([...current.data]);
+          setHistoryCursor(current.nextCursor ?? null);
+          setHistoryHasMore(current.hasMore);
+          setRefreshedAt(new Date().toLocaleString());
+        }
+      }, 1);
       if (!controller.signal.aborted && mounted.current) {
-        setShared(current => {
-          const existingIds = new Set((current ?? []).map(packet => packet.id));
-          return [...(current ?? []), ...page.data.filter(packet => !existingIds.has(packet.id))];
-        });
-        setHistoryCursor(page.nextCursor); setHistoryHasMore(page.hasMore);
-        setRefreshedAt(new Date().toLocaleString());
+        setReadError(null);
+        setHistoryReadFailed(false);
       }
-    } catch {
+    } catch (error) {
       if (!controller.signal.aborted && mounted.current) {
-        setReadError('Could Not Load the Next History Page. Previously Loaded Records Were Kept. Retry the Page.');
+        setReadError(packetHistoryErrorMessage(error, history.current));
+        setHistoryReadFailed(true);
+        setHistoryCursor(history.current.nextCursor ?? null);
+        setHistoryHasMore(history.current.hasMore);
       }
     } finally {
       action.current = false;
-      if (!controller.signal.aborted && mounted.current) setRefreshing(false);
+      if (!controller.signal.aborted && mounted.current) {
+        setRefreshing(false);
+        setContinuingHistory(false);
+      }
     }
   }
   function applyHistoryFilters() {
     if (dateFromFilter && dateToFilter && dateFromFilter > dateToFilter) {
+      setHistoryReadFailed(false);
       setReadError('The From Date Must Be on or Before the To Date.');
       return;
     }
@@ -208,14 +241,22 @@ export function PacketTransferPanel() {
       {w.previewOnly && <p className="pp-warning">UI Preview Only. Agency Reads and Uploads Are Disabled.</p>}
       {w.vault !== 'unlocked' && <p className="pp-warning">Unlock Saved Work to Read Shared Records.</p>}
       {!w.online && <p className="pp-warning">Offline. Previously Loaded Copies May Be Stale.</p>}
-      {readError && <p role="alert" className="pp-warning">{readError}</p>}
+      {readError && <div role="alert" className="pp-warning"><AlertTriangle size={16} /><div className="pp-read-error">
+        <p>{readError}</p>
+        {canContinueHistory && <button type="button" className="pp-button pp-secondary" disabled={disabledReads}
+          onClick={() => void loadOlderHistory()}>
+          {continuingHistory ? 'Loading next page…' : 'Continue loading records'}
+        </button>}
+      </div></div>}
       <div className="pp-shared-content" aria-busy={refreshing} aria-live="polite">
-        {refreshing ? <p>Loading Authorized Records…</p> : shared === null ? <p>Not Loaded. Choose Refresh Shared Records to Request Authorized Copies.</p>
+        {shared === null ? refreshing ? <p>Loading Authorized Records…</p> : <p>Not Loaded. Choose Refresh Shared Records to Request Authorized Copies.</p>
+          : !shared.length && refreshing ? <p>Loading Authorized Records…</p>
           : !shared.length ? <p>No Shared Packets Were Returned for This Account’s Authorized Scope. Local Drafts Are Unchanged.</p>
-          : <ul>{shared.map(packet => <li key={packet.id} data-testid={`row-shared-packet-${packet.id}`}><CheckCircle2 size={16} /><strong>{formatDateDMY(packet.record_date)} · {packet.report.recruitName}</strong><span>Read-Only · Version {packet.server_version} · Sealed</span>
-            <details className="w-full"><summary>View Saved Packet Data</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words p-2 text-xs">{JSON.stringify(packet.report, null, 2)}</pre></details></li>)}</ul>}
+          : <><ul>{shared.map(packet => <li key={packet.id} data-testid={`row-shared-packet-${packet.id}`}><CheckCircle2 size={16} /><strong>{formatDateDMY(packet.record_date)} · {packet.report.recruitName}</strong><span>Read-Only · Version {packet.server_version} · Sealed</span>
+            <details className="w-full"><summary>View Saved Packet Data</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words p-2 text-xs">{JSON.stringify(packet.report, null, 2)}</pre></details></li>)}</ul>
+            {refreshing && <p role="status" className="pp-history-loading">Loading the next page. Previously loaded records remain visible.</p>}</>}
       </div>
-      {historyHasMore && <div className="pp-history-more">
+      {historyHasMore && !readError && <div className="pp-history-more">
         <button type="button" data-testid="button-packet-history-load-older" className="pp-button pp-secondary"
           disabled={disabledReads} onClick={() => void loadOlderHistory()}>
           {refreshing ? 'Loading…' : 'Load Older Records'}
@@ -236,4 +277,14 @@ export function PacketTransferPanel() {
       </AlertDialogContent>
     </AlertDialog>
   </section>;
+}
+
+function packetHistoryErrorMessage(error: unknown, history: SharedPacketHistory, hasPreviousRecords = false) {
+  if (error instanceof PacketHistoryCursorError)
+    return 'The agency returned an unsafe or repeated history page. Previously loaded records are preserved. Refresh Shared Records to start over safely.';
+  return history.data.length
+    ? 'Could not load the next history page. Previously loaded records are still shown. Local drafts are unchanged.'
+    : hasPreviousRecords
+      ? 'Could not refresh shared records. Previously shown records are still displayed. Local drafts are unchanged.'
+      : 'Could not load shared records. Local drafts are unchanged. Refresh Shared Records to try again.';
 }

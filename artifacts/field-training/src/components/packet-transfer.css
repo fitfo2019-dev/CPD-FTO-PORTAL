@@ -62,6 +62,9 @@
 .packet-transfer .pp-feedback { margin-top: 15px; background: hsl(var(--muted)); border-left: 3px solid var(--pp-blue); padding: 10px 12px; font-size: 12px; }
 .packet-transfer .pp-warning { display: flex; align-items: flex-start; gap: 7px; padding: 10px 12px; border-left: 3px solid #bc6f15; background: #fff4e4; color: #754b0b; font-size: 12px; margin: 12px 0; }
 .packet-transfer .pp-warning svg { flex-shrink: 0; margin-top: 2px; }
+.packet-transfer .pp-read-error { min-width: 0; }
+.packet-transfer .pp-read-error p { margin: 0 0 9px; }
+.packet-transfer .pp-history-loading { margin: 10px 0 0; color: var(--pp-muted); font-size: 11px; }
 .packet-transfer .pp-shared-content { padding: 13px; background: hsl(var(--muted)); border: 1px dashed var(--pp-line); font-size: 12px; }
 .packet-transfer .pp-shared-content p { margin: 0; }
 .packet-transfer .pp-shared-content ul { margin: 0; list-style: none; padding: 0; display: grid; gap: 10px; }
