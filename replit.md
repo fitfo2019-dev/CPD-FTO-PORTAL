@@ -21,6 +21,16 @@ Read `PROJECT_MANIFEST.md`, `.replit-context.md`, and `HANDOVER_MANUAL.md` befor
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `AUDIT_ID_HMAC_KEY` for API audit pseudonymization. `DATABASE_URL` is required for shared phase-extension request storage and synthetic staging.
 
+## Scoped maintenance checklist
+
+- Keep edits limited to the requested change and its direct dependencies. Do not refactor unrelated files.
+- In each touched area, check for deprecated or struck-through usage before adding or retaining it. Remove unused imports from files changed in the task; do not turn that into a repository-wide cleanup.
+- Do not render developer instructions, internal maintenance notes, or implementation commentary in portal screens. Put practical user steps in the searchable Help Desk.
+- Preserve current UI structure, checkbox matrices, margins, typography, colors, and field/input values unless a UI change is explicitly requested. Before integrating any requested UI change, including CSS-only text capitalization, show a reviewable preview and get explicit approval. Never uppercase user-entered logs or transform form values.
+- Before changing an allowlisted protected source/configuration file, run `pnpm snapshot:context`; prefer `pnpm context:write <allowlisted-target> <prepared-text-file>` when replacing one protected file so the snapshot precedes its atomic write. The tool snapshots only its explicit allowlist; it is not an OS-wide watcher or a database, upload, or whole-site backup. See `HANDOVER_MANUAL.md` for its confidentiality and transfer boundaries.
+- For ordinary code changes, run `pnpm typecheck` and `pnpm --filter @workspace/field-training run build`. Run `pnpm run bundle:production` when preparing the API release archive; it builds/packages the API and is not a substitute for the portal build. Report the actual artifact size rather than applying a budget that has not been agreed.
+- For print/export changes, verify current form-source mapping, source references, checkbox states, narrative continuation, page margins, and physical page count. Describe portal outputs as reconstructed layouts unless they are verified filled copies of source PDFs; do not add unverified agency marks.
+
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9

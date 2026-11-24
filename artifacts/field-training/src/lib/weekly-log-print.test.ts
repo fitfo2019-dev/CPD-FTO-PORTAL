@@ -24,4 +24,5 @@ test('weekly log print preview uses paper columns, source references, and indepe
   assert.match(markup,/Page 1 of 2/);
   assert.match(markup,/Page 2 of 2/);
   assert.match(markup,/is-preview/);
+  assert.match(markup,/U-10\.174S/);
 });

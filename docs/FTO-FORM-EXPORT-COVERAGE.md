@@ -82,6 +82,13 @@ renders original page previews. Outputs are excluded from Git and deployment.
    until values, unselected checkboxes, long narratives, margins and page
    numbering have been checked.
 
+Automated regression coverage protects draft sync versus explicit FTO
+finalization, the print page sizes/margins, source-reference and weekly-log
+content. Browser-generated PDFs still require physical page-count and margin
+checks on each approved target printer. Automated markup or CSS checks do not
+establish printer compatibility or prove that a reconstructed layout matches an
+original agency PDF.
+
 Interface rationale: [Nielsen Norman Group, Mobile Input Fields](https://www.nngroup.com/articles/mobile-input-checklist/)
 recommends removing unnecessary inputs, reusing known information, appropriate
 defaults, paste support, autocomplete and automatic formatting. These practices

@@ -15,7 +15,9 @@ test("pre-write snapshot clones required source files and records their checksum
   };
   assert.equal(manifest.scope,"source-configuration-only");
   assert.deepEqual(manifest.files.map(item=>item.path),protectedPaths);
-  for(const path of [".replit-context.md","HANDOVER_MANUAL.md","src/config/phaseConfiguration.ts"]) {
+  const requiredPaths = [".replit-context.md","HANDOVER_MANUAL.md","src/config/phaseConfiguration.ts"];
+  for(const path of requiredPaths) {
+    assert.ok(protectedPaths.includes(path),`${path} must remain in the protected allowlist`);
     const source=await readFile(resolve(root,path));
     assert.deepEqual(await readFile(resolve(root,destination,path)),source);
     assert.equal(manifest.files.find(item=>item.path===path)?.sha256,

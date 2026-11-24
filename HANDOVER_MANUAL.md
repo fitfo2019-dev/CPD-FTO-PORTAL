@@ -144,8 +144,11 @@ staging executable code; staging routes must return 404 in production.
 `pnpm snapshot:context` creates
 `local-history-snapshots/snapshot_YYYYMMDD_HHMMSS_<unique suffix>/` containing
 only allowlisted context documents/configuration files, with a timestamp and
-SHA-256 manifest. It never copies Secrets, browser vaults, user uploads,
-training records or database contents. It is not a complete site/data backup.
+SHA-256 manifest. The allowlist includes `.replit-context.md`,
+`HANDOVER_MANUAL.md`, and `src/config/phaseConfiguration.ts`, along with the
+workspace/build configuration files named in `scripts/src/snapshot-context.ts`.
+It never copies Secrets, browser vaults, user uploads, training records or
+database contents. It is not a complete site/data backup.
 
 For an automatic snapshot immediately before a protected configuration write:
 
@@ -304,11 +307,15 @@ The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v
 ## Workspace Checks
 
 - `pnpm run typecheck` — TypeScript checks across workspace packages.
+- `pnpm --filter @workspace/field-training run build` — builds the portal Vite app.
 - The Field Training Vite configuration enables TypeScript checking with
   `vite-plugin-checker`; this tooling does not change the portal's rendered UI.
 - `pnpm run build` — type checks and builds all workspace artifacts using their local default ports and paths.
 - `pnpm run test:field-training:phase` — runs the Node test suite for the phase registry, phase extensions, and training calendar using the Field Training test config and path aliases.
 - `pnpm run bundle:production` — builds the API and creates a clean standalone `dist-production.zip`.
+- `pnpm run bundle:production` is API release packaging, separate from the
+  portal build. Record the archive's measured size; do not impose an arbitrary
+  size target without an approved artifact definition and budget.
 - `pnpm --filter @workspace/api-server run dev` — starts the API Server workflow.
 - `pnpm --filter @workspace/mockup-sandbox run dev` — starts the Component Preview Server workflow.
 - `pnpm --filter @workspace/field-training run dev` — starts the Field Training Officer Portal workflow.
