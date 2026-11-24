@@ -560,3 +560,31 @@ mtime_ms = 1795529652900
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/a63147b0-7366-443c-a2b2-4009811f9ff4/b241ef1c-9cdd-4623-b0db-ddbcf57c1ffd"
 storage_version_token = "1795529671430231"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "gtcFznYtWaeq3QUdYQTl1"
+uri = "file://generated-artifacts/website-records/City-of-Columbus-Executive-Brief.pdf"
+type = "pdf"
+title = "City of Columbus Executive Brief (PDF)"
+description = "Updated PDF export with the requested visible title and matching PDF metadata."
+logical_id = "50c00b0d-1724-4d6f-9900-2158fc075212"
+content_hash = "sha256:aee19f3a3a6437447ce9894e38e7cca7017ba4c80a8fabb629d8c44e4eb49bde"
+size = 269007
+mtime_ms = 1795538358279
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/50c00b0d-1724-4d6f-9900-2158fc075212/13151d4c-0490-42ad-af49-5a8724822e3e"
+storage_version_token = "1795538521771588"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "G_M8LNY0e8lXuzGYRqNME"
+uri = "file://generated-artifacts/website-records/City-of-Columbus-Executive-Brief.html"
+type = "html"
+title = "City of Columbus Executive Brief (HTML)"
+description = "Updated HTML export with the requested document title and matching visible heading."
+logical_id = "f0c33c35-1ad0-4496-afa6-c014bafe27c7"
+content_hash = "sha256:cd18338fd2fadaeddbcb4531ef1e0ed72e11bf718782c98a6d82fbe22113c8ad"
+size = 51514
+mtime_ms = 1795538356105
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/f0c33c35-1ad0-4496-afa6-c014bafe27c7/1e5e16fc-bbef-4958-aec9-2b7b90b72d59"
+storage_version_token = "1795538522380044"
+content_type = "text/html"
