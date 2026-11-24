@@ -1,3 +1,5 @@
+import { OperatorFacingError } from './operator-errors.js';
+
 import {
   PHASES, SHIFTS, WEEKDAYS, type FtoRosterEntry, type Phase, type Shift,
   type TrainingAssignment, type Weekday,
@@ -177,21 +179,21 @@ export function parseRosterRows(rows: string[][]): ParsedRoster {
 }
 
 export async function parseRosterFile(file: File): Promise<ParsedRoster> {
-  if (file.size > 2*1024*1024) throw new Error('Choose a file smaller than 2 MB.');
+  if (file.size > 2*1024*1024) throw new OperatorFacingError('Choose a file smaller than 2 MB.');
   if (/\.csv$/i.test(file.name)) return parseRosterRows(parseDelimited(await file.text()));
   if (/\.xlsx$/i.test(file.name)) {
     const imported=await import('xlsx');
     const workbook=imported.read(await file.arrayBuffer(),{type:'array',cellDates:false});
-    if(!workbook.SheetNames.length) throw new Error('The Excel workbook needs a roster worksheet.');
+    if(!workbook.SheetNames.length) throw new OperatorFacingError('The Excel workbook needs a roster worksheet.');
     const sheet=workbook.Sheets[workbook.SheetNames[0]];
     return parseRosterRows(imported.utils.sheet_to_json<string[]>(sheet,{header:1,raw:false,defval:''}));
   }
-  if (!/\.docx$/i.test(file.name)) throw new Error('Use a CSV, Excel .xlsx, or Word .docx file with a header row.');
+  if (!/\.docx$/i.test(file.name)) throw new OperatorFacingError('Use a CSV, Excel .xlsx, or Word .docx file with a header row.');
   const imported=await import('mammoth');
   const {value, messages}=await imported.convertToHtml({arrayBuffer:await file.arrayBuffer()});
   const document=new DOMParser().parseFromString(value,'text/html');
   const table=[...document.querySelectorAll('table')].find(item=>item.rows.length>1);
-  if (!table) throw new Error('The Word document needs a table with column headings in its first row.');
+  if (!table) throw new OperatorFacingError('The Word document needs a table with column headings in its first row.');
   const rows=[...table.rows].map(row=>[...row.cells].map(cell=>cell.textContent?.trim()??''));
   const parsed=parseRosterRows(rows);
   const warnings=messages.filter(message=>message.type==='warning');

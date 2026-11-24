@@ -16,6 +16,7 @@ import { validateReportsForExport } from '@/lib/export-validation.js';
 import { validateReport } from '@/lib/model.js';
 import { packetSubmissionReady } from '@workspace/api-zod/packet-readiness';
 import { assertAssignmentMetadata, assertTacticalAssignmentMetadata } from '@/lib/assignment-metadata.js';
+import { OperatorFacingError, operatorErrorMessage, reportUnexpectedOperatorError } from '@/lib/operator-errors.js';
 
 export type VaultState = 'none' | 'unlocked';
 export type PacketSyncState = 'idle' | 'uploading' | 'failed' | 'synchronized';
@@ -362,9 +363,10 @@ export function WorkspaceProvider({
     const at = rev.current;
     try { await storage.current.saveWorkspace<Workspace>(w, { overwrite }); }
     catch (e) {
+      reportUnexpectedOperatorError(e,'Could not save the local workspace');
       setSaveError(e instanceof WorkspaceConflictError
-        ? 'Another session saved a newer version. Your edits are still on screen; review the session warning before saving again.'
-        : e instanceof Error ? e.message : 'Local save failed');
+        ? e.message
+        : operatorErrorMessage(e,'Local save failed. Your on-screen work is unchanged.'));
       throw e;
     }
     setSaveError(null);
@@ -588,13 +590,13 @@ export function WorkspaceProvider({
   }, [vault, lockNow, previewOnly]);
 
   const setupAndSave = useCallback(async (pass: string) => {
-    if (previewOnly) throw new Error('The UI test preview is memory-only and cannot create a saved vault.');
+    if (previewOnly) throw new OperatorFacingError('The UI test preview is memory-only and cannot create a saved vault.');
     const s = storage.current;
     await s.unlock(enc(pass));
     let existing: Workspace | undefined;
     try { existing = await s.get<Workspace>('workspace'); }
-    catch { s.lock(); throw new Error('A saved vault already exists on this device and this passphrase does not open it. Use "Unlock saved work" instead — nothing was overwritten.'); }
-    if (existing) { s.lock(); throw new Error('Saved work already exists on this device. Use "Unlock saved work" to restore it first — nothing was overwritten.'); }
+    catch { s.lock(); throw new OperatorFacingError('Could not verify saved work on this device. Nothing was overwritten. If a vault already exists, choose "Unlock saved work."'); }
+    if (existing) { s.lock(); throw new OperatorFacingError('Saved work already exists on this device. Use "Unlock saved work" to restore it first — nothing was overwritten.'); }
     const w = { ...wsRef.current, version: wsRef.current.version + 1 };
     try { await persist(w); } catch (e) { s.lock(); throw e; }
     setWs(w); setVault('unlocked'); setRestored(true);
@@ -603,13 +605,13 @@ export function WorkspaceProvider({
   }, [persist, previewOnly]);
 
   const unlockAndRestore = useCallback(async (pass: string) => {
-    if (previewOnly) throw new Error('The UI test preview is memory-only and cannot open a saved vault.');
+    if (previewOnly) throw new OperatorFacingError('The UI test preview is memory-only and cannot open a saved vault.');
     const s = storage.current;
     await s.unlock(enc(pass));
     let data: Workspace | undefined;
     try { data = await s.get<Workspace>('workspace'); }
-    catch { s.lock(); throw new Error('Could not decrypt saved work. The passphrase may be wrong, or the data is damaged.'); }
-    if (!data) { s.lock(); throw new Error('No saved work found on this device. Use "Save locally" to create a vault.'); }
+    catch { s.lock(); throw new OperatorFacingError('Could not decrypt saved work. The passphrase may be wrong, or the data is damaged.'); }
+    if (!data) { s.lock(); throw new OperatorFacingError('No saved work found on this device. Use "Save locally" to create a vault.'); }
     let migratedReports: Report[];
     let restoredCaseFolder: PhaseCaseFolder | undefined;
     try {
@@ -711,12 +713,12 @@ export function WorkspaceProvider({
   }, [previewOnly, vault, persist]);
 
   const overwriteOtherSessions = useCallback(async () => {
-    if (previewOnly) throw new Error('The UI test preview cannot overwrite saved workspaces.');
-    if (vault !== 'unlocked') throw new Error('Unlock the local vault before overwriting another session.');
-    if (editorDirtyRef.current) throw new Error('Save the open form before overwriting another session.');
+    if (previewOnly) throw new OperatorFacingError('The UI test preview cannot overwrite saved workspaces.');
+    if (vault !== 'unlocked') throw new OperatorFacingError('Unlock the local vault before overwriting another session.');
+    if (editorDirtyRef.current) throw new OperatorFacingError('Save the open form before overwriting another session.');
     const sessionsToOverwrite = liveSessions.current().filter(session => session.unlocked);
-    if (!sessionsToOverwrite.length) throw new Error('No other unlocked session is available to overwrite.');
-    if (syncing.current) throw new Error('Wait for packet synchronization to finish.');
+    if (!sessionsToOverwrite.length) throw new OperatorFacingError('No other unlocked session is available to overwrite.');
+    if (syncing.current) throw new OperatorFacingError('Wait for packet synchronization to finish.');
     try {
       await requestRecoverySnapshots(sessionsToOverwrite.map(session => session.sessionId));
     } catch (error) {
@@ -731,9 +733,9 @@ export function WorkspaceProvider({
   }, [previewOnly, vault, persist, requestRecoverySnapshots, refreshRecoverySnapshots]);
 
   const restoreRecoverySnapshot = useCallback(async (id: string) => {
-    if (previewOnly) throw new Error('The UI test preview cannot restore saved workspaces.');
-    if (vault !== 'unlocked') throw new Error('Unlock the local vault before restoring a recovery copy.');
-    if (syncing.current) throw new Error('Wait for packet synchronization to finish before restoring a recovery copy.');
+    if (previewOnly) throw new OperatorFacingError('The UI test preview cannot restore saved workspaces.');
+    if (vault !== 'unlocked') throw new OperatorFacingError('Unlock the local vault before restoring a recovery copy.');
+    if (syncing.current) throw new OperatorFacingError('Wait for packet synchronization to finish before restoring a recovery copy.');
     const recovered = await storage.current.restoreRecoverySnapshot<Workspace>(
       id,
       (current, previous) => current ? preserveProtectedPackets(current, previous) : previous,

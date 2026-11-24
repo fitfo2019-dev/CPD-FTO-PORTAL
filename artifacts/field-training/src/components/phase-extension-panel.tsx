@@ -6,6 +6,7 @@ import { PHASE_LENGTH_WEEKS, phaseLabel, type PhaseExtensionRequest } from '@/li
 import { phaseExtensionRequestInputSchema } from '@/lib/phase-extension.js';
 import { listSharedPhaseExtensionRequests, PhaseExtensionApiError, reviewSharedPhaseExtensionRequest, submitSharedPhaseExtensionRequest } from '@/lib/phase-extension-api.js';
 import { useToast } from '@/hooks/use-toast.js';
+import { operatorErrorMessage, operatorErrorToast, reportUnexpectedOperatorError } from '@/lib/operator-errors.js';
 
 interface PhaseExtensionReviewViewProps {
   requests:readonly PhaseExtensionRequest[];
@@ -78,7 +79,8 @@ export function PhaseExtensionPanel() {
           }
         }
       } catch(error) {
-        if(active)setServiceError(error instanceof Error?error.message:'Shared requests are unavailable.');
+        reportUnexpectedOperatorError(error,'Could not load shared phase-extension requests');
+        if(active)setServiceError(operatorErrorMessage(error,'Shared requests are unavailable. Try again later.'));
       } finally {
         if(active)setLoading(false);
       }
@@ -101,9 +103,9 @@ export function PhaseExtensionPanel() {
         ?{title:'Extension approved',description:`${reviewed.className} · ${reviewed.recruitName} can see the decision from their device.`}
         :{title:'Request denied',description:`${reviewed.className} · ${reviewed.recruitName} can see the decision from their device.`});
     } catch(error) {
-      const message=error instanceof Error?error.message:'The shared review service is unavailable.';
-      setServiceError(message);
-      toast({title:'Review could not be saved',description:message,variant:'destructive'});
+      const failure=operatorErrorToast('Review could not be saved',error,'The review could not be confirmed. Refresh requests before trying again.');
+      setServiceError(failure.description);
+      toast(failure);
     } finally {
       setReviewingId(undefined);
     }
@@ -209,8 +211,11 @@ export function PhaseExtensionPanel() {
         ?{title:'Request sent for review',description:'The FTO Coordinator can review it from another device.'}
         :{title:'Request saved on this device',description:'It has not been sent. Retry when the shared service is available.'});
     } catch(error) {
-      const message=error instanceof Error?error.message:'The request could not be submitted.';
-      toast({title:'Request not submitted',description:message,variant:'destructive'});
+      toast(operatorErrorToast(
+        'Request not submitted',
+        error,
+        'The request could not be submitted. Check its status before trying again.',
+      ));
     }
   }
 
@@ -220,8 +225,11 @@ export function PhaseExtensionPanel() {
       if(outcome==='sent')toast({title:'Saved request sent',description:'The FTO Coordinator can review it from another device.'});
       else toast({title:'Request is still saved locally',description:'It has not been sent yet.'});
     } catch(error) {
-      const message=error instanceof Error?error.message:'The request could not be submitted.';
-      toast({title:'Request not submitted',description:message,variant:'destructive'});
+      toast(operatorErrorToast(
+        'Request not submitted',
+        error,
+        'The request could not be submitted. Check its status before trying again.',
+      ));
     }
   }
 

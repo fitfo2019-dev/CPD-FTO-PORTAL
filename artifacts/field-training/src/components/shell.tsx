@@ -11,6 +11,7 @@ import { VaultDialog } from './vault-dialog.js';
 import { cn } from '@/lib/utils.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog.js';
+import { operatorErrorToast } from '@/lib/operator-errors.js';
 
 type NavItem = { href: string; label: string; icon: typeof LayoutGrid };
 
@@ -149,11 +150,11 @@ export function Shell({ children }: { children: ReactNode }) {
       setRecoveryReviewOpen(false);
       toast({ title: 'Previous version restored locally', description: 'Agency-sync status was not changed.' });
     } catch (error) {
-      toast({
-        title: 'Could not restore the previous version',
-        description: error instanceof Error ? error.message : 'The local workspace was not changed.',
-        variant: 'destructive',
-      });
+      toast(operatorErrorToast(
+        'Could not restore the previous version',
+        error,
+        'The previous version could not be confirmed. Review the workspace before trying again.',
+      ));
     } finally {
       setRestoringRecoveryId(null);
     }
@@ -164,11 +165,11 @@ export function Shell({ children }: { children: ReactNode }) {
       await w.refreshRecoverySnapshots();
       setRecoveryReviewOpen(true);
     } catch (error) {
-      toast({
-        title: 'Could not review recovery copies',
-        description: error instanceof Error ? error.message : 'The local recovery list is unavailable.',
-        variant: 'destructive',
-      });
+      toast(operatorErrorToast(
+        'Could not review recovery copies',
+        error,
+        'Recovery copies are temporarily unavailable. Your current workspace has not been changed.',
+      ));
     }
   }
 
@@ -428,7 +429,11 @@ export function Shell({ children }: { children: ReactNode }) {
                 toast({ title: 'Saved locally', description: 'The other tab was locked and must unlock to continue.' });
               } catch (error) {
                 setConfirmOverwrite(false);
-                toast({ title: 'Could not overwrite the other session', description: error instanceof Error ? error.message : 'Your local work was not replaced.', variant: 'destructive' });
+                toast(operatorErrorToast(
+                  'Could not overwrite the other session',
+                  error,
+                  'The other session could not be safely replaced. Check both tabs before trying again.',
+                ));
               }
             }}>Overwrite other session</AlertDialogAction>
           </AlertDialogFooter>

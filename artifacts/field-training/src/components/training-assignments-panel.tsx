@@ -8,6 +8,7 @@ import { phaseAssignmentLabel, phaseLabel, uid, type PhaseCaseFolder, type Shift
 import { cruiserDistrictForFtoAssignment } from '@/lib/cpd-geography.js';
 import { formatDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
 import { parseRosterFile, ROSTER_CSV_TEMPLATE, type ParsedRoster } from '@/lib/assignment-import.js';
+import { operatorErrorMessage, reportUnexpectedOperatorError } from '@/lib/operator-errors.js';
 
 export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignment: (assignment: TrainingAssignment) => void }) {
   const { ws, vault, importRoster, upsertAssignment } = useWorkspace();
@@ -29,7 +30,10 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
     if (!file) return;
     setBusy(true);setFileName(file.name);setPreview(null);setParseError('');
     try { setPreview(await parseRosterFile(file)); }
-    catch (error) { setParseError(error instanceof Error?error.message:'Could not read this file.'); }
+    catch (error) {
+      reportUnexpectedOperatorError(error,'Could not read a roster file');
+      setParseError(operatorErrorMessage(error,'Could not read this file. Check that it is a supported roster and try again.'));
+    }
     finally { setBusy(false);event.target.value=''; }
   }
 

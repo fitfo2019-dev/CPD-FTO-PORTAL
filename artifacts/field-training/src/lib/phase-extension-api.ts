@@ -3,6 +3,7 @@ import type {
   PhaseExtensionRequestInput,
 } from "@workspace/api-client-react";
 import type { PhaseExtensionRequest } from "./model.js";
+import { OperatorFacingError } from "./operator-errors.js";
 
 type WirePhaseExtensionRequest = Omit<
   ApiPhaseExtensionRequest,
@@ -18,7 +19,7 @@ type RequestsEnvelope = {
   data: PhaseExtensionRequest[];
 };
 
-export class PhaseExtensionApiError extends Error {
+export class PhaseExtensionApiError extends OperatorFacingError {
   constructor(
     message: string,
     readonly status?: number,
@@ -102,13 +103,42 @@ async function send(
   }
   if (!response.ok) {
     const error = isRecord(body) ? body : {};
+    const code = typeof error.error_code === "string" ? error.error_code : undefined;
     throw new PhaseExtensionApiError(
-      typeof error.message === "string" ? error.message : "The shared request could not be completed.",
+      safeApiErrorMessage(response.status, code),
       response.status,
-      typeof error.error_code === "string" ? error.error_code : undefined,
+      code,
     );
   }
   return parseEnvelope(body);
+}
+
+function safeApiErrorMessage(status: number, code?: string): string {
+  switch (code) {
+    case "AUTHENTICATION_REQUIRED":
+    case "AGENCY_IDENTITY_REQUIRED":
+      return "Sign in with an approved staff account.";
+    case "PHASE_EXTENSION_ACCESS_DENIED":
+      return "This account does not have permission to complete this action. Contact your Coordinator if access is needed.";
+    case "INVALID_PHASE_EXTENSION_REQUEST":
+      return "Check the extension request details and try again.";
+    case "INVALID_PHASE_EXTENSION_REVIEW":
+      return "Choose approve or deny for a valid request.";
+    case "REQUEST_ID_CONFLICT":
+      return "This request identifier is already in use.";
+    case "PHASE_EXTENSION_NOT_FOUND":
+      return "The phase extension request is no longer available.";
+    case "PHASE_EXTENSION_ALREADY_REVIEWED":
+      return "This request has already been reviewed.";
+    case "REQUEST_STORAGE_UNAVAILABLE":
+      return "The shared request service is temporarily unavailable. Try again shortly.";
+  }
+  if (status === 401) return "Sign in again with your approved staff account.";
+  if (status === 403) return "This account does not have permission to complete this action.";
+  if (status === 400) return "Check the request details and try again.";
+  if (status === 409) return "This request changed elsewhere. Refresh the list before trying again.";
+  if (status === 404) return "The requested item is no longer available.";
+  return "The shared request service is temporarily unavailable. Try again shortly.";
 }
 
 export async function listSharedPhaseExtensionRequests(token: string): Promise<{

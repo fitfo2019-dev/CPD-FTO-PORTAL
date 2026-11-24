@@ -1,4 +1,4 @@
-import {createContext,useContext,useRef,type ReactNode} from 'react';
+import {createContext,useContext,useEffect,useRef,type ReactNode} from 'react';
 import {useQueryClient} from '@tanstack/react-query';
 import {useUser} from '@clerk/react';
 import {
@@ -7,13 +7,17 @@ import {
   type PacketReviewContext,type PacketReviewActionInput,type PacketSubmission,type PacketCoordinatorInput,
 } from '@workspace/api-client-react';
 import {useWorkspace} from './workspace.js';
+import {OperatorFacingError,operatorErrorMessage,reportUnexpectedOperatorError} from '@/lib/operator-errors.js';
 
 export function packetReviewError(error:unknown):string {
   if(error&&typeof error==='object'&&'data' in error) {
     const data=error.data as {error_code?:string;message?:string}|undefined;
-    if(data?.error_code) return `${data.error_code.replaceAll('_',' ')}. ${data.message??'Refresh and retry; your local drafts have been retained.'}`;
+    if(data?.error_code==='INVALID_SUBMISSION_ID'||data?.error_code==='INVALID_REVIEW_ACTION')
+      return 'Check the packet-review details and try again. No records were changed.';
+    if(data?.error_code==='AGENCY_STORAGE_UNAVAILABLE')
+      return 'The packet-review operation could not be completed. Local drafts were not removed.';
   }
-  return error instanceof Error?error.message:'The shared packet service is unavailable. Local drafts have been retained.';
+  return operatorErrorMessage(error,'The shared packet service is unavailable. Local drafts have been retained.');
 }
 interface PacketReviewValue {
   context?:PacketReviewContext;
@@ -33,9 +37,12 @@ export function PacketReviewProvider({children}:{children:ReactNode}) {
   const query=useGetPacketReviewContext({query:{queryKey:[...getGetPacketReviewContextQueryKey(),user?.id],
     enabled:!previewOnly&&isLoaded&&!!isSignedIn,refetchInterval:5000,refetchOnWindowFocus:true,retry:false,staleTime:0,
     select:data=>{
-      if(data.account_id!==user?.id) throw new Error('The packet service returned another account. Sign out and sign back in.');
+      if(data.account_id!==user?.id) throw new OperatorFacingError('The packet service returned another account. Sign out and sign back in.');
       return data;
     }}});
+  useEffect(()=>{
+    if(query.error)reportUnexpectedOperatorError(query.error,'Could not load packet-review information');
+  },[query.error]);
   const refresh=async()=>{
     const result=await query.refetch();
     if(result.error) throw result.error;

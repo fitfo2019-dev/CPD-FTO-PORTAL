@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
 import { useWorkspace } from '@/state/workspace.js';
 import { useToast } from '@/hooks/use-toast.js';
+import { operatorErrorMessage, reportUnexpectedOperatorError } from '@/lib/operator-errors.js';
 
 export function VaultDialog() {
   const { intent, closeVault, setupAndSave, unlockAndRestore } = useWorkspace();
@@ -22,7 +23,13 @@ export function VaultDialog() {
       if (setup) { await setupAndSave(pass); toast({ title: 'Saved locally (encrypted)', description: 'Stored on this device only. Not sent to any server.' }); }
       else { await unlockAndRestore(pass); toast({ title: 'Saved work restored', description: 'Decrypted from this device.' }); }
       setPass(''); setConfirm(''); closeVault();
-    } catch (x) { setErr(x instanceof Error ? x.message : 'Unexpected error. Nothing was changed.'); setPass(''); setConfirm(''); }
+    } catch (x) {
+      reportUnexpectedOperatorError(x,'Could not save or restore the local vault');
+      setErr(operatorErrorMessage(x,setup
+        ?'Saved work could not be saved. Your current workspace remains on screen.'
+        :'Saved work could not be opened. Check the passphrase and try again.'));
+      setPass(''); setConfirm('');
+    }
     finally { setBusy(false); }
   }
 
