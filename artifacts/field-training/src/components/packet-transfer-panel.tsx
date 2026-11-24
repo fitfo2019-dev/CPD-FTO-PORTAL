@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, CloudUpload, FileText, Home, Loader2, LockKeyhole, RefreshCw, Save, ShieldCheck, Wifi, WifiOff } from 'lucide-react';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { useWorkspace } from '@/state/workspace.js';
-import { checkPacketService, readSharedPackets, type SharedPacket } from '@/lib/training-packet-sync.js';
+import { checkPacketService, readSharedPacketsPage, type PacketHistoryFilters, type SharedPacket } from '@/lib/training-packet-sync.js';
 import { packetUploadBlock, queuedReports } from '@/lib/packet-upload-controls.js';
 import { formatDateDMY } from '@/lib/training-calendar.js';
 import './packet-transfer.css';
@@ -13,6 +13,12 @@ export function PacketTransferPanel() {
   const [accessPath, setAccessPath] = useState<'station' | 'remote'>('station');
   const [service, setService] = useState<'unchecked' | 'checking' | 'available' | 'unavailable'>('unchecked');
   const [shared, setShared] = useState<SharedPacket[] | null>(null);
+  const [recruitFilter, setRecruitFilter] = useState('');
+  const [dateFromFilter, setDateFromFilter] = useState('');
+  const [dateToFilter, setDateToFilter] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<PacketHistoryFilters>({});
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
@@ -55,15 +61,16 @@ export function PacketTransferPanel() {
       }
     } finally { action.current = false; }
   }
-  async function refresh() {
+  async function refresh(filters: PacketHistoryFilters = appliedFilters) {
     if (disabledReads || action.current) return;
     action.current = true;
     const controller = new AbortController(); request.current = controller;
     setRefreshing(true); setReadError(null);
     try {
-      const packets = await readSharedPackets(controller.signal);
+      const page = await readSharedPacketsPage(undefined, controller.signal, filters);
       if (!controller.signal.aborted && mounted.current) {
-        setShared(packets); setRefreshedAt(new Date().toLocaleString());
+        setShared(page.data); setHistoryCursor(page.nextCursor); setHistoryHasMore(page.hasMore);
+        setAppliedFilters(filters); setRefreshedAt(new Date().toLocaleString());
       }
     } catch {
       if (!controller.signal.aborted && mounted.current) {
@@ -73,6 +80,43 @@ export function PacketTransferPanel() {
       action.current = false;
       if (!controller.signal.aborted && mounted.current) setRefreshing(false);
     }
+  }
+  async function loadOlderHistory() {
+    const cursor = historyCursor;
+    if (!cursor || !historyHasMore || disabledReads || action.current) return;
+    action.current = true;
+    const controller = new AbortController(); request.current = controller;
+    setRefreshing(true); setReadError(null);
+    try {
+      const page = await readSharedPacketsPage(cursor, controller.signal, appliedFilters);
+      if (!controller.signal.aborted && mounted.current) {
+        setShared(current => {
+          const existingIds = new Set((current ?? []).map(packet => packet.id));
+          return [...(current ?? []), ...page.data.filter(packet => !existingIds.has(packet.id))];
+        });
+        setHistoryCursor(page.nextCursor); setHistoryHasMore(page.hasMore);
+        setRefreshedAt(new Date().toLocaleString());
+      }
+    } catch {
+      if (!controller.signal.aborted && mounted.current) {
+        setReadError('Could Not Load the Next History Page. Previously Loaded Records Were Kept. Retry the Page.');
+      }
+    } finally {
+      action.current = false;
+      if (!controller.signal.aborted && mounted.current) setRefreshing(false);
+    }
+  }
+  function applyHistoryFilters() {
+    if (dateFromFilter && dateToFilter && dateFromFilter > dateToFilter) {
+      setReadError('The From Date Must Be on or Before the To Date.');
+      return;
+    }
+    const filters: PacketHistoryFilters = {
+      ...(recruitFilter.trim() ? { recruit: recruitFilter.trim() } : {}),
+      ...(dateFromFilter ? { dateFrom: dateFromFilter } : {}),
+      ...(dateToFilter ? { dateTo: dateToFilter } : {}),
+    };
+    void refresh(filters);
   }
   async function upload() {
     if (block || !acknowledged || confirmation !== snapshot || action.current) return;
@@ -133,7 +177,34 @@ export function PacketTransferPanel() {
     <section className="pp-card" aria-labelledby="packet-shared-title">
       <div className="pp-section-heading"><div><h3 id="packet-shared-title"><RefreshCw size={19} />Shared Records</h3><p>Read-Only Agency Copies, Separate from Device Drafts.</p></div>
         <button type="button" className="pp-button pp-secondary" disabled={disabledReads} onClick={() => void refresh()}><RefreshCw size={15} className={refreshing ? 'pp-spin' : ''} />{refreshing ? 'Refreshing…' : 'Refresh Shared Records'}</button></div>
-      <p className="pp-note">Refresh Never Uploads, Replaces, or Merges Local Drafts. The Server Returns Only Your Authorized Scope, Up to the Latest 100 Records.</p>
+      <p className="pp-note">Refresh Never Uploads, Replaces, or Merges Local Drafts. The Server Checks Your Authorized Roster on Every Page and Returns at Most 100 Records at a Time.</p>
+      <div className="pp-history-filters" aria-label="Filter shared packet history">
+        <label className="pp-history-recruit"><span>Recruit name or badge</span>
+          <input data-testid="input-packet-history-recruit" value={recruitFilter}
+            onChange={event => setRecruitFilter(event.target.value)} maxLength={120}
+            placeholder="Search authorized recruits" disabled={disabledReads} />
+        </label>
+        <label><span>From date</span><input data-testid="input-packet-history-from" type="date"
+          value={dateFromFilter} onChange={event => setDateFromFilter(event.target.value)} disabled={disabledReads} /></label>
+        <label><span>To date</span><input data-testid="input-packet-history-to" type="date"
+          value={dateToFilter} onChange={event => setDateToFilter(event.target.value)} disabled={disabledReads} /></label>
+        <div className="pp-history-filter-actions">
+          <button type="button" data-testid="button-packet-history-apply" className="pp-button pp-primary"
+            disabled={disabledReads} onClick={applyHistoryFilters}>Apply Filters</button>
+          <button type="button" data-testid="button-packet-history-clear" className="pp-button pp-secondary"
+            disabled={disabledReads} onClick={() => {
+              setRecruitFilter(''); setDateFromFilter(''); setDateToFilter('');
+              void refresh({});
+            }}>Clear</button>
+        </div>
+      </div>
+      <p className="pp-history-filter-hint">Dates include both endpoints. Applying filters starts a new search from the newest matching packet.</p>
+      {shared !== null && <p className="pp-history-scope" data-testid="text-packet-history-scope">
+        Showing {shared.length} authorized record{shared.length === 1 ? '' : 's'}
+        {appliedFilters.recruit ? ` matching “${appliedFilters.recruit}”` : ''}
+        {appliedFilters.dateFrom || appliedFilters.dateTo
+          ? ` · ${appliedFilters.dateFrom ?? 'Any date'} to ${appliedFilters.dateTo ?? 'Any date'}` : ''}
+      </p>}
       {w.previewOnly && <p className="pp-warning">UI Preview Only. Agency Reads and Uploads Are Disabled.</p>}
       {w.vault !== 'unlocked' && <p className="pp-warning">Unlock Saved Work to Read Shared Records.</p>}
       {!w.online && <p className="pp-warning">Offline. Previously Loaded Copies May Be Stale.</p>}
@@ -141,9 +212,15 @@ export function PacketTransferPanel() {
       <div className="pp-shared-content" aria-busy={refreshing} aria-live="polite">
         {refreshing ? <p>Loading Authorized Records…</p> : shared === null ? <p>Not Loaded. Choose Refresh Shared Records to Request Authorized Copies.</p>
           : !shared.length ? <p>No Shared Packets Were Returned for This Account’s Authorized Scope. Local Drafts Are Unchanged.</p>
-          : <ul>{shared.map(packet => <li key={packet.id}><CheckCircle2 size={16} /><strong>{formatDateDMY(packet.record_date)} · {packet.report.recruitName}</strong><span>Read-Only · Version {packet.server_version} · Sealed</span>
+          : <ul>{shared.map(packet => <li key={packet.id} data-testid={`row-shared-packet-${packet.id}`}><CheckCircle2 size={16} /><strong>{formatDateDMY(packet.record_date)} · {packet.report.recruitName}</strong><span>Read-Only · Version {packet.server_version} · Sealed</span>
             <details className="w-full"><summary>View Saved Packet Data</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words p-2 text-xs">{JSON.stringify(packet.report, null, 2)}</pre></details></li>)}</ul>}
       </div>
+      {historyHasMore && <div className="pp-history-more">
+        <button type="button" data-testid="button-packet-history-load-older" className="pp-button pp-secondary"
+          disabled={disabledReads} onClick={() => void loadOlderHistory()}>
+          {refreshing ? 'Loading…' : 'Load Older Records'}
+        </button>
+      </div>}
       {refreshedAt && <p className="pp-freshness">Last Successful Refresh: {refreshedAt}. {readError || !w.online ? 'Results May Be Stale.' : 'Not a Live Connection.'}</p>}
     </section>
     <AlertDialog open={confirmation !== null} onOpenChange={open => { if (!open) setConfirmation(null); }}>

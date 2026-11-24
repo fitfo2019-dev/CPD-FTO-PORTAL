@@ -5,7 +5,7 @@ import test from "node:test";
 import express from "express";
 import type pg from "pg";
 import { createTrainingPacketsRouter } from "../src/routes/training-packets.js";
-import { createAgencyPacketStore, PacketError } from "../src/lib/agency-packet-store.js";
+import { createAgencyPacketStore, encodePacketCursor, PacketError } from "../src/lib/agency-packet-store.js";
 import { hashUserIdentifier } from "../src/utils/cryptoUtils.js";
 import { CATEGORIES, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord } from "../../field-training/src/lib/model.js";
 
@@ -120,14 +120,15 @@ test("LR-06 packet history uses stable 100-record pages and follows records adde
   const requests: unknown[][] = [];
   const client = { async query(sql: string, args: unknown[] = []) {
     if (sql.includes("FROM agency_training.packets")) {
-      assert.match(sql, /ORDER BY p\.record_date DESC, p\.id DESC LIMIT \$8/);
+      assert.match(sql, /ORDER BY p\.record_date DESC, p\.id DESC LIMIT \$10/);
       assert.match(sql, /a\.fto_id_hash = \$2 AND a\.fto_badge_hash = \$3/);
+      assert.match(sql, /position\(lower\(\$4::text\) in lower\(coalesce\(p\.report->>'recruitName'/);
       requests.push(args);
-      const cursorDate = args[5];
-      const cursorId = args[6];
+      const cursorDate = args[7];
+      const cursorId = args[8];
       const eligible = cursorDate == null ? historical : historical.filter(packet =>
         packet.record_date < cursorDate || (packet.record_date === cursorDate && packet.id < cursorId));
-      return { rows: eligible.slice().sort((a, b) => b.id.localeCompare(a.id)).slice(0, Number(args[7])) };
+      return { rows: eligible.slice().sort((a, b) => b.id.localeCompare(a.id)).slice(0, Number(args[9])) };
     }
     return { rows: [] };
   }, release() {} };
@@ -137,7 +138,11 @@ test("LR-06 packet history uses stable 100-record pages and follows records adde
     const observed: string[] = [];
     let pageNumber = 0;
     while (true) {
-      const response = await fetch(cursor ? `${url}?cursor=${encodeURIComponent(cursor)}` : url);
+      const query = new URLSearchParams({
+        recruit: "Fictional PO", date_from: "2026-11-01", date_to: "2026-11-30",
+      });
+      if (cursor) query.set("cursor", cursor);
+      const response = await fetch(`${url}?${query}`);
       assert.equal(response.status, 200);
       const body = await response.text();
       assert.ok(Buffer.byteLength(body, "utf8") <= 2 * 1024 * 1024);
@@ -171,11 +176,52 @@ test("LR-06 packet history uses stable 100-record pages and follows records adde
     assert.equal(requests[0][4], identity.id);
     assert.equal(requests[1][4], identity.id, "each page uses the signed-in identity and roster scope");
     assert.equal(requests[2][4], identity.id);
-    assert.equal(requests[0][7], 101);
+    for (const args of requests) {
+      assert.equal(args[3], "Fictional PO");
+      assert.equal(args[5], "2026-11-01");
+      assert.equal(args[6], "2026-11-30");
+    }
+    assert.equal(requests[0][9], 101);
     const invalidCursor = await fetch(`${url}?cursor=not-a-valid-cursor`);
     assert.equal(invalidCursor.status, 400);
     assert.equal(requests.length, 3, "invalid cursors are rejected before database access");
   });
+});
+test("packet-history filters are validated, bound to the query, and retain roster scope", async () => {
+  const queries: Array<{ sql: string; args: unknown[] }> = [];
+  let connectCount = 0;
+  const client = { async query(sql: string, args: unknown[] = []) {
+    queries.push({ sql, args });
+    return { rows: [] };
+  }, release() {} };
+  const store = createAgencyPacketStore({ async connect() { connectCount++; return client; } } as unknown as pg.Pool);
+  await withApi(store, async url => {
+    const valid = new URLSearchParams({
+      recruit: "  Fictional PO  ", date_from: "2026-11-01", date_to: "2026-11-30",
+    });
+    const response = await fetch(`${url}?${valid}`);
+    assert.equal(response.status, 200);
+    assert.equal(queries.length, 4, "the filtered read is audited and committed");
+    const read = queries[1];
+    assert.match(read.sql, /a\.fto_id_hash = \$2 AND a\.fto_badge_hash = \$3/);
+    assert.match(read.sql, /p\.record_date >= \$6::date/);
+    assert.match(read.sql, /p\.record_date <= \$7::date/);
+    assert.deepEqual(read.args.slice(3), [
+      "Fictional PO", identity.id, "2026-11-01", "2026-11-30", null, null, 101,
+    ]);
+    for (const invalidQuery of [
+      "date_from=2026-02-30", "date_from=2026-11-30&date_to=2026-11-01",
+      "recruit=%20%20", "unknown=value", "recruit=one&recruit=two",
+    ]) {
+      const invalid = await fetch(`${url}?${invalidQuery}`);
+      assert.equal(invalid.status, 400, invalidQuery);
+    }
+    assert.equal(connectCount, 1, "invalid filter input is rejected before database access");
+  });
+  const cursor = encodePacketCursor("2026-11-23", "SYNTHETIC-ID", { recruit: "Fictional PO" });
+  await assert.rejects(store.readPage(identity, audit, cursor, { recruit: "Different PO" }),
+    error => error instanceof PacketError && error.code === "INVALID_PACKET_CURSOR");
+  assert.equal(connectCount, 1, "a cursor cannot be reused with different filters");
 });
 test("LR-07 readiness reports true for an injected unavailable store without probing it", async () => {
   const db = fakeDatabase();

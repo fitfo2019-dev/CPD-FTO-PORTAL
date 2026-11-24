@@ -36,6 +36,16 @@
 .packet-transfer .pp-section-heading p { font-size: 12px; margin: 4px 0 0; }
 .packet-transfer .pp-count { padding: 4px 9px; background: hsl(var(--primary) / .1); color: var(--pp-ink); font-size: 12px; font-weight: 700; white-space: nowrap; }
 .packet-transfer .pp-note { font-size: 12px; margin: 13px 0; }
+.packet-transfer .pp-history-filters { display: grid; grid-template-columns: minmax(190px, 1.5fr) minmax(145px, 1fr) minmax(145px, 1fr) auto; gap: 12px; align-items: end; padding: 15px; border: 1px solid var(--pp-line); background: hsl(var(--muted) / .45); }
+.packet-transfer .pp-history-filters label { display: grid; gap: 6px; min-width: 0; }
+.packet-transfer .pp-history-filters label > span { color: var(--pp-ink); font-size: 11px; font-weight: 700; }
+.packet-transfer .pp-history-filters input { width: 100%; min-height: 38px; border: 1px solid var(--pp-line); border-radius: 2px; background: hsl(var(--card)); color: var(--pp-ink); padding: 7px 9px; font: inherit; font-size: 12px; }
+.packet-transfer .pp-history-filters input:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
+.packet-transfer .pp-history-filters input:disabled { opacity: .6; cursor: not-allowed; }
+.packet-transfer .pp-history-filter-actions { display: flex; gap: 7px; }
+.packet-transfer .pp-history-filter-actions .pp-button { min-height: 38px; }
+.packet-transfer .pp-history-filter-hint, .packet-transfer .pp-history-scope { font-size: 11px; margin: 8px 0 12px; }
+.packet-transfer .pp-history-more { display: flex; justify-content: center; padding-top: 12px; }
 .packet-transfer .pp-packets { list-style: none; padding: 0; margin: 15px 0; border-top: 1px solid var(--pp-line); max-height: 440px; overflow: auto; }
 .packet-transfer .pp-packets li { display: flex; align-items: center; gap: 11px; padding: 13px 0; border-bottom: 1px solid var(--pp-line); }
 .packet-transfer .pp-packet-name { display: grid; gap: 1px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -67,8 +77,15 @@
   .packet-transfer .pp-local, .packet-transfer .pp-section-heading, .packet-transfer .pp-action-row { align-items: stretch; flex-direction: column; gap: 12px; }
   .packet-transfer .pp-access { padding: 14px; }.packet-transfer .pp-access-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
   .packet-transfer .pp-access-tabs button { flex: 1; justify-content: center; }
+  .packet-transfer .pp-history-filters { grid-template-columns: 1fr 1fr; padding: 12px; }
+  .packet-transfer .pp-history-recruit, .packet-transfer .pp-history-filter-actions { grid-column: span 2; }
+  .packet-transfer .pp-history-filter-actions .pp-button { flex: 1; }
   .packet-transfer .pp-card { padding: 16px; }.packet-transfer .pp-count { align-self: flex-start; }
   .packet-transfer .pp-packets li { flex-wrap: wrap; }.packet-transfer .pp-status { margin-left: 29px; }
   .packet-transfer .pp-shared-content li span { margin-left: 25px; width: 100%; }
+}
+@media(max-width: 380px) {
+  .packet-transfer .pp-history-filters { grid-template-columns: 1fr; }
+  .packet-transfer .pp-history-recruit, .packet-transfer .pp-history-filter-actions { grid-column: auto; }
 }
 @media(prefers-reduced-motion: reduce) { .packet-transfer .pp-spin { animation: none; } .packet-transfer .pp-button { transition: none; } }

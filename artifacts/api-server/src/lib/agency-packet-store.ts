@@ -49,12 +49,24 @@ const PACKET_PAGE_SIZE = 100;
 
 type PacketCursor = { recordDate: string; id: string };
 type PacketPage = { data: Record<string, unknown>[]; hasMore: boolean };
+export type PacketHistoryFilters = { recruit?: string; dateFrom?: string; dateTo?: string };
 
-export function encodePacketCursor(recordDate: string, id: string): string {
-  return Buffer.from(JSON.stringify({ recordDate, id })).toString("base64url");
+function packetFilterHash(filters: PacketHistoryFilters): string {
+  return createHash("sha256").update(JSON.stringify({
+    recruit: filters.recruit ?? null,
+    dateFrom: filters.dateFrom ?? null,
+    dateTo: filters.dateTo ?? null,
+  })).digest("hex").slice(0, 16);
 }
 
-function decodePacketCursor(cursor: string | undefined): PacketCursor | undefined {
+export function encodePacketCursor(recordDate: string, id: string, filters: PacketHistoryFilters = {}): string {
+  const hasFilters = Boolean(filters.recruit || filters.dateFrom || filters.dateTo);
+  return Buffer.from(JSON.stringify({
+    recordDate, id, ...(hasFilters ? { filterHash: packetFilterHash(filters) } : {}),
+  })).toString("base64url");
+}
+
+function decodePacketCursor(cursor: string | undefined, filters: PacketHistoryFilters): PacketCursor | undefined {
   if (cursor === undefined) return undefined;
   try {
     if (cursor.length > 256 || !/^[A-Za-z0-9_-]+$/.test(cursor)) throw new Error();
@@ -63,7 +75,11 @@ function decodePacketCursor(cursor: string | undefined): PacketCursor | undefine
     const value: unknown = JSON.parse(decoded);
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
     const record = value as Record<string, unknown>;
-    if (Object.keys(record).length !== 2 || typeof record.recordDate !== "string" ||
+    const hasFilters = Boolean(filters.recruit || filters.dateFrom || filters.dateTo);
+    if ((hasFilters
+        ? Object.keys(record).length !== 3 || record.filterHash !== packetFilterHash(filters)
+        : Object.keys(record).length !== 2) ||
+      typeof record.recordDate !== "string" ||
       !/^\d{4}-\d{2}-\d{2}$/.test(record.recordDate) ||
       typeof record.id !== "string" || !record.id || record.id.length > 128) throw new Error();
     return { recordDate: record.recordDate, id: record.id };
@@ -74,8 +90,9 @@ function decodePacketCursor(cursor: string | undefined): PacketCursor | undefine
 
 export function createAgencyPacketStore(pool: pg.Pool) {
   return {
-    async readPage(identity: AgencyIdentity, audit: PacketAuditContext, cursor?: string): Promise<PacketPage> {
-      const after = decodePacketCursor(cursor);
+    async readPage(identity: AgencyIdentity, audit: PacketAuditContext, cursor?: string,
+      filters: PacketHistoryFilters = {}): Promise<PacketPage> {
+      const after = decodePacketCursor(cursor, filters);
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
@@ -84,12 +101,18 @@ export function createAgencyPacketStore(pool: pg.Pool) {
            FROM agency_training.packets p JOIN agency_training.packet_assignments pa
              ON pa.packet_id = p.id AND pa.assignment_id = p.assignment_id
            JOIN agency_training.assignments a ON a.id = p.assignment_id
-           WHERE ${authorizedScope} AND ($6::date IS NULL OR
-             (p.record_date, p.id) < ($6::date, $7::text))
+           WHERE ${authorizedScope}
+             AND ($4::text IS NULL OR
+               position(lower($4::text) in lower(coalesce(p.report->>'recruitName', ''))) > 0 OR
+               position(lower($4::text) in lower(coalesce(p.report->>'recruitBadge', ''))) > 0)
+             AND ($6::date IS NULL OR p.record_date >= $6::date)
+             AND ($7::date IS NULL OR p.record_date <= $7::date)
+             AND ($8::date IS NULL OR (p.record_date, p.id) < ($8::date, $9::text))
              AND (p.submission_status = 'submitted' OR $1 = 'FTO')
-           ORDER BY p.record_date DESC, p.id DESC LIMIT $8`,
-          [identity.role, identityHash(identity), badgeHash(identity), null, identity.id,
-            after?.recordDate ?? null, after?.id ?? null, PACKET_PAGE_SIZE + 1],
+           ORDER BY p.record_date DESC, p.id DESC LIMIT $10`,
+          [identity.role, identityHash(identity), badgeHash(identity), filters.recruit ?? null, identity.id,
+            filters.dateFrom ?? null, filters.dateTo ?? null, after?.recordDate ?? null,
+            after?.id ?? null, PACKET_PAGE_SIZE + 1],
         );
         const hasMore = result.rows.length > PACKET_PAGE_SIZE;
         const rows = result.rows.slice(0, PACKET_PAGE_SIZE);

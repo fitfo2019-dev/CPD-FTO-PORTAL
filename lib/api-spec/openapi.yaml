@@ -272,6 +272,21 @@ paths:
           required: false
           description: Opaque continuation cursor returned by the previous page.
           schema: { type: string, maxLength: 256 }
+        - name: recruit
+          in: query
+          required: false
+          description: Case-insensitive partial match for a recruit name or badge, within the signed-in identity's authorized roster.
+          schema: { type: string, minLength: 1, maxLength: 120 }
+        - name: date_from
+          in: query
+          required: false
+          description: Include packets on or after this calendar date.
+          schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        - name: date_to
+          in: query
+          required: false
+          description: Include packets on or before this calendar date.
+          schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
       responses:
         "200":
           description: Authorized packet snapshots

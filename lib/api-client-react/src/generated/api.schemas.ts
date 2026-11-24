@@ -1068,5 +1068,21 @@ export type ListTrainingPacketsParams = {
  * @maxLength 256
  */
 cursor?: string;
+/**
+ * Case-insensitive partial match for a recruit name or badge, within the signed-in identity's authorized roster.
+ * @minLength 1
+ * @maxLength 120
+ */
+recruit?: string;
+/**
+ * Include packets on or after this calendar date.
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+date_from?: string;
+/**
+ * Include packets on or before this calendar date.
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+date_to?: string;
 };
 

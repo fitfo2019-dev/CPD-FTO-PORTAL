@@ -527,10 +527,17 @@ export const ListSecureRecordsResponse = zod.object({
  */
 export const listTrainingPacketsQueryCursorMax = 256;
 
+export const listTrainingPacketsQueryRecruitMax = 120;
+
+export const listTrainingPacketsQueryDateFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const listTrainingPacketsQueryDateToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 
 
 export const ListTrainingPacketsQueryParams = zod.object({
-  "cursor": zod.coerce.string().max(listTrainingPacketsQueryCursorMax).optional().describe('Opaque continuation cursor returned by the previous page.')
+  "cursor": zod.coerce.string().max(listTrainingPacketsQueryCursorMax).optional().describe('Opaque continuation cursor returned by the previous page.'),
+  "recruit": zod.coerce.string().min(1).max(listTrainingPacketsQueryRecruitMax).optional().describe('Case-insensitive partial match for a recruit name or badge, within the signed-in identity\'s authorized roster.'),
+  "date_from": zod.coerce.string().regex(listTrainingPacketsQueryDateFromRegExp).optional().describe('Include packets on or after this calendar date.'),
+  "date_to": zod.coerce.string().regex(listTrainingPacketsQueryDateToRegExp).optional().describe('Include packets on or before this calendar date.')
 })
 
 export const listTrainingPacketsResponseMetadataTotalRecordsMin = 0;

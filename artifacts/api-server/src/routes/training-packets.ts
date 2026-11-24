@@ -1,6 +1,6 @@
 import { Router, json, type RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
-import { SyncTrainingPacketsResponse, GetTrainingPacketParams, ReleaseTrainingPacketBody,
+import { SyncTrainingPacketsResponse, GetTrainingPacketParams, ListTrainingPacketsQueryParams, ReleaseTrainingPacketBody,
   AcknowledgeTrainingPacketBody, WithdrawTrainingPacketBody, FinalizeTrainingPacketBody } from "@workspace/api-zod";
 import { PatrolAssignmentMetadataSchema } from "@workspace/api-zod/patrol-assignment";
 import { CompletePacketInput, CompletePacketsEnvelope } from "../lib/packet-contract.js";
@@ -114,13 +114,30 @@ export function createTrainingPacketsRouter(
       if (!store) throw new PacketError(503, "AGENCY_STORAGE_UNAVAILABLE");
       const identity = res.locals.agencyIdentity as AgencyIdentity;
       if (typeof id !== "string") {
-        const rawCursor = req.query.cursor;
-        if (rawCursor !== undefined && typeof rawCursor !== "string")
-          throw new PacketError(400, "INVALID_PACKET_CURSOR");
+        const allowedQueryKeys = new Set(["cursor", "recruit", "date_from", "date_to"]);
+        if (Object.keys(req.query).some(key => !allowedQueryKeys.has(key)) ||
+          Object.values(req.query).some(value => typeof value !== "string"))
+          throw new PacketError(400, "INVALID_PACKET_FILTER");
+        const query = ListTrainingPacketsQueryParams.safeParse(req.query);
+        if (!query.success) throw new PacketError(400, "INVALID_PACKET_FILTER");
+        const recruit = query.data.recruit?.trim();
+        const dateFrom = query.data.date_from;
+        const dateTo = query.data.date_to;
+        if ((query.data.recruit !== undefined && (!recruit || recruit.length > 120 ||
+            /[\u0000-\u001f\u007f]/.test(recruit))) ||
+          (dateFrom !== undefined && !isCalendarDate(dateFrom)) ||
+          (dateTo !== undefined && !isCalendarDate(dateTo)) ||
+          (dateFrom !== undefined && dateTo !== undefined && dateFrom > dateTo))
+          throw new PacketError(400, "INVALID_PACKET_FILTER");
+        const filters = {
+          ...(recruit ? { recruit } : {}),
+          ...(dateFrom ? { dateFrom } : {}),
+          ...(dateTo ? { dateTo } : {}),
+        };
         const page = await store.readPage(identity, {
           requestId: typeof req.id === "string" ? req.id : randomUUID(),
           clientIp: req.ip || req.socket.remoteAddress || "unknown",
-        }, rawCursor);
+        }, query.data.cursor, filters);
         let data = page.data;
         let hasMore = page.hasMore;
         const makeResponse = () => ({
@@ -130,7 +147,7 @@ export function createTrainingPacketsRouter(
             role: identity.role,
             has_more: hasMore,
             next_cursor: hasMore && data.length
-              ? encodePacketCursor(String(data.at(-1)!.record_date), String(data.at(-1)!.id))
+              ? encodePacketCursor(String(data.at(-1)!.record_date), String(data.at(-1)!.id), filters)
               : null,
           },
           data,
@@ -177,6 +194,11 @@ export function createTrainingPacketsRouter(
     } catch(error) {sendPacketError(res,error);}
   });
   return router;
+}
+function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number(value.slice(0, 4)) === 0) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 function sendPacketError(res: import("express").Response, error: unknown): void {
   res.status(error instanceof PacketError ? error.status : 503).json({

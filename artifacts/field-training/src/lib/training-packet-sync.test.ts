@@ -64,6 +64,20 @@ test('shared packet reads request bounded continuation pages and stop only at th
   assert.ok(urls.includes('/api/v1/training-packets?cursor=next-page-cursor'));
 });
 
+test('filtered packet history repeats the same filters on continuation requests', async t => {
+  const urls: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+    urls.push(String(input));
+    return success([], { total_records: 0, role: 'FTO', has_more: false, next_cursor: null });
+  });
+  await readSharedPacketsPage('stable-cursor', undefined, {
+    recruit: 'Alex Rivera', dateFrom: '2026-11-01', dateTo: '2026-11-30',
+  });
+  assert.deepEqual(urls, [
+    '/api/v1/training-packets?cursor=stable-cursor&recruit=Alex+Rivera&date_from=2026-11-01&date_to=2026-11-30',
+  ]);
+});
+
 test('read helpers use bounded same-origin GETs and retain complete packet data', async t => {
   const report = createDailyReportDraft(createUiPreviewWorkspace().caseFolder!, '2026-11-23');
   const packet = { id: report.id, assignment_id: '81dc3739-03c3-4cc1-bc9c-851bba10e833',

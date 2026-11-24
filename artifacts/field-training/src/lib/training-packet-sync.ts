@@ -21,6 +21,11 @@ export type SharedPacketPage = {
   hasMore: boolean;
   nextCursor: string | null;
 };
+export type PacketHistoryFilters = {
+  recruit?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
 
 function requestSignal(signal?: AbortSignal) {
   const timeout = AbortSignal.timeout(15000);
@@ -36,9 +41,17 @@ export async function checkPacketService(signal?: AbortSignal): Promise<boolean>
   return GetTrainingPacketSyncReadinessResponse.parse(response).metadata.can_sync;
 }
 
-/** Fetch one bounded authorized history page. */
-export async function readSharedPacketsPage(cursor?: string, signal?: AbortSignal): Promise<SharedPacketPage> {
-  const query = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
+/** Fetch one bounded authorized history page. Filters are search hints only;
+ * server-side identity and roster checks remain authoritative. */
+export async function readSharedPacketsPage(
+  cursor?: string, signal?: AbortSignal, filters: PacketHistoryFilters = {},
+): Promise<SharedPacketPage> {
+  const params = new URLSearchParams();
+  if (cursor !== undefined) params.set("cursor", cursor);
+  if (filters.recruit) params.set("recruit", filters.recruit);
+  if (filters.dateFrom) params.set("date_from", filters.dateFrom);
+  if (filters.dateTo) params.set("date_to", filters.dateTo);
+  const query = params.size ? `?${params}` : "";
   const response = await customFetch<unknown>(apiEndpoint(`/v1/training-packets${query}`), {
     credentials: "same-origin", cache: "no-store", responseType: "json", signal: requestSignal(signal),
   });
@@ -53,12 +66,14 @@ export async function readSharedPacketsPage(cursor?: string, signal?: AbortSigna
 }
 
 /** Returned copies stay separate from the encrypted local workspace. */
-export async function readSharedPackets(signal?: AbortSignal): Promise<SharedPacket[]> {
+export async function readSharedPackets(
+  signal?: AbortSignal, filters: PacketHistoryFilters = {},
+): Promise<SharedPacket[]> {
   const data: SharedPacket[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | undefined;
   while (true) {
-    const page = await readSharedPacketsPage(cursor, signal);
+    const page = await readSharedPacketsPage(cursor, signal, filters);
     data.push(...page.data);
     if (!page.hasMore) return data;
     const nextCursor = page.nextCursor;
