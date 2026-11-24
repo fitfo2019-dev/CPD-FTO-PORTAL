@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import express from "express";
 import { PGlite } from "@electric-sql/pglite";
+import pg from "pg";
 import type { Pool } from "pg";
 import test from "node:test";
 import type { PhaseExtensionRequestInput } from "@workspace/api-zod";
@@ -306,6 +311,156 @@ test("agency migration installs phase-extension requests and roster-scoped revie
     });
   } finally {
     await db.close();
+  }
+});
+
+test("phase-extension requests work with the documented non-owner PostgreSQL grants", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "phase-extension-"));
+  const dataDir = join(dir, "data");
+  const portProbe = createServer();
+  await new Promise<void>(resolve => portProbe.listen(0, "127.0.0.1", resolve));
+  const address = portProbe.address();
+  if (!address || typeof address === "string") throw new Error("Could not reserve a PostgreSQL port.");
+  const port = address.port;
+  await new Promise<void>((resolve, reject) =>
+    portProbe.close(error => error ? reject(error) : resolve()),
+  );
+
+  let started = false;
+  let ownerPool: pg.Pool | undefined;
+  let runtimePool: pg.Pool | undefined;
+  try {
+    execFileSync("initdb", ["-D", dataDir, "-U", "phase_extension_owner", "-A", "trust", "--no-locale"], {
+      stdio: "pipe",
+    });
+    execFileSync("pg_ctl", ["-D", dataDir, "-l", join(dir, "postgres.log"), "-o",
+      `-k ${dir} -h '' -p ${port} -F`, "-w", "start"], { stdio: "pipe" });
+    started = true;
+    ownerPool = new pg.Pool({ host: dir, port, user: "phase_extension_owner", database: "postgres", max: 3 });
+
+    const migration = (name: string) =>
+      readFile(new URL(`../../migrations/${name}`, import.meta.url), "utf8");
+    await ownerPool.query(await migration("agency-training.sql"));
+    await ownerPool.query(await migration("agency-training-packet-review.sql"));
+    await ownerPool.query(await migration("agency-training-phase-extensions.sql"));
+
+    const assignmentId = randomUUID();
+    await ownerPool.query(
+      `INSERT INTO agency_training.coordinator_directory(id,name) VALUES ($1,'Test Coordinator')`,
+      [coordinatorA.userId],
+    );
+    await ownerPool.query(
+      `INSERT INTO agency_training.assignments (
+        id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,po_id_hash,
+        po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        fto_id,fto_badge,po_id,po_badge,coordinator_id
+      ) VALUES ($1,'Class A',1,$2,$3,'Trusted FTO',$4,$5,'Trusted Recruit',$6,
+        '2026-11-01','2027-12-31',$7,'TEST-FTO-A',$8,'TEST-PO-A',$9)`,
+      [
+        assignmentId,
+        hash(ftoA.userId),
+        hash("TEST-FTO-A"),
+        hash("test-phase-po-a"),
+        hash("TEST-PO-A"),
+        hash(coordinatorA.userId),
+        ftoA.userId,
+        "test-phase-po-a",
+        coordinatorA.userId,
+      ],
+    );
+    await ownerPool.query(
+      `INSERT INTO agency_training.po_coordinators
+       (po_id,po_id_hash,po_badge,coordinator_id) VALUES ($1,$2,'TEST-PO-A',$3)`,
+      ["test-phase-po-a", hash("test-phase-po-a"), coordinatorA.userId],
+    );
+
+    await ownerPool.query(`CREATE ROLE phase_extension_runtime LOGIN;
+      GRANT USAGE ON SCHEMA agency_training TO phase_extension_runtime;
+      GRANT SELECT (id,class_name,phase,fto_id_hash,fto_name,po_id_hash,
+        po_badge_hash,po_name,coordinator_id_hash,starts_on,active,po_id,
+        po_badge,fto_id,fto_badge) ON agency_training.assignments TO phase_extension_runtime;
+      GRANT SELECT (id,active) ON agency_training.coordinator_directory TO phase_extension_runtime;
+      GRANT SELECT (po_id,po_id_hash,coordinator_id)
+        ON agency_training.po_coordinators TO phase_extension_runtime;
+      GRANT SELECT ON agency_training.phase_extension_requests TO phase_extension_runtime;
+      GRANT INSERT (id,assignment_id,requester_user_id,class_name,recruit_name,
+        recruit_badge,phase,phase_start_date,requesting_fto_name,
+        requesting_fto_badge,extension_type,requested_weeks,justification,
+        status,created_at) ON agency_training.phase_extension_requests TO phase_extension_runtime;
+      GRANT UPDATE (status,reviewed_at,reviewed_by_user_id)
+        ON agency_training.phase_extension_requests TO phase_extension_runtime;`);
+
+    runtimePool = new pg.Pool({ host: dir, port, user: "phase_extension_runtime", database: "postgres", max: 3 });
+    const store = createPhaseExtensionRequestStore(runtimePool);
+    const requestId = `limited-${randomUUID()}`;
+    const submittedRequest = { ...request, id: requestId };
+
+    await withApi(ftoA, store, async baseUrl => {
+      const submitted = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(submittedRequest),
+      });
+      assert.equal(submitted.status, 201, await submitted.clone().text());
+      const ftoList = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+      const ftoPayload = await ftoList.json() as { data: SharedPhaseExtensionRequest[] };
+      assert.equal(ftoPayload.data[0].id, requestId);
+      assert.equal(ftoPayload.data[0].status, "pending");
+    });
+
+    await withApi(coordinatorA, store, async baseUrl => {
+      const coordinatorList = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+      const coordinatorPayload = await coordinatorList.json() as { data: SharedPhaseExtensionRequest[] };
+      assert.equal(coordinatorPayload.data.length, 1);
+      assert.equal(coordinatorPayload.data[0].id, requestId);
+      const reviewed = await fetch(`${baseUrl}/v1/phase-extension-requests/${requestId}/review`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision: "approve" }),
+      });
+      assert.equal(reviewed.status, 200, await reviewed.clone().text());
+      const reviewedPayload = await reviewed.json() as { data: SharedPhaseExtensionRequest[] };
+      assert.equal(reviewedPayload.data[0].status, "approved");
+    });
+
+    await assert.rejects(runtimePool.query(
+      "UPDATE agency_training.assignments SET active=false WHERE id=$1",
+      [assignmentId],
+    ));
+    await assert.rejects(runtimePool.query(
+      "UPDATE agency_training.phase_extension_requests SET justification='rewritten' WHERE id=$1",
+      [requestId],
+    ));
+    await assert.rejects(runtimePool.query(
+      `UPDATE agency_training.phase_extension_requests
+       SET status='denied', reviewed_at=NOW(), reviewed_by_user_id=$2 WHERE id=$1`,
+      [requestId, coordinatorA.userId],
+    ), /can only be decided once/);
+    await assert.rejects(runtimePool.query(
+      "DELETE FROM agency_training.phase_extension_requests WHERE id=$1",
+      [requestId],
+    ));
+
+    const persisted = await ownerPool.query(
+      `SELECT status,justification FROM agency_training.phase_extension_requests WHERE id=$1`,
+      [requestId],
+    );
+    assert.deepEqual(persisted.rows[0], {
+      status: "approved",
+      justification: request.justification,
+    });
+    const assignment = await ownerPool.query(
+      "SELECT active FROM agency_training.assignments WHERE id=$1",
+      [assignmentId],
+    );
+    assert.equal(assignment.rows[0].active, true);
+  } finally {
+    await runtimePool?.end();
+    await ownerPool?.end();
+    if (started) {
+      execFileSync("pg_ctl", ["-D", dataDir, "-m", "immediate", "-w", "stop"], { stdio: "pipe" });
+    }
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 
