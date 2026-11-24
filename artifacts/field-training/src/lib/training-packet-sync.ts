@@ -1,16 +1,26 @@
 import { customFetch } from "@workspace/api-client-react";
 import { apiEndpoint } from "@workspace/api-client-react";
 import { GetTrainingPacketSyncReadinessResponse, ListTrainingPacketsResponse, SyncTrainingPacketsResponse, FinalizeTrainingPacketResponse } from "@workspace/api-zod";
+import { z } from "zod";
 import { MAX_PACKET_BATCH_COUNT, MAX_PACKET_REQUEST_BYTES, serializePacketBatchRequest,
   type PendingChange, type PacketBatchReceipt } from "./offlineStorage.js";
 
 // Generated schemas otherwise strip complete-report fields such as signatures.
 const sharedPacketsSchema = ListTrainingPacketsResponse.extend({
+  metadata: ListTrainingPacketsResponse.shape.metadata.extend({
+    has_more: z.boolean(),
+    next_cursor: z.string().max(256).nullable(),
+  }),
   data: ListTrainingPacketsResponse.shape.data.element.extend({
     report: ListTrainingPacketsResponse.shape.data.element.shape.report.passthrough(),
   }).array().max(100),
 });
 export type SharedPacket = ReturnType<typeof sharedPacketsSchema.parse>["data"][number];
+export type SharedPacketPage = {
+  data: SharedPacket[];
+  hasMore: boolean;
+  nextCursor: string | null;
+};
 
 function requestSignal(signal?: AbortSignal) {
   const timeout = AbortSignal.timeout(15000);
@@ -26,12 +36,37 @@ export async function checkPacketService(signal?: AbortSignal): Promise<boolean>
   return GetTrainingPacketSyncReadinessResponse.parse(response).metadata.can_sync;
 }
 
-/** Returned copies stay separate from the encrypted local workspace. */
-export async function readSharedPackets(signal?: AbortSignal): Promise<SharedPacket[]> {
-  const response = await customFetch<unknown>(apiEndpoint("/v1/training-packets"), {
+/** Fetch one bounded authorized history page. */
+export async function readSharedPacketsPage(cursor?: string, signal?: AbortSignal): Promise<SharedPacketPage> {
+  const query = cursor === undefined ? "" : `?cursor=${encodeURIComponent(cursor)}`;
+  const response = await customFetch<unknown>(apiEndpoint(`/v1/training-packets${query}`), {
     credentials: "same-origin", cache: "no-store", responseType: "json", signal: requestSignal(signal),
   });
-  return sharedPacketsSchema.parse(response).data;
+  const page = sharedPacketsSchema.parse(response);
+  if (page.metadata.has_more !== Boolean(page.metadata.next_cursor))
+    throw new Error("The agency packet history returned invalid continuation metadata.");
+  return {
+    data: page.data,
+    hasMore: page.metadata.has_more,
+    nextCursor: page.metadata.next_cursor,
+  };
+}
+
+/** Returned copies stay separate from the encrypted local workspace. */
+export async function readSharedPackets(signal?: AbortSignal): Promise<SharedPacket[]> {
+  const data: SharedPacket[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  while (true) {
+    const page = await readSharedPacketsPage(cursor, signal);
+    data.push(...page.data);
+    if (!page.hasMore) return data;
+    const nextCursor = page.nextCursor;
+    if (!nextCursor || seenCursors.has(nextCursor))
+      throw new Error("The agency packet history could not be continued safely.");
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
 }
 
 /** Packet snapshots enter draft storage only; never official submission, a Workspace,

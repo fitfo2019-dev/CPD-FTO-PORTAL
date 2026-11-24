@@ -266,6 +266,12 @@ paths:
       tags: [training-packets]
       summary: List packets assigned to the signed-in agency identity
       description: The server scopes results by verified agency claims and its own assignment roster. Browser role or assignment data is never used for authorization.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque continuation cursor returned by the previous page.
+          schema: { type: string, maxLength: 256 }
       responses:
         "200":
           description: Authorized packet snapshots
@@ -1080,6 +1086,8 @@ components:
           properties:
             total_records: { type: integer, minimum: 0, maximum: 100 }
             role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+            has_more: { type: boolean }
+            next_cursor: { type: ["string", "null"], maxLength: 256 }
         data:
           type: array
           maxItems: 100

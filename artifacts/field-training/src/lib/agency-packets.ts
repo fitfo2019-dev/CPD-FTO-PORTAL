@@ -29,7 +29,7 @@ export function createPacketReviewCommand(packet: AgencyPacket, draft: PacketRev
 }
 
 export async function loadAgencyPackets(signal?: AbortSignal): Promise<AgencyPacketsEnvelope> {
-  return agencyPacketsEnvelope.parse(await listTrainingPackets({
+  return agencyPacketsEnvelope.parse(await listTrainingPackets(undefined, {
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
   }));
 }

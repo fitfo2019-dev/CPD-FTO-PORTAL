@@ -525,8 +525,18 @@ export const ListSecureRecordsResponse = zod.object({
  * The server scopes results by verified agency claims and its own assignment roster. Browser role or assignment data is never used for authorization.
  * @summary List packets assigned to the signed-in agency identity
  */
+export const listTrainingPacketsQueryCursorMax = 256;
+
+
+
+export const ListTrainingPacketsQueryParams = zod.object({
+  "cursor": zod.coerce.string().max(listTrainingPacketsQueryCursorMax).optional().describe('Opaque continuation cursor returned by the previous page.')
+})
+
 export const listTrainingPacketsResponseMetadataTotalRecordsMin = 0;
 export const listTrainingPacketsResponseMetadataTotalRecordsMax = 100;
+
+export const listTrainingPacketsResponseMetadataNextCursorMax = 256;
 
 export const listTrainingPacketsResponseDataItemIdMax = 128;
 
@@ -573,7 +583,9 @@ export const ListTrainingPacketsResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.number().int().min(listTrainingPacketsResponseMetadataTotalRecordsMin).max(listTrainingPacketsResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
+  "has_more": zod.boolean().optional(),
+  "next_cursor": zod.string().max(listTrainingPacketsResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(listTrainingPacketsResponseDataItemIdMax),
@@ -755,6 +767,8 @@ export const ReleaseTrainingPacketBody = zod.object({
 export const releaseTrainingPacketResponseMetadataTotalRecordsMin = 0;
 export const releaseTrainingPacketResponseMetadataTotalRecordsMax = 100;
 
+export const releaseTrainingPacketResponseMetadataNextCursorMax = 256;
+
 export const releaseTrainingPacketResponseDataItemIdMax = 128;
 
 export const releaseTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
@@ -800,7 +814,9 @@ export const ReleaseTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.number().int().min(releaseTrainingPacketResponseMetadataTotalRecordsMin).max(releaseTrainingPacketResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
+  "has_more": zod.boolean().optional(),
+  "next_cursor": zod.string().max(releaseTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(releaseTrainingPacketResponseDataItemIdMax),
@@ -871,6 +887,8 @@ export const AcknowledgeTrainingPacketBody = zod.object({
 export const acknowledgeTrainingPacketResponseMetadataTotalRecordsMin = 0;
 export const acknowledgeTrainingPacketResponseMetadataTotalRecordsMax = 100;
 
+export const acknowledgeTrainingPacketResponseMetadataNextCursorMax = 256;
+
 export const acknowledgeTrainingPacketResponseDataItemIdMax = 128;
 
 export const acknowledgeTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
@@ -916,7 +934,9 @@ export const AcknowledgeTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.number().int().min(acknowledgeTrainingPacketResponseMetadataTotalRecordsMin).max(acknowledgeTrainingPacketResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
+  "has_more": zod.boolean().optional(),
+  "next_cursor": zod.string().max(acknowledgeTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemIdMax),
@@ -986,6 +1006,8 @@ export const WithdrawTrainingPacketBody = zod.object({
 export const withdrawTrainingPacketResponseMetadataTotalRecordsMin = 0;
 export const withdrawTrainingPacketResponseMetadataTotalRecordsMax = 100;
 
+export const withdrawTrainingPacketResponseMetadataNextCursorMax = 256;
+
 export const withdrawTrainingPacketResponseDataItemIdMax = 128;
 
 export const withdrawTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
@@ -1031,7 +1053,9 @@ export const WithdrawTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.number().int().min(withdrawTrainingPacketResponseMetadataTotalRecordsMin).max(withdrawTrainingPacketResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
+  "has_more": zod.boolean().optional(),
+  "next_cursor": zod.string().max(withdrawTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemIdMax),
@@ -1125,6 +1149,8 @@ export const GetTrainingPacketParams = zod.object({
 export const getTrainingPacketResponseMetadataTotalRecordsMin = 0;
 export const getTrainingPacketResponseMetadataTotalRecordsMax = 100;
 
+export const getTrainingPacketResponseMetadataNextCursorMax = 256;
+
 export const getTrainingPacketResponseDataItemIdMax = 128;
 
 export const getTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
@@ -1170,7 +1196,9 @@ export const GetTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.number().int().min(getTrainingPacketResponseMetadataTotalRecordsMin).max(getTrainingPacketResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR'])
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
+  "has_more": zod.boolean().optional(),
+  "next_cursor": zod.string().max(getTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(getTrainingPacketResponseDataItemIdMax),

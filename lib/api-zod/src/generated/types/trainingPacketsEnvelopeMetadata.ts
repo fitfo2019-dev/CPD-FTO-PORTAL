@@ -14,4 +14,10 @@ export type TrainingPacketsEnvelopeMetadata = {
      */
   total_records: number;
   role: TrainingPacketsEnvelopeMetadataRole;
+  has_more?: boolean;
+  /**
+     * @maxLength 256
+     * @nullable
+     */
+  next_cursor?: string | null;
 };

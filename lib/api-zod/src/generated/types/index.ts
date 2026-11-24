@@ -37,6 +37,7 @@ export * from './healthEnvelopeMetadata';
 export * from './healthEnvelopeStatus';
 export * from './healthStatus';
 export * from './listPacketSubmissionsParams';
+export * from './listTrainingPacketsParams';
 export * from './mockLoginEnvelope';
 export * from './mockLoginEnvelopeDataItem';
 export * from './mockLoginEnvelopeMetadata';

@@ -33,6 +33,7 @@ import type {
   DispatchIncidentLookupInput,
   HealthEnvelope,
   ListPacketSubmissionsParams,
+  ListTrainingPacketsParams,
   MockLoginEnvelope,
   MockLoginInput,
   PacketCoordinatorAssignment,
@@ -1308,21 +1309,28 @@ export function useListSecureRecords<TData = Awaited<ReturnType<typeof listSecur
 
 
 
-export const getListTrainingPacketsUrl = () => {
+export const getListTrainingPacketsUrl = (params?: ListTrainingPacketsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/v1/training-packets`
+  return stringifiedParams.length > 0 ? `/api/v1/training-packets?${stringifiedParams}` : `/api/v1/training-packets`
 }
 
 /**
  * The server scopes results by verified agency claims and its own assignment roster. Browser role or assignment data is never used for authorization.
  * @summary List packets assigned to the signed-in agency identity
  */
-export const listTrainingPackets = async ( options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketsEnvelope> => {
+export const listTrainingPackets = async (params?: ListTrainingPacketsParams, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketsEnvelope> => {
 
-  return customFetch<TrainingPacketsEnvelope>(getListTrainingPacketsUrl(),
+  return customFetch<TrainingPacketsEnvelope>(getListTrainingPacketsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1335,23 +1343,23 @@ export const listTrainingPackets = async ( options?: Parameters<typeof customFet
 
 
 
-export const getListTrainingPacketsQueryKey = () => {
+export const getListTrainingPacketsQueryKey = (params?: ListTrainingPacketsParams,) => {
     return [
-    `/api/v1/training-packets`
+    `/api/v1/training-packets`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListTrainingPacketsQueryOptions = <TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+export const getListTrainingPacketsQueryOptions = <TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>(params?: ListTrainingPacketsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListTrainingPacketsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListTrainingPacketsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTrainingPackets>>> = ({ signal }) => listTrainingPackets({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTrainingPackets>>> = ({ signal }) => listTrainingPackets(params, { signal, ...requestOptions });
 
 
 
@@ -1365,7 +1373,7 @@ export type ListTrainingPacketsQueryError = ErrorType<ApiError>
 
 
 export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>> & Pick<
+ params: undefined |  ListTrainingPacketsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listTrainingPackets>>,
           TError,
@@ -1375,7 +1383,7 @@ export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTra
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>> & Pick<
+ params?: ListTrainingPacketsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listTrainingPackets>>,
           TError,
@@ -1385,7 +1393,7 @@ export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTra
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ params?: ListTrainingPacketsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -1393,11 +1401,11 @@ export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTra
  */
 
 export function useListTrainingPackets<TData = Awaited<ReturnType<typeof listTrainingPackets>>, TError = ErrorType<ApiError>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ params?: ListTrainingPacketsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingPackets>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getListTrainingPacketsQueryOptions(options)
+  const queryOptions = getListTrainingPacketsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

@@ -45,9 +45,70 @@ const packetColumns = `p.id, p.assignment_id, p.record_date::text, p.phase,
 const identityHash = (identity: AgencyIdentity) => hashUserIdentifier(identity.id);
 const badgeHash = (identity: AgencyIdentity) => hashUserIdentifier(identity.badge);
 const digestJson = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const PACKET_PAGE_SIZE = 100;
+
+type PacketCursor = { recordDate: string; id: string };
+type PacketPage = { data: Record<string, unknown>[]; hasMore: boolean };
+
+export function encodePacketCursor(recordDate: string, id: string): string {
+  return Buffer.from(JSON.stringify({ recordDate, id })).toString("base64url");
+}
+
+function decodePacketCursor(cursor: string | undefined): PacketCursor | undefined {
+  if (cursor === undefined) return undefined;
+  try {
+    if (cursor.length > 256 || !/^[A-Za-z0-9_-]+$/.test(cursor)) throw new Error();
+    const decoded = Buffer.from(cursor, "base64url").toString("utf8");
+    if (Buffer.from(decoded).toString("base64url") !== cursor) throw new Error();
+    const value: unknown = JSON.parse(decoded);
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+    const record = value as Record<string, unknown>;
+    if (Object.keys(record).length !== 2 || typeof record.recordDate !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(record.recordDate) ||
+      typeof record.id !== "string" || !record.id || record.id.length > 128) throw new Error();
+    return { recordDate: record.recordDate, id: record.id };
+  } catch {
+    throw new PacketError(400, "INVALID_PACKET_CURSOR");
+  }
+}
 
 export function createAgencyPacketStore(pool: pg.Pool) {
   return {
+    async readPage(identity: AgencyIdentity, audit: PacketAuditContext, cursor?: string): Promise<PacketPage> {
+      const after = decodePacketCursor(cursor);
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const result = await client.query(
+          `SELECT ${packetColumns}
+           FROM agency_training.packets p JOIN agency_training.packet_assignments pa
+             ON pa.packet_id = p.id AND pa.assignment_id = p.assignment_id
+           JOIN agency_training.assignments a ON a.id = p.assignment_id
+           WHERE ${authorizedScope} AND ($6::date IS NULL OR
+             (p.record_date, p.id) < ($6::date, $7::text))
+             AND (p.submission_status = 'submitted' OR $1 = 'FTO')
+           ORDER BY p.record_date DESC, p.id DESC LIMIT $8`,
+          [identity.role, identityHash(identity), badgeHash(identity), null, identity.id,
+            after?.recordDate ?? null, after?.id ?? null, PACKET_PAGE_SIZE + 1],
+        );
+        const hasMore = result.rows.length > PACKET_PAGE_SIZE;
+        const rows = result.rows.slice(0, PACKET_PAGE_SIZE);
+        await client.query(
+          `INSERT INTO agency_training.packet_events
+           (request_id, actor_hash, actor_role, client_ip_hash, event_type, record_count)
+           VALUES ($1,$2,$3,$4,'READ',$5)`,
+          [audit.requestId, identityHash(identity), identity.role,
+            hashUserIdentifier(audit.clientIp), rows.length],
+        );
+        await client.query("COMMIT");
+        return {
+          data: rows.map(({ submission_status, ...row }) => ({ ...row,
+            sync_status: submission_status === "submitted" ? "synchronized_complete" : "local_draft_pending" })),
+          hasMore,
+        };
+      } catch (error) { await client.query("ROLLBACK"); throw error; }
+      finally { client.release(); }
+    },
     async read(identity: AgencyIdentity, audit: PacketAuditContext, id?: string) {
       const client = await pool.connect();
       try {

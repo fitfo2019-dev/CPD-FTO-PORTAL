@@ -585,6 +585,12 @@ export type TrainingPacketsEnvelopeMetadata = {
      */
   total_records: number;
   role: TrainingPacketsEnvelopeMetadataRole;
+  has_more?: boolean;
+  /**
+     * @maxLength 256
+     * @nullable
+     */
+  next_cursor?: string | null;
 };
 
 export interface TrainingPacketsEnvelope {
@@ -1054,5 +1060,13 @@ export type ListPacketSubmissionsParams = {
  * @minimum 0
  */
 offset?: number;
+};
+
+export type ListTrainingPacketsParams = {
+/**
+ * Opaque continuation cursor returned by the previous page.
+ * @maxLength 256
+ */
+cursor?: string;
 };
 

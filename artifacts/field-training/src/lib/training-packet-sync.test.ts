@@ -4,10 +4,12 @@ import test from 'node:test';
 import { OfflineStorage } from './offlineStorage.js';
 import { createDailyReportDraft } from './daily-report-draft.js';
 import { createUiPreviewWorkspace } from './empty-workspace.js';
-import { checkPacketService, readSharedPackets, uploadPacketBatch } from './training-packet-sync.js';
+import { checkPacketService, readSharedPackets, readSharedPacketsPage, uploadPacketBatch } from './training-packet-sync.js';
 
 function success(data: unknown, metadata: Record<string, unknown> = {}) {
-  return new Response(JSON.stringify({ status: 'success', metadata, data }), {
+  return new Response(JSON.stringify({ status: 'success', metadata: {
+    has_more: false, next_cursor: null, ...metadata,
+  }, data }), {
     headers: { 'content-type': 'application/json' },
   });
 }
@@ -37,6 +39,29 @@ test('a submitted sync retry seals only after a matching authenticated read, nev
   assert.equal(receipt.submittedVerified,true);
   assert.equal(calls.length,4);
   assert.ok(calls.every(url=>!url.includes('/finalize')));
+});
+
+test('shared packet reads request bounded continuation pages and stop only at the real end', async t => {
+  const report = createDailyReportDraft(createUiPreviewWorkspace().caseFolder!, '2026-11-23');
+  const packet = { id: report.id, assignment_id: '81dc3739-03c3-4cc1-bc9c-851bba10e833',
+    record_date: report.date, phase: report.phase, server_version: 1,
+    sync_status: 'synchronized_complete', report, content_hash: 'a'.repeat(64),
+    released_to_po: false, released_at: null, withdrawn_at: null, withdrawal_reason: null,
+    amendment_of: null, amendment_reason: null, acknowledgment: null };
+  const urls: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+    const url = String(input); urls.push(url);
+    return url.includes('?cursor=')
+      ? success([packet], { total_records: 1, role: 'FTO', has_more: false, next_cursor: null })
+      : success([packet], { total_records: 1, role: 'FTO', has_more: true, next_cursor: 'next-page-cursor' });
+  });
+  const first = await readSharedPacketsPage();
+  assert.equal(first.hasMore, true);
+  assert.equal(first.nextCursor, 'next-page-cursor');
+  const records = await readSharedPackets();
+  assert.equal(records.length, 2);
+  assert.equal(urls.filter(url => url === '/api/v1/training-packets').length, 2);
+  assert.ok(urls.includes('/api/v1/training-packets?cursor=next-page-cursor'));
 });
 
 test('read helpers use bounded same-origin GETs and retain complete packet data', async t => {

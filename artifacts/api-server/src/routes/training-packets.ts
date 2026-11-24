@@ -5,7 +5,7 @@ import { SyncTrainingPacketsResponse, GetTrainingPacketParams, ReleaseTrainingPa
 import { PatrolAssignmentMetadataSchema } from "@workspace/api-zod/patrol-assignment";
 import { CompletePacketInput, CompletePacketsEnvelope } from "../lib/packet-contract.js";
 import { requireAgencyIdentity, type AgencyIdentity } from "../security/agencyIdentity.js";
-import { getAgencyPacketStore, PacketError, type AgencyPacketStore, type PacketReviewAction } from "../lib/agency-packet-store.js";
+import { encodePacketCursor, getAgencyPacketStore, PacketError, type AgencyPacketStore, type PacketReviewAction } from "../lib/agency-packet-store.js";
 import { recordPayloadSize } from "../middlewares/audit-request.js";
 
 /** A bounded JSON tree rejects prototype keys, embedded file bytes and
@@ -113,12 +113,48 @@ export function createTrainingPacketsRouter(
       const store = resolveStore();
       if (!store) throw new PacketError(503, "AGENCY_STORAGE_UNAVAILABLE");
       const identity = res.locals.agencyIdentity as AgencyIdentity;
+      if (typeof id !== "string") {
+        const rawCursor = req.query.cursor;
+        if (rawCursor !== undefined && typeof rawCursor !== "string")
+          throw new PacketError(400, "INVALID_PACKET_CURSOR");
+        const page = await store.readPage(identity, {
+          requestId: typeof req.id === "string" ? req.id : randomUUID(),
+          clientIp: req.ip || req.socket.remoteAddress || "unknown",
+        }, rawCursor);
+        let data = page.data;
+        let hasMore = page.hasMore;
+        const makeResponse = () => ({
+          status: "success" as const,
+          metadata: {
+            total_records: data.length,
+            role: identity.role,
+            has_more: hasMore,
+            next_cursor: hasMore && data.length
+              ? encodePacketCursor(String(data.at(-1)!.record_date), String(data.at(-1)!.id))
+              : null,
+          },
+          data,
+        });
+        let response = makeResponse();
+        while (data.length && Buffer.byteLength(JSON.stringify(response), "utf8") > 2 * 1024 * 1024) {
+          data = data.slice(0, -1);
+          hasMore = true;
+          response = makeResponse();
+        }
+        if (page.data.length && !data.length)
+          throw new PacketError(413, "PACKET_RECORD_EXCEEDS_PAGE_SIZE");
+        CompletePacketsEnvelope.parse(response);
+        res.setHeader("Cache-Control", "no-store");
+        res.json(response);
+        return;
+      }
       const data = await store.read(identity, {
         requestId: typeof req.id === "string" ? req.id : randomUUID(),
         clientIp: req.ip || req.socket.remoteAddress || "unknown",
       }, typeof id === "string" ? id : undefined);
       res.json(CompletePacketsEnvelope.parse({
-        status: "success", metadata: { total_records: data.length, role: identity.role }, data,
+        status: "success", metadata: { total_records: data.length, role: identity.role,
+          has_more: false, next_cursor: null }, data,
       }));
     } catch (error) { sendPacketError(res, error); }
   });

@@ -108,26 +108,73 @@ test("LR-05 101 packet route input is rejected before store execution", async ()
     assert.equal(db.queries.length, 0);
   });
 });
-test("LR-06 CONFIRMED GAP: 101 historical rows expose only 100 and no continuation metadata", async () => {
+test("LR-06 packet history uses stable 100-record pages and follows records added between requests", async () => {
   const historical = Array.from({ length: 101 }, (_, i) => ({
-    id: `SYNTHETIC-${i}`, assignment_id: assignmentId, record_date: "2026-11-23",
-    phase: 2, server_version: 1, report: report(`SYNTHETIC-${i}`),
+    id: `SYNTHETIC-${String(i).padStart(3, "0")}`, assignment_id: assignmentId, record_date: "2026-11-23",
+    phase: 2, server_version: 1,
+    report: { ...report(`SYNTHETIC-${String(i).padStart(3, "0")}`), narrative: "S".repeat(45_000) },
+    submission_status: "submitted", content_hash: "a".repeat(64), released_to_po: false,
+    released_at: null, withdrawn_at: null, withdrawal_reason: null, amendment_of: null,
+    amendment_reason: null, acknowledgment: null,
   }));
-  const client = { async query(sql: string) {
+  const requests: unknown[][] = [];
+  const client = { async query(sql: string, args: unknown[] = []) {
     if (sql.includes("FROM agency_training.packets")) {
-      assert.match(sql, /LIMIT 100/);
-      return { rows: historical.slice(0, 100) };
+      assert.match(sql, /ORDER BY p\.record_date DESC, p\.id DESC LIMIT \$8/);
+      assert.match(sql, /a\.fto_id_hash = \$2 AND a\.fto_badge_hash = \$3/);
+      requests.push(args);
+      const cursorDate = args[5];
+      const cursorId = args[6];
+      const eligible = cursorDate == null ? historical : historical.filter(packet =>
+        packet.record_date < cursorDate || (packet.record_date === cursorDate && packet.id < cursorId));
+      return { rows: eligible.slice().sort((a, b) => b.id.localeCompare(a.id)).slice(0, Number(args[7])) };
     }
     return { rows: [] };
   }, release() {} };
   const store = createAgencyPacketStore({ connect: async () => client } as unknown as pg.Pool);
   await withApi(store, async url => {
-    const res = await fetch(`${url}?cursor=ignored`);
-    assert.equal(res.status, 200);
-    const result = await res.json();
-    assert.equal(result.data.length, 100);
-    assert.deepEqual(Object.keys(result.metadata).sort(), ["role", "total_records"]);
-    assert.equal(result.metadata.total_records, 100, "returned count, NOT complete history count");
+    let cursor: string | null = null;
+    const observed: string[] = [];
+    let pageNumber = 0;
+    while (true) {
+      const response = await fetch(cursor ? `${url}?cursor=${encodeURIComponent(cursor)}` : url);
+      assert.equal(response.status, 200);
+      const body = await response.text();
+      assert.ok(Buffer.byteLength(body, "utf8") <= 2 * 1024 * 1024);
+      const result = JSON.parse(body);
+      assert.ok(result.data.length <= 100);
+      assert.equal(result.metadata.total_records, result.data.length);
+      observed.push(...result.data.map((packet: { id: string }) => packet.id));
+      pageNumber++;
+      if (pageNumber === 1) {
+        assert.equal(result.metadata.has_more, true);
+        assert.ok(result.data.length < 100, "the byte cap must bound large pages too");
+        assert.equal(result.data[0].id, "SYNTHETIC-100");
+        historical.push({ ...historical[0], id: "SYNTHETIC-NEW" });
+      }
+      if (!result.metadata.has_more) {
+        assert.equal(result.metadata.next_cursor, null);
+        break;
+      }
+      assert.equal(typeof result.metadata.next_cursor, "string");
+      cursor = result.metadata.next_cursor;
+    }
+    assert.equal(pageNumber, 3);
+    assert.equal(new Set(observed).size, 101, "continuations must neither duplicate nor skip existing records");
+    assert.equal(observed.at(-1), "SYNTHETIC-000");
+    assert.equal(observed.includes("SYNTHETIC-NEW"), false, "newer records do not shift an active history cursor");
+    assert.deepEqual(observed, [...observed].sort((a, b) => b.localeCompare(a)));
+    assert.equal(requests.length, 3);
+    assert.equal(requests[0][0], identity.role);
+    assert.equal(requests[1][0], identity.role);
+    assert.equal(requests[2][0], identity.role);
+    assert.equal(requests[0][4], identity.id);
+    assert.equal(requests[1][4], identity.id, "each page uses the signed-in identity and roster scope");
+    assert.equal(requests[2][4], identity.id);
+    assert.equal(requests[0][7], 101);
+    const invalidCursor = await fetch(`${url}?cursor=not-a-valid-cursor`);
+    assert.equal(invalidCursor.status, 400);
+    assert.equal(requests.length, 3, "invalid cursors are rejected before database access");
   });
 });
 test("LR-07 readiness reports true for an injected unavailable store without probing it", async () => {
