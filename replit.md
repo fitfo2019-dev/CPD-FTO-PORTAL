@@ -34,6 +34,13 @@ Read `PROJECT_MANIFEST.md`, `.replit-context.md`, and `HANDOVER_MANUAL.md` befor
 
 See `docs/PROJECT_STRUCTURE.md`. Portable SQL is in `database/migrations/001_field_training.sql`; encrypted storage is `artifacts/field-training/src/lib/offlineStorage.ts`.
 
+## Stakeholder briefing maintenance
+
+- Keep `docs/COLUMBUS_FTO_PORTAL_BRIEFING.md` current as accepted changes land in the main workspace. Update it after material merges or main-workspace changes that affect product capabilities, user workflows, integration status, security/data boundaries, deployment readiness, or known gaps.
+- Refresh its prepared date and evidence cutoff with each substantive update. Verify claims against current source and dated handover/test evidence; distinguish implemented behavior from planned work, synthetic tests, and City-dependent integrations.
+- Continue this maintenance until the application is live in production and formally handed over to Columbus. Do not describe it as live, approved, certified, or connected to agency systems before that is verified.
+- Keep `HANDOVER_MANUAL.md` as the technical operator/developer document; the briefing is the plain-language product and workflow explanation for the user's records and stakeholders.
+
 ## Architecture decisions
 
 - The initial workspace contains no generated training records. Training reports remain device-local; phase-extension requests use authenticated API storage and require server-verified Clerk `publicMetadata.fieldreadyRole` values (`FTO` or `FTO_COORDINATOR`). Client role preview is not authorization.

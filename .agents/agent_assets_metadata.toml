@@ -537,14 +537,14 @@ content_type = "text/html"
 id = "Y7FYSQrEQVi3tORpGBT7-"
 uri = "file://generated-artifacts/website-records/Columbus-FTO-Website-Overview.pdf"
 type = "pdf"
-title = "Website Overview — Personal Records Copy"
-description = "13-page PDF of the existing Columbus FTO Portal briefing: purpose, features, workflows, integrations, and remaining agency setup."
+title = "Updated Website Overview — Personal Records Copy"
+description = "Refreshed after the latest main-workspace merge. The PDF now distinguishes editable draft synchronization from explicit final submission."
 logical_id = "d4ce9dbc-0743-4a42-bbf8-84640dc2fec1"
-content_hash = "sha256:3257d7e81f2b3371540d1b6e88d07bcaaf5fd707f6eaa7b0b135a4350c7e5fad"
-size = 136472
-mtime_ms = 1795529651372
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/d4ce9dbc-0743-4a42-bbf8-84640dc2fec1/9b693adb-4f67-4aae-8f4a-a6b01dd74771"
-storage_version_token = "1795529670800673"
+content_hash = "sha256:399b46492e24c9bb76e047b5b742d96378d928be3cff46f5bf381cc9690574b7"
+size = 137426
+mtime_ms = 1795531598891
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/d4ce9dbc-0743-4a42-bbf8-84640dc2fec1/57448ed6-3a62-4e56-8e2c-1ac119d764c7"
+storage_version_token = "1795531622186682"
 content_type = "application/pdf"
 
 [[outputs]]

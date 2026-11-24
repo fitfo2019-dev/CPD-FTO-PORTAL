@@ -2,8 +2,9 @@
 ## City of Columbus stakeholder briefing
 
 **Prepared:** November 24, 2026
-**Evidence cutoff:** Source and handover material reviewed through November 24, 2026
+**Evidence cutoff:** Main-workspace source and handover material reviewed through November 24, 2026
 **Purpose:** Explain the current portal, its workflows, integration readiness, and a practical way to measure a City-approved pilot.
+**Update policy:** This briefing is maintained as material changes reach the main workspace, through verified live production publication and formal handover. The evidence cutoff above marks the latest review; planned or unverified work is not presented as implemented.
 
 > **Readiness notice.** This is a source-based product briefing, not City approval, a security or compliance certification, a production-readiness decision, or evidence of realized time savings. No live Columbus identity provider, dispatch feed, records service, agency database, or production host was verified for this briefing. No operational connection is claimed.
 
@@ -14,7 +15,7 @@ The Field Training Officer Portal (FTO Portal) is a browser application for orga
 The current product has two distinct kinds of work:
 
 1. **Device-local work:** An FTO can prepare and save a training workspace locally. A local save is not an upload, an official shared record, a backup, or a verified signature. A local roster import, assignment, report, weekly acknowledgement, or export does not become shared simply because the user is signed in or online.
-2. **Shared-service work:** The source now includes authenticated API flows for phase-extension requests and for daily packet draft sync, explicit final submission, Coordinator review, and packet access actions. These are real implementation surfaces, not merely a lack of code waiting for an endpoint. They still depend on City-approved identity claims, server-side roster and Coordinator data, database installation and grants, runtime configuration, policy decisions, and acceptance testing. None is live-verified for Columbus.
+2. **Shared-service work:** The source now includes authenticated API flows for phase-extension requests and for daily packet draft sync, explicit final submission, Coordinator review, and packet access actions. Draft synchronization is distinct from finalization: eligible saved drafts may sync when connectivity returns, while final submission remains a separate FTO action. The editor blocks draft sync while local edits are unsaved. These are real implementation surfaces, not merely a lack of code waiting for an endpoint. They still depend on City-approved identity claims, server-side roster and Coordinator data, database installation and grants, runtime configuration, policy decisions, and acceptance testing. None is live-verified for Columbus.
 
 The portal may reduce repeated entry and compilation work: phase details can prefill shift records; required run forms and checklists are organized in one workflow; reviewed evaluations and activity counts feed weekly and monthly summaries; and class-level views help a Coordinator find records and follow-up items. Whether that reduces administrative minutes, after-hours work, or overtime—or changes FTO capacity—is an outcome to measure in a controlled pilot, not an established result. The portal does **not** automatically enter dispatch data, create calls, or guarantee additional runs.
 
@@ -60,7 +61,7 @@ New account registration is invitation-only in the portal. The sign-in flow and 
 
 ### Local storage and shared records are different
 
-The normal operational banner says Patrol View and report submission are unavailable and warns that records saved there are local drafts, not submitted or server-confirmed. A user can save the encrypted workspace on the device and explicitly initiate selected shared-service actions. A local save does not upload anything. Online status does not mean a record is shared. Device-local recovery copies are not a database backup or account-level recovery service.
+The normal operational banner says Patrol View and report submission are unavailable and warns that records saved there are local drafts, not submitted or server-confirmed. A user can save the encrypted workspace on the device. An eligible saved FTO draft may later synchronize to the configured shared service, including after connectivity returns; this synchronization keeps it editable and does not submit or finalize it. A local save itself does not upload anything. Online status does not mean a record is shared. Device-local recovery copies are not a database backup or account-level recovery service.
 
 The separate fictional preview is memory-only and clears on refresh. It is for demonstration and testing, not operational data entry. Do not use preview-role selection, synthetic records, or development-only screens as evidence of a City connection.
 
@@ -89,7 +90,7 @@ The labels **LOCAL**, **SHARED**, and **CITY CONFIGURATION REQUIRED** are delibe
 
 1. The FTO opens a Sunday–Saturday weekly summary for a PO and week. Rating counts use reviewed daily evaluations; they are counts by descriptive category, not numerical performance scores. Run checklist totals include completed and reviewed runs.
 2. The FTO may maintain the Weekly Performance Log Supplement and a Weekly Packet Acknowledgement. These are local workspace forms and printable outputs. Signature recording is disabled; typed status or a printed draft is not a verified signature or approved packet.
-3. If configured, each completed daily record can be explicitly synchronized as an editable shared draft. Draft sync alone does not finalize or submit it.
+3. If configured, an eligible saved daily record can synchronize as an editable shared draft when the FTO workspace is online and has no unsaved editor changes; reconnection may start this draft sync. Draft sync alone does not finalize or submit it.
 4. The FTO explicitly finalizes a ready packet. The shared API checks the current FTO identity and active server assignment, validates the packet, stores a snapshot, and creates a submission for its assigned Coordinator.
 5. The Coordinator receives a blocking receipt gate for incoming submissions, acknowledges receipt, opens the submitted version, then approves it or returns it with a written correction reason. Receipt and approval are separate actions.
 6. A correction is not an edit to the acknowledged snapshot. The FTO opens the correction and submits a new version; the new version needs a fresh review.
