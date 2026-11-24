@@ -86,9 +86,11 @@ are measured only through `fake-indexeddb`, not a real browser.
   no paging parameter. The test checks that cap and individually reads all 205
   records. Browsing the complete history in one collection view remains outside
   this test’s verified behavior.
-- The client storage measurements use an IndexedDB emulator. Real-browser
-  storage pressure, rendering responsiveness and network interruption should
-  be measured in an approved isolated browser environment before operational
-  use.
+- The recorded client measurements use an IndexedDB emulator. A limited local
+  Chromium follow-up now exercises the roster and packet screens and measures
+  the encrypted storage module with actual browser IndexedDB and Web Crypto.
+  The built-in preview does not allow signed-in vault or sync operations; see
+  `docs/PACKET_BROWSER_TEST.md` for results and coverage gaps. This does not
+  certify operational browser storage, network interruption, or device behavior.
 - This test does not certify production PostgreSQL, agency identity, physical
   devices, agency networks, printing or office-suite acceptance.
