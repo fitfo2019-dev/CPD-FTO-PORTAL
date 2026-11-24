@@ -8,6 +8,7 @@ export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
 import { API_BASE_URL, apiEndpoint } from "./api-config.js";
+import { objectResponseContract } from "./response-contracts.js";
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
@@ -163,6 +164,14 @@ function validateApiSuccessEnvelope(
   value: unknown,
   requestInfo: { method: string; url: string },
 ): unknown {
+  const pathname = new URL(requestInfo.url, "http://api.local").pathname;
+  const objectContract = objectResponseContract(requestInfo.method, pathname);
+  if (objectContract) {
+    if (!objectContract.safeParse(value).success) {
+      throw new Error(`Invalid API response from ${requestInfo.method} ${requestInfo.url}: response does not match its documented contract.`);
+    }
+    return value;
+  }
   if (
     !isRecord(value) ||
     value.status !== "success" ||
@@ -189,7 +198,6 @@ function validateApiSuccessEnvelope(
     }
   }
 
-  const pathname = new URL(requestInfo.url, "http://api.local").pathname;
   if (
     pathname.endsWith("/healthz") &&
     !value.data.every((row) => isRecord(row) && typeof row.status === "string")

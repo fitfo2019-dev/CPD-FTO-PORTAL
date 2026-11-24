@@ -1,0 +1,14 @@
+import { integer, pgSchema, text, timestamp } from "drizzle-orm/pg-core";
+
+export const operationalProfilesTable = pgSchema("agency_training").table("operational_profiles", {
+  subjectHash: text("subject_hash").primaryKey(),
+  assignmentToken: text("assignment_token").notNull(),
+  cruiserNumber: text("cruiser_number").notNull(),
+  cadUnit: text("cad_unit").notNull(),
+  company: text("company").notNull(),
+  side: text("side").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export type InsertOperationalProfile = Omit<typeof operationalProfilesTable.$inferInsert, "updatedAt">;
+export type OperationalProfileRow = typeof operationalProfilesTable.$inferSelect;

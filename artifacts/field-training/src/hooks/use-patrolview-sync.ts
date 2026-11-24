@@ -5,6 +5,7 @@ import {
   type DispatchPrefill,
   type DispatchPrefillDraft,
 } from "@/lib/dispatch-prefill.js";
+import { useOperationalProfile } from "@/state/operational-profile.js";
 
 export type PatrolViewSyncStatus = "idle" | "loading" | "loaded" | "empty" | "unavailable";
 
@@ -21,6 +22,8 @@ export function usePatrolViewSync({
   draft,
   onPrefill,
 }: UsePatrolViewSyncOptions): { status: PatrolViewSyncStatus; reset: () => void } {
+  const { profile, contextKey } = useOperationalProfile();
+  const cadUnit = profile?.role === 'FTO' ? profile.identity?.cadUnit : undefined;
   const [status, setStatus] = useState<PatrolViewSyncStatus>("idle");
   const attemptedEventId = useRef<string | null>(null);
   const requestSequence = useRef(0);
@@ -31,7 +34,7 @@ export function usePatrolViewSync({
   onPrefillRef.current = onPrefill;
 
   useEffect(() => {
-    if (!enabled || !eventId) {
+    if (!enabled || !eventId || !cadUnit) {
       attemptedEventId.current = null;
       setStatus("idle");
       return;
@@ -46,7 +49,7 @@ export function usePatrolViewSync({
     setStatus("loading");
 
     void dispatchEventIngress(
-      { eventId },
+      { eventId, cadUnit },
       { credentials: "include", signal: controller.signal },
     ).then((response) => {
       if (controller.signal.aborted || sequence !== requestSequence.current) return;
@@ -55,7 +58,19 @@ export function usePatrolViewSync({
         setStatus("unavailable");
         return;
       }
-      onPrefillRef.current(initialDraft, prefill);
+      // This automatic path may rerun after an account/profile refresh. Existing
+      // authored values are not a new empty form, even if unchanged in flight.
+      const protectedPrefill = { ...prefill };
+      const fields = {
+        incidentNumber: "incidentNumber", location: "runLocation", locationAddress: "runLocation",
+        locationCity: "runLocationCity", locationState: "runLocationState", locationZip: "runLocationZip",
+        zone: "runZone", cruiserDistrict: "runCruiserDistrict", dispatchedCode: "dispatchedCode",
+        clearanceCode: "clearanceCode", eventDate: "runDateTimeText", eventIngressAt: "runDateTimeText",
+      } as const;
+      for (const key of Object.keys(fields) as (keyof typeof fields)[]) {
+        if (initialDraft[fields[key]]?.trim()) delete protectedPrefill[key];
+      }
+      onPrefillRef.current(initialDraft, protectedPrefill);
       setStatus(Object.values(prefill).some((value) => value !== undefined) ? "loaded" : "empty");
     }).catch(() => {
       if (!controller.signal.aborted && sequence === requestSequence.current) {
@@ -69,7 +84,7 @@ export function usePatrolViewSync({
       if (requestSequence.current === sequence) requestSequence.current += 1;
       if (attemptedEventId.current === eventId) attemptedEventId.current = null;
     };
-  }, [enabled, eventId]);
+  }, [enabled, eventId, cadUnit, contextKey]);
 
   const reset = () => {
     requestController.current?.abort();

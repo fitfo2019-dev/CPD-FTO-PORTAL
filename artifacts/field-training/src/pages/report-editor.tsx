@@ -40,6 +40,8 @@ import '@/components/run-sheet-workflow.css';
 
 import { PacketSubmitControl } from '@/components/packet-review/submit-control.js';
 
+import { activeFtoIdentity, useOperationalProfile } from '@/state/operational-profile.js';
+
 type EditorStage = 'shift'|'duty'|'runs'|'activity'|'evaluation'|'narrative';
 type FailurePromptTarget = { form:RunChecklistSourceForm;key:string;label:string;choices:readonly string[];mode:'clear'|'edit' };
 type ChecklistActionTarget = { form:RunChecklistSourceForm;key:string;label:string };
@@ -74,6 +76,7 @@ function dutyChecklistHelp(section:string,item:string) {
 }
 
 export default function ReportEditor() {
+  const { profile, contextKey: operationalContextKey } = useOperationalProfile();
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
   const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket, previewOnly } = useWorkspace();
@@ -84,7 +87,7 @@ export default function ReportEditor() {
     return () => document.body.classList.remove('print-daily-route');
   }, []);
   const existing = isNew ? undefined : ws.reports.find(r => r.id === params.id);
-  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? createDailyReportDraft(ws.caseFolder,getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0]) : undefined);
+  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? createDailyReportDraft(ws.caseFolder,getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0],activeFtoIdentity(profile,ws.caseFolder)) : undefined);
   const operationalPacket = useOperationalStateMachine(r);
   const [initialReport] = useState(()=>authoredReportSnapshot(r));
   const [dateText, setDateText] = useState(() => r ? formatDateDMY(r.date) : '');
@@ -522,8 +525,14 @@ export default function ReportEditor() {
       activityFlags:{...activityFlags}, situationFoundCode,
       transportedAfterArrest: arrestMade && transported, arrestProcessRequired, buildingSearchRequired, oviProcessRequired, oviProcessed, narrativeAdditionRequired,
       formStatus: !!runNarrative.trim() ? 'complete' : 'in_progress',
-      checklist: { ...runChecklist }, ...(Object.keys(runChecklistFailures).length?{checklistFailures:structuredClone(runChecklistFailures)}:{}), directiveReviews:directiveReviewsToSave, checklistReviewedAt:new Date().toISOString(), narrative: runNarrative,
+      checklist: { ...runChecklist }, directiveReviews:directiveReviewsToSave, checklistReviewedAt:new Date().toISOString(), narrative: runNarrative,
     };
+    // Keep detached-sheet details in the open editor for reattachment, but only
+    // persist failures belonging to the run's active, applicable unchecked items.
+    const activeFailures = Object.fromEntries(runChecklistFailureSummaries({
+      ...nextRun, checklistFailures: runChecklistFailures,
+    }).filter(item => item.failureActions.length).map(item => [item.key, [...item.failureActions]]));
+    if (Object.keys(activeFailures).length) nextRun.checklistFailures = activeFailures;
     nextRun.generatedDocuments=buildClearanceDocuments(nextRun);
     setR(current=>current && ({...current,ratingsReviewedAt:undefined,runs: previous ? current.runs.map(item => item.id === previous.id ? nextRun : item) : [...current.runs, nextRun]}));
     resetRunForm();
@@ -1207,7 +1216,7 @@ export default function ReportEditor() {
           <button type="button" disabled={EDITOR_STAGES[EDITOR_STAGES.length-1].id===stage} onClick={()=>{const i=EDITOR_STAGES.findIndex(item=>item.id===stage);setStage(EDITOR_STAGES[Math.min(EDITOR_STAGES.length-1,i+1)].id);window.scrollTo({top:0});}} className="inline-flex min-h-10 items-center gap-1 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-40" data-testid="button-stage-next">Next<ChevronRight className="h-4 w-4"/></button>
         </span>
       </div>
-      <NewRunDialog open={newRunOpen&&editable} defaultUnit={r.reportingForDuty?.cruiserId||r.reportingForDuty?.unitNumber||''} onCancel={()=>setNewRunOpen(false)} onConfirm={startNewRun}/>
+      <NewRunDialog open={newRunOpen&&editable} contextKey={operationalContextKey} defaultUnit={profile?.role==='FTO'&&profile.badge===r.ftoBadge?profile.identity?.cadUnit??'':''} onCancel={()=>setNewRunOpen(false)} onConfirm={startNewRun}/>
       <TrafficStopRiskPrompt open={riskPrompt&&editable} onOpenChange={setRiskPrompt} kind={riskCandidate} code={dispatchedCode}
         testId="dialog-run-high-risk" onChange={next=>{setRiskPrompt(false);requestRunKind(next,true);}}/>
       <RunChecklistFailureDialog

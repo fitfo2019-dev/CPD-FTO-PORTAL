@@ -55,6 +55,21 @@ function hasWorkspaceImport(source: string): boolean {
 }
 
 async function bundlePackage(): Promise<void> {
+  // A workspace/dev preview BASE_PATH must never silently become the release
+  // prefix. Build fresh assets for root hosting unless IT explicitly chooses
+  // a production prefix, e.g. PORTAL_BASE_PATH=/field-training/.
+  const portalBasePath = process.env.PORTAL_BASE_PATH ?? "/";
+  if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(portalBasePath)) {
+    throw new Error("PORTAL_BASE_PATH must be / or a slash-terminated path such as /field-training/.");
+  }
+  console.log(`Building fresh production portal assets for ${portalBasePath}`);
+  const portalBuild = await execFileAsync("pnpm", ["--filter", "@workspace/field-training", "run", "build"], {
+    cwd: workspaceRoot,
+    env: { ...process.env, NODE_ENV: "production", BASE_PATH: portalBasePath },
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  process.stdout.write(portalBuild.stdout);
+  process.stderr.write(portalBuild.stderr);
   const [rootManifest, apiManifest] = await Promise.all([
     readManifest(join(workspaceRoot, "package.json")),
     readManifest(join(apiRoot, "package.json")),
@@ -154,15 +169,28 @@ async function bundlePackage(): Promise<void> {
   await cp(join(apiRoot, "migrations"), join(outputDir, "migrations"), { recursive: true });
   const migrationFiles = await listFilesRecursively(join(outputDir, "migrations"));
   await cp(join(workspaceRoot,"docs/ASSIGNMENT_INTEGRATION.md"),join(outputDir,"ASSIGNMENT_INTEGRATION.md"));
+  await cp(join(workspaceRoot,"docs/OPERATIONAL_PROFILES.md"),join(outputDir,"OPERATIONAL_PROFILES.md"));
 
   const resourceSourceDir = join(apiRoot, "resources");
   const resourceOutputDir = join(outputDir, "resources");
   await cp(resourceSourceDir, resourceOutputDir, { recursive: true });
   const resourceFiles = await listFilesRecursively(resourceOutputDir);
+  // Static portal assets are handed over separately from the API runtime.
+  // The agency reverse proxy, not this API, must serve them with SPA fallback.
+  const portalSourceDir = join(workspaceRoot, "artifacts/field-training/dist/public");
+  const portalHtml = await readFile(join(portalSourceDir, "index.html"), "utf8");
+  const portalEntry = /<script\b[^>]*\bsrc="([^"]+)"/.exec(portalHtml)?.[1];
+  if (!portalEntry?.startsWith(`${portalBasePath}assets/`)) {
+    throw new Error("The freshly built portal entry does not use the configured production base path.");
+  }
+  await cp(portalSourceDir, join(outputDir, "portal"), { recursive: true });
+  const portalFiles = await listFilesRecursively(join(outputDir, "portal"));
   const archiveEntries = [
     "package.json",
     "HANDOVER_MANUAL.md",
     "ASSIGNMENT_INTEGRATION.md",
+    "OPERATIONAL_PROFILES.md",
+    ...portalFiles.map(path=>join("portal",path)),
     ...migrationFiles.map(path=>join("migrations",path)),
     ...resourceFiles.map((path) => join("resources", path)),
     ...runtimeFiles.map((entry) =>

@@ -7,6 +7,7 @@ const dom=new JSDOM('<!doctype html><html><body></body></html>',{url:'http://loc
 const globals:Record<string,unknown>={window:dom.window,document:dom.window.document,navigator:dom.window.navigator,
   HTMLElement:dom.window.HTMLElement,HTMLInputElement:dom.window.HTMLInputElement,Node:dom.window.Node,
   NodeFilter:dom.window.NodeFilter,MutationObserver:dom.window.MutationObserver,CustomEvent:dom.window.CustomEvent,
+  Event:dom.window.Event,
   getComputedStyle:dom.window.getComputedStyle.bind(dom.window),IS_REACT_ACT_ENVIRONMENT:true};
 const originals=new Map(Object.keys(globals).map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
 for(const [key,value] of Object.entries(globals))Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});
@@ -15,12 +16,46 @@ const {TrafficStopRiskPrompt}=await import('../components/traffic-stop-risk-choi
 const {NewRunDialog}=await import('../components/new-run-dialog.js');
 type Seed=import('../components/new-run-dialog.js').NewRunSeed;
 
-test.after(()=>{
+test.after(async()=>{
+  // Radix restores focus on a deferred tick after unmount. Keep this DOM's
+  // Event constructor installed until that cleanup has completed.
+  await new Promise(resolve=>setTimeout(resolve,25));
   dom.window.close();
   for(const [key,descriptor] of originals){
     if(descriptor)Object.defineProperty(globalThis,key,descriptor);
     else Reflect.deleteProperty(globalThis,key);
   }
+});
+test('profile/account changes abort open incident lookups without clearing manually corrected run fields',async t=>{
+  const pending:{resolve:(response:Response)=>void;signal:AbortSignal;body:{unitNumber:string}}[]=[];
+  t.mock.method(globalThis,'fetch',async(_input:unknown,init?:RequestInit)=>new Promise<Response>(resolve=>{
+    pending.push({resolve,signal:init!.signal as AbortSignal,body:JSON.parse(String(init!.body))});
+  }));
+  let defaultUnit='9150E',contextKey='TEST-A:1';
+  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);
+  const render=()=>root.render(<NewRunDialog open defaultUnit={defaultUnit} contextKey={contextKey}
+    onCancel={()=>{}} onConfirm={()=>{}}/>);
+  try{
+    await act(async()=>render());
+    await input('input-new-run-incident','TEST');
+    await act(async()=>element('button-new-run-lookup').click());
+    assert.equal(pending[0].body.unitNumber,'9150E');
+    defaultUnit='1234A';contextKey='TEST-A:2';
+    await act(async()=>render());
+    assert.equal(pending[0].signal.aborted,true);
+    await act(async()=>pending[0].resolve(new Response(JSON.stringify({
+      status:'success',metadata:{total_records:1},data:[{incidentNumber:'TEST',unitNumber:'9150E',location:'STALE'}],
+    }),{headers:{'Content-Type':'application/json'}})));
+    assert.equal(document.querySelector('[data-testid="input-review-location"]'),null);
+    await act(async()=>element('button-new-run-manual').click());
+    await input('input-review-location','MANUALLY CORRECTED LOCATION');
+    await input('input-review-unit','MANUAL-CAD');
+    contextKey='TEST-B:1';defaultUnit='5678B';
+    await act(async()=>render());
+    assert.equal(element<HTMLInputElement>('input-review-location').value,'MANUALLY CORRECTED LOCATION');
+    assert.equal(element<HTMLInputElement>('input-review-unit').value,'MANUAL-CAD');
+    assert.equal(pending.length,1);
+  }finally{await act(async()=>root.unmount());host.remove();}
 });
 function element<T extends HTMLElement=HTMLElement>(id:string){
   const node=document.querySelector<T>(`[data-testid="${id}"]`);assert.ok(node,id);return node;

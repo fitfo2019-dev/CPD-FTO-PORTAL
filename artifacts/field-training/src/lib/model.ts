@@ -1,6 +1,7 @@
 import {
   isValidAssignment, isUniversalFtoAssignment, isValidFtoAssignment, PatrolAssignmentMetadataSchema,
 } from './cpd-geography.js';
+import type { OperationalIdentity } from '@workspace/api-zod/operational-profile';
 import { SUBMITTED_PRIMARY_CHECKLISTS, SUBMITTED_SUPPLEMENTAL_CHECKLISTS } from './manual-form-checklists.js';
 import { ARREST_CLASSIFICATION_VERSION, type ArrestSeverity, type ArrestType } from './arrest-classification.js';
 import {
@@ -758,6 +759,8 @@ export interface PhaseCaseFolder {
   legacyGeography?: { previousPrecinctText?: string; previousAreaText?: string };
 }
 export interface FtoRosterEntry {
+  /** Provisioning hint only; importing a roster never updates an account. */
+  operationalAssignmentToken?: string;
   badge: string;
   name: string;
   email?: string;
@@ -801,6 +804,7 @@ export interface CoverageRequest {
   updatedAt:string;
 }
 export interface TrainingAssignment {
+  poOperationalAssignmentToken?: string;
   id: string;
   className: string;
   recruitName: string;
@@ -842,6 +846,7 @@ export interface ChecklistDeficiencyGroup {
   reviewed?: boolean;
 }
 export interface Report {
+  operationalIdentity?: OperationalIdentity;
   /** Server-authorized replacement metadata; present only for an approved correction. */
   amendmentOf?: string;
   amendmentReason?: string;

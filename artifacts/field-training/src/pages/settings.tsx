@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Lock, RotateCcw } from 'lucide-react';
 import { useWorkspace } from '@/state/workspace.js';
 import { PageHead, Panel } from '@/components/bits.js';
+import { OperationalProfilePanel } from '@/components/operational-profile-panel.js';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 
 export default function Settings() {
@@ -10,6 +11,7 @@ export default function Settings() {
   return (
     <div className="max-w-4xl space-y-4">
       <PageHead kicker="Workspace" title="Device settings" />
+      {!w.previewOnly && <OperationalProfilePanel/>}
       <Panel title={w.previewOnly ? 'Temporary UI test workspace' : 'Local vault'}>
         <div className="p-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
           <div><div className="label-caps">Status</div><div className="font-bold mt-1" data-testid="text-vault-status">{w.previewOnly ? 'Memory-only preview' : w.vault === 'unlocked' ? 'Unlocked' : 'Locked / not opened'}</div></div>

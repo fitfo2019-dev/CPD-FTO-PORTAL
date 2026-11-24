@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OperationalIdentity } from './operationalIdentity';
 import type { TrainingPacketReportActivity } from './trainingPacketReportActivity';
 import type { TrainingPacketReportRatings } from './trainingPacketReportRatings';
 import type { TrainingPacketReportReportingForDuty } from './trainingPacketReportReportingForDuty';
@@ -12,6 +13,7 @@ import type { TrainingPacketReportRunsItem } from './trainingPacketReportRunsIte
 import type { TrainingPacketReportStatus } from './trainingPacketReportStatus';
 
 export interface TrainingPacketReport {
+  operationalIdentity?: OperationalIdentity;
   /**
      * @minLength 1
      * @maxLength 128

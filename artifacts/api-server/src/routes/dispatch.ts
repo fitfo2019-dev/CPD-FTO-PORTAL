@@ -1,14 +1,35 @@
 import { getAuth } from "@clerk/express";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { DispatchIncidentLookupBody, DispatchIncidentLookupResponse } from "@workspace/api-zod";
+import { DispatchIncidentLookupBody, DispatchIncidentLookupResponse, DispatchEventIngressBody } from "@workspace/api-zod";
 import { logger } from "../lib/logger.js";
 import {
-  fetchPatrolViewEvent,
+  fetchPatrolViewUnitEvent,
   PatrolViewIntegrationError,
 } from "../services/patrolViewIntegration.js";
 import {fetchPatrolViewIncident} from "../services/patrolViewIncidentIntegration.js";
+import { resolveAgencyIdentity } from "../security/agencyIdentity.js";
+import { getOperationalProfileStore } from "../lib/operational-profile-store.js";
 
 const router: IRouter = Router();
+
+async function authorizeUnit(req: Request, unit: string, requireProfile = false) {
+  const identity = resolveAgencyIdentity(req);
+  if (!identity || identity.role !== "FTO") {
+    throw new PatrolViewIntegrationError("PATROLVIEW_UNAVAILABLE", 403, "Verified FTO access required.");
+  }
+  const store = getOperationalProfileStore();
+  if (!store) throw new PatrolViewIntegrationError("PATROLVIEW_NOT_CONFIGURED", 503, "Agency storage unavailable.");
+  const profile = await store.read(identity);
+  if ((requireProfile && !profile.identity) || (profile.identity &&
+    unit.trim().toUpperCase().replace(/\s+/g, " ") !== profile.identity.cadUnit)) {
+    throw new PatrolViewIntegrationError("PATROLVIEW_UNAVAILABLE", 409, "The active CAD profile has changed.");
+  }
+  return { identity, version: profile.version, store };
+}
+async function assertCurrentUnit(context: Awaited<ReturnType<typeof authorizeUnit>>) {
+  if ((await context.store.read(context.identity)).version !== context.version)
+    throw new PatrolViewIntegrationError("PATROLVIEW_UNAVAILABLE", 409, "The active CAD profile has changed.");
+}
 
 function sendError(
   res: Response,
@@ -60,7 +81,9 @@ router.post("/v1/dispatch/incident-lookup",async(req,res):Promise<void>=>{
     return;
   }
   try{
+    const context=await authorizeUnit(req,input.data.unitNumber);
     const data=await fetchPatrolViewIncident(input.data.incidentNumber,input.data.unitNumber);
+    await assertCurrentUnit(context);
     const response=DispatchIncidentLookupResponse.safeParse({
       status:'success',metadata:{total_records:data.length},data,
     });
@@ -76,14 +99,16 @@ router.post("/v1/dispatch/incident-lookup",async(req,res):Promise<void>=>{
 
 router.post("/v1/dispatch/event-ingress", async (req, res): Promise<void> => {
   if(!authorizeDispatch(req,res))return;
-  const eventId = typeof req.body?.eventId === "string" ? req.body.eventId.trim() : "";
-  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(eventId)) {
+  const input=DispatchEventIngressBody.strict().safeParse(req.body);
+  if (!input.success) {
     sendError(res, 400, "INVALID_DISPATCH_EVENT_ID", "A valid dispatch event identifier is required.");
     return;
   }
 
   try {
-    const data = await fetchPatrolViewEvent(eventId);
+    const context=await authorizeUnit(req,input.data.cadUnit,true);
+    const data = await fetchPatrolViewUnitEvent(input.data.eventId,input.data.cadUnit);
+    await assertCurrentUnit(context);
     res.set("Cache-Control", "no-store");
     const totalRecords = Object.keys(data).length > 0 ? 1 : 0;
     res.json({

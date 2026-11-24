@@ -39,6 +39,7 @@ import { PortalRouteSwitch, UiPreviewRouter } from '@/lib/portal-routing.js';
 import ApprovalPreviews from '@/pages/approval-previews.js';
 import AgencyPacketsPage from '@/pages/agency-packets.js';
 import { createFtoTestPacketWorkspace } from '@/lib/test-packet.js';
+import { OperationalProfileProvider, useOperationalProfile } from '@/state/operational-profile.js';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -197,6 +198,7 @@ function WorkspaceRoutes() {
     <Route component={RoleAccessPage}/>
   </Switch></RoutedErrorBoundary>;
   if (ws.role === 'po') return <RoutedErrorBoundary><Switch>
+    <Route path="/settings" component={Settings}/>
     <Route path="/agency-packets" component={AgencyPacketsPage}/>
     <Route path="/resources" component={HelpPage}/>
     <Route path="/help"><Redirect to="/resources"/></Route>
@@ -240,6 +242,7 @@ function WorkspaceRoutes() {
 }
 
 function ShiftStartGate({reportId}:{reportId?:string}) {
+  const { pending } = useOperationalProfile();
   const {ws}=useWorkspace();
   const folder=ws.caseFolder;
   const report=reportId&&reportId!=='new'?ws.reports.find(item=>item.id===reportId):undefined;
@@ -252,6 +255,7 @@ function ShiftStartGate({reportId}:{reportId?:string}) {
   if(ws.role==='fto'&&folder&&belongsToActiveFolder&&!orientationExists) {
     return <Redirect to="/substation-orientation"/>;
   }
+  if ((!reportId || reportId === 'new') && pending) return null;
   return <ReportEditor/>;
 }
 
@@ -313,7 +317,7 @@ function AuthenticatedWorkspace() {
 
   if (!isLoaded) return null;
   if (!isSignedIn || !user) return <Redirect to="/sign-in" />;
-  return <DemoWorkspace key={user.id} />;
+  return <OperationalProfileProvider key={user.id}><DemoWorkspace key={user.id} /></OperationalProfileProvider>;
 }
 
 function ClerkRoutes() {

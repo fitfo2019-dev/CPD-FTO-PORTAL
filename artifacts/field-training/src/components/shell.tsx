@@ -27,6 +27,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/agency-packets', label: 'Agency packets', icon: FileText },
     { href: '/packet-submissions', label: 'Packet Submissions', icon: ClipboardList },
     RESOURCES,
+    { href: '/settings', label: 'Account Settings', icon: Settings },
   ],
   fto_coordinator: [
     HOME,
@@ -47,6 +48,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/packet-submissions', label: 'Packet Status', icon: ClipboardList },
     { href: '/role-access', label: 'Account Access', icon: Lock },
     RESOURCES,
+    { href: '/settings', label: 'Account Settings', icon: Settings },
   ],
   policenet: [
     { href: '/technical-access', label: 'Technical Access', icon: Settings },

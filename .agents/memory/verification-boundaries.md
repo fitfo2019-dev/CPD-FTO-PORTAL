@@ -26,3 +26,23 @@ Do not equate a successful PostgreSQL `GRANT` statement with a successful privil
 **Why:** A non-owner with access but no grant option can receive `warning_no_privileges_granted` rather than a rejected query when attempting to grant privileges.
 
 **How to apply:** Verify effective permissions, not just whether the database accepted a permission-related statement.
+
+API success fixtures must reproduce each operation's actual response shape,
+including the distinction between a raw object and a legacy success envelope.
+
+**Why:** A profile editor passed with an envelope-augmented fixture but could
+not load the real server's raw response because the shared transport assumed
+all APIs used the older envelope. The browser check exposed the mismatch.
+
+**How to apply:** Exercise generated clients with exact server-shaped responses.
+Validate object responses against their operation-specific shared contracts;
+do not relax validation globally or add undocumented wrapper fields to fixtures.
+
+Preview generators can rewrite tracked registries during task handoff.
+
+**Why:** Task completion reconciles the fork with main; a running preview
+watcher can dirty its generated component registry between rebase steps and
+interrupt an otherwise clean merge.
+
+**How to apply:** Account for generator writes when checking whether a task's
+working tree is stable enough for handoff.

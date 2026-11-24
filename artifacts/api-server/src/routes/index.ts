@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health.js";
+import operationalProfileRouter from "./operational-profile.js";
 import authRouter from "./auth.js";
 import secureRecordsRouter from "./secureRecords.js";
 import auditLogsRouter from "./audit-logs.js";
@@ -14,6 +15,7 @@ const router: IRouter = Router();
 router.use(enforcePacketReceiptGate);
 
 router.use(healthRouter);
+router.use(operationalProfileRouter);
 router.use(authRouter);
 router.use(secureRecordsRouter);
 router.use(auditLogsRouter);

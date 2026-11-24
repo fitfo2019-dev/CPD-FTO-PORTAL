@@ -7,6 +7,8 @@
  */
 
 export interface DispatchEventIngressInput {
+  /** @pattern ^[0-9]{4}[A-Z]$ */
+  cadUnit: string;
   /**
      * @minLength 1
      * @maxLength 128

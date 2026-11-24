@@ -15,3 +15,4 @@
 - [Manual contract exports](manual-contract-exports.md) — generated API barrels are replaced by code generation; expose hand-written shared validators through a separate package subpath.
 - [Packet review workflow](packet-review-workflow.md) — assigned Coordinator routing, mandatory red acknowledgment, and separate acknowledgment/approval statuses.
 - [Verification boundaries](verification-boundaries.md) — Vite/Node JSX, React input focus in JSDOM, and emulated/real PostgreSQL differ; test each at the right boundary.
+- [Operational vehicle identity](operational-vehicle-identity.md) — cruiser profiles are not training roster codes; never infer geography or signed account authority from them.

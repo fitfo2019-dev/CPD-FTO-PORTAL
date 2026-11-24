@@ -261,6 +261,24 @@ export async function fetchPatrolViewEvent(
   return mapPatrolViewEvent(await fetchPatrolViewJson(endpoint,apiToken,fetchImpl,requestTimeoutMs));
 }
 
+/** Operational event ingress must positively identify the exact CAD unit.
+ * The older generic mapper remains available for offline/import compatibility. */
+export async function fetchPatrolViewUnitEvent(
+  eventId: string, cadUnit: string, config: PatrolViewConfig = process.env,
+  fetchImpl: FetchFunction = fetch as FetchFunction,
+): Promise<DispatchEventPrefill> {
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(eventId) || !/^[0-9]{4}[A-Z]$/.test(cadUnit)) {
+    throw new PatrolViewIntegrationError("PATROLVIEW_INVALID_RESPONSE", 400, "Invalid event or CAD unit.");
+  }
+  const { endpointTemplate, apiToken } = configuration(config);
+  const payload = await fetchPatrolViewJson(new URL(endpointTemplate.replace("{eventId}", encodeURIComponent(eventId))), apiToken, fetchImpl);
+  const root = record(payload);
+  const event = record(root?.data) ?? record(root?.event) ?? root;
+  const unit = event?.unitNumber ?? event?.unit_number ?? event?.cadUnit;
+  if (typeof unit !== "string" || unit.trim().toUpperCase().replace(/\s+/g, " ") !== cadUnit) return {};
+  return mapPatrolViewEvent(event);
+}
+
 /** Shared bounded machine-to-machine transport; never accepts browser headers. */
 export async function fetchPatrolViewJson(
   endpoint: URL,

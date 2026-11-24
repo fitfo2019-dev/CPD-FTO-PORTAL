@@ -30,9 +30,10 @@ export type NewRunSeed = {
 type Phase = 'ask' | 'loading' | 'choose' | 'review' | 'failed';
 const inp = 'h-10 w-full rounded border bg-card px-3 text-sm';
 
-export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
+export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onConfirm }: {
   open: boolean;
   defaultUnit: string;
+  contextKey?: string;
   onCancel: () => void;
   onConfirm: (seed: NewRunSeed) => void;
 }) {
@@ -62,6 +63,9 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
   const [chooseReason, setChooseReason] = useState<'choose_unit' | 'ambiguous'>('ambiguous');
   const [picked, setPicked] = useState<number | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const defaultUnitRef = useRef(defaultUnit);
+  defaultUnitRef.current = defaultUnit;
+  const previousDefaultUnit = useRef(defaultUnit);
   const cancelPending = useCallback(() => { requestIdRef.current += 1; abortRef.current?.abort(); abortRef.current = null; },[]);
   // Editing the number or unit invalidates any in-flight or unaccepted lookup result.
   const editIncident = (value: string) => { setIncident(value); if (phase === 'loading' || phase === 'choose' || phase === 'failed') { cancelPending(); setPhase('ask'); setCandidates([]); setPicked(null); } };
@@ -144,13 +148,23 @@ export function NewRunDialog({ open, defaultUnit, onCancel, onConfirm }: {
 
   useEffect(() => {
     if (!open) return;
-    setPhase('ask'); setIncident(''); setUnit(defaultUnit); setFailure(''); setFromDispatch(false);
+    setPhase('ask'); setIncident(''); setUnit(defaultUnitRef.current); setFailure(''); setFromDispatch(false);
     setLocation(''); setLocationCity(''); setLocationState(''); setLocationZip(''); setZone(''); setCruiserDistrict('');
     setOccurred(''); setDispatchedAt(''); setClearedAt(''); setCode(''); setSituationFoundCode(''); setClearanceCode(''); setKind('');
     setRiskPrompt(false);setRiskUnanswered(false);
     setCandidates([]); setPicked(null); setConfirmed(false);
     return () => cancelPending();
-  }, [open, defaultUnit,cancelPending]);
+  }, [open,cancelPending]);
+  useEffect(() => {
+    cancelPending();
+    setCandidates([]); setPicked(null);
+    setPhase(current => current === 'loading' || current === 'choose' ? 'ask' : current);
+    const previous=previousDefaultUnit.current;
+    setUnit(current=>current===previous?defaultUnit:current);
+    previousDefaultUnit.current=defaultUnit;
+    setConfirmed(false);
+    // Profile refreshes never clear authored or already corrected run fields.
+  }, [contextKey, defaultUnit, cancelPending]);
   useEffect(()=>{setConfirmed(false);setFailure('');},[incident,unit,location,locationCity,locationState,locationZip,zone,cruiserDistrict,occurred,dispatchedAt,clearedAt,code,situationFoundCode,clearanceCode]);
 
   const runLookup = async () => {

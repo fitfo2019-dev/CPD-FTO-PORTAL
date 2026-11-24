@@ -1,4 +1,5 @@
 import { OperatorFacingError } from './operator-errors.js';
+import { OperationalAssignmentToken } from '@workspace/api-zod/operational-profile';
 
 import {
   PHASES, SHIFTS, WEEKDAYS, type FtoRosterEntry, type Phase, type Shift,
@@ -19,6 +20,8 @@ export interface ParsedRoster {
 }
 
 const HEADER_ALIASES: Record<string, string[]> = {
+  operationalAssignmentToken: ['fto operational assignment', 'fto vehicle profile'],
+  poOperationalAssignmentToken: ['po operational assignment', 'po vehicle profile'],
   className: ['class', 'class name', 'training class'],
   recruitName: ['po name', 'po full name', 'probationary officer', 'recruit name'],
   recruitBadge: ['po badge', 'po badge number', 'recruit badge', 'recruit badge number'],
@@ -123,12 +126,19 @@ export function parseRosterRows(rows: string[][]): ParsedRoster {
     const recruitBadge=getValue(row,columns,'recruitBadge');
     const recruitEmail=getValue(row,columns,'recruitEmail');
     const rowErrors:string[]=[];
+    const operationalAssignmentToken=getValue(row,columns,'operationalAssignmentToken');
+    const poOperationalAssignmentToken=getValue(row,columns,'poOperationalAssignmentToken');
+    for(const token of [operationalAssignmentToken,poOperationalAssignmentToken]) {
+      if(token&&!OperationalAssignmentToken.safeParse(token).success) rowErrors.push('operational vehicle profile must use four digits, an uppercase company letter, and -1 or -2');
+    }
     if (!ftoName || !ftoBadge) rowErrors.push('FTO name and badge are required');
     if (!emailIsValid(ftoEmail) || !emailIsValid(recruitEmail)) rowErrors.push('email address is invalid');
     if (ftoName && ftoBadge) {
       const key=ftoBadge.toLowerCase();
       const previous=ftos.get(key);
-      ftos.set(key,{name:ftoName,badge:ftoBadge,email:ftoEmail||previous?.email});
+      ftos.set(key,{name:ftoName,badge:ftoBadge,email:ftoEmail||previous?.email,
+        ...(operationalAssignmentToken&&OperationalAssignmentToken.safeParse(operationalAssignmentToken).success
+          ?{operationalAssignmentToken}:previous?.operationalAssignmentToken?{operationalAssignmentToken:previous.operationalAssignmentToken}:{})});
     }
     if (!recruitName && !recruitBadge) {
       if (rowErrors.length) errors.push(`Row ${line}: ${rowErrors.join('; ')}`);
@@ -181,6 +191,7 @@ export function parseRosterRows(rows: string[][]): ParsedRoster {
       precinct:precinct||undefined,
       cruiserDistrict:cruiserDistrict||undefined,
       ftoAssignment:ftoAssignment||undefined,
+      ...(poOperationalAssignmentToken?{poOperationalAssignmentToken}:{}),
     });
   });
   return { ftos:[...ftos.values()],assignments,errors,warnings:[],sourceRows:rows.length-1 };

@@ -5,6 +5,54 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type OperationalIdentitySide = typeof OperationalIdentitySide[keyof typeof OperationalIdentitySide];
+
+
+export const OperationalIdentitySide = {
+  NUMBER_1: '1',
+  NUMBER_2: '2',
+} as const;
+
+export interface OperationalIdentity {
+  /** @pattern ^[0-9]{4}[A-Z]-[12]$ */
+  assignmentToken: string;
+  /** @pattern ^[0-9]{4}$ */
+  cruiserNumber: string;
+  /** @pattern ^[0-9]{4}[A-Z]$ */
+  cadUnit: string;
+  /** @pattern ^[A-Z]$ */
+  company: string;
+  side: OperationalIdentitySide;
+}
+
+export interface OperationalProfileInput {
+  /** @pattern ^[0-9]{4}[A-Z]-[12]$ */
+  assignmentToken: string;
+  /**
+     * @minimum 0
+     * @maximum 2147483646
+     */
+  expectedVersion: number;
+}
+
+export type OperationalProfileContextRole = typeof OperationalProfileContextRole[keyof typeof OperationalProfileContextRole];
+
+
+export const OperationalProfileContextRole = {
+  FTO: 'FTO',
+  PO: 'PO',
+} as const;
+
+export interface OperationalProfileContext {
+  subject: string;
+  role: OperationalProfileContextRole;
+  badge: string;
+  /** @minimum 0 */
+  version: number;
+  identity: OperationalIdentity | null;
+  updatedAt?: string;
+}
+
 export interface PacketCoordinator {
   id: string;
   name: string;
@@ -115,6 +163,7 @@ export type TrainingPacketReportReportingForDuty = { [key: string]: unknown };
 export type TrainingPacketReportRatings = { [key: string]: unknown };
 
 export interface TrainingPacketReport {
+  operationalIdentity?: OperationalIdentity;
   /**
      * @minLength 1
      * @maxLength 128
@@ -975,6 +1024,8 @@ export interface DispatchIncidentEnvelope {
 }
 
 export interface DispatchEventIngressInput {
+  /** @pattern ^[0-9]{4}[A-Z]$ */
+  cadUnit: string;
   /**
      * @minLength 1
      * @maxLength 128

@@ -23,6 +23,36 @@ tags:
   - name: packet-review
     description: Server-scoped Coordinator packet review and PO acknowledgment
 paths:
+  /v1/account/operational-profile:
+    get:
+      operationId: getOperationalProfile
+      responses:
+        "200":
+          description: Own verified operational account context
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationalProfileContext" }
+        "401": { description: Sign-in required }
+        "403": { description: Verified FTO or PO required }
+        "503": { description: Agency storage unavailable }
+    put:
+      operationId: updateOperationalProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperationalProfileInput" }
+      responses:
+        "200":
+          description: Atomic own-profile save
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationalProfileContext" }
+        "400": { description: Invalid token or request }
+        "401": { description: Sign-in required }
+        "403": { description: Verified FTO or PO required }
+        "409": { description: Profile changed; refresh before retry }
+        "503": { description: Agency storage unavailable }
   /v1/packet-review/context:
     get:
       operationId: getPacketReviewContext
@@ -774,6 +804,37 @@ paths:
               schema: { $ref: "#/components/schemas/ApiError" }
 components:
   schemas:
+    OperationalIdentity:
+      type: object
+      additionalProperties: false
+      required: [assignmentToken, cruiserNumber, cadUnit, company, side]
+      properties:
+        assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z]-[12]$" }
+        cruiserNumber: { type: string, pattern: "^[0-9]{4}$" }
+        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z]$" }
+        company: { type: string, pattern: "^[A-Z]$" }
+        side: { type: string, enum: ["1", "2"] }
+    OperationalProfileInput:
+      type: object
+      additionalProperties: false
+      required: [assignmentToken, expectedVersion]
+      properties:
+        assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z]-[12]$" }
+        expectedVersion: { type: integer, minimum: 0, maximum: 2147483646 }
+    OperationalProfileContext:
+      type: object
+      additionalProperties: false
+      required: [subject, role, badge, version, identity]
+      properties:
+        subject: { type: string }
+        role: { type: string, enum: [FTO, PO] }
+        badge: { type: string }
+        version: { type: integer, minimum: 0 }
+        identity:
+          anyOf:
+            - { $ref: "#/components/schemas/OperationalIdentity" }
+            - { type: "null" }
+        updatedAt: { type: string, format: date-time }
     PacketCoordinator:
       type: object
       required: [id, name]
@@ -977,6 +1038,7 @@ components:
       additionalProperties: true
       required: [id, date, phase, className, recruitName, recruitBadge, ftoName, ftoBadge, runs, status, activity, reportingForDuty, ratings, narrative, remedial, recruitComments]
       properties:
+        operationalIdentity: { $ref: "#/components/schemas/OperationalIdentity" }
         id: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
         date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
         phase: { type: integer, minimum: 1, maximum: 4 }
@@ -1443,8 +1505,9 @@ components:
     DispatchEventIngressInput:
       type: object
       additionalProperties: false
-      required: [eventId]
+      required: [eventId, cadUnit]
       properties:
+        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z]$" }
         eventId:
           type: string
           minLength: 1

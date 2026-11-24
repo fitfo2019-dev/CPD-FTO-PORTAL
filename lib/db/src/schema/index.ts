@@ -18,4 +18,5 @@
 //   export type Post = typeof postsTable.$inferSelect;
 
 export { phaseExtensionRequestsTable } from "./phase-extension-requests.js";
+export * from "./operational-profiles.js";
 export type { PhaseExtensionRequestRow } from "./phase-extension-requests.js";

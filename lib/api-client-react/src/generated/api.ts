@@ -36,6 +36,8 @@ import type {
   ListTrainingPacketsParams,
   MockLoginEnvelope,
   MockLoginInput,
+  OperationalProfileContext,
+  OperationalProfileInput,
   PacketCoordinatorAssignment,
   PacketCoordinatorInput,
   PacketReviewActionInput,
@@ -88,6 +90,183 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetOperationalProfileUrl = () => {
+
+
+
+
+  return `/api/v1/account/operational-profile`
+}
+
+export const getOperationalProfile = async ( options?: Parameters<typeof customFetch>[1]): Promise<OperationalProfileContext> => {
+
+  return customFetch<OperationalProfileContext>(getGetOperationalProfileUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOperationalProfileQueryKey = () => {
+    return [
+    `/api/v1/account/operational-profile`
+    ] as const;
+    }
+
+
+export const getGetOperationalProfileQueryOptions = <TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOperationalProfileQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOperationalProfile>>> = ({ signal }) => getOperationalProfile({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetOperationalProfileQueryResult = NonNullable<Awaited<ReturnType<typeof getOperationalProfile>>>
+export type GetOperationalProfileQueryError = ErrorType<void>
+
+
+export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOperationalProfile>>,
+          TError,
+          Awaited<ReturnType<typeof getOperationalProfile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOperationalProfile>>,
+          TError,
+          Awaited<ReturnType<typeof getOperationalProfile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetOperationalProfileQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateOperationalProfileUrl = () => {
+
+
+
+
+  return `/api/v1/account/operational-profile`
+}
+
+export const updateOperationalProfile = async (operationalProfileInput: OperationalProfileInput, options?: Parameters<typeof customFetch>[1]): Promise<OperationalProfileContext> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OperationalProfileContext>(getUpdateOperationalProfileUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(operationalProfileInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateOperationalProfileMutationKey = () => ['updateOperationalProfile'] as const;
+
+export const getUpdateOperationalProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOperationalProfile>>, TError,UpdateOperationalProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOperationalProfile>>, TError,UpdateOperationalProfileMutationVariables, TContext> => {
+
+const mutationKey = getUpdateOperationalProfileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOperationalProfile>>, UpdateOperationalProfileMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateOperationalProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOperationalProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateOperationalProfile>>>
+    export type UpdateOperationalProfileMutationBody = BodyType<OperationalProfileInput>
+    export type UpdateOperationalProfileMutationError = ErrorType<void>
+    export type UpdateOperationalProfileMutationVariables = {data: BodyType<OperationalProfileInput>}
+
+    export const useUpdateOperationalProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOperationalProfile>>, TError,UpdateOperationalProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateOperationalProfile>>,
+        TError,
+        UpdateOperationalProfileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateOperationalProfileMutationOptions(options), queryClient);
+    }
 
 export const getGetPacketReviewContextUrl = () => {
 

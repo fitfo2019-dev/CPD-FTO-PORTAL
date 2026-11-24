@@ -8,6 +8,65 @@
 import * as zod from 'zod';
 
 
+export const getOperationalProfileResponseVersionMin = 0;
+
+export const getOperationalProfileResponseIdentityOneAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const getOperationalProfileResponseIdentityOneCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const getOperationalProfileResponseIdentityOneCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const getOperationalProfileResponseIdentityOneCompanyRegExp = new RegExp('^[A-Z]$');
+
+
+export const GetOperationalProfileResponse = zod.object({
+  "subject": zod.string(),
+  "role": zod.enum(['FTO', 'PO']),
+  "badge": zod.string(),
+  "version": zod.number().int().min(getOperationalProfileResponseVersionMin),
+  "identity": zod.union([zod.object({
+  "assignmentToken": zod.string().regex(getOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(getOperationalProfileResponseIdentityOneCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(getOperationalProfileResponseIdentityOneCadUnitRegExp),
+  "company": zod.string().regex(getOperationalProfileResponseIdentityOneCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}),zod.null()]),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+export const updateOperationalProfileBodyAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const updateOperationalProfileBodyExpectedVersionMin = 0;
+export const updateOperationalProfileBodyExpectedVersionMax = 2147483646;
+
+
+
+export const UpdateOperationalProfileBody = zod.object({
+  "assignmentToken": zod.string().regex(updateOperationalProfileBodyAssignmentTokenRegExp),
+  "expectedVersion": zod.number().int().min(updateOperationalProfileBodyExpectedVersionMin).max(updateOperationalProfileBodyExpectedVersionMax)
+})
+
+export const updateOperationalProfileResponseVersionMin = 0;
+
+export const updateOperationalProfileResponseIdentityOneAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const updateOperationalProfileResponseIdentityOneCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const updateOperationalProfileResponseIdentityOneCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const updateOperationalProfileResponseIdentityOneCompanyRegExp = new RegExp('^[A-Z]$');
+
+
+export const UpdateOperationalProfileResponse = zod.object({
+  "subject": zod.string(),
+  "role": zod.enum(['FTO', 'PO']),
+  "badge": zod.string(),
+  "version": zod.number().int().min(updateOperationalProfileResponseVersionMin),
+  "identity": zod.union([zod.object({
+  "assignmentToken": zod.string().regex(updateOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(updateOperationalProfileResponseIdentityOneCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(updateOperationalProfileResponseIdentityOneCadUnitRegExp),
+  "company": zod.string().regex(updateOperationalProfileResponseIdentityOneCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}),zod.null()]),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
 
 export const getPacketReviewContextResponsePendingCountMin = 0;
 
@@ -112,6 +171,10 @@ export const GetPacketSubmissionParams = zod.object({
 })
 
 
+export const getPacketSubmissionResponseReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const getPacketSubmissionResponseReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const getPacketSubmissionResponseReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const getPacketSubmissionResponseReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const getPacketSubmissionResponseReportIdMax = 128;
 
 
@@ -158,6 +221,13 @@ export const GetPacketSubmissionResponse = zod.object({
   "review_note": zod.string()
 }),
   "report": zod.object({
+  "operationalIdentity": zod.object({
+  "assignmentToken": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCadUnitRegExp),
+  "company": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}).optional(),
   "id": zod.string().min(1).max(getPacketSubmissionResponseReportIdMax).regex(getPacketSubmissionResponseReportIdRegExp),
   "date": zod.string().regex(getPacketSubmissionResponseReportDateRegExp),
   "phase": zod.number().int().min(1).max(getPacketSubmissionResponseReportPhaseMax),
@@ -551,6 +621,10 @@ export const listTrainingPacketsResponseDataItemRecordDateRegExp = new RegExp('^
 export const listTrainingPacketsResponseDataItemPhaseMax = 4;
 
 
+export const listTrainingPacketsResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const listTrainingPacketsResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const listTrainingPacketsResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const listTrainingPacketsResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const listTrainingPacketsResponseDataItemReportIdMax = 128;
 
 
@@ -602,6 +676,13 @@ export const ListTrainingPacketsResponse = zod.object({
   "server_version": zod.number().int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
+  "operationalIdentity": zod.object({
+  "assignmentToken": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "company": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}).optional(),
   "id": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportIdMax).regex(listTrainingPacketsResponseDataItemReportIdRegExp),
   "date": zod.string().regex(listTrainingPacketsResponseDataItemReportDateRegExp),
   "phase": zod.number().int().min(1).max(listTrainingPacketsResponseDataItemReportPhaseMax),
@@ -666,6 +747,10 @@ export const syncTrainingPacketsBodyPacketsItemAmendmentOfMax = 128;
 export const syncTrainingPacketsBodyPacketsItemAmendmentOfRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9._:-]*$');
 export const syncTrainingPacketsBodyPacketsItemAmendmentReasonMax = 4000;
 
+export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const syncTrainingPacketsBodyPacketsItemReportIdMax = 128;
 
 
@@ -704,6 +789,13 @@ export const SyncTrainingPacketsBody = zod.object({
   "amendment_of": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemAmendmentOfMax).regex(syncTrainingPacketsBodyPacketsItemAmendmentOfRegExp).optional(),
   "amendment_reason": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemAmendmentReasonMax).optional(),
   "report": zod.object({
+  "operationalIdentity": zod.object({
+  "assignmentToken": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCadUnitRegExp),
+  "company": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}).optional(),
   "id": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportIdMax).regex(syncTrainingPacketsBodyPacketsItemReportIdRegExp),
   "date": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportDateRegExp),
   "phase": zod.number().int().min(1).max(syncTrainingPacketsBodyPacketsItemReportPhaseMax),
@@ -784,6 +876,10 @@ export const finalizeTrainingPacketResponseDataItemRecordDateRegExp = new RegExp
 export const finalizeTrainingPacketResponseDataItemPhaseMax = 4;
 
 
+export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const finalizeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const finalizeTrainingPacketResponseDataItemReportIdMax = 128;
 
 
@@ -835,6 +931,13 @@ export const FinalizeTrainingPacketResponse = zod.object({
   "server_version": zod.number().int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
+  "operationalIdentity": zod.object({
+  "assignmentToken": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "company": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}).optional(),
   "id": zod.string().min(1).max(finalizeTrainingPacketResponseDataItemReportIdMax).regex(finalizeTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(finalizeTrainingPacketResponseDataItemReportDateRegExp),
   "phase": zod.number().int().min(1).max(finalizeTrainingPacketResponseDataItemReportPhaseMax),
@@ -901,6 +1004,10 @@ export const releaseTrainingPacketResponseDataItemRecordDateRegExp = new RegExp(
 export const releaseTrainingPacketResponseDataItemPhaseMax = 4;
 
 
+export const releaseTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const releaseTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const releaseTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const releaseTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const releaseTrainingPacketResponseDataItemReportIdMax = 128;
 
 
@@ -952,6 +1059,13 @@ export const ReleaseTrainingPacketResponse = zod.object({
   "server_version": zod.number().int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
+  "operationalIdentity": zod.object({
+  "assignmentToken": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "company": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}).optional(),
   "id": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportIdMax).regex(releaseTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(releaseTrainingPacketResponseDataItemReportDateRegExp),
   "phase": zod.number().int().min(1).max(releaseTrainingPacketResponseDataItemReportPhaseMax),
@@ -1021,6 +1135,10 @@ export const acknowledgeTrainingPacketResponseDataItemRecordDateRegExp = new Reg
 export const acknowledgeTrainingPacketResponseDataItemPhaseMax = 4;
 
 
+export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const acknowledgeTrainingPacketResponseDataItemReportIdMax = 128;
 
 
@@ -1072,6 +1190,13 @@ export const AcknowledgeTrainingPacketResponse = zod.object({
   "server_version": zod.number().int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
+  "operationalIdentity": zod.object({
+  "assignmentToken": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "company": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}).optional(),
   "id": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportIdMax).regex(acknowledgeTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportDateRegExp),
   "phase": zod.number().int().min(1).max(acknowledgeTrainingPacketResponseDataItemReportPhaseMax),
@@ -1140,6 +1265,10 @@ export const withdrawTrainingPacketResponseDataItemRecordDateRegExp = new RegExp
 export const withdrawTrainingPacketResponseDataItemPhaseMax = 4;
 
 
+export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const withdrawTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const withdrawTrainingPacketResponseDataItemReportIdMax = 128;
 
 
@@ -1191,6 +1320,13 @@ export const WithdrawTrainingPacketResponse = zod.object({
   "server_version": zod.number().int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
+  "operationalIdentity": zod.object({
+  "assignmentToken": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "company": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}).optional(),
   "id": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportIdMax).regex(withdrawTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(withdrawTrainingPacketResponseDataItemReportDateRegExp),
   "phase": zod.number().int().min(1).max(withdrawTrainingPacketResponseDataItemReportPhaseMax),
@@ -1248,6 +1384,10 @@ export const getTrainingPacketResponseDataItemRecordDateRegExp = new RegExp('^\\
 export const getTrainingPacketResponseDataItemPhaseMax = 4;
 
 
+export const getTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z]-[12]$');
+export const getTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const getTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
+export const getTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp = new RegExp('^[A-Z]$');
 export const getTrainingPacketResponseDataItemReportIdMax = 128;
 
 
@@ -1299,6 +1439,13 @@ export const GetTrainingPacketResponse = zod.object({
   "server_version": zod.number().int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "report": zod.object({
+  "operationalIdentity": zod.object({
+  "assignmentToken": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp),
+  "cadUnit": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "company": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
+  "side": zod.enum(['1', '2'])
+}).optional(),
   "id": zod.string().min(1).max(getTrainingPacketResponseDataItemReportIdMax).regex(getTrainingPacketResponseDataItemReportIdRegExp),
   "date": zod.string().regex(getTrainingPacketResponseDataItemReportDateRegExp),
   "phase": zod.number().int().min(1).max(getTrainingPacketResponseDataItemReportPhaseMax),
@@ -1467,6 +1614,7 @@ export const DispatchIncidentLookupResponse = zod.object({
  * Looks up one explicit event ID using the protected server-side adapter. This does not discover or poll active units.
  * @summary Look up an approved dispatch event
  */
+export const dispatchEventIngressBodyCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
 export const dispatchEventIngressBodyEventIdMax = 128;
 
 
@@ -1474,6 +1622,7 @@ export const dispatchEventIngressBodyEventIdRegExp = new RegExp('^[A-Za-z0-9._:-
 
 
 export const DispatchEventIngressBody = zod.object({
+  "cadUnit": zod.string().regex(dispatchEventIngressBodyCadUnitRegExp),
   "eventId": zod.string().min(1).max(dispatchEventIngressBodyEventIdMax).regex(dispatchEventIngressBodyEventIdRegExp)
 })
 
