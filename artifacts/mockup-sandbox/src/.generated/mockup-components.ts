@@ -18,8 +18,8 @@ export const modules: ModuleMap = {
   "./components/mockups/high-risk-stop/Current.tsx": () => import("../components/mockups/high-risk-stop/Current.tsx"),
   "./components/mockups/high-risk-stop/PromptFlow.tsx": () => import("../components/mockups/high-risk-stop/PromptFlow.tsx"),
   "./components/mockups/investigator/WarningTriage.tsx": () => import("../components/mockups/investigator/WarningTriage.tsx"),
+  "./components/mockups/operations/AuditPulse.tsx": () => import("../components/mockups/operations/AuditPulse.tsx"),
   "./components/mockups/orientation-editable/EditableOrientation.tsx": () => import("../components/mockups/orientation-editable/EditableOrientation.tsx"),
   "./components/mockups/packet-upload/PacketUploadPreview.tsx": () => import("../components/mockups/packet-upload/PacketUploadPreview.tsx"),
-  "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx"),
-  "./components/mockups/operations/AuditPulse.tsx": () => import("../components/mockups/operations/AuditPulse.tsx")
+  "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx")
 };

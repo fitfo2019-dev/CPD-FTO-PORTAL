@@ -12,7 +12,9 @@ import { dailyLogContinuations, splitNarrativeContinuation } from './narrative-c
 import { buildClassWorkbook } from './exportWorkbook.js';
 import { isValidAssignment } from './cpd-geography.js';
 import { scanPII, validateReport } from './model.js';
-import { FTO_TEST_PACKET_CLASS, createFtoTestPacketWorkspace } from './test-packet.js';
+import { FTO_PACKET_STRESS_CLASS, FTO_PACKET_STRESS_COUNT, FTO_TEST_PACKET_CLASS,
+  createFtoPacketStressWorkspace, createFtoTestPacketWorkspace } from './test-packet.js';
+import { parseRosterRows, ROSTER_CSV_TEMPLATE } from './assignment-import.js';
 
 test('fictional FTO packet is stable, spans every phase, and stays separate from empty and UI-preview workspaces', () => {
   const workspace = createFtoTestPacketWorkspace();
@@ -43,6 +45,60 @@ test('fictional FTO packet is stable, spans every phase, and stays separate from
   assert.ok(workspace.reports.every(report => validateReport(report).length === 0));
   assert.ok(workspace.reports.some(report => report.limboDay && !report.ratingsReviewedAt));
   assert.ok(workspace.reports.some(report => !report.limboDay && report.ratingsReviewedAt));
+});
+
+test('stress class deterministically contains 205 distinct fictional POs and editable packet drafts', () => {
+  const workspace = createFtoPacketStressWorkspace();
+  assert.deepEqual(workspace, createFtoPacketStressWorkspace());
+  assert.equal(workspace.reports.length, FTO_PACKET_STRESS_COUNT);
+  assert.equal(workspace.assignments.length, FTO_PACKET_STRESS_COUNT);
+  assert.equal(workspace.phaseFolders.length, FTO_PACKET_STRESS_COUNT);
+  assert.equal(new Set(workspace.reports.map(report => report.id)).size, FTO_PACKET_STRESS_COUNT);
+  assert.equal(new Set(workspace.reports.map(report => report.recruitBadge)).size, FTO_PACKET_STRESS_COUNT);
+  assert.ok(workspace.reports.every(report =>
+    report.className === FTO_PACKET_STRESS_CLASS &&
+    report.ftoBadge === workspace.ftoDirectory[0]?.badge &&
+    report.status === 'draft' &&
+    report.syncStatus === 'local_draft_pending' &&
+    report.signatures && Object.keys(report.signatures).length === 0));
+  assert.ok(workspace.reports.some(report => report.narrative.length > 30_000));
+  assert.ok(workspace.reports.every(report => validateReport(report).length === 0));
+});
+
+test('the supported roster importer accepts the complete fictional 205-PO stress class', () => {
+  const rows = [
+    ROSTER_CSV_TEMPLATE.split('\n')[0]!.split(','),
+    ...Array.from({ length: FTO_PACKET_STRESS_COUNT }, (_, index) => {
+      const suffix = String(index + 1).padStart(3, '0');
+      return [
+        FTO_PACKET_STRESS_CLASS,
+        `Jordan Sample ${suffix}`,
+        `TEST-PO-${suffix}`,
+        '',
+        'Casey Training Example',
+        'TEST-FTO',
+        '',
+        '1',
+        '01/06/2025',
+        'A-Co',
+        'Sunday;Saturday',
+        '1',
+        '1',
+        '10A',
+      ];
+    }),
+  ];
+  const parsed = parseRosterRows(rows);
+  assert.deepEqual(parsed.errors, []);
+  assert.equal(parsed.sourceRows, FTO_PACKET_STRESS_COUNT);
+  assert.equal(parsed.ftos.length, 1);
+  assert.equal(parsed.assignments.length, FTO_PACKET_STRESS_COUNT);
+  assert.equal(new Set(parsed.assignments.map(assignment => assignment.recruitBadge)).size,
+    FTO_PACKET_STRESS_COUNT);
+  assert.ok(parsed.assignments.every(assignment =>
+    assignment.className === FTO_PACKET_STRESS_CLASS &&
+    assignment.phase === 1 &&
+    assignment.ftoBadge === 'TEST-FTO'));
 });
 
 test('fictional daily, run, orientation, and weekly text retains ending markers in print layouts', () => {

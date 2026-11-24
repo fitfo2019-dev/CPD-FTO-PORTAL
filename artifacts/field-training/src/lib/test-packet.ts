@@ -25,6 +25,8 @@ import { defaultSubstationOrientationChecklist } from './substation-orientation.
 export const FTO_TEST_PACKET_CLASS = 'FICTIONAL TEST ONLY · FTO TRAINING PACKET';
 export const FTO_TEST_PACKET_RECRUIT = 'Jordan Sample';
 export const FTO_TEST_PACKET_BADGE = 'TEST-042';
+export const FTO_PACKET_STRESS_CLASS = 'FICTIONAL TEST ONLY · 205 PACKET STRESS CLASS';
+export const FTO_PACKET_STRESS_COUNT = 205;
 
 const FTO_NAME = 'Casey Training Example';
 const FTO_BADGE = 'TEST-FTO';
@@ -362,6 +364,87 @@ export function createFtoTestPacketWorkspace(): Workspace {
     }],
     weeklyPerformanceLogs: weeklyLogs(reports),
     substationOrientations: orientations(folders),
+    ftoPhasePostings: [],
+    ftoPhaseSignups: [],
+    coverageRequests: [],
+    lawReviewRecords: [],
+    phaseExtensionRequests: [],
+  };
+}
+
+/** Deterministic, device-only class fixture for queue-scale tests. */
+export function createFtoPacketStressWorkspace(count = FTO_PACKET_STRESS_COUNT): Workspace {
+  if (!Number.isInteger(count) || count < FTO_PACKET_STRESS_COUNT)
+    throw new RangeError(`The synthetic stress class requires at least ${FTO_PACKET_STRESS_COUNT} POs.`);
+  const base = createFtoTestPacketWorkspace();
+  const sourceFolder = base.phaseFolders[0]!;
+  const sourceReport = base.reports[0]!;
+  const folders = Array.from({ length: count }, (_, index) => {
+    const suffix = String(index + 1).padStart(3, '0');
+    const recruitName = `Jordan Sample ${suffix}`;
+    const recruitBadge = `TEST-PO-${suffix}`;
+    return {
+      ...sourceFolder,
+      assignmentId: `fto-stress-assignment-${suffix}`,
+      className: FTO_PACKET_STRESS_CLASS,
+      recruitName,
+      recruitBadge,
+      openedAt: timeAt(sourceFolder.phaseStartDate, 12, 0),
+    };
+  });
+  const assignments = folders.map((folder) => ({
+    id: folder.assignmentId!,
+    className: FTO_PACKET_STRESS_CLASS,
+    recruitName: folder.recruitName,
+    recruitBadge: folder.recruitBadge,
+    ftoBadge: FTO_BADGE,
+    phase: folder.phase,
+    phaseStartDate: folder.phaseStartDate,
+    shift: folder.shift,
+    daysOff: folder.daysOff,
+    zone: folder.zone,
+    precinct: folder.precinct,
+    cruiserDistrict: folder.cruiserDistrict,
+    ftoAssignment: folder.ftoAssignment,
+  }));
+  const reports: Report[] = folders.map((folder, index) => {
+    const suffix = String(index + 1).padStart(3, '0');
+    const long = index % 17 === 0;
+    return {
+      ...sourceReport,
+      id: `fto-stress-packet-${suffix}`,
+      className: FTO_PACKET_STRESS_CLASS,
+      recruitName: folder.recruitName,
+      recruitBadge: folder.recruitBadge,
+      ftoName: FTO_NAME,
+      ftoBadge: FTO_BADGE,
+      narrative: long
+        ? `${PACKET_NOTICE}\n${`Fictional long narrative section ${suffix}. `.repeat(1400)}FICTIONAL END MARKER ${suffix}.`
+        : `${PACKET_NOTICE}\nFictional packet narrative ${suffix}.`,
+      remedial: index % 9 === 0
+        ? `${PACKET_NOTICE}\n${`Fictional coaching example ${suffix}. `.repeat(120)}`
+        : `${PACKET_NOTICE} No corrective example for this synthetic entry.`,
+      runs: sourceReport.runs.map((run, runIndex) => ({
+        ...run,
+        id: `fto-stress-run-${suffix}-${runIndex + 1}`,
+        incidentNumber: `TEST-SCENARIO-${suffix}-${runIndex + 1}`,
+      })),
+      syncStatus: 'local_draft_pending',
+      serverVersion: 0,
+      syncAttemptPending: undefined,
+    };
+  });
+  return {
+    ...base,
+    reports,
+    tasks: [],
+    caseFolder: folders[0],
+    phaseFolders: folders,
+    ftoDirectory: [{ badge: FTO_BADGE, name: FTO_NAME }],
+    assignments,
+    weeklyAcknowledgements: [],
+    weeklyPerformanceLogs: [],
+    substationOrientations: [],
     ftoPhasePostings: [],
     ftoPhaseSignups: [],
     coverageRequests: [],

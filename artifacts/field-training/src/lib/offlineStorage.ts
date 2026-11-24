@@ -54,6 +54,22 @@ export type SyncTransport = (change: PendingChange) => Promise<SyncResult>;
 export type PacketBatchReceipt = { id: string; operation_id: string;
   server_version: number; sync_status: "local_draft_pending" | "synchronized_complete";
   submittedVerified?:true };
+export const MAX_PACKET_BATCH_COUNT = 100;
+export const MAX_PACKET_REQUEST_BYTES = 2 * 1024 * 1024;
+export class PacketRequestTooLargeError extends Error {
+  constructor(readonly packetId: string, readonly serializedBytes: number) {
+    super(`Packet ${packetId} is ${serializedBytes} bytes and cannot fit in the 2 MB sync request limit.`);
+    this.name = "PacketRequestTooLargeError";
+  }
+}
+
+/** Keep request-size estimates byte-for-byte aligned with the HTTP transport. */
+export function serializePacketBatchRequest(changes: PendingChange[]): string {
+  return JSON.stringify({ packets: changes.map(change => ({
+    operation_id: change.operationId, base_version: change.baseVersion, report: change.value,
+  })) });
+}
+
 export type LocalChatDraft = {
   id: string;
   sender: string;
@@ -235,6 +251,12 @@ export class OfflineStorage {
   async pendingCount(): Promise<number> {
     const db = await this.db();
     return request(db.transaction("sync_queue").objectStore("sync_queue").count());
+  }
+
+  async pendingPacketCount(): Promise<number> {
+    const db = await this.db();
+    const entries = await request<Envelope[]>(db.transaction("sync_queue").objectStore("sync_queue").getAll());
+    return entries.filter(item => item.id.startsWith("packet:")).length;
   }
 
   async recoverySyncReviewRequired(): Promise<boolean> {
@@ -461,9 +483,22 @@ export class OfflineStorage {
       this.assertActive(epoch);
       const db = await this.db();
       const envelopes = await request<Envelope[]>(db.transaction("sync_queue").objectStore("sync_queue").getAll());
-      const packets = envelopes.filter(item => item.id.startsWith("packet:")).slice(0, 100);
-      if (!packets.length) return undefined;
-      const changes = await Promise.all(packets.map(item => this.open<PendingChange>(key, item)));
+      const queuedPackets = envelopes.filter(item => item.id.startsWith("packet:"));
+      if (!queuedPackets.length) return undefined;
+      const packets: Envelope[] = [];
+      const changes: PendingChange[] = [];
+      for (const packet of queuedPackets) {
+        if (packets.length >= MAX_PACKET_BATCH_COUNT) break;
+        const change = await this.open<PendingChange>(key, packet);
+        const candidate = [...changes, change];
+        const bytes = new TextEncoder().encode(serializePacketBatchRequest(candidate)).byteLength;
+        if (bytes > MAX_PACKET_REQUEST_BYTES) {
+          if (!changes.length) throw new PacketRequestTooLargeError(change.recordId, bytes);
+          break;
+        }
+        packets.push(packet);
+        changes.push(change);
+      }
       const workspaceEnvelope = await this.read<Envelope>("records", "workspace");
       if (!workspaceEnvelope) throw new Error("The saved local workspace is unavailable.");
       const before = await this.open<T>(key, workspaceEnvelope);
@@ -512,6 +547,25 @@ export class OfflineStorage {
     }).finally(() => { this.syncing = false; });
     this.operations = run;
     return run;
+  }
+
+  /** Drain all packet operations sequentially; each call remains independently acknowledged. */
+  async syncPacketQueue<T extends { reports: Array<{ id: string; syncStatus?: string; serverVersion?: number; syncAttemptPending?: boolean }> }>(
+    transport: (changes: PendingChange[]) => Promise<PacketBatchReceipt[]>,
+    onBatchAcknowledged?: (workspace: T) => void,
+    shouldContinue: () => boolean = () => true,
+  ): Promise<T | undefined> {
+    if (!await this.get<T>("workspace"))
+      throw new Error("The saved local workspace is unavailable.");
+    let latest: T | undefined;
+    while (shouldContinue() && await this.pendingPacketCount() > 0) {
+      const acknowledged = await this.syncPacketBatch<T>(transport);
+      if (!acknowledged)
+        throw new Error("Packet synchronization stopped while eligible packets remain queued.");
+      latest = acknowledged;
+      onBatchAcknowledged?.(acknowledged);
+    }
+    return latest;
   }
 
   /** Encrypted device-only drafts; deliberately excluded from sync_queue. */

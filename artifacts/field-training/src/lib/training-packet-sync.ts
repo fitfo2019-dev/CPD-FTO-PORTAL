@@ -1,7 +1,8 @@
 import { customFetch } from "@workspace/api-client-react";
 import { apiEndpoint } from "@workspace/api-client-react";
 import { GetTrainingPacketSyncReadinessResponse, ListTrainingPacketsResponse, SyncTrainingPacketsResponse, FinalizeTrainingPacketResponse } from "@workspace/api-zod";
-import type { PendingChange, PacketBatchReceipt } from "./offlineStorage.js";
+import { MAX_PACKET_BATCH_COUNT, MAX_PACKET_REQUEST_BYTES, serializePacketBatchRequest,
+  type PendingChange, type PacketBatchReceipt } from "./offlineStorage.js";
 
 // Generated schemas otherwise strip complete-report fields such as signatures.
 const sharedPacketsSchema = ListTrainingPacketsResponse.extend({
@@ -38,13 +39,14 @@ export async function readSharedPackets(signal?: AbortSignal): Promise<SharedPac
 export async function uploadPacketBatch(
   changes: PendingChange[], signal?: AbortSignal,
 ): Promise<PacketBatchReceipt[]> {
-  if (!changes.length || changes.length > 100) throw new Error("Sync supports 1–100 packets per batch.");
+  if (!changes.length || changes.length > MAX_PACKET_BATCH_COUNT) throw new Error("Sync supports 1–100 packets per batch.");
+  const body = serializePacketBatchRequest(changes);
+  if (new TextEncoder().encode(body).byteLength > MAX_PACKET_REQUEST_BYTES)
+    throw new Error("The serialized packet batch exceeds the 2 MB sync request limit.");
   const response = await customFetch<unknown>(apiEndpoint("/v1/training-packets/sync"), {
     method: "POST", credentials: "same-origin", responseType: "json",
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
-    body: JSON.stringify({ packets: changes.map(change => ({
-      operation_id: change.operationId, base_version: change.baseVersion, report: change.value,
-    })) }),
+    body,
   });
   const receipts=SyncTrainingPacketsResponse.parse(response).data;
   return Promise.all(receipts.map(async(receipt):Promise<PacketBatchReceipt>=>{

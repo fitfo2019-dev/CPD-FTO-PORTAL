@@ -17,7 +17,14 @@ that packet until retry resolves the server outcome; it is not proof that the
 upload failed. The pending upload interface must explain this before sending.
 
 The `WorkspaceProvider.syncPackets()` operation is an explicit, abortable,
-15-second upload hook. After sandbox preview and user approval, the Daily Records
+15-second-per-request upload hook. A single deliberate sync drains eligible
+packets sequentially in requests bounded by both 100 packets and 2 MiB of
+serialized UTF-8 JSON. A packet that cannot fit by itself remains queued and
+unattempted with a clear error. Each successful batch is acknowledged locally
+before the next request; a failed or interrupted request retains its exact
+snapshot and operation IDs for retry, while earlier acknowledgments stay saved.
+The operation reports success only after the eligible packet queue is empty.
+After sandbox preview and user approval, the Daily Records
 page now connects it to Review and Upload, with a packet list, sealing warning
 and mandatory acknowledgement. Pending, uploading, failed/unconfirmed and
 synchronized/sealed outcomes are distinguished. Save Locally still only saves

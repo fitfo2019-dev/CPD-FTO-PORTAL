@@ -765,11 +765,18 @@ export function WorkspaceProvider({
     syncAbort.current = controller;
     try {
       await persist(wsRef.current);
-      const next = await storage.current.syncPacketBatch<Workspace>(
+      await storage.current.syncPacketQueue<Workspace>(
         changes => uploadPacketBatch(changes, controller.signal),
+        next => {
+          wsRef.current = next;
+          setWs(next);
+          setEpoch(value => value + 1);
+        },
+        () => !controller.signal.aborted,
       );
       if (controller.signal.aborted) return;
-      if (next) { wsRef.current = next; setWs(next); setEpoch(value => value + 1); }
+      if (await storage.current.pendingPacketCount() > 0)
+        throw new Error('Packet synchronization was interrupted with eligible packets still queued.');
       await refreshPending();
       if (!controller.signal.aborted) setPacketSyncState('synchronized');
     } catch (error) {
