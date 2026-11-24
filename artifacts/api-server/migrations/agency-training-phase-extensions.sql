@@ -90,3 +90,11 @@ COMMIT;
 -- Keep roster reads column-scoped: the request service does not need
 -- assignments.fto_badge_hash or assignments.coordinator_id,
 -- coordinator_directory.name, or po_coordinators.po_badge.
+-- Keep the runtime NOSUPERUSER NOCREATEDB NOCREATEROLE, without membership in
+-- the migration owner or other privileged roles. Do not grant WITH GRANT OPTION
+-- or database CREATE (which permits CREATE SCHEMA). Check inherited and PUBLIC
+-- privileges too: these grants are not a substitute for removing broader access.
+-- Schema/table creation, ALTER TABLE (including disabling the decision trigger),
+-- ownership changes, and granting access to itself or other roles must fail.
+-- PostgreSQL may report unauthorized GRANT as a warning rather than an error;
+-- verify effective privileges and unchanged ACLs, not just statement completion.

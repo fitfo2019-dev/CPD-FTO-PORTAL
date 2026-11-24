@@ -375,6 +375,7 @@ test("phase-extension requests work with the documented non-owner PostgreSQL gra
     );
 
     await ownerPool.query(`CREATE ROLE phase_extension_runtime LOGIN;
+      CREATE ROLE phase_extension_unprivileged NOLOGIN;
       GRANT USAGE ON SCHEMA agency_training TO phase_extension_runtime;
       GRANT SELECT (id,class_name,phase,fto_id_hash,fto_name,po_id_hash,
         po_badge_hash,po_name,coordinator_id_hash,starts_on,active,po_id,
@@ -431,6 +432,90 @@ test("phase-extension requests work with the documented non-owner PostgreSQL gra
       }
     }
 
+    // Use real PostgreSQL: permission failures (42501), not syntax or missing
+    // object errors, must be what prevents runtime DDL.
+    for (const sql of [
+      "CREATE SCHEMA runtime_schema",
+      "CREATE TABLE agency_training.runtime_table (id text)",
+      ...["assignments", "coordinator_directory", "po_coordinators", "phase_extension_requests"]
+        .flatMap(table => [
+          `ALTER TABLE agency_training.${table} ADD COLUMN runtime_column text`,
+          `ALTER TABLE agency_training.${table} OWNER TO phase_extension_runtime`,
+        ]),
+      "ALTER TABLE agency_training.phase_extension_requests DISABLE TRIGGER phase_extension_decision_once",
+      "GRANT phase_extension_owner TO phase_extension_runtime",
+      "GRANT phase_extension_owner TO phase_extension_unprivileged",
+    ]) {
+      await assert.rejects(runtimePool.query(sql), { code: "42501" }, sql);
+    }
+
+    // GRANT without grant authority can succeed with only a warning. Require
+    // either insufficient_privilege or warning_no_privileges_granted, and check
+    // the actual ACLs and effective rights rather than trusting query rejection.
+    const readAcls = () => ownerPool!.query(`
+      SELECT 'schema' AS kind, nspname AS name, nspacl::text AS acl
+      FROM pg_namespace WHERE nspname='agency_training'
+      UNION ALL
+      SELECT 'relation', relname, relacl::text
+      FROM pg_class WHERE relnamespace='agency_training'::regnamespace
+      UNION ALL
+      SELECT 'column', c.relname || '.' || a.attname, a.attacl::text
+      FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid
+      WHERE c.relnamespace='agency_training'::regnamespace AND a.attnum > 0
+      ORDER BY kind, name
+    `);
+    const initialAcls = (await readAcls()).rows;
+    const grantClient = await runtimePool.connect();
+    try {
+      for (const recipient of ["phase_extension_runtime", "phase_extension_unprivileged"]) {
+        for (const privilege of [
+          "CREATE ON SCHEMA agency_training",
+          "DELETE ON agency_training.phase_extension_requests",
+          "SELECT ON agency_training.phase_extension_requests",
+          "UPDATE (status) ON agency_training.phase_extension_requests",
+          "SELECT (id) ON agency_training.assignments",
+        ]) {
+          const sql = `GRANT ${privilege} TO ${recipient} WITH GRANT OPTION`;
+          const notices: string[] = [];
+          const onNotice = (notice: { code?: string }) => {
+            if (notice.code) notices.push(notice.code);
+          };
+          grantClient.on("notice", onNotice);
+          try {
+            await grantClient.query(sql);
+            assert.ok(notices.includes("01007"), `Expected denied grant warning: ${sql}`);
+          } catch (error) {
+            assert.equal((error as { code?: string }).code, "42501", sql);
+          } finally {
+            grantClient.off("notice", onNotice);
+          }
+        }
+      }
+    } finally {
+      grantClient.release();
+    }
+    assert.deepEqual((await readAcls()).rows, initialAcls, "Denied grants must not change any agency ACL");
+    for (const role of ["phase_extension_runtime", "phase_extension_unprivileged"]) {
+      const rights = await ownerPool.query(`
+        SELECT
+          has_database_privilege($1, current_database(), 'CREATE') AS create_schema,
+          has_schema_privilege($1, 'agency_training', 'CREATE') AS create_table,
+          has_table_privilege($1, 'agency_training.phase_extension_requests', 'DELETE') AS delete_requests,
+          has_table_privilege($1, 'agency_training.phase_extension_requests', 'SELECT WITH GRANT OPTION') AS grant_select,
+          has_column_privilege($1, 'agency_training.phase_extension_requests', 'status', 'UPDATE WITH GRANT OPTION') AS grant_review,
+          has_column_privilege($1, 'agency_training.assignments', 'id', 'SELECT WITH GRANT OPTION') AS grant_assignment
+      `, [role]);
+      assert.ok(Object.values(rights.rows[0]).every(value => value === false), role);
+    }
+    const otherRoleRights = await ownerPool.query(`
+      SELECT
+        has_table_privilege('phase_extension_unprivileged', 'agency_training.phase_extension_requests', 'SELECT') AS read_requests,
+        has_column_privilege('phase_extension_unprivileged', 'agency_training.phase_extension_requests', 'status', 'UPDATE') AS review_requests,
+        has_column_privilege('phase_extension_unprivileged', 'agency_training.assignments', 'id', 'SELECT') AS read_assignment
+    `);
+    assert.ok(Object.values(otherRoleRights.rows[0]).every(value => value === false));
+
+    // The denied DDL and grants must leave legitimate submit/list/review intact.
     const store = createPhaseExtensionRequestStore(runtimePool);
     const requestId = `limited-${randomUUID()}`;
     const submittedRequest = { ...request, id: requestId };

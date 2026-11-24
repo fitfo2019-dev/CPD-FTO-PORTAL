@@ -20,3 +20,9 @@ Preserve the disposable real-PostgreSQL tests with a non-owner, column-restricte
 **Why:** The in-memory PostgreSQL engine did not expose the same privilege requirement for row-locking reads. Real PostgreSQL caught an accidental requirement for update authority on a trusted mapping.
 
 **How to apply:** Test authority-table locks, runtime grants and competing packet transitions against actual disposable PostgreSQL; passing in-memory transaction tests are not a substitute.
+
+Do not equate a successful PostgreSQL `GRANT` statement with a successful privilege change.
+
+**Why:** A non-owner with access but no grant option can receive `warning_no_privileges_granted` rather than a rejected query when attempting to grant privileges.
+
+**How to apply:** Permission-escalation regressions should accept only the expected permission error or warning, then verify unchanged ACLs and effective privileges for both grantor and recipient.
