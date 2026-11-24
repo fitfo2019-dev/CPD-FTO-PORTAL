@@ -150,3 +150,16 @@ FTO data without rewriting historical reports.
 **How to apply:** Reuse directory-backed identity in forms. Keep missing profiles
 visible for Coordinator resolution. Do not create local activation or approval
 states that appear official.
+
+Application-use Help Desk topics declare their audiences explicitly. Keep local
+save and record-status guidance shared; account activation is PO-only, roster
+imports are Coordinator-only, phase requests are for FTOs and Coordinators, and
+packet-action help is for PO, FTO, Coordinator, and COC roles. A contextual link
+to a topic outside the current role's audience must not reveal that answer.
+
+**Why:** The user approved a preview that keeps role-specific portal guidance
+separate while preserving shared save and status help.
+
+**How to apply:** Assign an audience whenever adding a topic, and keep each
+contextual link within its audience. When a deep link is out of scope for the
+current role, show an available topic instead.

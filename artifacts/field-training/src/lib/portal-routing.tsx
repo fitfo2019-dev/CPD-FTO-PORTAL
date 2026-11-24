@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { createElement, type ReactNode } from 'react';
 import { Route, Router as WouterRouter, Switch } from 'wouter';
 
 export function PortalRouteSwitch({
@@ -14,17 +14,17 @@ export function PortalRouteSwitch({
   developmentRoutes?: ReactNode;
   protectedPortal: ReactNode;
 }) {
-  return (
-    <Switch>
-      <Route path="/sign-in/*?">{signIn}</Route>
-      <Route path="/sign-up/*?">{signUp}</Route>
-      <Route path="/ui-preview/*?">{uiPreview}</Route>
-      {developmentRoutes}
-      <Route>{protectedPortal}</Route>
-    </Switch>
+  return createElement(
+    Switch,
+    null,
+    createElement(Route, { path: '/sign-in/*?' }, signIn),
+    createElement(Route, { path: '/sign-up/*?' }, signUp),
+    createElement(Route, { path: '/ui-preview/*?' }, uiPreview),
+    developmentRoutes,
+    createElement(Route, null, protectedPortal),
   );
 }
 
 export function UiPreviewRouter({ children }: { children: ReactNode }) {
-  return <WouterRouter base="/ui-preview">{children}</WouterRouter>;
+  return createElement(WouterRouter, { base: '/ui-preview', children });
 }

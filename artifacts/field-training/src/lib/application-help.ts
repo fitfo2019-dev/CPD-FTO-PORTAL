@@ -1,6 +1,11 @@
+import type { Role } from './model.js';
+
+type ApplicationHelpAudience = 'all' | readonly Role[];
+
 export type ApplicationHelpTopic = {
   id: string;
   title: string;
+  roles: ApplicationHelpAudience;
   keywords: string;
   steps: readonly string[];
   expectedResult: string;
@@ -11,6 +16,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
   {
     id: 'local-save',
     title: 'Save and reopen a local draft',
+    roles: 'all',
     keywords: 'save locally passphrase encrypted unlock reopen',
     steps: [
       'Choose Save locally. Create a passphrase if this is your first save.',
@@ -22,6 +28,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
   {
     id: 'record-status',
     title: 'Check record status',
+    roles: 'all',
     keywords: 'unsaved saved pending uploaded server confirmed online offline',
     steps: [
       'Unsaved changes remain on screen only.',
@@ -35,6 +42,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
   {
     id: 'shift-sheet',
     title: 'Leave an edited shift sheet',
+    roles: ['fto'],
     keywords: 'leave close navigate unsaved changes warning stay report',
     steps: [
       'Save the draft locally before leaving, or stay on the page and finish your edits.',
@@ -46,6 +54,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
   {
     id: 'roster-import',
     title: 'Import a roster',
+    roles: ['fto_coordinator'],
     keywords: 'roster import csv xlsx excel docx word template assignment fto po',
     steps: [
       'Download the CSV template, or choose a CSV, Excel XLSX, or Word DOCX table with a header row. Files can be up to 2 MB.',
@@ -60,6 +69,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
   {
     id: 'account-access',
     title: 'Activate an account',
+    roles: ['po'],
     keywords: 'account sign in invitation activation class phase access',
     steps: [
       'Sign in with your approved staff account.',
@@ -72,6 +82,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
   {
     id: 'packet-status',
     title: 'Check an agency packet action',
+    roles: ['po', 'fto', 'fto_coordinator', 'fto_coc'],
     keywords: 'packet release withdrawal acknowledge pending refresh retry status',
     steps: [
       'After an action, check the packet status for confirmation.',
@@ -84,6 +95,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
   {
     id: 'phase-request',
     title: 'Check a phase-extension request',
+    roles: ['fto', 'fto_coordinator'],
     keywords: 'phase extension request local draft send coordinator approval submitted pending denied approved',
     steps: [
       'Submit the request after entering the extension type, number of weeks, and written justification.',
@@ -94,3 +106,17 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
     recovery: 'If submission is not confirmed, keep the local draft and use Send saved request. Check the request status again before retrying.',
   },
 ];
+
+export function getApplicationHelpTopicsForRole(role: Role): readonly ApplicationHelpTopic[] {
+  return APPLICATION_HELP_TOPICS.filter(topic =>
+    topic.roles === 'all' || topic.roles.includes(role),
+  );
+}
+
+export function getApplicationHelpTopicForRole(
+  role: Role,
+  topicId: string | null | undefined,
+): ApplicationHelpTopic {
+  const topics = getApplicationHelpTopicsForRole(role);
+  return topics.find(topic => topic.id === topicId) ?? topics[0];
+}

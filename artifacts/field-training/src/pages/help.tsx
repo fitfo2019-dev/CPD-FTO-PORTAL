@@ -413,7 +413,7 @@ export default function HelpPage() {
         </a>
       </PageHead>
 
-      <ApplicationHelpDesk />
+      <ApplicationHelpDesk role={ws.role} />
       <GeographyMapPanel />
       <section className="uploaded-resources" aria-labelledby="uploaded-resources-title" data-testid="section-uploaded-resources">
         <div className="uploaded-resources-heading">

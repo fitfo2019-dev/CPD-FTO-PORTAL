@@ -1,23 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
-import { APPLICATION_HELP_TOPICS } from '@/lib/application-help.js';
+import {
+  getApplicationHelpTopicForRole,
+  getApplicationHelpTopicsForRole,
+} from '@/lib/application-help.js';
+import type { Role } from '@/lib/model.js';
 
-function requestedTopic() {
+function requestedTopic(role: Role) {
   const topicId = new URLSearchParams(window.location.search).get('topic');
-  return APPLICATION_HELP_TOPICS.find(topic => topic.id === topicId)?.id
-    ?? APPLICATION_HELP_TOPICS[0].id;
+  return getApplicationHelpTopicForRole(role, topicId).id;
 }
 
-export function ApplicationHelpDesk() {
+export function ApplicationHelpDesk({ role }: { role: Role }) {
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState(requestedTopic);
+  const [selectedId, setSelectedId] = useState(() => requestedTopic(role));
+  const availableTopics = useMemo(() => getApplicationHelpTopicsForRole(role), [role]);
   const matches = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
-    return APPLICATION_HELP_TOPICS.filter(topic => !needle
+    return availableTopics.filter(topic => !needle
       || `${topic.title} ${topic.keywords} ${topic.steps.join(' ')} ${topic.expectedResult} ${topic.recovery}`
         .toLocaleLowerCase()
         .includes(needle));
-  }, [query]);
+  }, [availableTopics, query]);
   const selected = matches.find(topic => topic.id === selectedId) ?? matches[0];
 
   useEffect(() => {
@@ -25,6 +29,10 @@ export function ApplicationHelpDesk() {
       document.getElementById('application-help')?.scrollIntoView({ block: 'start' });
     }
   }, []);
+
+  useEffect(() => {
+    setSelectedId(requestedTopic(role));
+  }, [role]);
 
   return (
     <section

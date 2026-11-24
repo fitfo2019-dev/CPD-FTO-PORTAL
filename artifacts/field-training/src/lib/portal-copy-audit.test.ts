@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { APPLICATION_HELP_TOPICS } from './application-help.js';
+import {
+  APPLICATION_HELP_TOPICS,
+  getApplicationHelpTopicForRole,
+  getApplicationHelpTopicsForRole,
+} from './application-help.js';
+import { ROLES } from './model.js';
 
 const source = (relativePath: string) => readFileSync(new URL(relativePath, import.meta.url), 'utf8');
 const shell = source('../components/shell.tsx');
@@ -23,6 +28,7 @@ test('application-use topics are searchable and include steps, results, and reco
   assert.equal(ids.size, APPLICATION_HELP_TOPICS.length, 'topic ids must be unique');
   for (const topic of APPLICATION_HELP_TOPICS) {
     assert.ok(topic.title.trim());
+    assert.ok(topic.roles === 'all' || topic.roles.length > 0);
     assert.ok(topic.keywords.trim());
     assert.ok(topic.steps.length > 0);
     assert.ok(topic.expectedResult.trim());
@@ -39,8 +45,53 @@ test('application-use topics are searchable and include steps, results, and reco
   assert.ok(search('Coordinator review').some(topic => topic.id === 'phase-request'));
 });
 
+test('Help Desk topics are limited to their declared roles with shared guidance retained', () => {
+  for (const role of ROLES) {
+    const availableIds = new Set(getApplicationHelpTopicsForRole(role).map(topic => topic.id));
+    for (const sharedId of ['local-save', 'record-status']) {
+      assert.ok(availableIds.has(sharedId), `${role} should have shared ${sharedId} help`);
+    }
+  }
+  assert.ok(getApplicationHelpTopicsForRole('po').some(topic => topic.id === 'account-access'));
+  for (const role of ['fto', 'fto_coordinator', 'fto_coc', 'policenet', 'policenet_admin_sgt'] as const) {
+    assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'account-access'));
+  }
+
+  assert.deepEqual(
+    getApplicationHelpTopicsForRole('fto_coordinator').filter(topic => topic.id === 'roster-import').map(topic => topic.id),
+    ['roster-import'],
+  );
+  assert.ok(getApplicationHelpTopicsForRole('fto').some(topic => topic.id === 'phase-request'));
+  assert.ok(getApplicationHelpTopicsForRole('fto_coordinator').some(topic => topic.id === 'phase-request'));
+  for (const role of ['po', 'fto_coc', 'policenet', 'policenet_admin_sgt'] as const) {
+    assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'roster-import'));
+    assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'phase-request'));
+  }
+  for (const role of ['po', 'fto', 'fto_coordinator', 'fto_coc'] as const) {
+    assert.ok(getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'packet-status'));
+  }
+  for (const role of ['policenet', 'policenet_admin_sgt'] as const) {
+    assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'packet-status'));
+  }
+});
+
+test('contextual Help Desk links resolve to an available answer for the relevant role', () => {
+  const linkTopics = [
+    { role: 'fto' as const, id: 'record-status' },
+    { role: 'fto_coordinator' as const, id: 'roster-import' },
+    { role: 'fto' as const, id: 'local-save' },
+    { role: 'po' as const, id: 'account-access' },
+    { role: 'fto_coc' as const, id: 'packet-status' },
+    { role: 'fto' as const, id: 'phase-request' },
+  ];
+  for (const { role, id } of linkTopics) {
+    assert.equal(getApplicationHelpTopicForRole(role, id).id, id);
+  }
+  assert.equal(getApplicationHelpTopicForRole('po', 'roster-import').id, 'local-save');
+});
+
 test('help keeps application-use guidance separate from sourced policy', () => {
-  assert.match(helpPage, /<ApplicationHelpDesk \/>/);
+  assert.match(helpPage, /<ApplicationHelpDesk role=\{ws\.role\} \/>/);
   assert.ok(helpDesk.includes('w-full sm:min-w-[14rem] sm:flex-1 sm:max-w-md'));
   assert.match(helpPage, /Resources \/ Law Library/);
   assert.match(ftoHelp, /Uploaded Final FTO Manual · updated 03\/10\/2026/);
