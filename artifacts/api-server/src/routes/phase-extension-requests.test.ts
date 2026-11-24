@@ -391,6 +391,46 @@ test("phase-extension requests work with the documented non-owner PostgreSQL gra
         ON agency_training.phase_extension_requests TO phase_extension_runtime;`);
 
     runtimePool = new pg.Pool({ host: dir, port, user: "phase_extension_runtime", database: "postgres", max: 3 });
+    // Keep these expectations independent of the grants above: broadening a
+    // grant must not silently broaden the request service's roster access.
+    for (const { table, readableColumns, privateColumns } of [
+      {
+        table: "assignments",
+        readableColumns: [
+          "id", "class_name", "phase", "fto_id_hash", "fto_name", "po_id_hash",
+          "po_badge_hash", "po_name", "coordinator_id_hash", "starts_on", "active",
+          "po_id", "po_badge", "fto_id", "fto_badge",
+        ],
+        privateColumns: ["fto_badge_hash", "coordinator_id"],
+      },
+      {
+        table: "coordinator_directory",
+        readableColumns: ["id", "active"],
+        privateColumns: ["name"],
+      },
+      {
+        table: "po_coordinators",
+        readableColumns: ["po_id", "po_id_hash", "coordinator_id"],
+        privateColumns: ["po_badge"],
+      },
+    ]) {
+      const allowed = await runtimePool.query(
+        `SELECT ${readableColumns.join(",")} FROM agency_training.${table}`,
+      );
+      assert.deepEqual(allowed.fields.map(field => field.name), readableColumns);
+      assert.equal(allowed.rows.length, 1, `Runtime must read the seeded ${table} row`);
+
+      // Check each private identity field separately so one denied field
+      // cannot mask an accidental grant on another. Wildcards must fail too.
+      for (const column of [...privateColumns, "*"]) {
+        await assert.rejects(
+          runtimePool.query(`SELECT ${column} FROM agency_training.${table}`),
+          { code: "42501" },
+          `Runtime must not read ${table}.${column}`,
+        );
+      }
+    }
+
     const store = createPhaseExtensionRequestStore(runtimePool);
     const requestId = `limited-${randomUUID()}`;
     const submittedRequest = { ...request, id: requestId };

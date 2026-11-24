@@ -87,3 +87,6 @@ COMMIT;
 -- The request trigger permits only one pending-to-decided transition. Do not
 -- grant assignment or directory writes, request DELETE/TRUNCATE, ownership,
 -- or CREATE on this schema.
+-- Keep roster reads column-scoped: the request service does not need
+-- assignments.fto_badge_hash or assignments.coordinator_id,
+-- coordinator_directory.name, or po_coordinators.po_badge.
