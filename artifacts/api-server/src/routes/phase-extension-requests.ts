@@ -8,10 +8,10 @@ import {
   SubmitPhaseExtensionRequestResponse,
   type PhaseExtensionRequestInput,
 } from "@workspace/api-zod";
-import pg from "pg";
 import { Router, type IRouter, type Request } from "express";
 import type { PhaseExtensionRequestStore } from "../lib/phase-extension-store.js";
 import { createPhaseExtensionRequestStore } from "../lib/phase-extension-store.js";
+import { getAgencyDatabasePool } from "../lib/agency-database.js";
 
 type AgencyRole = "FTO" | "FTO_COORDINATOR";
 type Caller = { userId: string; role: AgencyRole };
@@ -30,20 +30,9 @@ export function getPhaseExtensionRoleFromPublicMetadata(
   return role === "FTO" || role === "FTO_COORDINATOR" ? role : null;
 }
 
-let store: PhaseExtensionRequestStore | undefined;
-let pool: pg.Pool | undefined;
-
 function getStore(): PhaseExtensionRequestStore | null {
-  const connectionString = process.env.DATABASE_URL?.trim();
-  if (!connectionString) return null;
-  pool ??= new pg.Pool({
-    connectionString,
-    max: 4,
-    connectionTimeoutMillis: 3000,
-    idleTimeoutMillis: 10_000,
-  });
-  store ??= createPhaseExtensionRequestStore(pool);
-  return store;
+  const pool = getAgencyDatabasePool();
+  return pool ? createPhaseExtensionRequestStore(pool) : null;
 }
 
 async function getVerifiedCaller(req: Request): Promise<{
@@ -140,7 +129,7 @@ router.get("/v1/phase-extension-requests", async (req, res): Promise<void> => {
   try {
     const requests = verified.caller.role === "FTO"
       ? await repository.listForFto(verified.caller.userId)
-      : await repository.listPending();
+      : await repository.listPending(verified.caller.userId);
     res.setHeader("Cache-Control", "private, no-store");
     res.json(ListPhaseExtensionRequestsResponse.parse(response(requests, verified.caller.role)));
   } catch {
@@ -182,6 +171,10 @@ router.post("/v1/phase-extension-requests", async (req, res): Promise<void> => {
       SubmitPhaseExtensionRequestResponse.parse(response([result.request], verified.caller.role)),
     );
   } catch (error) {
+    if (error instanceof Error && error.message === "PHASE_EXTENSION_ASSIGNMENT_REQUIRED") {
+      sendError(res, 403, "PHASE_EXTENSION_ASSIGNMENT_REQUIRED", "An active approved class and PO assignment is required.");
+      return;
+    }
     if (error instanceof Error && error.message === "PHASE_EXTENSION_ID_CONFLICT") {
       sendError(res, 409, "REQUEST_ID_CONFLICT", "This request identifier is already in use.");
       return;

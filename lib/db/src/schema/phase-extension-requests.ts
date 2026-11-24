@@ -1,9 +1,10 @@
-import { date, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { date, index, integer, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
-export const phaseExtensionRequestsTable = pgTable(
+export const phaseExtensionRequestsTable = pgSchema("agency_training").table(
   "phase_extension_requests",
   {
     id: text("id").primaryKey(),
+    assignmentId: uuid("assignment_id").notNull(),
     requesterUserId: text("requester_user_id").notNull(),
     className: text("class_name").notNull(),
     recruitName: text("recruit_name").notNull(),
@@ -25,12 +26,12 @@ export const phaseExtensionRequestsTable = pgTable(
     reviewedByUserId: text("reviewed_by_user_id"),
   },
   table => [
-    index("phase_extension_requests_requester_status_idx").on(
+    index("phase_extension_requests_requester_created_idx").on(
       table.requesterUserId,
-      table.status,
       table.createdAt,
     ),
-    index("phase_extension_requests_status_created_idx").on(
+    index("phase_extension_requests_assignment_status_created_idx").on(
+      table.assignmentId,
       table.status,
       table.createdAt,
     ),

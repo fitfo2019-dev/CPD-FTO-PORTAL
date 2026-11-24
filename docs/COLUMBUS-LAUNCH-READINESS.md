@@ -100,7 +100,7 @@ approved Columbus service. “Local” never means shared, delivered or backed u
 | Resources | Fixed allowlist, Clerk-authenticated streamed attachments, successful responses no-store | Any signed-in account can access; agency material classification/access decision required |
 | Notifications/chat/email | Chat drafts encrypted, separate local-only store; mailto opens external composer | No verified chat, delivery receipt, shared message history or automatic phase decision notices |
 | Media/training documents | No approved secure upload/playback/retention service | Not centrally stored, assigned, delivered or legally held |
-| Auditing | Packet commit/read events in DB transaction; request HMAC JSONL on stdout | External immutable retention not established; phase decisions lack equivalent event transaction; most route callers not attached as general audit principals |
+| Auditing | Packet commit/read events in DB transaction; phase-extension decision, reviewer and time are stored atomically on the request; request HMAC JSONL on stdout | External immutable retention is not established; phase extensions retain one terminal decision rather than an append-only decision event history; most route callers are not attached as general audit principals |
 | PWA/offline | Production emits/registers static service worker; excludes API paths and records | Offline login/cold start, expiry, reconnection, eviction and upgrades unverified on managed browsers |
 | Synthetic staging | Isolated development service; agency release removes staged router | Not an operational record service or agency identity acceptance test |
 
@@ -112,12 +112,17 @@ protect a route that does not invoke it.
 | Surface | Caller/scope in reviewed implementation | Revocation/activation limitation |
 | --- | --- | --- |
 | `/api/v1/training-packets{,/id,/sync,/sync-readiness}` | Verified session claim paths; only FTO uploads; active roster, exact FTO identity/badge, PO badge/class/phase/date; scoped reads and PO release | No explicit recent-MFA/online session-status check or separate PO/class Phase I activation; signed claims can outlive personnel changes; roster revocation is a distinct control |
-| `/api/v1/phase-extension-requests{,/id/review}` | Clerk session; fresh backend publicMetadata role lookup; own-request FTO list; all-pending Coordinator list | Role removal is re-looked-up, but no per-class/PO trusted assignment gate; no common activation/revocation policy |
+| `/api/v1/phase-extension-requests{,/id/review}` | Clerk session; fresh backend publicMetadata role lookup; FTO requests must match an active agency assignment; Coordinator lists and decisions are limited to active assigned classes/POs using current trusted routing | Role removal and roster changes take effect on each request; apply `agency-training-phase-extensions.sql` after `agency-training-packet-review.sql`; no common activation/revocation policy |
 | `/api/v1/dispatch/{incident-lookup,event-ingress}` | Clerk session plus configured user-ID allowlist; browser supplies incident/unit | Allowlist removal checked each call; no roster/PO/date gate; IT must approve whether staff may request any incident/unit |
 | `/api/v1/resources{,/id/download}` | Clerk authentication; fixed file allowlist | Employment, training assignment and agency role not checked |
 | `/api/v1/secure-records` | Mock without operational data; live verified sign-in plus server grant, currently unpopulated | Live grant fails closed; no connected portal record view |
 | Development mock login/audit/staging | Production mock login/audit disabled; staging graph removed by agency compiler | Synthetic smoke confirms selected exclusions, not a complete attack-surface/security review |
 | Browser drafts/exports/chat | Vault passphrase + client role-preview workflow | No server authorization/audit of local reads/exports; fixed namespace; unlocked browser and exported files are separate data exposures |
+
+An approved phase-extension decision is synchronized into the requesting FTO's
+local vault and applied once to its matching phase folder. The approval does not
+change another user's offline schedule; the local record keeps its applied marker
+so vault restoration does not extend the schedule twice.
 
 Account activation must remain separate from authorization to train. An invited,
 verified, MFA-enrolled but unassigned PO must not receive records. FTO Sgt.
