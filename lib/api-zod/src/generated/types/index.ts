@@ -8,6 +8,14 @@
 
 export * from './apiError';
 export * from './apiErrorStatus';
+export * from './assignmentTransitionContext';
+export * from './assignmentTransitionContextRole';
+export * from './assignmentTransitionEnvelope';
+export * from './assignmentTransitionEnvelopeMetadata';
+export * from './assignmentTransitionEnvelopeMetadataRole';
+export * from './assignmentTransitionEnvelopeMetadataTotalRecords';
+export * from './assignmentTransitionEnvelopeStatus';
+export * from './assignmentTransitionRecord';
 export * from './auditLogActor';
 export * from './auditLogActorAssignedRole';
 export * from './auditLogActorValue';
@@ -104,6 +112,7 @@ export * from './stagingTrainingRecord';
 export * from './stagingTrainingRecordStatus';
 export * from './stagingTrainingUpdate';
 export * from './stagingTrainingUpdateStatus';
+export * from './successorAssignmentInput';
 export * from './trainingPacketAcknowledgment';
 export * from './trainingPacketAcknowledgmentInput';
 export * from './trainingPacketFinalizationInput';
@@ -135,3 +144,5 @@ export * from './trainingPacketSyncReadinessEnvelopeStatus';
 export * from './trainingPacketSyncRecord';
 export * from './trainingPacketSyncRecordSyncStatus';
 export * from './trainingPacketWithdrawalInput';
+export * from './trustedTrainingAssignment';
+export * from './trustedTrainingFto';

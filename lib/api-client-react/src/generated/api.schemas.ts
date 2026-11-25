@@ -384,6 +384,133 @@ export interface PacketReviewActionInput {
   note: string;
 }
 
+export interface SuccessorAssignmentInput {
+  operation_id: string;
+  previous_assignment_id: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  fto_id: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  starts_on: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  ends_on: string;
+}
+
+export interface TrustedTrainingAssignment {
+  id: string;
+  class_name: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  fto_name: string;
+  fto_badge: string;
+  po_name: string;
+  po_badge: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  starts_on: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  ends_on: string;
+}
+
+export interface TrustedTrainingFto {
+  class_name: string;
+  fto_id: string;
+  fto_name: string;
+  fto_badge: string;
+}
+
+export interface AssignmentTransitionRecord {
+  operation_id: string;
+  occurred_at: string;
+  class_name: string;
+  po_name: string;
+  po_badge: string;
+  previous_assignment_id: string;
+  successor_assignment_id: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  previous_phase: number;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  successor_phase: number;
+  previous_fto_name: string;
+  previous_fto_badge: string;
+  successor_fto_name: string;
+  successor_fto_badge: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  previous_ends_on: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  successor_starts_on: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  successor_ends_on: string;
+}
+
+export type AssignmentTransitionContextRole = typeof AssignmentTransitionContextRole[keyof typeof AssignmentTransitionContextRole];
+
+
+export const AssignmentTransitionContextRole = {
+  PO: 'PO',
+  FTO: 'FTO',
+  FTO_COORDINATOR: 'FTO_COORDINATOR',
+} as const;
+
+export interface AssignmentTransitionContext {
+  available: boolean;
+  role: AssignmentTransitionContextRole;
+  assignments: TrustedTrainingAssignment[];
+  ftos: TrustedTrainingFto[];
+  transitions: AssignmentTransitionRecord[];
+}
+
+export type AssignmentTransitionEnvelopeStatus = typeof AssignmentTransitionEnvelopeStatus[keyof typeof AssignmentTransitionEnvelopeStatus];
+
+
+export const AssignmentTransitionEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type AssignmentTransitionEnvelopeMetadataTotalRecords = typeof AssignmentTransitionEnvelopeMetadataTotalRecords[keyof typeof AssignmentTransitionEnvelopeMetadataTotalRecords];
+
+
+export const AssignmentTransitionEnvelopeMetadataTotalRecords = {
+  NUMBER_1: 1,
+} as const;
+
+export type AssignmentTransitionEnvelopeMetadataRole = typeof AssignmentTransitionEnvelopeMetadataRole[keyof typeof AssignmentTransitionEnvelopeMetadataRole];
+
+
+export const AssignmentTransitionEnvelopeMetadataRole = {
+  FTO_COORDINATOR: 'FTO_COORDINATOR',
+} as const;
+
+export type AssignmentTransitionEnvelopeMetadata = {
+  total_records: AssignmentTransitionEnvelopeMetadataTotalRecords;
+  role: AssignmentTransitionEnvelopeMetadataRole;
+};
+
+export interface AssignmentTransitionEnvelope {
+  status: AssignmentTransitionEnvelopeStatus;
+  metadata: AssignmentTransitionEnvelopeMetadata;
+  /**
+     * @minItems 1
+     * @maxItems 1
+     */
+  data: AssignmentTransitionRecord[];
+}
+
 export type PhaseExtensionRequestInputExtensionType = typeof PhaseExtensionRequestInputExtensionType[keyof typeof PhaseExtensionRequestInputExtensionType];
 
 

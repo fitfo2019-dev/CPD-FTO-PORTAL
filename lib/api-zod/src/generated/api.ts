@@ -518,6 +518,115 @@ export const ActOnPacketSubmissionResponse = zod.object({
 })
 
 
+export const getAssignmentTransitionContextResponseAssignmentsItemPhaseMax = 4;
+
+export const getAssignmentTransitionContextResponseAssignmentsItemStartsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getAssignmentTransitionContextResponseAssignmentsItemEndsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getAssignmentTransitionContextResponseTransitionsItemPreviousPhaseMax = 4;
+
+export const getAssignmentTransitionContextResponseTransitionsItemSuccessorPhaseMax = 4;
+
+export const getAssignmentTransitionContextResponseTransitionsItemPreviousEndsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getAssignmentTransitionContextResponseTransitionsItemSuccessorStartsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getAssignmentTransitionContextResponseTransitionsItemSuccessorEndsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const GetAssignmentTransitionContextResponse = zod.object({
+  "available": zod.boolean(),
+  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
+  "assignments": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "class_name": zod.string(),
+  "phase": zod.number().int().min(1).max(getAssignmentTransitionContextResponseAssignmentsItemPhaseMax),
+  "fto_name": zod.string(),
+  "fto_badge": zod.string(),
+  "po_name": zod.string(),
+  "po_badge": zod.string(),
+  "starts_on": zod.string().regex(getAssignmentTransitionContextResponseAssignmentsItemStartsOnRegExp),
+  "ends_on": zod.string().regex(getAssignmentTransitionContextResponseAssignmentsItemEndsOnRegExp)
+})),
+  "ftos": zod.array(zod.object({
+  "class_name": zod.string(),
+  "fto_id": zod.string(),
+  "fto_name": zod.string(),
+  "fto_badge": zod.string()
+})),
+  "transitions": zod.array(zod.object({
+  "operation_id": zod.string().uuid(),
+  "occurred_at": zod.coerce.date(),
+  "class_name": zod.string(),
+  "po_name": zod.string(),
+  "po_badge": zod.string(),
+  "previous_assignment_id": zod.string().uuid(),
+  "successor_assignment_id": zod.string().uuid(),
+  "previous_phase": zod.number().int().min(1).max(getAssignmentTransitionContextResponseTransitionsItemPreviousPhaseMax),
+  "successor_phase": zod.number().int().min(1).max(getAssignmentTransitionContextResponseTransitionsItemSuccessorPhaseMax),
+  "previous_fto_name": zod.string(),
+  "previous_fto_badge": zod.string(),
+  "successor_fto_name": zod.string(),
+  "successor_fto_badge": zod.string(),
+  "previous_ends_on": zod.string().regex(getAssignmentTransitionContextResponseTransitionsItemPreviousEndsOnRegExp),
+  "successor_starts_on": zod.string().regex(getAssignmentTransitionContextResponseTransitionsItemSuccessorStartsOnRegExp),
+  "successor_ends_on": zod.string().regex(getAssignmentTransitionContextResponseTransitionsItemSuccessorEndsOnRegExp)
+}))
+})
+
+
+export const createSuccessorAssignmentBodyFtoIdMax = 256;
+
+export const createSuccessorAssignmentBodyPhaseMax = 4;
+
+export const createSuccessorAssignmentBodyStartsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createSuccessorAssignmentBodyEndsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const CreateSuccessorAssignmentBody = zod.object({
+  "operation_id": zod.string().uuid(),
+  "previous_assignment_id": zod.string().uuid(),
+  "fto_id": zod.string().min(1).max(createSuccessorAssignmentBodyFtoIdMax),
+  "phase": zod.number().int().min(1).max(createSuccessorAssignmentBodyPhaseMax),
+  "starts_on": zod.string().regex(createSuccessorAssignmentBodyStartsOnRegExp),
+  "ends_on": zod.string().regex(createSuccessorAssignmentBodyEndsOnRegExp)
+})
+
+export const createSuccessorAssignmentResponseDataItemPreviousPhaseMax = 4;
+
+export const createSuccessorAssignmentResponseDataItemSuccessorPhaseMax = 4;
+
+export const createSuccessorAssignmentResponseDataItemPreviousEndsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createSuccessorAssignmentResponseDataItemSuccessorStartsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createSuccessorAssignmentResponseDataItemSuccessorEndsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createSuccessorAssignmentResponseDataMax = 1;
+
+
+
+export const CreateSuccessorAssignmentResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "total_records": zod.literal(1),
+  "role": zod.enum(['FTO_COORDINATOR'])
+}),
+  "data": zod.array(zod.object({
+  "operation_id": zod.string().uuid(),
+  "occurred_at": zod.coerce.date(),
+  "class_name": zod.string(),
+  "po_name": zod.string(),
+  "po_badge": zod.string(),
+  "previous_assignment_id": zod.string().uuid(),
+  "successor_assignment_id": zod.string().uuid(),
+  "previous_phase": zod.number().int().min(1).max(createSuccessorAssignmentResponseDataItemPreviousPhaseMax),
+  "successor_phase": zod.number().int().min(1).max(createSuccessorAssignmentResponseDataItemSuccessorPhaseMax),
+  "previous_fto_name": zod.string(),
+  "previous_fto_badge": zod.string(),
+  "successor_fto_name": zod.string(),
+  "successor_fto_badge": zod.string(),
+  "previous_ends_on": zod.string().regex(createSuccessorAssignmentResponseDataItemPreviousEndsOnRegExp),
+  "successor_starts_on": zod.string().regex(createSuccessorAssignmentResponseDataItemSuccessorStartsOnRegExp),
+  "successor_ends_on": zod.string().regex(createSuccessorAssignmentResponseDataItemSuccessorEndsOnRegExp)
+})).min(1).max(createSuccessorAssignmentResponseDataMax)
+})
+
+
 /**
  * Development-only isolated staging. Never uploads device drafts or serves operational records.
  * @summary List authorized synthetic training records

@@ -894,8 +894,15 @@ by default:
    not Coordinator submissions. Inventory and reconcile any older sealed local
    copies with their FTOs before a live cutover; never rewrite their local vaults
    or infer a new submission from synchronization.
-   Then apply `migrations/agency-training-packet-review.sql` and
-   `migrations/agency-training-packet-guards.sql` in that order. These are
+    Then apply `migrations/agency-training-packet-review.sql`,
+    `migrations/agency-training-assignment-transitions.sql`, and
+    `migrations/agency-training-packet-guards.sql` in that order. The successor
+    assignment migration adds a Coordinator-only function using the trusted
+    server roster; grant its narrow SELECT and function-execution privileges as
+    documented in that migration, never direct assignment writes. Successor
+    changes keep prior packet links and pending drafts unchanged, preserve the
+    old assignment through its historical end date, and do not submit or approve
+    a packet. These are
    followed by `migrations/operational-profiles.sql` and then
    `migrations/operational-profile-optional-sides.sql` and then
    `migrations/operational-profile-history.sql` and then
@@ -909,7 +916,7 @@ by default:
    The ZIP includes compiled `portal/` static assets for agency reverse-proxy
    hosting with SPA fallback; the API does not serve those files itself.
    All of these are
-   single-application, DBA-reviewed migrations, not application startup scripts.
+    single-application, DBA-reviewed migrations, not application startup scripts.
    Do not run synthetic-staging schema against this database. Review the narrow
    SQL-function ownership and role grants described alongside that migration.
 4. Populate the trusted active `assignments` roster and verified

@@ -966,3 +966,17 @@ mtime_ms = 1795619933052
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/54618bcb-b7df-457a-94c5-fb1abbb1f122/29f7ba75-e9ab-46a2-b153-3e5afa2f3c35"
 storage_version_token = "1795620247818590"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "DYZ-1cvBxcfQT9qSy55wL"
+uri = "file://screenshots/successor-assignment-preview.jpg"
+type = "image"
+title = "Successor assignment preview"
+description = "Isolated FTO design-system mockup. The draft stays unsubmitted and assigned to its original FTO; confirmation and history are local preview states."
+logical_id = "2c13ffe2-6d7a-4e52-85c8-eb9a3e28129c"
+content_hash = "sha256:6280871a6b222d4e0999e5aa76748259fa75144375cf7c581077d55eb319051b"
+size = 100179
+mtime_ms = 1795636636448
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/2c13ffe2-6d7a-4e52-85c8-eb9a3e28129c/8fd6ba3b-59db-48e3-84a7-a6884f225b7c"
+storage_version_token = "1795636647192959"
+content_type = "image/jpeg"

@@ -32,3 +32,16 @@ also expected the channel's EventTarget API.
 interfaces in test controls. Scope channel counters to the feature under test,
 since auth dependencies may also create and post to their own channels. Report
 synthetic-event coverage separately from native OS or network transitions.
+
+For React UI tests that rely on controlled input events, install the JSDOM
+globals before importing the component. A component dependency can load React
+DOM's event system early, leaving native `input` events disconnected from React
+state even when the DOM value changes.
+
+**Why:** A form test appeared to fill date inputs, but the DOM changed without
+updating React state because the UI module had been imported before the DOM
+fixture was installed.
+
+**How to apply:** Create the JSDOM instance, install its browser globals, then
+dynamically import the component and mount it. Assert both the rendered value
+and the resulting enabled/disabled behavior.

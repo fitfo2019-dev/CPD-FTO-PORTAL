@@ -20,3 +20,4 @@
 - [Portal entry conventions](entry-conventions.md) — date/time shortcut and orientation layout rules should remain consistent across portal edits.
 - [Browser fixture limits](browser-fixture-limits.md) — verify suspension actually pauses JavaScript; route fixtures can bypass CDP offline emulation.
 - [Saved action evidence boundary](selected-action-evidence.md) — recurring-action views use saved specific selections only and never invent narratives, ratings, failures, or training.
+- [Assignment transition authorization](assignment-transition-authorization.md) — serialize per-PO writes and recheck current scope before returning an idempotent result.

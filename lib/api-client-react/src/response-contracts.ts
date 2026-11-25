@@ -3,6 +3,7 @@ import {
   GetPacketReviewContextResponse, UpdatePacketCoordinatorResponse,
   ListPacketSubmissionsResponse, GetPacketSubmissionResponse, ActOnPacketSubmissionResponse,
   FinalizeTrainingPacketResponse,
+  GetAssignmentTransitionContextResponse,
 } from "@workspace/api-zod";
 import { OperationalIdentitySnapshot } from "@workspace/api-zod/operational-profile";
 
@@ -26,6 +27,7 @@ export function objectResponseContract(method: string, pathname: string): Respon
     case "PUT /api/v1/account/operational-profile": return saveProfile;
     case "POST /api/v1/account/operational-profile/clear": return saveProfile;
     case "GET /api/v1/packet-review/context": return GetPacketReviewContextResponse;
+    case "GET /api/v1/agency/assignment-transitions/context": return GetAssignmentTransitionContextResponse;
     case "PUT /api/v1/packet-review/coordinator": return UpdatePacketCoordinatorResponse;
     case "GET /api/v1/packet-review/submissions": return ListPacketSubmissionsResponse;
   }

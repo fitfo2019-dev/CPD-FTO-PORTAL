@@ -1,6 +1,8 @@
-import { createRoot } from 'react-dom/client';
+import { createRoot } from "react-dom/client";
+import App from "./App.js";
+import "./styles.css";
 
-import App from './App';
-import './styles.css';
+const root = document.getElementById("root");
+if (!root) throw new Error("The assignment preview root is missing.");
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(root).render(<App />);

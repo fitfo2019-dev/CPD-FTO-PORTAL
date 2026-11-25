@@ -41,14 +41,18 @@ function PreviewRenderer({ path }: { path: string }) {
   return Component ? <Component /> : null;
 }
 
+function readPreviewPath() {
+  return window.location.hash.replace(/^#\/?/, '') || 'SuccessorAssignmentPreview';
+}
+
 export default function App() {
-  const [path, setPath] = useState(() => window.location.hash.replace(/^#\/?/, ''));
+  const [path, setPath] = useState(readPreviewPath);
 
   useEffect(() => {
-    const updatePath = () => setPath(window.location.hash.replace(/^#\/?/, ''));
+    const updatePath = () => setPath(readPreviewPath());
     window.addEventListener('hashchange', updatePath);
     return () => window.removeEventListener('hashchange', updatePath);
   }, []);
 
-  return path ? <PreviewRenderer path={path} /> : null;
+  return <PreviewRenderer path={path} />;
 }

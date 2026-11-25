@@ -22,6 +22,10 @@ tags:
     description: Agency-roster-authorized training packet sync and reads
   - name: account
     description: Verified account operational profile
+  - name: packet-review
+    description: Server-scoped Coordinator packet review and PO acknowledgment
+  - name: assignment-transitions
+    description: Coordinator-authorized successor assignment transitions
 paths:
   /v1/account/operational-profile:
     get:
@@ -162,6 +166,45 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PacketSubmission" }
+  /v1/agency/assignment-transitions/context:
+    get:
+      operationId: getAssignmentTransitionContext
+      tags: [assignment-transitions]
+      responses:
+        "200":
+          description: Server-authorized assignments, trusted FTO options, and transition history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentTransitionContext" }
+        "401": { description: Verified sign-in required }
+        "403": { description: Active FTO Coordinator scope required }
+        "503": { description: Agency storage unavailable }
+  /v1/agency/assignment-transitions:
+    post:
+      operationId: createSuccessorAssignment
+      tags: [assignment-transitions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SuccessorAssignmentInput" }
+      responses:
+        "200":
+          description: Idempotent retry of a previously completed transition
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentTransitionEnvelope" }
+        "201":
+          description: Successor assignment created without changing packet records
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentTransitionEnvelope" }
+        "400": { description: Invalid transition input }
+        "401": { description: Verified sign-in required }
+        "403": { description: Coordinator scope or trusted roster assignment required }
+        "409": { description: Conflicting dates or operation replay conflict }
+        "422": { description: Assignment dates or phase are not valid }
+        "503": { description: Agency storage unavailable }
   /v1/staging/training-records:
     get:
       operationId: listStagingTrainingRecords
@@ -1046,6 +1089,95 @@ components:
         operation_id: { type: string, format: uuid }
         action: { type: string, enum: [review_totals, acknowledge, approve, return] }
         note: { type: string, maxLength: 5000 }
+    SuccessorAssignmentInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, previous_assignment_id, fto_id, phase, starts_on, ends_on]
+      properties:
+        operation_id: { type: string, format: uuid }
+        previous_assignment_id: { type: string, format: uuid }
+        fto_id: { type: string, minLength: 1, maxLength: 256 }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        starts_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        ends_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+    TrustedTrainingAssignment:
+      type: object
+      additionalProperties: false
+      required: [id, class_name, phase, fto_name, fto_badge, po_name, po_badge, starts_on, ends_on]
+      properties:
+        id: { type: string, format: uuid }
+        class_name: { type: string }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        fto_name: { type: string }
+        fto_badge: { type: string }
+        po_name: { type: string }
+        po_badge: { type: string }
+        starts_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        ends_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+    TrustedTrainingFto:
+      type: object
+      additionalProperties: false
+      required: [class_name, fto_id, fto_name, fto_badge]
+      properties:
+        class_name: { type: string }
+        fto_id: { type: string }
+        fto_name: { type: string }
+        fto_badge: { type: string }
+    AssignmentTransitionRecord:
+      type: object
+      additionalProperties: false
+      required: [operation_id, occurred_at, class_name, po_name, po_badge, previous_assignment_id, successor_assignment_id, previous_phase, successor_phase, previous_fto_name, previous_fto_badge, successor_fto_name, successor_fto_badge, previous_ends_on, successor_starts_on, successor_ends_on]
+      properties:
+        operation_id: { type: string, format: uuid }
+        occurred_at: { type: string, format: date-time }
+        class_name: { type: string }
+        po_name: { type: string }
+        po_badge: { type: string }
+        previous_assignment_id: { type: string, format: uuid }
+        successor_assignment_id: { type: string, format: uuid }
+        previous_phase: { type: integer, minimum: 1, maximum: 4 }
+        successor_phase: { type: integer, minimum: 1, maximum: 4 }
+        previous_fto_name: { type: string }
+        previous_fto_badge: { type: string }
+        successor_fto_name: { type: string }
+        successor_fto_badge: { type: string }
+        previous_ends_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        successor_starts_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        successor_ends_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+    AssignmentTransitionContext:
+      type: object
+      additionalProperties: false
+      required: [available, role, assignments, ftos, transitions]
+      properties:
+        available: { type: boolean }
+        role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+        assignments:
+          type: array
+          items: { $ref: "#/components/schemas/TrustedTrainingAssignment" }
+        ftos:
+          type: array
+          items: { $ref: "#/components/schemas/TrustedTrainingFto" }
+        transitions:
+          type: array
+          items: { $ref: "#/components/schemas/AssignmentTransitionRecord" }
+    AssignmentTransitionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records, role]
+          properties:
+            total_records: { type: integer, enum: [1] }
+            role: { type: string, enum: [FTO_COORDINATOR] }
+        data:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items: { $ref: "#/components/schemas/AssignmentTransitionRecord" }
     PhaseExtensionRequestInput:
       type: object
       additionalProperties: false

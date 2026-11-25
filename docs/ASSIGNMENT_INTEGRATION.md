@@ -124,6 +124,11 @@ operational access, and the UI does not claim notifications were checked.
   `migrations/agency-training-staff-class-access.sql`, once each as the agency
   database owner/admin. Back up the existing agency database according to
   agency policy first; no migration runs automatically at startup.
+- Then apply `migrations/agency-training-assignment-transitions.sql` once, as
+  the agency database owner/admin. The Coordinator-only operation creates a
+  successor from the trusted active roster, shortens the old assignment's date
+  range when it overlaps, and records immutable before/after snapshots. It does
+  not update packet rows or mark a PO as having passed a phase.
 - The upgrade preserves previously sealed packets as submitted; new uploads
   default to editable drafts. It permits increasing draft versions.
 - Keep a separate non-owner runtime role. It needs packet SELECT/INSERT/UPDATE,
@@ -135,6 +140,15 @@ operational access, and the UI does not claim notifications were checked.
     `state`,`po_reviewed_at`,`acknowledged_at`,`reviewed_at`,`review_note`);
   - `packet_review_events`, `packet_review_operations`: SELECT/INSERT only.
   Trusted provisioning, not the runtime API, creates staff class read grants.
+  - `assignment_transitions`: SELECT only; never grant direct INSERT, UPDATE,
+    DELETE, or TRUNCATE.
+  - Read-only assignment context columns and `po_coordinators`: use the
+    column-level SELECT grants documented at the end of
+    `migrations/agency-training-assignment-transitions.sql`.
+  - EXECUTE on `agency_training.create_successor_assignment(...)`; do not grant
+    the API runtime direct assignment writes. The function takes the shared
+    per-PO transaction lock, rechecks Coordinator scope and FTO roster identity,
+    rejects overlapping dates, and appends the audit record atomically.
   - EXECUTE on `agency_training.lock_packet_assignment(text,text,text)` and
     `agency_training.lock_active_packet_coordinator(text)`.
 - Keep those two narrow locking functions owned by the agency migration owner,
@@ -145,6 +159,11 @@ operational access, and the UI does not claim notifications were checked.
   event/operation UPDATE, schema CREATE, table ownership, deletes or truncation.
 - Agency identity mapping, server-managed rosters, agency storage, and the
   existing explicit sync gate must be configured. Preview data remains local.
+- A successor assignment does not release or transfer an unsubmitted packet.
+  Late work remains linked to its original assignment and may be synced or
+  explicitly finalized only for dates inside that assignment's retained
+  historical range. Device-only roster imports remain local and do not affect
+  the official server roster.
 - Secure settings required: `AGENCY_DATABASE_URL`, `AGENCY_PACKET_SYNC_ENABLED`,
   `AGENCY_VERIFIED_CLAIM_PATH`, `AGENCY_ROLE_CLAIM_PATH`,
   `AGENCY_BADGE_CLAIM_PATH`, and the existing audit identifier HMAC secret.

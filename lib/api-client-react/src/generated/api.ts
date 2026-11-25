@@ -26,6 +26,8 @@ import type {
 
 import type {
   ApiError,
+  AssignmentTransitionContext,
+  AssignmentTransitionEnvelope,
   AuditLogsEnvelope,
   DispatchEventIngressEnvelope,
   DispatchEventIngressInput,
@@ -57,6 +59,7 @@ import type {
   StagingTrainingEnvelope,
   StagingTrainingInput,
   StagingTrainingUpdate,
+  SuccessorAssignmentInput,
   TrainingPacketAcknowledgmentInput,
   TrainingPacketFinalizationInput,
   TrainingPacketFinalizationReceipt,
@@ -930,6 +933,183 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getActOnPacketSubmissionMutationOptions(options), queryClient);
+    }
+
+export const getGetAssignmentTransitionContextUrl = () => {
+
+
+
+
+  return `/api/v1/agency/assignment-transitions/context`
+}
+
+export const getAssignmentTransitionContext = async ( options?: Parameters<typeof customFetch>[1]): Promise<AssignmentTransitionContext> => {
+
+  return customFetch<AssignmentTransitionContext>(getGetAssignmentTransitionContextUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAssignmentTransitionContextQueryKey = () => {
+    return [
+    `/api/v1/agency/assignment-transitions/context`
+    ] as const;
+    }
+
+
+export const getGetAssignmentTransitionContextQueryOptions = <TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAssignmentTransitionContextQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAssignmentTransitionContext>>> = ({ signal }) => getAssignmentTransitionContext({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAssignmentTransitionContextQueryResult = NonNullable<Awaited<ReturnType<typeof getAssignmentTransitionContext>>>
+export type GetAssignmentTransitionContextQueryError = ErrorType<void>
+
+
+export function useGetAssignmentTransitionContext<TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssignmentTransitionContext>>,
+          TError,
+          Awaited<ReturnType<typeof getAssignmentTransitionContext>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAssignmentTransitionContext<TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssignmentTransitionContext>>,
+          TError,
+          Awaited<ReturnType<typeof getAssignmentTransitionContext>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAssignmentTransitionContext<TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetAssignmentTransitionContext<TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAssignmentTransitionContextQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSuccessorAssignmentUrl = () => {
+
+
+
+
+  return `/api/v1/agency/assignment-transitions`
+}
+
+export const createSuccessorAssignment = async (successorAssignmentInput: SuccessorAssignmentInput, options?: Parameters<typeof customFetch>[1]): Promise<AssignmentTransitionEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AssignmentTransitionEnvelope>(getCreateSuccessorAssignmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(successorAssignmentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSuccessorAssignmentMutationKey = () => ['createSuccessorAssignment'] as const;
+
+export const getCreateSuccessorAssignmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSuccessorAssignment>>, TError,CreateSuccessorAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSuccessorAssignment>>, TError,CreateSuccessorAssignmentMutationVariables, TContext> => {
+
+const mutationKey = getCreateSuccessorAssignmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSuccessorAssignment>>, CreateSuccessorAssignmentMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSuccessorAssignment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSuccessorAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof createSuccessorAssignment>>>
+    export type CreateSuccessorAssignmentMutationBody = BodyType<SuccessorAssignmentInput>
+    export type CreateSuccessorAssignmentMutationError = ErrorType<void>
+    export type CreateSuccessorAssignmentMutationVariables = {data: BodyType<SuccessorAssignmentInput>}
+
+    export const useCreateSuccessorAssignment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSuccessorAssignment>>, TError,CreateSuccessorAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createSuccessorAssignment>>,
+        TError,
+        CreateSuccessorAssignmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateSuccessorAssignmentMutationOptions(options), queryClient);
     }
 
 export const getListStagingTrainingRecordsUrl = () => {

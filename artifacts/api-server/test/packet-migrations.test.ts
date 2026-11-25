@@ -7,6 +7,9 @@ import {PGlite} from '@electric-sql/pglite';
 const freshInstallMigrations = [
   'agency-training.sql',
   'agency-training-packet-review.sql',
+  'agency-training-po-totals-review-upgrade.sql',
+  'agency-training-staff-class-access.sql',
+  'agency-training-assignment-transitions.sql',
   'agency-training-packet-guards.sql',
   'agency-training-phase-extensions.sql',
   'agency-training-phase-extension-denial-explanations.sql',
@@ -14,12 +17,16 @@ const freshInstallMigrations = [
   'operational-profiles.sql',
   'operational-profile-optional-sides.sql',
   'operational-profile-history.sql',
+  'operational-profile-clear.sql',
 ] as const;
 
 const legacyUpgradeMigrations = [
   'agency-training-release-upgrade.sql',
   'agency-training-draft-finalization.sql',
   'agency-training-packet-review.sql',
+  'agency-training-po-totals-review-upgrade.sql',
+  'agency-training-staff-class-access.sql',
+  'agency-training-assignment-transitions.sql',
   'agency-training-packet-guards.sql',
   'agency-training-phase-extensions.sql',
   'agency-training-phase-extension-denial-explanations.sql',
@@ -27,6 +34,7 @@ const legacyUpgradeMigrations = [
   'operational-profiles.sql',
   'operational-profile-optional-sides.sql',
   'operational-profile-history.sql',
+  'operational-profile-clear.sql',
 ] as const;
 
 const migration = (name: string) =>
@@ -128,6 +136,7 @@ test('the draft upgrade preserves released history and audit types without submi
     await db.exec(await migration('agency-training-packet-review.sql'));
     await db.exec(await migration('agency-training-po-totals-review-upgrade.sql'));
     await db.exec(await migration('agency-training-staff-class-access.sql'));
+    await db.exec(await migration('agency-training-assignment-transitions.sql'));
     await db.exec(await migration('agency-training-packet-guards.sql'));
     const rows=await db.query<{id:string;submission_status:string;report:{narrative:string}}>(
       'SELECT id,submission_status,report FROM agency_training.packets ORDER BY id');
@@ -176,6 +185,7 @@ test('the complete ordered migration sequence installs a fresh database', async 
       'packets',
       'packet_events',
       'packet_submissions',
+      'assignment_transitions',
       'phase_extension_requests',
       'operational_profiles',
       'operational_profile_history',
@@ -188,6 +198,7 @@ test('the complete ordered migration sequence installs a fresh database', async 
     );
     const triggerNames = new Set(guards.rows.map(({trigger_name}) => trigger_name));
     assert.ok(triggerNames.has('protect_packet_snapshot'), `Migration sequence for ${state} missed the packet snapshot guard.`);
+    assert.ok(triggerNames.has('assignment_transition_audit_immutable'), `Migration sequence for ${state} missed the assignment transition audit guard.`);
     assert.ok(triggerNames.has('operational_profile_history_no_rewrite'), `Migration sequence for ${state} missed the profile history guard.`);
   } finally {
     await db.close();

@@ -10,6 +10,7 @@ import { cruiserDistrictForFtoAssignment, isValidFtoAssignment } from '@/lib/cpd
 import { formatDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
 import { parseRosterFile, ROSTER_CSV_TEMPLATE, type ParsedRoster } from '@/lib/assignment-import.js';
 import { operatorErrorMessage, reportUnexpectedOperatorError } from '@/lib/operator-errors.js';
+import { OfficialAssignmentTransitions } from '@/components/official-assignment-transitions.js';
 
 export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignment: (assignment: TrainingAssignment) => void }) {
   const { ws, vault, importRoster, upsertAssignment } = useWorkspace();
@@ -85,6 +86,10 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
         </div>}
         <button type="button" disabled={preview.errors.length>0||preview.ftos.length===0} onClick={addRoster} className="mt-3 min-h-11 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-add-roster">Add roster to this device</button>
       </div>}
+    </div>
+
+    <div className="border-t px-4 pb-4">
+      <OfficialAssignmentTransitions />
     </div>
 
     <div className="grid grid-cols-2 gap-2 border-y bg-muted/20 p-4 sm:grid-cols-3">

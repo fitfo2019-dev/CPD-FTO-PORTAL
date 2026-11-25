@@ -6,6 +6,7 @@ import {
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/model.js";
 import type { AgencyPacket, AgencyPacketsEnvelope, PacketReviewAction, PacketReviewDraft } from "@/lib/agency-packets.js";
 import { PoPacketSummary } from "@/components/packet-review/po-summary.js";
+import { Link } from "wouter";
 
 type Role = AgencyPacketsEnvelope["metadata"]["role"];
 export type AgencyPacketReviewProps = {
@@ -92,6 +93,9 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
             <RefreshCw size={13} className={refreshing ? "apr-spin" : undefined} />{refreshing ? "Refreshing" : "Refresh"}
           </button>
           <span className="apr-refresh-note" data-testid="text-refresh-state">{!canRefresh ? "Agency Reads Disabled" : refreshing ? "Checking agency server" : "Updates every 30 seconds"}</span>
+          <Link href="/resources?topic=packet-status#application-help" className="text-xs font-semibold uppercase text-primary underline underline-offset-2">
+            Packet status help
+          </Link>
         </div>
       </div>
 
