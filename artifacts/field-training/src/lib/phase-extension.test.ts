@@ -8,6 +8,7 @@ import { createEmptyWorkspace } from './empty-workspace.js';
 import { applyApprovedPhaseExtensions, approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests, phaseExtensionRequestInputSchema } from './phase-extension.js';
 import { OfflineStorage } from './offlineStorage.js';
 import type { PhaseCaseFolder, PhaseExtensionRequest, Workspace } from './model.js';
+import { seedReports } from './seed.js';
 import { createPhaseWeekRanges } from './training-calendar.js';
 
 // Node's TSX runner uses the classic JSX runtime; match Vite's React binding.
@@ -201,6 +202,72 @@ test('approved Limbo extensions preserve shifted ranges and extension count afte
     approvePhaseExtension(reopened,limboRequest.id).phaseFolders[0].phaseWeekRanges,
     expectedRanges,
     'a request removed by approval must not shift the restored dates again',
+  );
+  reopenedVault.lock();
+});
+
+test('approved Limbo extensions realign eligible daily logs and preserve reviewed snapshots after vault reopening',async()=>{
+  const namespace=`limbo-report-alignment-${crypto.randomUUID()}`;
+  const passphrase=new TextEncoder().encode('limbo-report-alignment-test-passphrase');
+  const phaseTwoFolder:PhaseCaseFolder={
+    ...folder,phase:2,phaseWeekRanges:createPhaseWeekRanges(2,folder.phaseStartDate),
+  };
+  const limboRequest:PhaseExtensionRequest={
+    ...request,id:'extension-limbo-report-alignment',phase:2,extensionType:'limbo_period',
+    requestedWeeks:1,justification:'Extend the Limbo period by one week.',
+  };
+  const eligibleReport={
+    ...seedReports()[0],id:'daily-log-to-realign',date:'2027-01-11',phase:2 as const,
+    className:phaseTwoFolder.className,recruitName:phaseTwoFolder.recruitName,
+    recruitBadge:phaseTwoFolder.recruitBadge,phaseWeek:undefined,limboDay:false,
+  };
+  const reviewedReport={
+    ...eligibleReport,id:'reviewed-historical-daily-log',phaseWeek:2,limboDay:false,
+    ratingsReviewedAt:'2027-01-12T12:00:00.000Z',
+  };
+  const laterReport={
+    ...eligibleReport,id:'daily-log-after-extended-limbo',date:'2027-01-18',
+  };
+  const initial=createEmptyWorkspace();
+  initial.caseFolder=phaseTwoFolder;
+  initial.phaseFolders=[phaseTwoFolder];
+  initial.phaseExtensionRequests=[limboRequest];
+  initial.reports=[eligibleReport,reviewedReport,laterReport];
+
+  const vault=new OfflineStorage(namespace);
+  await vault.unlock(passphrase);
+  await vault.save('workspace',initial);
+  vault.lock();
+
+  const reviewVault=new OfflineStorage(namespace);
+  await reviewVault.unlock(passphrase);
+  const restored=await reviewVault.get<Workspace>('workspace');
+  assert.ok(restored);
+  const approved=approvePhaseExtension(restored,limboRequest.id);
+  assert.deepEqual(
+    approved.reports.map(({id,phaseWeek,limboDay})=>({id,phaseWeek,limboDay})),
+    [
+      {id:eligibleReport.id,phaseWeek:1,limboDay:true},
+      {id:reviewedReport.id,phaseWeek:2,limboDay:false},
+      {id:laterReport.id,phaseWeek:2,limboDay:false},
+    ],
+    'eligible logs follow the approved ranges while explicit snapshots stay fixed',
+  );
+  assert.equal(approved.reports[1],restored.reports[1]);
+  await reviewVault.save('workspace',approved);
+  reviewVault.lock();
+
+  const reopenedVault=new OfflineStorage(namespace);
+  await reopenedVault.unlock(passphrase);
+  const reopened=await reopenedVault.get<Workspace>('workspace');
+  assert.ok(reopened);
+  assert.deepEqual(
+    reopened.reports.map(({id,phaseWeek,limboDay})=>({id,phaseWeek,limboDay})),
+    [
+      {id:eligibleReport.id,phaseWeek:1,limboDay:true},
+      {id:reviewedReport.id,phaseWeek:2,limboDay:false},
+      {id:laterReport.id,phaseWeek:2,limboDay:false},
+    ],
   );
   reopenedVault.lock();
 });
