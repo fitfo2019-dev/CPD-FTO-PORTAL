@@ -736,23 +736,61 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
     );
     assert.equal(assignment.rows[0].active, true);
 
+    // Seed a second recruit so an unrelated review can run while the first
+    // recruit's Coordinator handoff holds its advisory lock.
+    const otherAssignmentId = randomUUID();
+    await ownerPool.query(
+      `INSERT INTO agency_training.assignments (
+        id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,po_id_hash,
+        po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        fto_id,fto_badge,po_id,po_badge,coordinator_id
+      ) VALUES ($1,'Class B',1,$2,$3,'Trusted FTO B',$4,$5,'Trusted Recruit B',$6,
+        '2026-11-01','2027-12-31',$7,'TEST-FTO-B',$8,'TEST-PO-B',$9)`,
+      [
+        otherAssignmentId,
+        hash(ftoB.userId),
+        hash("TEST-FTO-B"),
+        hash("test-phase-po-b"),
+        hash("TEST-PO-B"),
+        hash(coordinatorA.userId),
+        ftoB.userId,
+        "test-phase-po-b",
+        coordinatorA.userId,
+      ],
+    );
+    const unrelatedRequestId = `unrelated-handoff-${randomUUID()}`;
+    await store.create(ftoB.userId, {
+      ...request,
+      id: unrelatedRequestId,
+      className: "Class B",
+      recruitBadge: "TEST-PO-B",
+    });
+
     // Start a trusted Coordinator handoff and pause it immediately after it
-    // acquires the per-PO lock. A former Coordinator review must wait, then
-    // re-check against the newly committed mapping rather than an old snapshot.
+    // acquires PO A's lock. A former Coordinator review for PO A must wait,
+    // while PO B's independent review completes before the handoff is released.
     const raceRequestId = `handoff-race-${randomUUID()}`;
     await store.create(ftoA.userId, { ...request, id: raceRequestId });
     const poId = "test-phase-po-a";
     const lockKey = `po:${poId}`;
+    const otherLockKey = "po:test-phase-po-b";
     let finishHandoff!: () => void;
     let signalHandoffLock!: () => void;
-    let signalReviewLockAttempt!: () => void;
+    let signalUnrelatedReviewLockAttempt!: () => void;
+    let signalFormerReviewLockAttempt!: () => void;
     const handoffGate = new Promise<void>(resolve => { finishHandoff = resolve; });
     const handoffLockAcquired = new Promise<void>(resolve => { signalHandoffLock = resolve; });
-    const reviewLockAttempted = new Promise<void>(resolve => { signalReviewLockAttempt = resolve; });
+    const unrelatedReviewLockAttempted = new Promise<void>(resolve => {
+      signalUnrelatedReviewLockAttempt = resolve;
+    });
+    const formerReviewLockAttempted = new Promise<void>(resolve => {
+      signalFormerReviewLockAttempt = resolve;
+    });
+    let handoffSettled = false;
 
     const instrumentPool = (
       source: pg.Pool,
-      onLock: (afterAcquire: boolean) => void | Promise<void>,
+      onLock: (afterAcquire: boolean, key: unknown) => void | Promise<void>,
     ) => new Proxy(source, {
       get(target, property, receiver) {
         if (property === "query") return target.query.bind(target);
@@ -762,11 +800,10 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
             const queryClient = client.query.bind(client);
             return {
               query: async (sql: string, values?: unknown[]) => {
-                const lockQuery = sql.includes("pg_advisory_xact_lock") &&
-                  values?.[0] === lockKey;
-                if (lockQuery) onLock(false);
+                const lockQuery = sql.includes("pg_advisory_xact_lock");
+                if (lockQuery) onLock(false, values?.[0]);
                 const result = await queryClient(sql, values);
-                if (lockQuery) await onLock(true);
+                if (lockQuery) await onLock(true, values?.[0]);
                 return result;
               },
               release: client.release.bind(client),
@@ -777,20 +814,20 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
       },
     }) as pg.Pool;
 
-    const handoffPool = instrumentPool(ownerPool, async acquired => {
-      if (!acquired) return;
+    const handoffPool = instrumentPool(ownerPool, async (acquired, key) => {
+      if (!acquired || key !== lockKey) return;
       signalHandoffLock();
       await handoffGate;
     });
     const handoff = createPacketReviewStore(handoffPool).assign(
       { id: coordinatorA.userId, badge: "TEST-COORD-A", role: "FTO_COORDINATOR" },
       { po_id: poId, coordinator_id: coordinatorB.userId, expected_revision: 1 },
-    );
+    ).finally(() => { handoffSettled = true; });
 
-    const waitWithTimeout = async (promise: Promise<void>, message: string) => {
+    const waitWithTimeout = async <T,>(promise: Promise<T>, message: string): Promise<T> => {
       let timer: NodeJS.Timeout | undefined;
       try {
-        await Promise.race([
+        return await Promise.race([
           promise,
           new Promise<never>((_, reject) => {
             timer = setTimeout(() => reject(new Error(message)), 5_000);
@@ -802,9 +839,27 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
     };
     try {
       await waitWithTimeout(handoffLockAcquired, "Coordinator handoff did not acquire its PO lock.");
+
+      const unrelatedReview = createPhaseExtensionRequestStore(
+        instrumentPool(runtimePool, (acquired, key) => {
+          if (!acquired && key === otherLockKey) signalUnrelatedReviewLockAttempt();
+        }),
+      ).review(unrelatedRequestId, coordinatorA.userId, "approve");
+      await waitWithTimeout(
+        unrelatedReviewLockAttempted,
+        "Unrelated Coordinator review did not request its own PO lock.",
+      );
+      const unrelatedResult = await waitWithTimeout(
+        unrelatedReview,
+        "Unrelated Coordinator review was blocked by another recruit's handoff.",
+      );
+      assert.equal(unrelatedResult.request?.status, "approved");
+      assert.equal(unrelatedResult.alreadyResolved, false);
+      assert.equal(handoffSettled, false, "unrelated review must complete before handoff release");
+
       const reviewedByFormer = createPhaseExtensionRequestStore(
-        instrumentPool(runtimePool, acquired => {
-          if (!acquired) signalReviewLockAttempt();
+        instrumentPool(runtimePool, (acquired, key) => {
+          if (!acquired && key === lockKey) signalFormerReviewLockAttempt();
         }),
       );
       let formerReviewSettled = false;
@@ -814,7 +869,7 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
           formerReviewSettled = true;
           return result;
         });
-      await waitWithTimeout(reviewLockAttempted, "Former Coordinator review did not request the PO lock.");
+      await waitWithTimeout(formerReviewLockAttempted, "Former Coordinator review did not request the PO lock.");
       await new Promise(resolve => setTimeout(resolve, 30));
       assert.equal(formerReviewSettled, false, "review must wait for the in-flight handoff");
 
