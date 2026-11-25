@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createServer } from "node:net";
 import { readFile } from "node:fs/promises";
-import type pg from "pg";
+import pg from "pg";
 import { PGlite } from "@electric-sql/pglite";
 import express from "express";
 import { createAgencyAssignmentTransitionStore } from "../src/lib/agency-assignment-transition-store.js";
@@ -356,6 +361,154 @@ test("only one concurrent successor can claim the same PO date range", async () 
     assert.equal(successors.rows.length, 1);
   } finally {
     await fixture.db.close();
+  }
+});
+
+test("real PostgreSQL serializes concurrent assignment changes and rechecks revoked scope", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "assignment-transitions-postgres-"));
+  const dataDir = join(dir, "data");
+  const portServer = createServer();
+  await new Promise<void>((resolve, reject) => {
+    portServer.once("error", reject);
+    portServer.listen(0, "127.0.0.1", resolve);
+  });
+  const address = portServer.address();
+  assert.ok(address && typeof address === "object");
+  const port = address.port;
+  await new Promise<void>((resolve, reject) =>
+    portServer.close(error => error ? reject(error) : resolve()));
+
+  let started = false;
+  let pool: pg.Pool | undefined;
+  try {
+    execFileSync("initdb", ["-D", dataDir, "-U", "transition_test_owner", "-A", "trust", "--no-locale"], {
+      stdio: "pipe",
+    });
+    execFileSync("pg_ctl", ["-D", dataDir, "-l", join(dir, "postgres.log"), "-o",
+      `-k ${dir} -h '' -p ${port} -F`, "-w", "start"], { stdio: "pipe" });
+    started = true;
+    const db = pool = new pg.Pool({
+      host: dir,
+      port,
+      database: "postgres",
+      user: "transition_test_owner",
+      max: 8,
+    });
+    for (const name of [
+      "agency-training.sql",
+      "agency-training-packet-review.sql",
+      "agency-training-assignment-transitions.sql",
+      "agency-training-packet-guards.sql",
+    ]) {
+      await db.query(readFileSync(new URL(`../migrations/${name}`, import.meta.url), "utf8"));
+    }
+
+    const previousAssignmentId = randomUUID();
+    const trustedFtoAssignmentId = randomUUID();
+    await db.query(
+      `INSERT INTO agency_training.coordinator_directory (id,name) VALUES
+        ($1,'TEST Coordinator'),($2,'TEST Other Coordinator')`,
+      [coordinator.id, unauthorizedCoordinator.id],
+    );
+    await db.query(
+      `INSERT INTO agency_training.assignments (
+        id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,
+        po_id_hash,po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        active,fto_id,fto_badge,po_id,po_badge,coordinator_id
+      ) VALUES
+        ($1,$2,1,$3,$4,'TEST Old FTO',$5,$6,'TEST PO',$7,'2026-01-01','2026-12-31',true,$8,$9,$10,$11,$12),
+        ($13,$2,1,$14,$15,'TEST Successor FTO',$16,$17,'TEST Other PO',$7,
+          '2026-01-01','2026-12-31',true,$18,$19,'TEST-other-po','TEST-P2',$12)`,
+      [
+        previousAssignmentId, className, hash(oldFto.id), hash(oldFto.badge),
+        hash(poId), hash(poBadge), hash(coordinator.id), oldFto.id, oldFto.badge,
+        poId, poBadge, coordinator.id,
+        trustedFtoAssignmentId, hash(successorFto.id), hash(successorFto.badge),
+        hash("TEST-other-po"), hash("TEST-P2"), successorFto.id, successorFto.badge,
+      ],
+    );
+    await db.query(
+      `INSERT INTO agency_training.po_coordinators (po_id,po_id_hash,po_badge,coordinator_id)
+       VALUES ($1,$2,$3,$4)`,
+      [poId, hash(poId), poBadge, coordinator.id],
+    );
+
+    const transitionStore = createAgencyAssignmentTransitionStore(db);
+    const sameOperation = successorInput(previousAssignmentId);
+    const retries = await Promise.all([
+      transitionStore.create(coordinator, sameOperation),
+      transitionStore.create(coordinator, sameOperation),
+    ]);
+    assert.deepEqual(retries.map(result => result.created).sort(), [false, true]);
+    assert.equal(retries[0]?.transition.successor_assignment_id,
+      retries[1]?.transition.successor_assignment_id);
+    assert.equal((await db.query(
+      "SELECT count(*)::int AS count FROM agency_training.assignment_transitions WHERE po_id=$1",
+      [poId],
+    )).rows[0]?.count, 1);
+    assert.equal((await db.query(
+      "SELECT count(*)::int AS count FROM agency_training.assignments WHERE po_id=$1",
+      [poId],
+    )).rows[0]?.count, 2);
+
+    const competingPoId = "TEST-concurrent-transition-po";
+    const competingPoBadge = "TEST-P3";
+    const competingAssignmentId = randomUUID();
+    await db.query(
+      `INSERT INTO agency_training.assignments (
+        id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,
+        po_id_hash,po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        active,fto_id,fto_badge,po_id,po_badge,coordinator_id
+      ) VALUES ($1,$2,1,$3,$4,'TEST Old FTO',$5,$6,'TEST Concurrent PO',$7,
+        '2026-01-01','2026-12-31',true,$8,$9,$10,$11,$12)`,
+      [
+        competingAssignmentId, className, hash(oldFto.id), hash(oldFto.badge),
+        hash(competingPoId), hash(competingPoBadge), hash(coordinator.id),
+        oldFto.id, oldFto.badge, competingPoId, competingPoBadge, coordinator.id,
+      ],
+    );
+    await db.query(
+      `INSERT INTO agency_training.po_coordinators (po_id,po_id_hash,po_badge,coordinator_id)
+       VALUES ($1,$2,$3,$4)`,
+      [competingPoId, hash(competingPoId), competingPoBadge, coordinator.id],
+    );
+    const contenders = await Promise.allSettled([
+      transitionStore.create(coordinator, successorInput(competingAssignmentId)),
+      transitionStore.create(coordinator, successorInput(competingAssignmentId)),
+    ]);
+    assert.equal(contenders.filter(result => result.status === "fulfilled").length, 1);
+    const conflict = contenders.find(result => result.status === "rejected");
+    assert.ok(conflict?.status === "rejected");
+    assert.ok(conflict.reason instanceof PacketError);
+    assert.equal(conflict.reason.status, 409);
+    assert.equal((await db.query(
+      "SELECT count(*)::int AS count FROM agency_training.assignment_transitions WHERE po_id=$1",
+      [competingPoId],
+    )).rows[0]?.count, 1);
+    assert.equal((await db.query(
+      "SELECT count(*)::int AS count FROM agency_training.assignments WHERE po_id=$1",
+      [competingPoId],
+    )).rows[0]?.count, 2);
+
+    await db.query(
+      "UPDATE agency_training.po_coordinators SET coordinator_id=$2 WHERE po_id=$1",
+      [poId, unauthorizedCoordinator.id],
+    );
+    await assert.rejects(
+      transitionStore.create(coordinator, sameOperation),
+      error => error instanceof PacketError && error.status === 403,
+      "an idempotent retry must recheck current scope on real PostgreSQL",
+    );
+    assert.equal((await db.query(
+      "SELECT count(*)::int AS count FROM agency_training.assignment_transitions WHERE operation_id=$1",
+      [sameOperation.operation_id],
+    )).rows[0]?.count, 1);
+  } finally {
+    await pool?.end();
+    if (started) {
+      execFileSync("pg_ctl", ["-D", dataDir, "-m", "immediate", "-w", "stop"], { stdio: "pipe" });
+    }
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 
