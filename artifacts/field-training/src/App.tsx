@@ -42,6 +42,7 @@ import RunChecklistPreview from '@/pages/run-checklist-preview.js';
 import AgencyPacketsPage from '@/pages/agency-packets.js';
 import { createFtoTestPacketWorkspace } from '@/lib/test-packet.js';
 import { OperationalProfileProvider, useOperationalProfile } from '@/state/operational-profile.js';
+import { DaisyStatusNotice } from '@/components/daisy-status-notice.js';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -293,11 +294,19 @@ function DemoWorkspace() {
 
 function DevelopmentUiPreviewContent() {
   const [path] = useLocation();
+  const daisyUiPreview = import.meta.env.DEV && path === '/daisyui-component';
   const resourcesPreview = import.meta.env.DEV && path === '/resources-preview';
   return (
     <PacketReviewProvider>
       <Shell>
-        {resourcesPreview
+        {daisyUiPreview
+          ? <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+              <DaisyStatusNotice
+                title="Local Draft Saved"
+                description="This copy is saved on this device and has not been submitted to the Coordinator."
+              />
+            </main>
+          : resourcesPreview
           ? <ResourcesLibraryPage previewOnly />
           : <WorkspaceRoutes />}
       </Shell>
