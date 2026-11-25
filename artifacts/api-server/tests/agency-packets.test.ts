@@ -394,6 +394,85 @@ test("PO packet history pagination excludes drafts, unreleased and withdrawn pac
   assert.ok(calls.every(call => call.parameters[0] === "PO"));
 });
 
+test("PO packet history continuations stop when assignment access is disabled", async t => {
+  const po: AgencyIdentity = { id: "assigned-po", badge: "po-badge", role: "PO" };
+
+  for (const accessLink of ["assignment", "packet roster link"] as const) {
+    await t.test(`returns no packets after the ${accessLink} is deactivated`, async () => {
+      const assignment = { active: true };
+      const packetRosterLink = { active: true };
+      const packets = Array.from({ length: 101 }, (_, index) => ({
+        id: `released-po-packet-${String(index).padStart(3, "0")}`,
+        assignment_id: "po-assignment",
+        record_date: "2026-11-23",
+        phase: 1,
+        server_version: 1,
+        report: { id: `released-po-packet-${index}` },
+        submission_status: "submitted",
+        content_hash: "a".repeat(64),
+        released_to_po: true,
+        released_at: "2026-11-24T12:00:00Z",
+        withdrawn_at: null,
+        withdrawal_reason: null,
+        amendment_of: null,
+        amendment_reason: null,
+        acknowledgment: null,
+      }));
+      let readCount = 0;
+      const client = {
+        async query(sql: string, parameters: unknown[] = []) {
+          if (!sql.includes("FROM agency_training.packets p JOIN agency_training.packet_assignments"))
+            return { rows: [] };
+
+          readCount++;
+          assert.match(sql, /WHERE \(a\.active AND pa\.active AND/);
+          assert.match(sql, /a\.po_id_hash = \$2 AND a\.po_badge_hash = \$3/);
+          assert.match(sql, /p\.released_to_po = true AND p\.withdrawn_at IS NULL/);
+          const [role, identityHash, badgeHash, , , , , afterDate, afterId, limit] = parameters;
+          if (!assignment.active || !packetRosterLink.active ||
+            role !== "PO" ||
+            identityHash !== hashUserIdentifier(po.id) ||
+            badgeHash !== hashUserIdentifier(po.badge))
+            return { rows: [] };
+
+          const visible = packets.filter(packet =>
+            afterDate == null || packet.record_date < String(afterDate) ||
+            (packet.record_date === String(afterDate) && packet.id < String(afterId)))
+            .sort((left, right) => right.record_date.localeCompare(left.record_date) ||
+              right.id.localeCompare(left.id))
+            .slice(0, Number(limit));
+          return { rows: visible };
+        },
+        release() {},
+      };
+      const store = createAgencyPacketStore({
+        connect: async () => client,
+      } as unknown as pg.Pool);
+
+      const firstPage = await store.readPage(po, audit);
+      assert.equal(firstPage.data.length, 100);
+      assert.equal(firstPage.hasMore, true);
+      assert.ok(firstPage.data.every(packet =>
+        packet.released_to_po === true &&
+        String(packet.assignment_id) === "po-assignment" &&
+        packet.sync_status === "submitted_complete",
+      ));
+      const cursor = encodePacketCursor(
+        String(firstPage.data.at(-1)!.record_date),
+        String(firstPage.data.at(-1)!.id),
+      );
+
+      if (accessLink === "assignment") assignment.active = false;
+      else packetRosterLink.active = false;
+
+      const continuation = await store.readPage(po, audit, cursor);
+      assert.deepEqual(continuation.data, []);
+      assert.equal(continuation.hasMore, false);
+      assert.equal(readCount, 2);
+    });
+  }
+});
+
 test("packet continuations recheck roster assignment changes", async t => {
   const reassignedFto: AgencyIdentity = {
     id: "replacement-fto", badge: "5678", role: "FTO",
