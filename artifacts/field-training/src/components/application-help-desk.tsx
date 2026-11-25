@@ -123,9 +123,9 @@ export function ApplicationHelpDesk({ role }: { role: Role }) {
                 </section>
               </div>
               <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-                Operational requirements belong to the cited manuals and directives in the existing{' '}
-                <Link href="/resources#library-search" className="font-semibold text-primary underline">
-                  Resources / Law Library
+                Operational requirements belong to official agency sources. Browse the available references in{' '}
+                <Link href="/resources#resources-library" className="font-semibold text-primary underline">
+                  Resources
                 </Link>.
               </p>
             </>

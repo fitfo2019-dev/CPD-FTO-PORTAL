@@ -171,6 +171,9 @@ importers:
       '@workspace/api-zod':
         specifier: workspace:*
         version: link:../../lib/api-zod
+      '@workspace/fto-law-library-schema':
+        specifier: workspace:*
+        version: link:../fto-law-library-schema
       mammoth:
         specifier: ^1.13.0
         version: 1.13.0

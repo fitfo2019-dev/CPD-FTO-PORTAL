@@ -13,6 +13,9 @@ const shell = source('../components/shell.tsx');
 const app = source('../App.tsx');
 const helpPage = source('../pages/help.tsx');
 const helpDesk = source('../components/application-help-desk.tsx');
+const resourcesLibrary = source('../pages/resources-library-preview.tsx');
+const resourcesApi = source('../../../api-server/src/routes/resources.ts');
+const clerkAuthentication = source('../../../api-server/src/security/clerkAuthentication.ts');
 const roleAccess = source('../pages/role-access.tsx');
 const rosterPanel = source('../components/training-assignments-panel.tsx');
 const reportEditor = source('../pages/report-editor.tsx');
@@ -93,13 +96,25 @@ test('contextual Help Desk links resolve to an available answer for the relevant
 test('help keeps application-use guidance separate from sourced policy', () => {
   assert.match(helpPage, /<ApplicationHelpDesk role=\{ws\.role\} \/>/);
   assert.ok(helpDesk.includes('w-full sm:min-w-[14rem] sm:flex-1 sm:max-w-md'));
-  assert.match(helpPage, /Resources \/ Law Library/);
+  assert.match(helpPage, /<ResourcesLibraryPage \/>/);
+  assert.match(helpDesk, /\/resources#resources-library/);
   assert.match(ftoHelp, /Uploaded Final FTO Manual · updated 03\/10\/2026/);
   assert.match(directiveIndex, /https:\/\/www\.columbus\.gov\/Services\/Public-Safety\/Police\/About-the-Columbus-Division-of-Police\/Directives/);
+  assert.doesNotMatch(resourcesLibrary, /FTO_HELP|MANUAL_SOURCE|MANUAL_PASSAGES|LAW_LIBRARY_ENTRIES|loadOrcCorpus/);
+  assert.doesNotMatch(resourcesLibrary, /Ohio Revised Code|Columbus City Code|Oyez Supreme Court|Casebook|Glossary/);
+  assert.match(resourcesLibrary, /DIRECTIVE_PDF_LINKS/);
+  assert.match(resourcesLibrary, /GeographyMapPanel/);
+  assert.match(resourcesLibrary, /Uploaded files/);
   const applicationHelpCopy = APPLICATION_HELP_TOPICS.map(topic =>
     [topic.title, topic.keywords, ...topic.steps, topic.expectedResult, topic.recovery].join(' '),
   ).join(' ');
   assert.doesNotMatch(applicationHelpCopy, /IT setup|access path|preview selector|selector implementation/i);
+});
+
+test('uploaded downloads reuse the current same-origin portal session', () => {
+  assert.match(resourcesLibrary, /apiEndpoint\(`\/v1\/resources\/\$\{encodeURIComponent\(selected\.id\.slice\('upload-'\.length\)\)\}\/download`\)/);
+  assert.match(resourcesApi, /router\.get\([\s\S]*?"\/v1\/resources\/:resourceId\/download",\s*requireClerkAuthentication/);
+  assert.match(clerkAuthentication, /const \{ userId \} = getAuth\(req\)/);
 });
 
 test('every portal role can find Help Desk on desktop and mobile navigation', () => {

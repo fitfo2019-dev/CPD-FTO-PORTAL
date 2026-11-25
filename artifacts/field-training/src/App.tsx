@@ -28,6 +28,7 @@ import NrtUaPortalPage from '@/pages/nrt-ua-portal.js';
 import PhaseSetupPage from '@/pages/phase-setup.js';
 import FtoForumPage from '@/pages/fto-forum.js';
 import HelpPage from '@/pages/help.js';
+import ResourcesLibraryPage from '@/pages/resources-library-preview.js';
 import CommandReviewPage from '@/pages/command-review.js';
 import WeeklyPerformanceLogPage from '@/pages/weekly-performance-log.js';
 import SubstationOrientationPage from '@/pages/substation-orientation.js';
@@ -120,6 +121,12 @@ function SignInPage() {
             className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
             Fictional portal preview
+          </a>
+          <a
+            href={`${basePath}/ui-preview/resources-preview`}
+            className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Resources library preview
           </a>
           <a
             href={`${basePath}/fto-test-packet-preview/`}
@@ -277,7 +284,17 @@ function DemoWorkspace() {
 }
 
 function DevelopmentUiPreviewContent() {
-  return <PacketReviewProvider><Shell><WorkspaceRoutes /></Shell></PacketReviewProvider>;
+  const [path] = useLocation();
+  const resourcesPreview = import.meta.env.DEV && path === '/resources-preview';
+  return (
+    <PacketReviewProvider>
+      <Shell>
+        {resourcesPreview
+          ? <ResourcesLibraryPage previewOnly />
+          : <WorkspaceRoutes />}
+      </Shell>
+    </PacketReviewProvider>
+  );
 }
 
 function DevelopmentUiPreview() {

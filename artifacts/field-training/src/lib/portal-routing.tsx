@@ -1,4 +1,5 @@
 import { createElement, type ReactNode } from 'react';
+import * as React from 'react';
 import { Route, Router as WouterRouter, Switch } from 'wouter';
 
 export function PortalRouteSwitch({

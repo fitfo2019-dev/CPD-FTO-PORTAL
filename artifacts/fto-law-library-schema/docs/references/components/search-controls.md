@@ -5,6 +5,8 @@
   Reference/title/group/note text. Boolean `sort` toggles an alphabetical view;
   its displayed label is Filter when off and A–Z when on.
 - Export: `SearchControls`, `SearchControlsProps`.
+- Optional `placeholder` and `ariaLabel` let consumers name their own catalog
+  without changing the filtering behavior.
 - Dependencies: React, Lucide. No backend calls and no new filter menu.
 - Fidelity: search shell 12px padding/10px radius; 39px input and button height;
   6px control radius; source search icon, placeholder, focus border and halo.
