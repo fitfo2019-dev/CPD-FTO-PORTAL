@@ -588,7 +588,45 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
     `);
     assert.ok(Object.values(otherRoleRights.rows[0]).every(value => value === false));
 
-    // The denied DDL and grants must leave legitimate submit/list/review intact.
+    // Review columns are UPDATE-only: a fabricated decision must fail on
+    // INSERT privileges, not merely on a constraint or the UPDATE trigger.
+    for (const status of ["approved", "denied"]) {
+      const fabricatedId = `fabricated-${status}-${randomUUID()}`;
+      await assert.rejects(
+        runtimePool.query(
+          `INSERT INTO agency_training.phase_extension_requests (
+            id,assignment_id,requester_user_id,class_name,recruit_name,
+            recruit_badge,phase,phase_start_date,requesting_fto_name,
+            requesting_fto_badge,extension_type,requested_weeks,justification,
+            status,reviewed_at,reviewed_by_user_id
+          ) VALUES ($1,$2,$3,'Class A','Trusted Recruit','TEST-PO-A',1,
+            '2026-11-01','Trusted FTO','TEST-FTO-A','training_weeks',1,$4,
+            $5,$6,$7)`,
+          [
+            fabricatedId,
+            assignmentId,
+            ftoA.userId,
+            request.justification,
+            status,
+            "2026-11-02T12:00:00.000Z",
+            coordinatorA.userId,
+          ],
+        ),
+        { code: "42501" },
+        `Runtime must not insert a fabricated ${status} decision`,
+      );
+      const inserted: pg.QueryResult = await ownerPool.query(
+        "SELECT * FROM agency_training.phase_extension_requests WHERE id=$1",
+        [fabricatedId],
+      );
+      assert.equal(
+        inserted.rowCount,
+        0,
+        `Denied ${status} insertion must not leave a stored request`,
+      );
+    }
+
+    // Denied writes and grants must leave legitimate submit/list/review intact.
     const store = createPhaseExtensionRequestStore(runtimePool);
     const requestId = `limited-${randomUUID()}`;
     const submittedRequest = { ...request, id: requestId };
