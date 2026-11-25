@@ -24,6 +24,52 @@ export type DispatchIncidentPrefill=DispatchPrefill & {
   dispatchedAt?:string;
   clearedAt?:string;
 };
+
+export type DispatchIncidentDraftFields = {
+  location: string;
+  locationCity: string;
+  locationState: string;
+  locationZip: string;
+  zone: string;
+  cruiserDistrict: string;
+  occurredAtText: string;
+  dispatchedAtText: string;
+  clearedAtText: string;
+  dispatchedCode: string;
+  clearanceCode: NonNullable<DispatchPrefill['clearanceCode']>;
+};
+
+export type DispatchIncidentDraftDefaults = Partial<DispatchIncidentDraftFields>;
+
+/** A retry fills only fields that still match their values before the first lookup. */
+export function applyDispatchIncidentRetry(
+  current: DispatchIncidentDraftFields,
+  initial: DispatchIncidentDraftFields,
+  incoming: DispatchIncidentDraftDefaults,
+): DispatchIncidentDraftFields {
+  const next = { ...current };
+  const keys: (keyof DispatchIncidentDraftFields)[] = [
+    'location',
+    'locationCity',
+    'locationState',
+    'locationZip',
+    'zone',
+    'cruiserDistrict',
+    'occurredAtText',
+    'dispatchedAtText',
+    'clearedAtText',
+    'dispatchedCode',
+    'clearanceCode',
+  ];
+  for (const key of keys) {
+    const value = incoming[key];
+    if (value !== undefined && current[key] === initial[key]) {
+      Object.assign(next, { [key]: value });
+    }
+  }
+  return next;
+}
+
 const normalizedUnit=(value:string)=>value.trim().toUpperCase().replace(/\s+/g,' ');
 const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
 const ISO_DATE_TIME=/(?:Z|[+-]\d{2}:\d{2})$/i;

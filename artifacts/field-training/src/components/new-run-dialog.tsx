@@ -5,7 +5,7 @@ import { PRIMARY_RUN_FORMS, type PrimaryRunForm } from '@/lib/model.js';
 import { formatDateDMY, formatDateTimeMDY } from '@/lib/training-calendar.js';
 import { lookupDispatchIncident } from '@/components/dispatch-incident-lookup.js';
 import { applyCurrentDateTimeShortcut } from '@/lib/date-time-shortcut.js';
-import type { DispatchIncidentPrefill } from '@/lib/dispatch-prefill.js';
+import { applyDispatchIncidentRetry, type DispatchIncidentDraftFields, type DispatchIncidentPrefill } from '@/lib/dispatch-prefill.js';
 import { TrafficStopRiskPrompt } from '@/components/traffic-stop-risk-choice.js';
 import { CLEARANCE_CODES, isValidRadioCode, isValidSituationFoundCode, normalizeRadioCode, normalizeSituationFoundCode, RADIO_CODES, suggestRunTypeFromDispatchedCode } from '@/lib/radio-codes.js';
 
@@ -42,6 +42,8 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
   const [incident, setIncident] = useState('');
   const [unit, setUnit] = useState(defaultUnit);
   const [failure, setFailure] = useState('');
+  const [lookupFailure, setLookupFailure] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [fromDispatch, setFromDispatch] = useState(false);
   const [location, setLocation] = useState('');
   const [locationCity, setLocationCity] = useState('');
@@ -64,35 +66,94 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
   const [chooseReason, setChooseReason] = useState<'choose_unit' | 'ambiguous'>('ambiguous');
   const [picked, setPicked] = useState<number | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const lookupBaselineRef = useRef<DispatchIncidentDraftFields | null>(null);
+  const draftFieldsNow: DispatchIncidentDraftFields = {
+    location, locationCity, locationState, locationZip, zone, cruiserDistrict,
+    occurredAtText: occurred, dispatchedAtText: dispatchedAt, clearedAtText: clearedAt,
+    dispatchedCode: code, clearanceCode,
+  };
+  const draftFieldsRef = useRef(draftFieldsNow);
+  draftFieldsRef.current = draftFieldsNow;
   const defaultUnitRef = useRef(defaultUnit);
   defaultUnitRef.current = defaultUnit;
   const previousDefaultUnit = useRef(defaultUnit);
   const cancelPending = useCallback(() => { requestIdRef.current += 1; abortRef.current?.abort(); abortRef.current = null; },[]);
   // Editing the number or unit invalidates any in-flight or unaccepted lookup result.
-  const editIncident = (value: string) => { setIncident(value); if (phase === 'loading' || phase === 'choose' || phase === 'failed') { cancelPending(); setPhase('ask'); setCandidates([]); setPicked(null); } };
-  const editUnit = (value: string) => { setUnit(value); if (phase === 'loading' || phase === 'choose' || phase === 'failed') { cancelPending(); setPhase('ask'); setCandidates([]); setPicked(null); } };
-  const applyMatch = (p: DispatchIncidentPrefill) => {
+  const currentDraftFields = () => draftFieldsRef.current;
+  const editIncident = (value: string) => {
+    setIncident(value);
+    lookupBaselineRef.current = null;
+    if (lookupLoading || phase === 'loading' || phase === 'choose' || phase === 'failed') {
+      setLookupLoading(false);
+      cancelPending(); setPhase('ask'); setCandidates([]); setPicked(null); setLookupFailure('');
+    }
+  };
+  const editUnit = (value: string) => {
+    setUnit(value);
+    lookupBaselineRef.current = null;
+    if (lookupLoading || phase === 'loading' || phase === 'choose' || phase === 'failed') {
+      setLookupLoading(false);
+      cancelPending(); setPhase('ask'); setCandidates([]); setPicked(null); setLookupFailure('');
+    }
+  };
+  const applyMatch = (p: DispatchIncidentPrefill, preserveEdits = false) => {
+    const fields = preserveEdits && lookupBaselineRef.current
+      ? applyDispatchIncidentRetry(currentDraftFields(), lookupBaselineRef.current, {
+        location: p.locationAddress ?? p.location,
+        locationCity: p.locationCity,
+        locationState: p.locationState,
+        locationZip: p.locationZip,
+        zone: p.zone,
+        cruiserDistrict: p.cruiserDistrict,
+        occurredAtText: p.eventIngressAt ? formatDateTimeMDY(p.eventIngressAt) : p.eventDate ? formatDateDMY(p.eventDate) : undefined,
+        dispatchedAtText: p.dispatchedAt ? formatDateTimeMDY(p.dispatchedAt) : undefined,
+        clearedAtText: p.clearedAt ? formatDateTimeMDY(p.clearedAt) : undefined,
+        dispatchedCode: p.dispatchedCode,
+        clearanceCode: p.clearanceCode,
+      })
+      : undefined;
+    if (preserveEdits) {
+      setFromDispatch(true);
+      setLocation(fields?.location ?? location);
+      setLocationCity(fields?.locationCity ?? locationCity);
+      setLocationState(fields?.locationState ?? locationState);
+      setLocationZip(fields?.locationZip ?? locationZip);
+      setZone(fields?.zone ?? zone);
+      setCruiserDistrict(fields?.cruiserDistrict ?? cruiserDistrict);
+      setOccurred(fields?.occurredAtText ?? occurred);
+      setDispatchedAt(fields?.dispatchedAtText ?? dispatchedAt);
+      setClearedAt(fields?.clearedAtText ?? clearedAt);
+      setCode(normalizeRadioCode(fields?.dispatchedCode ?? code));
+      setClearanceCode(fields?.clearanceCode ?? clearanceCode);
+      setLookupFailure('');
+      setFailure('');
+      setConfirmed(false);
+      setPhase('review');
+      return;
+    }
     setFromDispatch(true);
     setIncident(p.incidentNumber);
     if (p.unitNumber) setUnit(p.unitNumber);
-    setLocation(p.locationAddress ?? p.location ?? '');
-    setLocationCity(p.locationCity ?? '');
-    setLocationState(p.locationState ?? '');
-    setLocationZip(p.locationZip ?? '');
-    setZone(p.zone ?? '');
-    setCruiserDistrict(p.cruiserDistrict ?? '');
-    setOccurred(p.eventIngressAt ? formatDateTimeMDY(p.eventIngressAt) : p.eventDate ? formatDateDMY(p.eventDate) : '');
-    setDispatchedAt(p.dispatchedAt ? formatDateTimeMDY(p.dispatchedAt) : '');
-    setClearedAt(p.clearedAt ? formatDateTimeMDY(p.clearedAt) : '');
-    setCode(normalizeRadioCode(p.dispatchedCode ?? ''));
+    setLocation(fields?.location ?? p.locationAddress ?? p.location ?? '');
+    setLocationCity(fields?.locationCity ?? p.locationCity ?? '');
+    setLocationState(fields?.locationState ?? p.locationState ?? '');
+    setLocationZip(fields?.locationZip ?? p.locationZip ?? '');
+    setZone(fields?.zone ?? p.zone ?? '');
+    setCruiserDistrict(fields?.cruiserDistrict ?? p.cruiserDistrict ?? '');
+    setOccurred(fields?.occurredAtText ?? (p.eventIngressAt ? formatDateTimeMDY(p.eventIngressAt) : p.eventDate ? formatDateDMY(p.eventDate) : ''));
+    setDispatchedAt(fields?.dispatchedAtText ?? (p.dispatchedAt ? formatDateTimeMDY(p.dispatchedAt) : ''));
+    setClearedAt(fields?.clearedAtText ?? (p.clearedAt ? formatDateTimeMDY(p.clearedAt) : ''));
+    setCode(normalizeRadioCode(fields?.dispatchedCode ?? p.dispatchedCode ?? ''));
     setSituationFoundCode('');
-    setClearanceCode(p.clearanceCode ?? '');
+    setClearanceCode(fields?.clearanceCode ?? p.clearanceCode ?? '');
     const suggestion=suggestRunTypeFromDispatchedCode(p.dispatchedCode ?? '');
     setKind(suggestion.status==='ambiguous'?'':suggestion.runKind);
     const trafficStop=normalizeRadioCode(p.dispatchedCode??'')==='6';
     setRiskUnanswered(trafficStop);
     setRiskPrompt(trafficStop);
     setConfirmed(false);
+    setLookupFailure('');
+    setFailure('');
     setPhase('review');
   };
 
@@ -149,15 +210,16 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
 
   useEffect(() => {
     if (!open) return;
-    setPhase('ask'); setIncident(''); setUnit(defaultUnitRef.current); setFailure(''); setFromDispatch(false);
+    setPhase('ask'); setIncident(''); setUnit(defaultUnitRef.current); setFailure(''); setLookupFailure(''); setLookupLoading(false); setFromDispatch(false);
     setLocation(''); setLocationCity(''); setLocationState(''); setLocationZip(''); setZone(''); setCruiserDistrict('');
     setOccurred(''); setDispatchedAt(''); setClearedAt(''); setCode(''); setSituationFoundCode(''); setClearanceCode(''); setKind('');
     setRiskPrompt(false);setRiskUnanswered(false);
-    setCandidates([]); setPicked(null); setConfirmed(false);
+    setCandidates([]); setPicked(null); setConfirmed(false); lookupBaselineRef.current = null;
     return () => cancelPending();
   }, [open,cancelPending]);
   useEffect(() => {
     cancelPending();
+    setLookupLoading(false);
     setCandidates([]); setPicked(null);
     setPhase(current => current === 'loading' || current === 'choose' ? 'ask' : current);
     const previous=previousDefaultUnit.current;
@@ -171,20 +233,29 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
   const runLookup = async () => {
     const inc = incident.trim(); const un = unit.trim();
     if (!inc || !un) return;
+    const returnToReview = phase === 'review';
+    if (!lookupBaselineRef.current) lookupBaselineRef.current = currentDraftFields();
     cancelPending();
     const controller = new AbortController();
     abortRef.current = controller;
     const requestId = requestIdRef.current;
-    setPhase('loading');
+    setLookupLoading(true);
+    setFailure('');
+    if (!returnToReview) setPhase('loading');
     const result = await lookupDispatchIncident(inc, un, controller.signal);
     // Reject stale results: a newer request, an edit, or a close supersedes this one.
     if (controller.signal.aborted || requestId !== requestIdRef.current || result.status === 'aborted') return;
     abortRef.current = null;
-    if (result.status === 'matched') applyMatch(result.match);
+    setLookupLoading(false);
+    if (result.status === 'matched') applyMatch(result.match, returnToReview);
     else if (result.status === 'choose') { setCandidates(result.matches); setChooseReason(result.reason); setPicked(null); setPhase('choose'); }
-    else { setFailure(result.status === 'empty' ? `No dispatch record for incident ${inc} on unit ${un} was found.` : result.message); setPhase('failed'); }
+    else {
+      const message = result.status === 'empty' ? `No dispatch record for incident ${inc} on unit ${un} was found.` : result.message;
+      setLookupFailure(message);
+      if (!returnToReview) setPhase('failed');
+    }
   };
-  const manual = () => { cancelPending(); setFromDispatch(false); setFailure(''); setConfirmed(false); setPhase('review'); };
+  const manual = () => { cancelPending(); setLookupLoading(false); setFromDispatch(false); setFailure(''); setConfirmed(false); setPhase('review'); };
 
   return <React.Fragment><AlertDialog open={open} onOpenChange={next => { if (!next) { cancelPending(); onCancel(); } }}>
     <AlertDialogContent className="max-h-[90dvh] max-w-xl overflow-y-auto" data-testid="dialog-new-run">
@@ -203,12 +274,12 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
         {!unit.trim() && <p className="text-xs text-muted-foreground sm:col-span-2">Enter the unit or cruiser assignment from Reporting for Duty. This editable value identifies your unit when multiple officers share an incident.</p>}
         {phase === 'loading' && <div className="h-10 animate-pulse rounded bg-muted sm:col-span-2" role="status" aria-label="Looking up incident" />}
         {phase === 'failed' && <div role="alert" className="rounded border border-warn/60 bg-warn/10 p-3 text-sm sm:col-span-2" data-testid="text-lookup-failed">
-          <b>{failure}</b> No dispatch data was added. Retry, or continue with manual entry; the incident number you typed is kept.
+          <b>{lookupFailure}</b> No dispatch data was added. Retry, or continue with manual entry; the incident number you typed is kept.
         </div>}
         {phase === 'choose' && <fieldset className="sm:col-span-2" data-testid="list-dispatch-candidates">
           <legend className="text-sm font-semibold">{chooseReason === 'choose_unit' ? 'Several units are on this incident. Select your own unit record.' : 'More than one record matches. Select the correct record.'}</legend>
           <ul className="mt-2 max-h-60 divide-y overflow-y-auto rounded border bg-card">
-            {candidates.map((c, i) => <li key={i}><label className="flex cursor-pointer items-start gap-2 p-2 text-sm">
+          {candidates.map((c, i) => <li key={i}><label className="flex cursor-pointer items-start gap-2 p-2 text-sm">
               <input type="radio" name="dispatch-candidate" checked={picked === i} onChange={() => setPicked(i)} data-testid={`radio-dispatch-candidate-${i}`} />
               <span><b className="mono">{c.unitNumber || 'No unit listed'}</b> · {c.incidentNumber}{c.dispatchedCode ? ` · 10-${c.dispatchedCode}` : ''}{c.location ? ` · ${c.location}` : ''}{c.dispatchedAt ? ` · dispatched ${formatDateTimeMDY(c.dispatchedAt)}` : ''}</span>
             </label></li>)}
@@ -219,6 +290,10 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
 
       {phase === 'review' && <div className="grid gap-3 sm:grid-cols-2">
         {failure&&<div role="alert" className="rounded border border-warn/60 bg-warn/10 p-3 text-sm sm:col-span-2">{failure}</div>}
+        {lookupFailure&&<div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded border border-warn/60 bg-warn/10 p-3 text-sm sm:col-span-2" data-testid="text-review-lookup-failed">
+          <span><b>{lookupFailure}</b> Manual entries are kept.</span>
+          <button type="button" disabled={lookupLoading || !incident.trim() || !unit.trim()} onClick={() => void runLookup()} className="inline-flex min-h-10 items-center gap-1.5 rounded border bg-card px-3 font-semibold disabled:opacity-50" data-testid="button-review-dispatch-retry"><RotateCw className="h-4 w-4" />{lookupLoading ? 'Retrying…' : 'Retry lookup'}</button>
+        </div>}
         <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Primary run type · required</span>
           <select className={inp} value={kind} onChange={e => {
             const next=e.target.value as PrimaryRunForm;
@@ -253,8 +328,8 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
       <AlertDialogFooter className="flex-wrap gap-2">
         <AlertDialogCancel data-testid="button-new-run-cancel">Cancel</AlertDialogCancel>
         {phase !== 'review' && <button type="button" onClick={manual} className="inline-flex min-h-10 items-center gap-1.5 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-new-run-manual"><PenLine className="h-4 w-4" />Enter manually</button>}
-        {phase === 'choose' && <button type="button" disabled={picked === null} onClick={() => { const c = picked !== null ? candidates[picked] : undefined; if (c) applyMatch(c); }} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-use-candidate">Use selected record</button>}
-        {phase === 'failed' && <button type="button" onClick={() => void runLookup()} className="inline-flex min-h-10 items-center gap-1.5 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-new-run-retry"><RotateCw className="h-4 w-4" />Retry</button>}
+        {phase === 'choose' && <button type="button" disabled={picked === null} onClick={() => { const c = picked !== null ? candidates[picked] : undefined; if (c) applyMatch(c, !!lookupBaselineRef.current); }} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-use-candidate">Use selected record</button>}
+        {phase === 'failed' && <button type="button" disabled={lookupLoading} onClick={() => void runLookup()} className="inline-flex min-h-10 items-center gap-1.5 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-50" data-testid="button-new-run-retry"><RotateCw className="h-4 w-4" />{lookupLoading ? 'Retrying…' : 'Retry'}</button>}
         {(phase === 'ask' || phase === 'loading') && <button type="button" disabled={!incident.trim() || !unit.trim() || phase === 'loading'} onClick={() => void runLookup()} className="inline-flex min-h-10 items-center gap-1.5 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-lookup"><Search className="h-4 w-4" />Look up</button>}
         {phase === 'review' && <button type="button" disabled={!kind || !confirmed} onClick={() => submitReviewedRun()} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-new-run-confirm">Open run sheet</button>}
       </AlertDialogFooter>

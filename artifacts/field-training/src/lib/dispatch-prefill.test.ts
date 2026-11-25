@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyDispatchPrefill, applyDispatchPrefillValue, mapDispatchPrefillResponse, mapDispatchIncidentResponse, restoreDispatchPrefillFields, selectDispatchIncidentMatch, serializeDispatchPrefillFields, type DispatchPrefillDraft } from "./dispatch-prefill.js";
+import { applyDispatchIncidentRetry, applyDispatchPrefill, applyDispatchPrefillValue, mapDispatchPrefillResponse, mapDispatchIncidentResponse, restoreDispatchPrefillFields, selectDispatchIncidentMatch, serializeDispatchPrefillFields, type DispatchIncidentDraftFields, type DispatchPrefillDraft } from "./dispatch-prefill.js";
+import { lookupDispatchIncident } from "../components/dispatch-incident-lookup.js";
 import { OfflineStorage } from "./offlineStorage.js";
 import type { TrainingRun } from "./model.js";
 
@@ -134,6 +135,58 @@ test('structured dispatch location and clearance prefill only untouched fields',
     runZone:'Z1',runCruiserDistrict:'D1',clearanceCode:'3V',
   });
   assert.equal(applyDispatchPrefill({...initial,runLocationCity:'FTO correction'},initial,prefill).runLocationCity,'FTO correction');
+});
+
+test('dispatch retries stay available after repeated failures and reuse the same event', async t => {
+  const originalFetch = globalThis.fetch;
+  const requests: string[] = [];
+  let attempts = 0;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = async (_input, init) => {
+    requests.push(String(init?.body));
+    attempts += 1;
+    if (attempts < 3) throw new Error('temporary outage');
+    return new Response(JSON.stringify({
+      status: 'success',
+      metadata: { total_records: 1 },
+      data: [{ incidentNumber: 'INC-2468', unitNumber: 'UNIT-A', locationAddress: '100 Main Street' }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+
+  const results = [];
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    results.push(await lookupDispatchIncident('INC-2468', 'UNIT-A', new AbortController().signal));
+  }
+  assert.deepEqual(results.map(result => result.status), ['unavailable', 'unavailable', 'matched']);
+  assert.deepEqual(requests, Array(3).fill(JSON.stringify({ incidentNumber: 'INC-2468', unitNumber: 'UNIT-A' })));
+});
+
+test('a successful retry fills untouched fields but preserves manual corrections', () => {
+  const initial: DispatchIncidentDraftFields = {
+    location: '', locationCity: '', locationState: '', locationZip: '', zone: '', cruiserDistrict: '',
+    occurredAtText: '', dispatchedAtText: '', clearedAtText: '', dispatchedCode: '', clearanceCode: '',
+  };
+  const corrected: DispatchIncidentDraftFields = {
+    ...initial,
+    location: 'FTO corrected location',
+    locationCity: 'Corrected City',
+    dispatchedCode: '17A',
+  };
+  assert.deepEqual(applyDispatchIncidentRetry(corrected, initial, {
+    location: '100 Main Street',
+    locationCity: 'Columbus',
+    locationState: 'OH',
+    zone: 'Z1',
+    occurredAtText: '11/23/2026 14:05',
+    dispatchedCode: '6',
+    clearanceCode: '3V',
+  }), {
+    ...corrected,
+    locationState: 'OH',
+    zone: 'Z1',
+    occurredAtText: '11/23/2026 14:05',
+    clearanceCode: '3V',
+  });
 });
 
 test("dispatch ingress time is a default only until the FTO changes it", () => {
