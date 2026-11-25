@@ -76,6 +76,13 @@ There was no page reload after releasing the delayed A responses.
 
 ## Reproduction recipe
 
+For retained, isolated fallback coverage with cross-tab delivery and polling
+disabled by test controls, see
+[`ASSIGNMENT_FALLBACK_BROWSER_TEST.md`](ASSIGNMENT_FALLBACK_BROWSER_TEST.md).
+That suite exercises the actual Query focus/online listeners with controlled
+browser signals; it does not reinterpret this earlier run as native-event
+evidence.
+
 1. Start the existing portal workflow. Use a disposable Chromium context and
    programmatic fictional verified FTO sessions; never copy operational claims
    or credentials into fixtures.

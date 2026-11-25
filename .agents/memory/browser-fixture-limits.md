@@ -16,3 +16,19 @@ For route fixtures, abort requests at the fixture layer to simulate service
 unavailability, and distinguish polling recovery from an observed immediate
 focus/online refetch. Never claim OS sleep or real network coverage from those
 substitutes.
+
+Controlled browser events must reach the dependency's actual listener target.
+For visibility recovery, a synthetic event sent on the document without
+bubbling can miss a window listener. A focus-state getter alone is not proof
+that the listener ran; assert the resulting network request with polling
+suppressed instead.
+
+**Why:** An isolated browser run initially appeared to reproduce a focus
+failure, but only its synthetic event delivery was wrong. Separately, a minimal
+silent channel stub broke authentication initialization because a dependency
+also expected the channel's EventTarget API.
+
+**How to apply:** Preserve the real event-listener path and compatible browser
+interfaces in test controls. Scope channel counters to the feature under test,
+since auth dependencies may also create and post to their own channels. Report
+synthetic-event coverage separately from native OS or network transitions.
