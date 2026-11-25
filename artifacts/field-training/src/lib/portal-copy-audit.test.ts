@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import React, { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { JSDOM } from 'jsdom';
+import { ApplicationHelpDesk } from '../components/application-help-desk.js';
 import {
   APPLICATION_HELP_TOPICS,
   getApplicationHelpTopicForRole,
   getApplicationHelpTopicsForRole,
 } from './application-help.js';
-import { ROLES } from './model.js';
+import { ROLES, type Role } from './model.js';
 
 const source = (relativePath: string) => readFileSync(new URL(relativePath, import.meta.url), 'utf8');
 const shell = source('../components/shell.tsx');
@@ -25,6 +29,64 @@ const forum = source('../pages/fto-forum.tsx');
 const phaseExtension = source('../components/phase-extension-panel.tsx');
 const ftoHelp = source('./fto-help.ts');
 const directiveIndex = source('./directive-pdf-index.ts');
+
+async function withMountedHelpDesk(
+  search: string,
+  run: (container: HTMLElement, renderRole: (role: Role) => Promise<void>) => Promise<void>,
+) {
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', {
+    pretendToBeVisual: true,
+    url: `http://localhost/resources${search}`,
+  });
+  const globalKeys = [
+    'window', 'document', 'HTMLElement', 'Node', 'navigator', 'getComputedStyle', 'React',
+    'location', 'history', 'addEventListener', 'removeEventListener',
+  ] as const;
+  const previous = new Map(globalKeys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const previousAct = Object.getOwnPropertyDescriptor(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
+  for (const key of globalKeys) {
+    const value = key === 'window' ? dom.window
+      : key === 'document' ? dom.window.document
+        : key === 'HTMLElement' ? dom.window.HTMLElement
+          : key === 'Node' ? dom.window.Node
+            : key === 'navigator' ? dom.window.navigator
+              : key === 'React' ? React
+                : key === 'location' ? dom.window.location
+                  : key === 'history' ? dom.window.history
+                    : key === 'addEventListener' ? dom.window.addEventListener.bind(dom.window)
+                      : key === 'removeEventListener' ? dom.window.removeEventListener.bind(dom.window)
+                : dom.window.getComputedStyle.bind(dom.window);
+    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  }
+  Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+    configurable: true,
+    writable: true,
+    value: true,
+  });
+  Object.defineProperty(dom.window.HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: () => undefined,
+  });
+  const container = dom.window.document.getElementById('root')!;
+  const root = createRoot(container);
+  const renderRole = async (role: Role) => {
+    await act(async () => root.render(createElement(ApplicationHelpDesk, { role })));
+  };
+
+  try {
+    await run(container, renderRole);
+  } finally {
+    await act(async () => root.unmount());
+    for (const key of globalKeys) {
+      const descriptor = previous.get(key);
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else delete (globalThis as Record<string, unknown>)[key];
+    }
+    if (previousAct) Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', previousAct);
+    else delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
+    dom.window.close();
+  }
+}
 
 test('application-use topics are searchable and include steps, results, and recovery', () => {
   const ids = new Set(APPLICATION_HELP_TOPICS.map(topic => topic.id));
@@ -121,6 +183,30 @@ test('contextual Help Desk links resolve to an available answer for the relevant
     assert.equal(getApplicationHelpTopicForRole(role, id).id, id);
   }
   assert.equal(getApplicationHelpTopicForRole('po', 'roster-import').id, 'local-save');
+});
+
+test('Help Desk deep links show an allowed answer when the role cannot access the requested topic', async () => {
+  await withMountedHelpDesk('?topic=roster-import', async (container, renderRole) => {
+    await renderRole('po');
+
+    const answer = container.querySelector('article')!;
+    assert.equal(answer.querySelector('h3')?.textContent, 'Save and reopen a local draft');
+    assert.doesNotMatch(answer.textContent ?? '', /Import a roster/);
+  });
+});
+
+test('Help Desk immediately replaces a restricted answer after an in-place role change', async () => {
+  await withMountedHelpDesk('?topic=roster-import', async (container, renderRole) => {
+    await renderRole('fto');
+    assert.equal(container.querySelector('article h3')?.textContent, 'Import a roster');
+
+    await renderRole('po');
+
+    const answer = container.querySelector('article')!;
+    assert.equal(answer.querySelector('h3')?.textContent, 'Save and reopen a local draft');
+    assert.doesNotMatch(answer.textContent ?? '', /Import a roster/);
+    assert.equal(window.location.search, '?topic=roster-import');
+  });
 });
 
 test('help keeps application-use guidance separate from sourced policy', () => {

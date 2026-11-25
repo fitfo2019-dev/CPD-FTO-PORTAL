@@ -3,11 +3,15 @@ name: Verification boundaries
 description: Differences between browser and Node JSX, React input focus in JSDOM, and emulated versus actual PostgreSQL permission checks.
 ---
 
-Exercise actual JSX components, not only pure models or browser builds.
+Exercise actual JSX components, not only pure models or browser builds. Direct
+Node tests may use classic JSX and need an explicit React global, while location
+hooks can read globals such as `location` and `history` rather than `window`.
 
 **Why:** Vite can supply a React runtime that Node's transformation of transitive JSX imports does not. Typechecking and the browser build alone missed a component-rendering failure.
 
-**How to apply:** Include component `.test.tsx` files in alias-resolved regression commands, alongside `.test.ts` files. Keep those tests independent of browser-only runtime injection.
+**How to apply:** Mount components with a scoped JSDOM setup, provide only the
+React and browser globals the component requires, and restore them after each
+test. Avoid changing production code solely to satisfy the test transform.
 
 Browser-specific focus and input behavior needs verification at the browser boundary.
 
