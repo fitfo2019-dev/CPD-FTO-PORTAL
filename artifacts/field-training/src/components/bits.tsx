@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils.js';
 import { STATUS_LABEL, ratingLabel, ratingShortLabel, type Rating, type Status } from '@/lib/model.js';
 
 export function PageHead({ kicker, title, children }: { kicker: string; title: string; children?: ReactNode }) {
-  return <div className="flex flex-wrap items-end gap-3 mb-5 rise"><div className="mr-auto min-w-0"><div className="label-caps">{kicker}</div><h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h1></div>{children}</div>;
+  return <div className="page-head flex flex-wrap items-end gap-3 mb-5 rise"><div className="mr-auto min-w-0"><div className="label-caps">{kicker}</div><h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h1></div>{children && <div className="page-head-actions">{children}</div>}</div>;
 }
 export function Panel({ title, action, children, className, id }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return <section id={id} className={cn('min-w-0 rounded-md border bg-card rise', className)}>{title && <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b"><h2 className="label-caps min-w-0 text-foreground mr-auto">{title}</h2>{action}</div>}{children}</section>;
