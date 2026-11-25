@@ -393,3 +393,82 @@ test("PO packet history pagination excludes drafts, unreleased and withdrawn pac
   ));
   assert.ok(calls.every(call => call.parameters[0] === "PO"));
 });
+
+test("packet continuations recheck roster assignment changes", async t => {
+  const reassignedFto: AgencyIdentity = {
+    id: "replacement-fto", badge: "5678", role: "FTO",
+  };
+
+  for (const change of ["deactivated", "reassigned"] as const) {
+    await t.test(`excludes records after the assignment is ${change}`, async () => {
+      const assignment = {
+        active: true,
+        ftoIdHash: hashUserIdentifier(fto.id),
+        ftoBadgeHash: hashUserIdentifier(fto.badge),
+      };
+      const packets = Array.from({ length: 101 }, (_, index) => ({
+        id: `packet-${String(index).padStart(3, "0")}`,
+        assignment_id: "assignment-1",
+        record_date: "2026-11-23",
+        phase: 1,
+        server_version: 1,
+        report: { id: `packet-${index}` },
+        submission_status: "submitted",
+        content_hash: "a".repeat(64),
+        released_to_po: false,
+        released_at: null,
+        withdrawn_at: null,
+        withdrawal_reason: null,
+        amendment_of: null,
+        amendment_reason: null,
+        acknowledgment: null,
+      }));
+      const readQueries: Array<{ sql: string; parameters: unknown[] }> = [];
+      const client = {
+        async query(sql: string, parameters: unknown[] = []) {
+          if (!sql.includes("FROM agency_training.packets p JOIN agency_training.packet_assignments"))
+            return { rows: [] };
+          readQueries.push({ sql, parameters });
+          assert.match(sql, /WHERE \(a\.active AND pa\.active AND/);
+          assert.match(sql, /a\.fto_id_hash = \$2 AND a\.fto_badge_hash = \$3/);
+          const [role, identityHash, badgeHash, , , , , afterDate, afterId, limit] = parameters;
+          if (!assignment.active || role !== "FTO" ||
+            assignment.ftoIdHash !== identityHash || assignment.ftoBadgeHash !== badgeHash)
+            return { rows: [] };
+          const visible = packets.filter(packet =>
+            afterDate == null || packet.record_date < String(afterDate) ||
+            (packet.record_date === String(afterDate) && packet.id < String(afterId)))
+            .sort((left, right) => right.record_date.localeCompare(left.record_date) ||
+              right.id.localeCompare(left.id))
+            .slice(0, Number(limit));
+          return { rows: visible };
+        },
+        release() {},
+      };
+      const store = createAgencyPacketStore({
+        connect: async () => client,
+      } as unknown as pg.Pool);
+
+      const firstPage = await store.readPage(fto, audit);
+      assert.equal(firstPage.data.length, 100);
+      assert.equal(firstPage.hasMore, true);
+      const cursor = encodePacketCursor(
+        String(firstPage.data.at(-1)!.record_date),
+        String(firstPage.data.at(-1)!.id),
+      );
+
+      // The server-side roster changes after the initial page and before the
+      // continuation request; the cursor itself carries no access grant.
+      if (change === "deactivated") assignment.active = false;
+      else {
+        assignment.ftoIdHash = hashUserIdentifier(reassignedFto.id);
+        assignment.ftoBadgeHash = hashUserIdentifier(reassignedFto.badge);
+      }
+
+      const continuation = await store.readPage(fto, audit, cursor);
+      assert.deepEqual(continuation.data, []);
+      assert.equal(continuation.hasMore, false);
+      assert.equal(readQueries.length, 2);
+    });
+  }
+});
