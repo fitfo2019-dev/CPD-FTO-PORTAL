@@ -1,0 +1,570 @@
+/* Reference-faithful agency record design (U-10.181 Substation Orientation proof).
+   Applies to all printed run, supplement, duty, continuation and orientation pages.
+   Geometry: US Letter, portrait or landscape; margins are owned by @page below.
+   Nothing is clipped. */
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("./assets/fonts/lato-regular.ttf") format("truetype");
+}
+
+/* One-sheet base forms. Narrative text uses the existing continuation
+   attachments; no clipping, transforms, or whole-page scaling. */
+@media print {
+  .print-document.print-reference-pilot {
+    --print-body-size: 8pt; --print-label-size: 7pt;
+    --print-section-size: 9pt; --print-title-size: 20pt;
+    --print-panel-inset: 4pt; --print-section-gap: 4pt;
+  }
+  .print-document.print-reference-pilot :is(.print-run-header,.print-form-header,.print-extended-header,.print-summary-header,.print-monthly-header,.print-weekly-header) { padding-top: 64pt !important; margin-bottom: 4pt !important; padding-bottom: 0 !important; }
+  .print-document.print-reference-pilot :is(.print-field-grid,.print-run-meta,.print-run-fields) { margin-bottom: 2pt !important; }
+  .print-document.print-reference-pilot :is(.print-field-grid,.print-run-meta,.print-run-fields) > span { padding: 2pt 6pt !important; min-height: 0 !important; line-height: 1 !important; }
+  .print-document.print-reference-pilot :is(.print-field-grid,.print-run-meta,.print-run-fields) b { margin-bottom: 1pt; font-size: 7pt !important; }
+  .print-document.print-reference-pilot :is(.print-meta-grid,.print-form-meta,.print-extended-meta,.print-summary-meta,.print-monthly-meta,.print-weekly-meta,.print-weekly-person-grid) { margin-bottom: 4pt !important; }
+  .print-document.print-reference-pilot :is(.print-meta-grid,.print-form-meta,.print-extended-meta,.print-summary-meta,.print-monthly-meta,.print-weekly-meta,.print-weekly-person-grid) > :is(span,div) { padding: 4pt 6pt !important; min-height: 0; font-size: 8.5pt !important; line-height: 1.12 !important; }
+  .print-document.print-reference-pilot :is(.print-meta-grid,.print-form-meta,.print-extended-meta,.print-summary-meta,.print-monthly-meta,.print-weekly-meta,.print-weekly-person-grid) b { font-size: 7.5pt !important; margin-bottom: 2pt; }
+  .print-document.print-reference-pilot :is(h2,h3) { padding: 3pt 6pt !important; font-size: 9pt !important; margin-bottom: 3pt; }
+  .print-document.print-reference-pilot .print-run-checklist-groups { columns: 3; column-gap: 6pt; }
+  .print-document.print-reference-pilot .print-run-checkgroup { margin-bottom: 4pt !important; break-inside: avoid-column !important; }
+  .print-document.print-reference-pilot .print-run-checkgroup ul { padding: 4pt 6pt !important; gap: 2pt !important; }
+  .print-document.print-reference-pilot.print-run-dense { --print-checklist-size: 7.5pt; --print-checklist-leading: 1; }
+  .print-document.print-reference-pilot .print-run-checkgroup li.print-checklist-row { font: var(--print-checklist-size,8pt)/var(--print-checklist-leading,1.1) Lato,sans-serif !important; margin: 0 !important; min-height: 0 !important; }
+  .print-document.print-reference-pilot .print-run-checkgroup li.print-checklist-row > b { font: 8pt/1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot .print-run-checkgroup h3 { font: 700 9pt/1.1 Lato,sans-serif !important; padding: 2pt 6pt !important; margin: 0 !important; }
+  .print-document.print-reference-pilot .print-run-checklist > h2 { font: 700 9pt/1.1 Lato,sans-serif !important; padding: 3pt 6pt !important; margin: 0 0 2pt !important; }
+  .print-document.print-reference-pilot .print-run-checklist > p { font: 7pt/1.1 Lato,sans-serif !important; padding: 0 !important; margin: 2pt 0 4pt !important; }
+  .print-document.print-reference-pilot :is(.print-run-legend,.print-summary-note,.print-monthly-note,.print-certificate-note) { padding: 3pt 6pt !important; margin: 3pt 0 4pt !important; font: 7.5pt/1.12 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot :is(.print-run-notes,.print-text,.print-notes-area,.print-directive-review) { padding: 4pt 6pt !important; min-height: 0 !important; margin: 4pt 0 !important; }
+  .print-document.print-reference-pilot :is(.print-run-notes,.print-text p,.print-notes-area p) { font-size: 8.5pt !important; line-height: 1.12 !important; min-height: 0 !important; }
+  .print-document.print-reference-pilot table:not(.print-page-frame) :is(td,th) { font-size: 8pt !important; line-height: 1.1 !important; padding: 1.25pt !important; }
+  .print-document.print-reference-pilot table .print-rating-group-cell { font-size: 8.5pt !important; }
+  .print-document.print-reference-pilot .print-duty-checklist-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6pt; align-items: start; }
+  .print-document.print-reference-pilot.print-duty-page .print-run-checkgroup ul { grid-template-columns: 1fr !important; }
+  .print-document.print-reference-pilot.print-duty-page .print-run-checkgroup li.print-checklist-row { font: 10pt/1.2 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot.print-duty-page .print-run-checkgroup h3 { font: 700 10pt/1.15 Lato,sans-serif !important; padding: 4pt 6pt !important; }
+  .print-document.print-reference-pilot.print-duty-page .print-run-checkgroup ul { gap: 3pt !important; }
+  .print-document.print-reference-pilot .print-summary-panels { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8pt; align-items: start; }
+  .print-document.print-reference-pilot .print-monthly-activity { break-before: auto !important; page-break-before: auto !important; padding: 0 !important; margin: 0 !important; }
+  .print-document.print-reference-pilot .print-activity-totals { display: grid; gap: 4pt; align-items: start; }
+  .print-document.print-reference-pilot .print-daily-tables { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); gap: 8pt; align-items: start; }
+  .print-document.print-reference-pilot .print-activity-section { margin: 0; }
+  .print-document.print-reference-pilot .print-activity-heading { display: block; padding: 0 0 3pt; }
+  .print-document.print-reference-pilot .print-activity-heading span { display: block; font-size: 7pt; line-height: 1.1; }
+  .print-document.print-reference-pilot .print-rating-table :is(th,.print-rating-cell) { padding: .5pt !important; }
+  .print-document.print-reference-pilot .print-rating-table thead th { font-size: 7pt !important; }
+  .print-document.print-reference-pilot .print-legend { margin: 3pt 0; font-size: 7pt !important; }
+  .print-document.print-reference-pilot .print-run-fields > [data-print-field="Additional activity / forms"] { grid-column: 1/-1; }
+  .print-document.print-reference-pilot .print-run-fields:not(:has(>[data-print-field="Traffic violator"])) > [data-print-field="Clearance code"] { grid-column: span 2; }
+  .print-document.print-reference-pilot .print-run-status { display: flex; flex-wrap: wrap; gap: 2pt 8pt; padding: 2pt 6pt; margin-bottom: 2pt; border: var(--print-border-weight) solid var(--ref-line); font: 7.5pt/1.1 Lato,sans-serif; }
+  .print-document.print-reference-pilot :is(.print-summary-rating-table,.print-monthly-rating-table) thead th { width: auto !important; font-size: 7pt !important; }
+  .print-document.print-reference-pilot .print-form-header { grid-template-columns: 1fr !important; gap: 2pt; }
+  .print-document.print-reference-pilot .print-form-header .print-reference { display: flex !important; flex-wrap: wrap; justify-content: space-between; gap: 2pt 8pt; }
+  .print-document.print-reference-pilot .print-daily-tables .print-activity-table :is(td,th) { padding: .75pt 1pt !important; }
+  .print-document.print-reference-pilot :is(.print-activity-table,.print-summary-activity,.print-monthly-activity-table) :is(td,th) { height: auto !important; min-height: 0 !important; }
+  .print-document.print-reference-pilot .print-summary-panels { grid-template-columns: minmax(0,1.9fr) minmax(0,1fr); }
+  .print-document.print-reference-pilot .print-summary-panels table :is(td,th) { padding: .5pt 1pt !important; font-size: 9pt !important; line-height: 1.1 !important; }
+  .print-document.print-reference-pilot .print-summary-panels table thead th { font-size: 8pt !important; }
+  .print-document.print-reference-pilot .print-monthly-meta { grid-template-columns: repeat(6,minmax(0,1fr)) !important; }
+  .print-document.print-reference-pilot .print-run-page .print-notes-area,
+  .print-document.print-reference-pilot .print-run-narrative:not(.print-narrative-continuation) { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: baseline; gap: 6pt; padding: 3pt 6pt !important; }
+  .print-document.print-reference-pilot .print-run-page .print-notes-area > p,
+  .print-document.print-reference-pilot .print-run-narrative:not(.print-narrative-continuation) > p { margin: 0; min-height: 0; }
+  .print-document.print-reference-pilot .print-directive-review:has(>.print-materials-table) { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.3fr); gap: 2pt 6pt; padding: 3pt 6pt !important; }
+  .print-document.print-reference-pilot .print-directive-review > b { grid-column: 1; grid-row: 1; }
+  .print-document.print-reference-pilot .print-material-checks { grid-column: 1; grid-row: 2; margin: 0; font-size: 7.5pt; }
+  .print-document.print-reference-pilot .print-material-source { grid-column: 1; grid-row: 3; margin: 0; font-size: 7pt; }
+  .print-document.print-reference-pilot .print-materials-table { grid-column: 2; grid-row: 1/span 2; align-self: start; }
+  .print-document.print-reference-pilot .print-materials-table caption { caption-side: bottom; text-align: left; margin: 2pt 0 0; font: 7pt/1.1 Lato,sans-serif; }
+  .print-document.print-reference-pilot :is(.print-notes-area,.print-run-narrative) > b { font: 700 8.5pt/1.1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot .print-template-footer { margin-top: 4pt !important; }
+  .print-document.print-reference-pilot .print-daily-tables .print-activity-table :is(td,th) { font: 7.5pt/1 Lato,sans-serif !important; }
+}
+@font-face {
+  font-family: "Lato";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("./assets/fonts/lato-bold.ttf") format("truetype");
+}
+:root {
+  --ref-navy: #122D4C;
+  --ref-gold: #CC9E47;
+  --ref-ink: #1C2631;
+  --ref-muted: #5b6573;
+  --ref-line: #AAB7C3;
+  --ref-bar: #EEF3F7;
+  --ref-bar-line: #AAB7C3;
+  --print-panel-inset: 8pt;
+  --print-column-gap: 8pt;
+  --print-section-gap: 8pt;
+  --print-border-weight: 0.55pt;
+  --print-title-size: 21pt;
+  --print-section-size: 10.5pt;
+  --print-body-size: 9pt;
+  --print-label-size: 8pt;
+  --print-footer-size: 7.5pt;
+}
+
+/* ---------- Letterhead (screen + print) ---------- */
+.print-columbus-lockup.print-ref-lockup {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.16in;
+  height: 0.7in;
+  padding-top: 0.08in;
+  border-bottom: 1px solid var(--ref-line);
+  box-sizing: border-box;
+}
+.print-ref-rule {
+  position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: var(--ref-navy);
+  border-bottom: 1.5px solid var(--ref-gold);
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.print-ref-lockup .print-columbus-city-logo {
+  position: static; width: 1.6in; max-width: none; flex: 0 0 auto;
+}
+.print-ref-separator { flex: 0 0 auto; width: 1px; height: 0.4in; background: var(--ref-line); }
+.print-ref-lockup .print-columbus-center {
+  position: static; width: auto; transform: none; text-align: left; flex: 1 1 auto;
+}
+.print-ref-lockup .print-columbus-titles { align-items: flex-start; gap: 3pt; }
+.print-ref-lockup .print-columbus-titles b {
+  color: var(--ref-navy); font-size: 12.5pt; font-weight: 700; letter-spacing: 0.01em;
+}
+.print-ref-lockup .print-columbus-titles > span {
+  color: var(--ref-muted); font-size: 8.5pt; font-weight: 700; letter-spacing: 0.02em;
+}
+.print-ref-patch { flex: 0 0 auto; width: 0.34in; height: 0.46in; object-fit: contain; margin-right: 0.04in; }
+.print-template-revision { position: absolute; left: 134pt; right: 44pt; bottom: 5pt; font: 7pt/1.15 Lato, sans-serif; color: var(--ref-muted); }
+
+/* Header containers: lockup now sits in flow-reserved space */
+.print-form-header, .print-run-header, .print-extended-header, .print-weekly-header,
+.print-summary-header, .print-monthly-header, .print-orientation-cont-head { padding-top: 0.74in; }
+.print-form-header .print-columbus-lockup.print-ref-lockup,
+.print-run-header .print-columbus-lockup.print-ref-lockup,
+.print-extended-header .print-columbus-lockup.print-ref-lockup,
+.print-weekly-header .print-columbus-lockup.print-ref-lockup,
+.print-summary-header .print-columbus-lockup.print-ref-lockup,
+.print-monthly-header .print-columbus-lockup.print-ref-lockup,
+.print-orientation-cont-head .print-columbus-lockup.print-ref-lockup {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  margin: 0;
+}
+
+/* Shared reference skin. PrintDocument retains the representative-check class
+   so every related form uses exactly the same rules and tokens. Form components
+   own their data, section order, fields, and column choices. */
+@page fto-portrait { size: Letter portrait; margin: 36pt; }
+@page fto-landscape { size: Letter landscape; margin: 36pt; }
+  @page fto-portrait, fto-landscape {
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font: 7.5pt/1 Lato,sans-serif; color: #607080;
+      vertical-align: middle;
+    }
+  }
+@media print {
+  .print-document.print-reference-pilot {
+    page: fto-portrait !important;
+    position: static !important;
+    inset: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+    display: block !important;
+    box-sizing: border-box;
+    color: var(--ref-ink) !important;
+    background: white !important;
+    font: var(--print-body-size)/1.25 Lato, Arial, sans-serif !important;
+    overflow: visible !important;
+    break-after: page;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-reference-pilot:last-child { break-after: auto; page-break-after: auto; }
+  .print-reference-pilot > .print-page-frame { width: 100%; border: 0; border-collapse: collapse; table-layout: fixed; }
+  .print-reference-pilot > .print-page-frame > :is(thead,tbody,tfoot) > tr > td {
+    padding: 0; border: 0; vertical-align: top; font: inherit; background: white;
+  }
+  .print-reference-pilot > .print-page-frame > thead { display: table-header-group; }
+  .print-reference-pilot > .print-page-frame > tfoot { display: table-footer-group; }
+  .print-reference-pilot > .print-page-frame > tbody > tr { break-inside: auto; page-break-inside: auto; }
+  .print-reference-pilot *, .print-reference-pilot *::before, .print-reference-pilot *::after {
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+  }
+  .print-reference-pilot .print-columbus-lockup.print-ref-lockup {
+    height: 64pt; padding-top: 0; border-bottom: var(--print-border-weight) solid var(--ref-line);
+  }
+  .print-reference-pilot .print-columbus-city-logo {
+    width: 122pt; height: 27pt; display: flex; align-items: center;
+  }
+  .print-reference-pilot .print-columbus-city-logo svg { width: 100%; height: 100%; object-fit: contain; }
+  .print-reference-pilot .print-ref-patch { width: 32pt; height: 50pt; margin-right: 0; object-fit: contain; }
+  .print-reference-pilot .print-run-header {
+    position: relative; padding-top: 72pt !important; margin: 0 0 var(--print-section-gap) !important;
+    display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 8pt;
+  }
+  .print-reference-pilot h1 {
+    margin: 0 0 4pt !important; font: 700 var(--print-title-size)/1.12 Lato, sans-serif !important; color: var(--ref-navy) !important;
+  }
+  .print-reference-pilot .print-run-header-meta { grid-template-columns: repeat(2,auto); gap: 2pt 6pt; padding-right: 1pt; font-size: var(--print-label-size) !important; line-height: 1.25 !important; }
+  .print-reference-pilot .print-run-header-meta > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .print-reference-pilot .print-field-grid {
+    display: grid; grid-template-columns: repeat(4,minmax(0,1fr)) !important;
+    gap: 0 !important; margin: 0 0 var(--print-section-gap) !important;
+    border: var(--print-border-weight) solid var(--ref-line) !important;
+  }
+  .print-reference-pilot .print-field-grid-2 { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+  .print-reference-pilot .print-field-grid-3 { grid-template-columns: repeat(3,minmax(0,1fr)) !important; }
+  .print-reference-pilot .print-field-grid > span {
+    display: block; min-width: 0; padding: var(--print-panel-inset) !important;
+    border: 0 !important; border-right: var(--print-border-weight) solid var(--ref-line) !important;
+    border-bottom: var(--print-border-weight) solid var(--ref-line) !important;
+    font-size: var(--print-body-size) !important; line-height: 1.25 !important; white-space: normal;
+  }
+  .print-reference-pilot .print-field-grid > span > b {
+    display: block; font-size: var(--print-label-size) !important; line-height: 1.2; margin-bottom: 3pt;
+  }
+  .print-reference-pilot .print-run-fields > span:nth-child(3) { grid-column: span 2; }
+  .print-reference-pilot .print-run-fields > [data-print-field="Additional activity / forms"] { grid-column: span 2; }
+  .print-reference-pilot .print-run-fields > [data-print-field="Arrest / transport"] { grid-column: span 3; }
+  .print-reference-pilot .print-run-checklist { padding: 0; margin: 0; border: 0; break-inside: auto; page-break-inside: auto; }
+  .print-reference-pilot .print-run-checklist > h2,
+  .print-reference-pilot .print-section-panel > h3 {
+    background: var(--ref-bar) !important; color: var(--ref-navy) !important;
+    border: 0 !important; border-bottom: var(--print-border-weight) solid var(--ref-line) !important;
+    font: 700 var(--print-section-size)/1.2 Lato, sans-serif !important;
+    padding: 6pt var(--print-panel-inset) !important; margin: 0 !important;
+    break-after: avoid;
+  }
+  .print-reference-pilot .print-run-checklist > p {
+    font-size: var(--print-label-size) !important; line-height: 1.25; margin: 5pt 0 8pt !important;
+  }
+  .print-reference-pilot .print-run-checklist-groups { columns: 2; column-gap: var(--print-column-gap); }
+  .print-reference-pilot .print-run-checkgroup {
+    border: var(--print-border-weight) solid var(--ref-line) !important;
+    margin: 0 0 var(--print-section-gap) !important; padding: 0 !important; break-inside: auto; page-break-inside: auto;
+  }
+  .print-reference-pilot .print-run-checkgroup ul {
+    display: grid !important; grid-template-columns: 1fr !important;
+    gap: 5pt !important; margin: 0 !important; padding: var(--print-panel-inset) !important; list-style: none;
+  }
+  .print-reference-pilot .print-run-checkgroup li.print-checklist-row {
+    display: grid !important; grid-template-columns: 8pt minmax(0,1fr); column-gap: 4pt;
+    margin: 0 !important; padding: 0 !important; font: var(--print-body-size)/1.25 Lato, sans-serif !important;
+    break-inside: avoid; white-space: normal;
+  }
+  .print-reference-pilot .print-checklist-row > b { position: static; width: auto; font-size: 9.5pt; font-weight: 400; }
+  .print-reference-pilot .print-checklist-row > span { min-width: 0; }
+  .print-reference-pilot .print-directive-review,
+  .print-reference-pilot .print-notes-area {
+    margin: var(--print-section-gap) 0 0 !important; padding: var(--print-panel-inset) !important;
+    border: var(--print-border-weight) solid var(--ref-line) !important; font-size: var(--print-body-size) !important;
+  }
+  .print-reference-pilot .print-directive-review table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .print-reference-pilot .print-directive-review td,
+  .print-reference-pilot .print-directive-review th { font-size: 8pt !important; padding: 4pt !important; }
+  .print-reference-pilot .print-notes-area p { margin: 4pt 0 0 !important; font: var(--print-body-size)/1.3 Lato, sans-serif !important; white-space: pre-wrap; }
+  .print-reference-pilot .print-template-footer {
+    position: relative; min-height: 54pt; padding: 6pt 0 0 44pt !important;
+    margin: 8pt 0 0 !important; border-top: var(--print-border-weight) solid var(--ref-line) !important;
+    font: var(--print-footer-size)/1.25 Lato, sans-serif !important; break-inside: avoid;
+  }
+  .print-reference-pilot .print-columbus-footer-badge { width: 32pt; height: 42pt; top: 6pt; bottom: auto; transform: none; object-fit: contain; }
+}
+
+/* Footer marks: badge bottom-left only, beside disclaimer */
+.print-columbus-footer-patch { display: none !important; }
+.print-columbus-footer-badge { left: 0; bottom: 50%; transform: translateY(50%); width: 0.22in; height: 0.3in; }
+
+/* The frame repeats the real record's heading/footer on natural continuation
+   sheets. Native table pagination keeps selectable text and signature content.
+   No fixed y coordinates, clipping, transforms, or whole-form scaling. */
+@media print {
+  body:has(.print-document) { margin: 0 !important; padding: 0 !important; page: fto-portrait !important; }
+  body:has(.print-document-landscape) { page: fto-landscape !important; }
+  .print-run-packet, .print-weekly-log { page: auto !important; margin: 0 !important; padding: 0 !important; }
+  .print-reference-pilot.print-document-landscape { page: fto-landscape !important; }
+  .print-reference-pilot :is(.print-form-header,.print-extended-header,.print-summary-header,.print-monthly-header,.print-weekly-header,.print-orientation-cont-head) {
+    position: relative; padding-top: 72pt !important; margin: 0 0 8pt !important; border-bottom: 0;
+  }
+  .print-reference-pilot .print-ref-lockup { padding: 0 !important; }
+  .print-reference-pilot .print-columbus-city-logo svg { display: block; width: 100%; height: 100%; }
+  .print-reference-pilot :is(.print-form-header,.print-extended-header,.print-summary-header,.print-monthly-header,.print-weekly-header,.print-orientation-cont-head) h1 {
+    font: 700 var(--print-title-size)/1.05 Lato,sans-serif !important;
+    color: var(--ref-navy); margin: 0; overflow-wrap: anywhere;
+  }
+  .print-reference-pilot .print-orientation-cont-head { display: grid; gap: 4pt; }
+  .print-reference-pilot :is(h2,h3) {
+    font: 700 var(--print-section-size)/1.2 Lato, sans-serif !important;
+    color: var(--ref-navy) !important; background: var(--ref-bar);
+    padding: 6pt 8pt; margin: 0 0 6pt; break-after: avoid;
+  }
+  .print-reference-pilot :is(.print-form-meta,.print-orientation-meta,.print-extended-meta,.print-summary-meta,.print-monthly-meta,.print-weekly-meta,.print-weekly-person-grid) {
+    gap: 0 !important; border: var(--print-border-weight) solid var(--ref-line);
+    margin: 0 0 8pt !important; padding: 0 !important;
+  }
+  .print-reference-pilot :is(.print-form-meta,.print-orientation-meta,.print-extended-meta,.print-summary-meta,.print-monthly-meta,.print-weekly-meta,.print-weekly-person-grid) > :is(span,div) {
+    min-width: 0; padding: 6pt !important; border: 0;
+    border-bottom: var(--print-border-weight) solid var(--ref-line);
+    border-right: var(--print-border-weight) solid var(--ref-line);
+    font: var(--print-body-size)/1.25 Lato,sans-serif !important;
+  }
+  .print-reference-pilot :is(.print-form-meta,.print-orientation-meta,.print-extended-meta,.print-summary-meta,.print-monthly-meta,.print-weekly-meta,.print-weekly-person-grid) b {
+    display: block; font-size: var(--print-label-size) !important; color: var(--ref-navy); margin-bottom: 3pt;
+  }
+  .print-reference-pilot table:not(.print-page-frame) { border-collapse: collapse; max-width: 100%; }
+  .print-reference-pilot table:not(.print-page-frame) :is(td,th) {
+    padding: 1.5pt !important; font: 9pt/1.2 Lato,sans-serif !important;
+    border-color: var(--ref-line) !important; overflow-wrap: anywhere; vertical-align: top;
+  }
+  .print-reference-pilot table:not(.print-page-frame) th {
+    background: var(--ref-bar); font-weight: 700 !important; color: var(--ref-navy);
+  }
+  .print-reference-pilot .print-rating-label-column { width: 25%; }
+  .print-reference-pilot .print-rating-choice-column { width: 5%; }
+  .print-document.print-reference-pilot .print-rating-group-cell { font-size: 10.5pt !important; font-weight: 700 !important; }
+  .print-reference-pilot .print-rating-empty { border: 0 !important; background: white; }
+  .print-reference-pilot .print-rating-table tbody .print-rating-label-cell { white-space: normal; }
+  .print-reference-pilot :is(.print-material-source,.print-legend,.print-summary-rating-legend,.print-monthly-legend) {
+    font: 8pt/1.2 Lato,sans-serif !important;
+  }
+  .print-reference-pilot :is(.print-legend,.print-summary-rating-legend,.print-monthly-legend) :is(span,b) { font-size: inherit !important; }
+  .print-reference-pilot .print-form-header { display: grid !important; grid-template-columns: minmax(0,1fr) 160pt; gap: 8pt; align-items: end; }
+  .print-reference-pilot .print-reference { display: grid !important; grid-template-columns: 1fr; min-width: 0; gap: 3pt; font-size: 8pt !important; }
+  .print-reference-pilot .print-reference > span { white-space: normal; overflow-wrap: normal; }
+  .print-reference-pilot .print-reference .print-folder-page-reference { justify-self: end; }
+  .print-reference-pilot .print-form-number { font-size: 8pt !important; margin: 4pt 0 0; }
+  .print-reference-pilot .print-meta-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 0; margin-bottom: 8pt; border: var(--print-border-weight) solid var(--ref-line); }
+  .print-reference-pilot .print-meta-grid .print-field { padding: 8pt; min-width: 0; border: var(--print-border-weight) solid var(--ref-line); }
+  .print-reference-pilot .print-meta-grid .print-field:nth-child(-n+2) { grid-column: span 2; }
+  .print-reference-pilot .print-meta-grid .print-field:last-child { grid-column: 1/-1; }
+  .print-reference-pilot .print-field > span { font-size: 8pt !important; }
+  .print-reference-pilot .print-field > b { font-size: var(--print-body-size) !important; }
+  .print-reference-pilot.print-duty-page .print-run-checkgroup ul { grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 5pt 8pt; }
+  .print-reference-pilot .print-weekly-log-table .print-weekly-log-blank-row td { height: 11pt !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+  .print-reference-pilot .print-notes-grid > .print-text { break-inside: avoid; page-break-inside: avoid; }
+  .print-reference-pilot :is(.print-run-legend,.print-form-note,.print-summary-note,.print-monthly-note,.print-orientation-description,.print-orientation-note,.print-orientation-review,.print-certificate-note,.print-acknowledgement-note) {
+    font: 8.5pt/1.25 Lato,sans-serif !important; padding: 6pt 8pt !important;
+    border: var(--print-border-weight) solid var(--ref-line);
+    margin: 6pt 0 8pt; background: var(--ref-bar); color: var(--ref-ink);
+  }
+  .print-reference-pilot :is(.print-run-checkgroup,.print-orientation-columns section,.print-notes-grid,.print-weekly-log-corrective) {
+    border-color: var(--ref-line); padding: 0; min-height: 0;
+  }
+  .print-reference-pilot :is(.print-duty-page ul,.print-orientation-columns ul) { padding: 8pt; margin: 0; list-style: none; }
+  .print-reference-pilot :is(.print-run-checkgroup,.print-orientation-columns) li {
+    font: var(--print-body-size)/1.25 Lato,sans-serif !important;
+    padding: 0; margin: 0 !important; break-inside: avoid;
+  }
+  .print-reference-pilot :is(.print-run-checkgroup,.print-orientation-columns section) > :is(h2,h3) { margin: 0 !important; }
+  .print-reference-pilot .print-orientation-columns ul { display: grid; gap: 5pt; }
+  .print-reference-pilot .print-orientation-columns { gap: 8pt; align-items: start; }
+  .print-reference-pilot .print-orientation-b { min-height: 0; }
+  .print-reference-pilot .print-orientation-meta { grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .print-reference-pilot .print-orientation-class { grid-column: span 2; }
+  .print-reference-pilot .print-orientation-bottom { grid-template-columns: 1fr 1.15fr; gap: 8pt; margin-top: 8pt; align-items: start; }
+  .print-reference-pilot :is(.print-orientation-box,.print-run-notes,.print-text,.print-weekly-comment) { padding: 8pt !important; border: var(--print-border-weight) solid var(--ref-line); }
+  .print-reference-pilot :is(.print-text p,.print-run-notes,.print-orientation-cont-text,.print-daily-continuation-text,.print-weekly-log-narrative,.print-weekly-comment p) {
+    font: var(--print-body-size)/1.3 Lato,sans-serif !important; white-space: pre-wrap; overflow: visible; max-height: none;
+  }
+  .print-reference-pilot .print-monthly-activity { padding-top: 0 !important; }
+  .print-reference-pilot :is(.print-template-footer,footer) {
+    position: relative; min-height: 54pt; padding: 6pt 0 0 44pt !important; margin: 8pt 0 0 !important;
+    border-top: var(--print-border-weight) solid var(--ref-line); font: var(--print-footer-size)/1.25 Lato,sans-serif !important;
+    break-inside: avoid; color: var(--ref-muted); display: block;
+  }
+  .print-reference-pilot .print-columbus-footer-badge { position: absolute; left: 0; top: 6pt; width: 32pt; height: 42pt; transform: none; object-fit: contain; }
+
+  /* The orientation checklist remains one Letter sheet. Compact only this
+     form's spacing/type; retain all tasks, saved states, notes and review. */
+  .print-document.print-orientation-b .print-orientation-meta > span { padding: 3pt 8pt !important; }
+  .print-document.print-orientation-b .print-orientation-cols { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-auto-rows: minmax(0,1fr); flex: 1 1 0; min-height: 0; gap: 8pt; align-items: stretch; }
+  .print-document.print-orientation-b .print-orientation-col { display: flex; flex-direction: column; gap: 6pt; }
+  .print-document.print-orientation-b :is(.print-orientation-col > section,.print-orientation-bottom > section) { padding: 0; border: var(--print-border-weight) solid var(--ref-line); }
+  .print-document.print-orientation-b h2 { font: 700 10pt/1.15 Lato,sans-serif !important; padding: 4pt 8pt; margin: 0 !important; border: 0; }
+  .print-document.print-orientation-b .print-orientation-description { font: 8pt/1.15 Lato,sans-serif !important; padding: 0 !important; margin: 3pt 8pt !important; border: 0; background: none; }
+  .print-document.print-orientation-b .print-orientation-cols > section { display: flex; flex-direction: column; min-width: 0; height: 100%; }
+  .print-document.print-orientation-b ul { display: flex; flex: 1 1 auto; flex-direction: column; justify-content: space-between; gap: 3pt; padding: 5pt 8pt; margin: 0; }
+  .print-document.print-orientation-b li { font: 8.5pt/1.12 Lato,sans-serif !important; gap: 4pt; margin: 0; }
+  .print-document.print-orientation-b li b { min-width: 8pt; }
+  .print-document.print-orientation-b .print-orientation-bottom { grid-template-columns: 1fr 2fr; margin-top: 6pt; }
+  .print-document.print-orientation-b .print-orientation-box { font: 8.5pt/1.15 Lato,sans-serif; padding: 6pt 8pt !important; }
+  .print-document.print-orientation-b .print-orientation-review { margin: 4pt 0 0; padding: 0 !important; border: 0; background: none; font-size: 8pt !important; }
+}
+
+/* Equal category cards, filled to the printable sheet, not masonry columns.
+   The table can still grow if a future record exceeds the printable area;
+   content is never hidden or clipped. */
+@media print {
+  .print-document:is(.print-orientation-b,.print-duty-page):not(.print-document-landscape) > .print-page-frame,
+  .print-document.print-run-page:has(.print-run-checklist) > .print-page-frame { height: 718pt; }
+  .print-document:is(.print-orientation-b,.print-duty-page) .print-page-body,
+  .print-document.print-run-page:has(.print-run-checklist) .print-page-body { height: 100%; display: flex; flex-direction: column; gap: 4pt; }
+  .print-document:is(.print-orientation-b,.print-duty-page) .print-page-body > *,
+  .print-document.print-run-page:has(.print-run-checklist) .print-page-body > * { min-height: 0; flex-shrink: 1; }
+  .print-document.print-run-page .print-run-checklist { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; }
+  .print-document.print-reference-pilot .print-run-checklist-groups {
+    display: grid; columns: auto; grid-template-columns: repeat(3,minmax(0,1fr));
+    grid-auto-rows: minmax(0,1fr); gap: 6pt; flex: 1 1 0; min-height: 0; align-items: stretch; --print-checklist-size: 8pt; --print-checklist-leading: 1.05;
+    break-inside: avoid-page; page-break-inside: avoid;
+  }
+  .print-document.print-reference-pilot .print-run-checkgroup { break-inside: avoid-page; page-break-inside: avoid; }
+  .print-document.print-reference-pilot .print-run-checklist-groups:is([data-category-count="7"],[data-category-count="8"]) { grid-template-columns: repeat(4,minmax(0,1fr)); --print-checklist-size: 7.5pt; --print-checklist-leading: 1; }
+  .print-document.print-reference-pilot .print-run-checklist-groups:is([data-category-count="7"],[data-category-count="8"]) .print-run-checkgroup ul { padding: 1pt 4pt !important; }
+  .print-document.print-reference-pilot .print-run-checklist-groups[data-category-count="9"] { --print-checklist-size: 7.5pt; --print-checklist-leading: 1; }
+  .print-document.print-reference-pilot .print-run-checklist-groups:is([data-category-count="7"],[data-category-count="8"],[data-category-count="9"]) { --print-checklist-size: 7.1pt; --print-checklist-leading: .98; }
+  .print-document.print-reference-pilot .print-run-checklist-groups[data-category-count="9"] .print-run-checkgroup h3 { height: 14pt; }
+  .print-document.print-reference-pilot .print-run-checklist-groups[data-category-count="9"] .print-run-checkgroup ul { padding: .5pt 4pt !important; }
+  .print-document.print-reference-pilot.print-run-page:has(.print-run-checklist-groups[data-category-count="9"]) :is(.print-run-meta,.print-run-fields) > span { padding: 1pt 5pt !important; }
+  .print-document.print-reference-pilot[data-form-key="arrest_process"] .print-run-checkgroup h3,
+  .print-document.print-reference-pilot[data-form-key="ovi_process"] .print-run-checkgroup h3 { height: 16pt; }
+  .print-document.print-reference-pilot .print-run-checkgroup li.print-checklist-row > b { font: 9pt/1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot:has(:is(.print-run-checklist,.print-duty-checklist-grid,.print-orientation-cols,.print-ack-role-grid)) > .print-page-frame > thead header { padding-top: 64pt !important; }
+  .print-document.print-reference-pilot .print-title-meta-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12pt; }
+  .print-document.print-reference-pilot .print-header-options { display: inline-flex; flex-wrap: wrap; gap: 8pt; border: 0; background: none; font: 8.5pt/1 Lato,sans-serif; }
+  .print-document.print-reference-pilot .print-header-options b { font: 10pt/1 Lato,sans-serif; }
+  .print-document.print-reference-pilot .print-run-meta { grid-template-columns: repeat(9,minmax(0,1fr)) !important; }
+  .print-document.print-reference-pilot .print-run-meta > :is(:nth-child(1),:nth-child(3),:nth-child(5)) { grid-column: span 2; }
+  .print-document.print-reference-pilot .print-source-note { display: block; font: 7pt/1.1 Lato,sans-serif; }
+  .print-document.print-reference-pilot .print-checklist-intro { padding: 2pt 6pt; margin: 0 0 2pt; border: var(--print-border-weight) solid var(--ref-line); background: var(--ref-band); font: 7pt/1.1 Lato,sans-serif; }
+  .print-document.print-reference-pilot .print-checklist-intro :is(h2,p) { display: inline !important; border: 0 !important; padding: 0 !important; margin: 0 !important; font: 7pt/1.1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot .print-checklist-intro h2 { font-weight: 700 !important; margin-right: 6pt !important; }
+  .print-document.print-reference-pilot .print-run-checkgroup { display: flex; flex-direction: column; margin: 0 !important; height: auto; box-sizing: border-box; }
+  .print-document.print-reference-pilot .print-run-checkgroup h3 {
+    display: flex; align-items: center; flex-shrink: 0; height: 23pt; padding: 2pt 6pt !important;
+    font: 700 8.5pt/1.1 Lato,sans-serif !important;
+  }
+  /* Grow spacing into unused card space, but cap short lists so a handful of
+     items are not scattered across the whole card. Intrinsic minimum height
+     always wins over the cap, keeping wrapped labels fully visible. */
+  .print-document.print-reference-pilot .print-run-checkgroup ul {
+    display: flex !important; flex-direction: column; justify-content: space-between;
+    flex: 1 1 auto; min-height: min-content;
+    max-height: calc(var(--print-checklist-rows,1) * 24pt);
+    padding: 2pt 4pt !important; gap: 2.5pt !important;
+  }
+  .print-document.print-reference-pilot .print-run-checkgroup li.print-checklist-row { column-gap: 5pt; }
+  .print-document.print-reference-pilot .print-run-checklist-groups[data-category-count="6"] .print-run-checkgroup h3 { height: 18pt; }
+  .print-document.print-reference-pilot .print-run-checklist-groups:is([data-category-count="7"],[data-category-count="8"],[data-category-count="9"]) .print-run-checkgroup ul { gap: 2pt !important; }
+  .print-document.print-reference-pilot .print-equal-support { border: var(--print-border-weight) solid var(--ref-line); padding: 4pt; }
+  .print-document.print-reference-pilot .print-run-checkgroup > .print-equal-support { border: 0; padding: 3pt 5pt; }
+  .print-document.print-reference-pilot .print-equal-support .print-directive-review,
+  .print-document.print-reference-pilot .print-equal-support .print-notes-area,
+  .print-document.print-reference-pilot .print-equal-support .print-run-narrative { display: block !important; border: 0 !important; padding: 0 !important; margin: 0 0 4pt !important; }
+  .print-document.print-reference-pilot .print-equal-support .print-material-checks,
+  .print-document.print-reference-pilot .print-equal-support p { font: 7pt/1.1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot .print-equal-support .print-material-checks { display: flex; flex-wrap: wrap; gap: 3pt 6pt; }
+  .print-document.print-reference-pilot .print-material-checks > span { display: inline-flex; align-items: flex-start; gap: 3pt; min-width: 0; }
+  .print-document.print-reference-pilot .print-material-checks > span > b { flex-shrink: 0; font: 8pt/1 Lato,sans-serif; }
+  .print-document.print-reference-pilot .print-equal-support .print-materials-table :is(th,td) { font: 6.5pt/1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot .print-duty-checklist-grid { flex: 1 1 0; min-height: 0; grid-auto-rows: minmax(0,1fr); }
+  .print-document.print-reference-pilot.print-duty-page .print-run-checkgroup ul { gap: 3pt !important; max-height: calc(var(--print-checklist-rows,1) * 24pt); }
+  .print-document.print-reference-pilot.print-duty-page .print-run-checkgroup li.print-checklist-row { font: 11pt/1.1 Lato,sans-serif !important; grid-template-columns: 11.5pt minmax(0,1fr); }
+  .print-document.print-reference-pilot.print-duty-page .print-run-checkgroup li b { font: 11.5pt/1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot.print-duty-page .print-run-checkgroup h2 { display: flex; align-items: center; height: 34pt; margin: 0 !important; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols {
+    display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-auto-rows: minmax(0,1fr);
+    flex: 1 1 0; min-height: 0; gap: 6pt; align-items: stretch;
+  }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols > section { padding: 0 !important; border: var(--print-border-weight) solid var(--ref-line); height: 100%; box-sizing: border-box; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols h2 { display: flex; align-items: center; height: 21pt; padding: 0 6pt !important; margin: 0 !important; font: 700 9pt/1.1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols > section { --orientation-list-columns: 2; --orientation-list-font: 8.5pt; --orientation-list-leading: 1.08; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols > section:is([data-task-count="15"],[data-task-count="17"]) { --orientation-list-columns: 3; --orientation-list-font: 7.75pt; --orientation-list-leading: 1.05; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols > section[data-task-count="28"] { --orientation-list-columns: 3; --orientation-list-font: 7.5pt; --orientation-list-leading: 1; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols > section[data-task-count="1"] { --orientation-list-columns: 1; --orientation-list-font: 9pt; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols ul { display: block; flex: 0 0 auto; columns: var(--orientation-list-columns,2) !important; column-count: var(--orientation-list-columns,2) !important; column-gap: 8pt; padding: 4pt 8pt; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols li { display: flex; gap: 4pt; font: var(--orientation-list-font,8.5pt)/var(--orientation-list-leading,1.08) Lato,sans-serif !important; break-inside: avoid; break-inside: avoid-column; margin: 0 0 2pt; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols li span { font-size: var(--orientation-list-font,8.5pt) !important; line-height: var(--orientation-list-leading,1.08) !important; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols li b { font: 9pt/1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-description { font: 8pt/1.12 Lato,sans-serif !important; margin: 2pt 8pt !important; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-bottom { display: block; margin: 0; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols > section:last-child ul { columns: 1; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-cols .print-orientation-box { padding: 4pt 8pt !important; border: 0; font: 8pt/1.12 Lato,sans-serif; }
+  .print-document.print-reference-pilot.print-orientation-b .print-orientation-box :is(b,p,.print-orientation-review) { font-size: 8pt !important; line-height: 1.12 !important; margin: 2pt 0 !important; }
+
+  /* The daily log retains its original three rating blocks with four
+     activity groups underneath, on a landscape sheet. */
+  .print-document.print-reference-pilot.print-form .print-form-header { grid-template-columns: minmax(0,1fr) 180pt !important; padding-top: 64pt !important; }
+  .print-document.print-reference-pilot.print-form .print-reference { display: grid !important; }
+  .print-document.print-reference-pilot.print-form .print-meta-grid { grid-template-columns: repeat(8,minmax(0,1fr)); }
+  .print-document.print-reference-pilot.print-form .print-meta-grid > span { padding: 2pt 4pt !important; font-size: 8pt !important; }
+  .print-document.print-reference-pilot.print-form .print-meta-grid > span:last-child { display: flex; align-items: baseline; gap: 6pt; }
+  .print-document.print-reference-pilot.print-form .print-meta-grid > div:last-child { grid-column: span 8; display: flex; align-items: baseline; gap: 6pt; padding: 1pt 4pt !important; }
+  .print-document.print-reference-pilot.print-form .print-daily-tables { display: block; }
+  .print-document.print-reference-pilot.print-form .print-rating-label-column { width: 16.6667% !important; }
+  .print-document.print-reference-pilot.print-form .print-rating-choice-column { width: 3.3333% !important; }
+  .print-document.print-reference-pilot.print-form .print-rating-table :is(td,th),
+  .print-document.print-reference-pilot.print-form .print-activity-table :is(td,th) { font: 7.5pt/1 Lato,sans-serif !important; padding: .5pt 1pt !important; }
+  .print-document.print-reference-pilot.print-form .print-rating-cell > span { width: 8pt; height: 8pt; }
+  .print-document.print-reference-pilot.print-form .print-rating-cell > span.is-selected::after { font-size: 8pt; }
+  .print-document.print-reference-pilot.print-form .print-activity-section { margin-top: 3pt; }
+  .print-document.print-reference-pilot.print-form .print-activity-heading { display: flex; justify-content: space-between; }
+  .print-document.print-reference-pilot.print-form .print-legend { padding: .5pt 2pt !important; margin: .5pt 0; }
+  .print-document.print-reference-pilot.print-form .print-rating-instructions { margin: 1pt 0; font-size: 7pt; }
+  .print-document.print-reference-pilot.print-form .print-text { padding: 1pt 4pt !important; }
+  .print-document.print-reference-pilot.print-form .print-text p { font: 7pt/1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot.print-form .print-meta-grid > span { line-height: 1 !important; }
+  .print-document.print-reference-pilot.print-form .print-meta-grid b { font-size: 7pt !important; margin-bottom: 1pt; }
+  .print-document.print-reference-pilot.print-form .print-rating-table :is(td,th) { padding: .25pt 1pt !important; }
+  .print-document.print-reference-pilot.print-form .print-activity-table :is(td,th) { padding: 0 1pt !important; }
+  .print-document.print-reference-pilot.print-form .print-text > b { font: 700 7.5pt/1 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot.print-form .print-rating-table :is(td,th) { font-size: 7pt !important; }
+  .print-document.print-reference-pilot.print-form .print-activity-table :is(td,th) { font-size: 7pt !important; }
+  .print-document.print-reference-pilot.print-form .print-notes-grid { gap: 3pt; margin-top: 2pt; }
+  .print-document.print-reference-pilot.print-form .print-notes-grid > .print-text { padding: 0 3pt !important; margin: 0 !important; }
+  .print-document.print-reference-pilot.print-form .print-text p { margin: 0 !important; }
+  .print-document.print-reference-pilot.print-summary-panels table :is(td,th) { padding: .25pt 1pt !important; font-size: 8pt !important; line-height: 1 !important; }
+  .print-document.print-reference-pilot.print-summary .print-summary-note { padding: 2pt 4pt !important; margin: 2pt 0 !important; }
+  .print-document.print-reference-pilot.print-run-page:has([data-category-count="9"]) .print-run-fields > span { padding: 1pt 5pt !important; font-size: 8pt !important; }
+  .print-document.print-reference-pilot.print-run-page:has([data-category-count="9"]) .print-run-fields { grid-template-columns: repeat(7,minmax(0,1fr)) !important; }
+  .print-document.print-reference-pilot.print-run-page:has([data-category-count="9"]) .print-run-fields > :is(:nth-child(4),[data-print-field="Clearance code" i]) { grid-column: span 2 !important; }
+  .print-document.print-reference-pilot.print-run-page:has([data-category-count="9"]) .print-run-fields:not(:has([data-print-field="Traffic violator" i])) > [data-print-field="Clearance code" i] { grid-column: span 3 !important; }
+  .print-document.print-reference-pilot.print-run-page:has([data-category-count="9"]) .print-run-checklist-groups { gap: 3pt; }
+  .print-document.print-reference-pilot.print-run-page:has([data-category-count="9"]) .print-page-body { gap: 2pt; }
+  .print-document.print-reference-pilot.print-run-page:has([data-category-count="9"]) .print-page-body > .print-notes-area > p { margin: 0 !important; font-size: 8pt !important; }
+  .print-document.print-reference-pilot.print-run-page[data-form-key="call_for_service"] .print-page-body { height: calc(100% - 8pt) !important; box-sizing: border-box; }
+  .print-document.print-reference-pilot.print-run-page[data-form-key="call_for_service"] :is(.print-run-meta,.print-run-fields) > span { padding: 1pt 5pt !important; }
+  .print-document.print-reference-pilot.print-run-page[data-form-key="call_for_service"] .print-run-status { padding: 1pt 4pt; margin-bottom: 1pt; }
+
+  /* Each acknowledgement role has an equal writing area and its own
+     associated signature. Header fields map one-to-one to saved values. */
+  .print-document.print-reference-pilot.print-weekly .print-ack-meta { grid-template-columns: repeat(6,minmax(0,1fr)) !important; gap: 0; }
+  .print-document.print-reference-pilot.print-weekly .print-ack-meta > span { padding: 3pt 6pt !important; font: 9.5pt/1.15 Lato,sans-serif !important; }
+  .print-document.print-reference-pilot.print-weekly .print-ack-meta b { font: 700 7.5pt/1.15 Lato,sans-serif !important; margin-bottom: 1pt; }
+  .print-document.print-reference-pilot.print-weekly .print-ack-meta > :is(:nth-child(1),:nth-child(4)) { grid-column: span 3; }
+  .print-document.print-reference-pilot.print-weekly .print-ack-meta > :is(:nth-child(3),:nth-child(6)) { grid-column: span 2; }
+  .print-document.print-reference-pilot.print-weekly .print-ack-meta > :last-child { grid-column: span 4; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement > .print-page-frame { height: 718pt; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement .print-page-body { height: 100%; display: flex; flex-direction: column; gap: 8pt; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement .print-page-body > * { flex-shrink: 0; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement .print-ack-role-grid { display: grid; grid-template-rows: repeat(3,minmax(0,1fr)); gap: 8pt; flex: 1 0 auto; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement .print-ack-role { display: flex; flex-direction: column; gap: 4pt; min-height: 0; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement .print-comment { display: flex; flex-direction: column; flex: 1 0 auto; margin: 0; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement .print-comment > b { padding: 4pt 8pt; margin: 0; border: .55pt solid var(--ref-line); border-bottom: 0; background: var(--ref-band); color: var(--ref-navy); font: 700 9pt/1.1 Lato,sans-serif; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement .print-comment p { flex: 1 0 auto; min-height: 0; margin: 0; padding: 8pt; border: .55pt solid var(--ref-line); font: 9.5pt/1.2 Lato,sans-serif; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement .print-signature-line { grid-template-columns: 132pt minmax(0,1fr) auto 84pt; gap: 6pt; min-height: 24pt; flex-shrink: 0; font: 8pt/1.1 Lato,sans-serif; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement :is(.print-signature-mark,.print-signature-date) { min-width: 0; min-height: 16pt; padding: 2pt 4pt; overflow-wrap: anywhere; font: 9pt/1.1 Lato,sans-serif; }
+  .print-document.print-reference-pilot.print-weekly-acknowledgement .print-certificate-note { margin: 0 !important; }
+  .print-document.print-reference-pilot.print-weekly-log-page > .print-page-frame { height: 718pt; }
+  .print-document.print-reference-pilot.print-weekly-log-page .print-page-body { height: 100%; display: flex; flex-direction: column; gap: 6pt; }
+  .print-document.print-reference-pilot.print-weekly-log-page .print-page-body > * { flex-shrink: 0; }
+  .print-document.print-reference-pilot.print-weekly-log-page .print-weekly-log-corrective { flex: 1 0 auto; display: grid; grid-template-rows: auto minmax(0,1fr); margin: 0 !important; }
+  .print-document.print-reference-pilot.print-weekly-log-page .print-weekly-log-corrective > table { height: 100%; }
+  .print-document.print-reference-pilot.print-weekly-log-page .print-weekly-log-corrective tr { height: 1%; }
+  .print-document.print-reference-pilot.print-weekly-log-page .print-weekly-log-corrective .print-weekly-log-blank-row td { height: auto !important; }
+  .print-document.print-reference-pilot.print-weekly-log-page .print-weekly-log-table,
+  .print-document.print-reference-pilot.print-weekly-log-page .print-weekly-log-table :is(td,th) { border: .55pt solid var(--ref-line) !important; }
+}

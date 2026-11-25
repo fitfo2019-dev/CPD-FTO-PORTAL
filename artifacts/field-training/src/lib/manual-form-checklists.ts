@@ -9,7 +9,8 @@ const section = (title: string, ...labels: string[]): ManualChecklistSection => 
 });
 
 // Checkbox labels below are transcribed from the submitted Columbus FTO forms.
-// Do not combine multiple printed checkboxes into a summarized item.
+// Do not combine or reorder these persisted atomic offsets. Revised display
+// groupings live separately in revised-run-checklists.ts.
 export const SUBMITTED_PRIMARY_CHECKLISTS: Record<PrimaryRunForm, readonly ManualChecklistSection[]> = {
   call_for_service: [
     section('Pre Contact Actions',

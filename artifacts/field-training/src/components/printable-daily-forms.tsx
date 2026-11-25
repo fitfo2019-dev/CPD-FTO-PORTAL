@@ -1,4 +1,6 @@
 import React, { Fragment } from 'react';
+import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS, partitionRevisedChecklist, revisedRowState, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
+import { PrintDocument, PrintTitleBlock, PrintFieldGrid, PrintField, PrintSectionPanel, PrintChecklistRow, PrintNotesArea, PrintFooter } from '@/components/print-template.js';
 import {
   DAILY_DUTY_CHECKLIST,
   DAILY_ACTIVITY_FIELDS,
@@ -29,6 +31,7 @@ import { splitNarrativeContinuation } from '@/lib/narrative-continuation.js';
 import { buildOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { DIVISION_DIRECTIVE_SOURCE_REVISION } from '@/lib/division-directives.js';
 import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
+import { PrintableColumbusFooterMarks, PrintableColumbusHeader } from '@/components/printable-columbus-header.js';
 
 function formattedRunLocation(run:TrainingRun):string {
   const cityStateZip=[run.locationCity,[run.locationState,run.locationZip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
@@ -78,34 +81,37 @@ export function PrintableDailyForms({ report,orientation,dayReference,packet:pro
 
 function PageHeader({ title, formNumber, report, run, subtitle, pageReference }:{title:string;formNumber:string;report:Report;run?:TrainingRun;subtitle?:string;pageReference?:string}) {
   const [runDate,runTime]=run?formatDateTimeMDY(run.occurredAt).split(' '):[];
-  return <header className="print-run-header">
-    <div><p>Columbus Division of Police · Field Training Program</p><h1>{title}</h1>{formNumber&&<b>{formNumber}</b>}</div>
-    <div className="print-run-header-meta"><span><b>Date:</b> {runDate??formatDateDMY(report.date)}</span><span><b>Time:</b> {runTime??report.shiftStartTime??'Not recorded'}</span><span>{phaseLabel(report.phase)} · {shiftDisplayLabel(report.shift)}</span><b className="print-folder-page-reference" data-training-folder-page={pageReference}>{pageReference??'Training-folder reference unavailable'}</b>{subtitle&&<span>{subtitle}</span>}</div>
-  </header>;
+  const options=run?partitionRevisedChecklist(REVISED_PRIMARY_CHECKLISTS[run.runKind]).headerOptions:[];
+  const marker=run&&options.length>0?<span className="print-header-options">{options.map(option=><span key={option.id} data-print-field={option.label}>{revisedRowState(run.checklist,'task-',option.indices).checked?<><b>✓</b> {option.label}</>:'Actual Run'}</span>)}</span>:undefined;
+  return <PrintTitleBlock title={title} formId={formNumber} revisionKey={formNumber||'reporting_for_duty'} marker={marker}>
+    <span><b>Date:</b> {runDate??formatDateDMY(report.date)}</span><span><b>Time:</b> {runTime??report.shiftStartTime??'Not recorded'}</span><span>{phaseLabel(report.phase)} · {shiftDisplayLabel(report.shift)}</span><b className="print-folder-page-reference" data-training-folder-page={pageReference}>{pageReference??'Training-folder reference unavailable'}</b>{subtitle&&<span>{subtitle}</span>}
+  </PrintTitleBlock>;
 }
 
 function People({report}:{report:Report}) {
-  return <div className="print-run-meta">
-    <span><b>Probationary Officer</b>{report.recruitName} · Badge {report.recruitBadge}</span>
-    <span><b>FTO</b>{report.ftoName} · Badge {report.ftoBadge}</span>
-    <span><b>Class</b>{report.className||'—'}</span>
-    <span><b>FTO assignment</b>{phaseAssignmentLabel(report.ftoAssignment,report.shift,report.cruiserDistrict)}</span>
-  </div>;
+  return <PrintFieldGrid className="print-run-meta">
+    <PrintField label="Probationary Officer">{report.recruitName}</PrintField>
+    <PrintField label="PO Badge">{report.recruitBadge}</PrintField>
+    <PrintField label="Field Training Officer">{report.ftoName}</PrintField>
+    <PrintField label="FTO Badge">{report.ftoBadge}</PrintField>
+    <PrintField label="Class">{report.className||'—'}</PrintField>
+    <PrintField label="FTO Assignment">{phaseAssignmentLabel(report.ftoAssignment,report.shift,report.cruiserDistrict)}</PrintField>
+  </PrintFieldGrid>;
 }
 
 function DutyPage({report,pageReference}:{report:Report;pageReference?:string}) {
   const record=report.reportingForDuty;
-  return <article className="print-run-page print-duty-page" data-testid="print-duty-form">
+  return <PrintDocument className="print-run-page print-duty-page" data-testid="print-duty-form">
     <PageHeader title="Reporting for Duty Form" formNumber="" report={report} pageReference={pageReference}/>
     <People report={report}/>
     <div className="print-run-legend">Checklist items start checked. Review each item and clear anything not completed acceptably; Not applicable remains unchecked unless explicitly selected.</div>
-    {DAILY_DUTY_CHECKLIST.map(group=><section className="print-run-checkgroup" key={group.section}>
+    <div className="print-duty-checklist-grid">{DAILY_DUTY_CHECKLIST.map(group=><section className="print-run-checkgroup" key={group.section}>
       <h2>{group.section} {record?.notApplicable?.[group.section]?'· NOT APPLICABLE':''}</h2>
-      <ul>{group.items.map(item=><li key={item.key}><b>{record?.checklist?.[item.key]!==false?'☒':'☐'}</b>{item.label}</li>)}</ul>
-    </section>)}
+      <ul style={{'--print-checklist-rows':group.items.length} as React.CSSProperties}>{group.items.map(item=><PrintChecklistRow key={item.key} checked={record?.checklist?.[item.key]!==false} label={item.label}/>)}</ul>
+    </section>)}</div>
     <p className="print-run-notes"><b>Duty status:</b> {record?.dutyStatus||'—'}{record?.cruiserId&&<> · <b>Cruiser ID:</b> {record.cruiserId}</>}{record?.shotgunTraining&&<> · <b>Shotgun Training:</b> {record.shotgunTraining}</>} · <b>Notes:</b> {record?.notes||'—'}</p>
-    <footer className="print-run-footer">Duty checklist review: {record?.reviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.</footer>
-  </article>;
+    <footer className="print-run-footer">Duty checklist review: {record?.reviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.<PrintableColumbusFooterMarks /></footer>
+  </PrintDocument>;
 }
 
 function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;run:TrainingRun;pageReference?:string;narrativeReferences:(string|undefined)[]}) {
@@ -115,11 +121,18 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
   const clearance=CLEARANCE_CODES.find(item=>item.code===run.clearanceCode);
   const citationSummons=!!run.activityFlags?.solveCitationSummons;
   const relatedActivity=DAILY_ACTIVITY_FIELDS.filter(item=>item.key!=='solveCitationSummons'&&run.activityFlags?.[item.key]);
+  const attachedForms=requiredSupplementalForms(run).map(key=>SUPPLEMENTAL_RUN_FORMS.find(form=>form.key===key)?.label).filter(Boolean);
+  const additionalItems=[...attachedForms,...relatedActivity.map(item=>item.label)];
   const trafficStop=run.runKind==='traffic_stop'||run.runKind==='high_risk_stop';
-  return <article className="print-run-page" data-testid={`print-run-${run.id}`}>
+  const {sections}=partitionRevisedChecklist(REVISED_PRIMARY_CHECKLISTS[run.runKind]);
+  const narrativeSupport=<PrintNotesArea title="Run narrative">{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the following narrative continuation page'}.`:run.narrative||'—'}</PrintNotesArea>;
+  const separateNarrative=sections.length===9;
+  const support=<><DirectiveReviewPrint run={run} formKey={run.runKind} prefix="task-"/>{!separateNarrative&&narrativeSupport}</>;
+  const insetSupport=sections.length===7;
+  return <PrintDocument className={`print-run-page ${run.runKind==='traffic_stop'||run.runKind==='building_search'?'print-run-dense':''}`} data-form-key={run.runKind} data-testid={`print-run-${run.id}`}>
     <PageHeader title={form?.label||'Primary Run Form'} formNumber={form?.formNumber||''} report={report} run={run} pageReference={pageReference} subtitle={`Run ${formatTime(run.occurredAt)} · ${run.formStatus.replace('_',' ')}`}/>
     <People report={report}/>
-    <div className="print-run-fields">
+    <PrintFieldGrid className="print-run-fields">
       <Field label="Incident number" value={run.incidentNumber||'Not recorded'}/>
       <Field label="Unit / cruiser" value={run.unitNumber||'Not recorded'}/>
       <Field label="Location" value={formattedRunLocation(run)}/>
@@ -130,26 +143,29 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
       <Field label="Run type / 10-code" value={run.dispatchedCode?`10-${run.dispatchedCode}${code?` · ${code}`:''}`:'—'}/>
       <Field label="Situation found / 10-code" value={`${formatRadioCode(run.situationFoundCode,'')}${situation?` · ${situation}`:''}`}/>
       <Field label="Clearance code" value={run.clearanceCode?`${run.clearanceCode}${clearance?` · ${clearance.label}`:''}`:'—'}/>
-      <Field label="Dispatched" value={run.isDispatched?'Yes':'No'}/>
-      {trafficStop&&<Field label="Traffic violator" value={run.trafficMode.replace('_',' ')||'—'}/>}
-      {citationSummons&&<Field label="Solve Citation/Summons*" value="1"/>}
-      {relatedActivity.length>0&&<Field label="Additional activity / forms" value={relatedActivity.map(item=>item.label).join('; ')}/>}
-       <Field label="Arrest / transport" value={`${run.arrestMade?'Arrest made':'No arrest'}${run.transportedAfterArrest?` · ${run.transportDestinationType??'destination type not recorded'} · transported to ${run.transportDestination?.trim()||'destination not recorded'}`:''}`}/>
-      <Field label="OVI processed" value={run.oviProcessed?'Yes':'No'}/>
+      {trafficStop&&run.trafficMode!=='none'&&<Field label="Traffic violator" value={run.trafficMode.replaceAll('_',' ')}/>}
+      {additionalItems.length>0&&<Field label="Additional activity / forms" value={additionalItems.join('; ')}/>}
+    </PrintFieldGrid>
+    <div className="print-run-status">
+      <span data-print-field="Dispatched"><b>Dispatched:</b> {run.isDispatched?'Yes':'No'}</span>
+      <span data-print-field="Arrest / transport"><b>Arrest / transport:</b> {`${run.arrestMade?'Arrest made':'No arrest'}${run.transportedAfterArrest?` · ${run.transportDestinationType??'destination type not recorded'} · transported to ${run.transportDestination?.trim()||'destination not recorded'}`:''}`}</span>
+      <span data-print-field="OVI processed"><b>OVI processed:</b> {run.oviProcessed?'Yes':'No'}</span>
+      {citationSummons&&<span data-print-field="Solve Citation/Summons*"><b>Solve Citation/Summons*:</b> 1</span>}
     </div>
-    <Checklist title="Primary form checklist" sections={RUN_CHECKLIST_SECTIONS[run.runKind]} state={run.checklist} failures={run.checklistFailures} prefix="task-" notApplicable={!!run.checklist['na-task']}/>
-     <DirectiveReviewPrint run={run} formKey={run.runKind} prefix="task-"/>
-     <section className="print-run-narrative"><b>Run narrative</b><p>{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the following narrative continuation page'}.`:run.narrative||'—'}</p></section>
-    <footer className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.</footer>
-  </article>;
+      <Checklist title="Primary form checklist" sections={sections} state={run.checklist} failures={run.checklistFailures} prefix="task-" notApplicable={!!run.checklist['na-task']} support={support} tail={insetSupport?support:undefined}/>
+    {separateNarrative&&narrativeSupport}
+    <PrintFooter className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.<span className="print-source-note">Division directive index revised {DIVISION_DIRECTIVE_SOURCE_REVISION}.</span></PrintFooter>
+  </PrintDocument>;
 }
 
 function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{report:Report;run:TrainingRun;formKey:typeof SUPPLEMENTAL_RUN_FORMS[number]['key'];pageReference?:string;narrativeReferences:(string|undefined)[]}) {
   const form=SUPPLEMENTAL_RUN_FORMS.find(item=>item.key===formKey);
-  return <article className="print-run-page" data-testid={`print-supplement-${run.id}-${formKey}`}>
+  const support=<><DirectiveReviewPrint run={run} formKey={formKey} prefix={`supp-${formKey}-`}/><section className="print-run-narrative"><b>Related primary narrative</b><p>{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the narrative continuation page'}.`:run.narrative||'—'}</p></section></>;
+  const insetSupport=REVISED_SUPPLEMENT_CHECKLISTS[formKey].length===7;
+  return <PrintDocument className="print-run-page print-run-dense" data-form-key={formKey} data-testid={`print-supplement-${run.id}-${formKey}`}>
     <PageHeader title={form?.label||'Supplemental Form'} formNumber={form?.formNumber||''} report={report} run={run} pageReference={pageReference} subtitle={`Related run · ${formatTime(run.occurredAt)}`}/>
     <People report={report}/>
-    <div className="print-run-fields">
+    <PrintFieldGrid className="print-run-fields">
       <Field label="Incident number" value={run.incidentNumber||'Not recorded'}/>
       <Field label="Unit / cruiser" value={run.unitNumber||'Not recorded'}/>
       <Field label="Location" value={formattedRunLocation(run)}/>
@@ -157,17 +173,17 @@ function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{
       <Field label="Dispatched at" value={run.dispatchedAt?formatDateTimeMDY(run.dispatchedAt):'Not recorded'}/>
       <Field label="Run ended" value={run.endedAt?formatDateTimeMDY(run.endedAt):'Not recorded'}/>
       <Field label="Primary run" value={PRIMARY_RUN_FORMS.find(item=>item.key===run.runKind)?.label||run.runKind}/>
-      <Field label="Arrest made" value={run.arrestMade?'Yes':'No'}/>
-       <Field label="Transported after arrest" value={run.transportedAfterArrest?`Yes · ${run.transportDestinationType??'destination type not recorded'} · ${run.transportDestination?.trim()||'destination not recorded'}`:'No'}/>
-      <Field label="OVI processed" value={run.oviProcessed?'Yes':'No'}/>
-      <Field label="Dispatched" value={run.isDispatched?'Yes':'No'}/>
-      <Field label="Traffic violator" value={run.trafficMode==='none'?'—':run.trafficMode.replace('_',' ')}/>
+      {run.trafficMode!=='none'&&<Field label="Traffic violator" value={run.trafficMode.replaceAll('_',' ')}/>}
+    </PrintFieldGrid>
+    <div className="print-run-status">
+      <span data-print-field="Arrest made"><b>Arrest made:</b> {run.arrestMade?'Yes':'No'}</span>
+      <span data-print-field="Transported after arrest"><b>Transported after arrest:</b> {run.transportedAfterArrest?`Yes · ${run.transportDestinationType??'destination type not recorded'} · ${run.transportDestination?.trim()||'destination not recorded'}`:'No'}</span>
+      <span data-print-field="OVI processed"><b>OVI processed:</b> {run.oviProcessed?'Yes':'No'}</span>
+      <span data-print-field="Dispatched"><b>Dispatched:</b> {run.isDispatched?'Yes':'No'}</span>
     </div>
-    {RUN_SUPPLEMENT_CHECKLIST_SECTIONS[formKey].length>0&&<Checklist title={`${form?.label||'Supplemental'} checklist`} sections={RUN_SUPPLEMENT_CHECKLIST_SECTIONS[formKey]} state={run.checklist} failures={run.checklistFailures} prefix={`supp-${formKey}-`} notApplicable={!!run.checklist[`na-supp-${formKey}`]}/>}
-     <DirectiveReviewPrint run={run} formKey={formKey} prefix={`supp-${formKey}-`}/>
-     <section className="print-run-narrative"><b>Related primary narrative</b><p>{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the narrative continuation page'}.`:run.narrative||'—'}</p></section>
-    <footer className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.</footer>
-  </article>;
+      {REVISED_SUPPLEMENT_CHECKLISTS[formKey].length>0&&<Checklist title={`${form?.label||'Supplemental'} checklist`} sections={REVISED_SUPPLEMENT_CHECKLISTS[formKey]} state={run.checklist} failures={run.checklistFailures} prefix={`supp-${formKey}-`} notApplicable={!!run.checklist[`na-supp-${formKey}`]} support={support} tail={insetSupport?support:undefined}/>}
+    <footer className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.<span className="print-source-note">Division directive index revised {DIVISION_DIRECTIVE_SOURCE_REVISION}.</span><PrintableColumbusFooterMarks /></footer>
+  </PrintDocument>;
 }
 
 function DirectiveReviewPrint({run,formKey,prefix}:{run:TrainingRun;formKey:DirectiveReviewForm;prefix:string}) {
@@ -176,13 +192,19 @@ function DirectiveReviewPrint({run,formKey,prefix}:{run:TrainingRun;formKey:Dire
     ?RUN_CHECKLIST_SECTIONS[formKey as PrimaryRunForm].flatMap(section=>section.items.map(item=>item.label))
     :RUN_SUPPLEMENT_CHECKLIST_SECTIONS[formKey as typeof SUPPLEMENTAL_RUN_FORMS[number]['key']].flatMap(section=>section.items.map(item=>item.label));
   const index=labels.indexOf(DIRECTIVE_REVIEW_LABEL);
-  if(index<0||run.checklist[`${prefix}${index}`]===false)return null;
+  if(index<0)return null;
+  if(run.checklist[`${prefix}${index}`]===false)return <div className="print-directive-review"><b>Training materials reviewed</b><p>Not completed / not applicable.</p></div>;
   const details={...defaultDirectiveReviewRecord(),...(run.directiveReviews?.[formKey]??{})};
   const materials=reviewedTrainingMaterials(details);
   return <div className="print-directive-review">
     <b>Training materials reviewed</b>
     <p className="print-material-checks">
-      {details.divisionDirectives?'☒':'☐'} Division Directives · {details.ohioRevisedCode?'☒':'☐'} Ohio Revised Code · {details.columbusCityCode?'☒':'☐'} Columbus City Code · {details.other?'☒':'☐'} Other
+      {[
+        {label:'Division Directives',checked:details.divisionDirectives},
+        {label:'Ohio Revised Code',checked:details.ohioRevisedCode},
+        {label:'Columbus City Code',checked:details.columbusCityCode},
+        {label:'Other',checked:details.other},
+      ].map(choice=><span key={choice.label}><b>{choice.checked?'☒':'☐'}</b>{choice.label}</span>)}
     </p>
     <table className="print-materials-table">
       <thead><tr><th>Type</th><th>Reference or material</th></tr></thead>
@@ -190,7 +212,6 @@ function DirectiveReviewPrint({run,formKey,prefix}:{run:TrainingRun;formKey:Dire
         {!materials.length&&<tr><td colSpan={2}>No specific reference recorded.</td></tr>}
       </tbody>
     </table>
-    <p className="print-material-source">Division directive index revised {DIVISION_DIRECTIVE_SOURCE_REVISION}.</p>
   </div>;
 }
 
@@ -198,7 +219,7 @@ function NarrativeContinuationPages({report,run,pageReferences}:{report:Report;r
   const pages=splitNarrativeContinuation(run.narrative||'');
   return <Fragment>{pages.map((text,index)=>{
     const reference=pageReferences[index];
-    return <article className="print-run-page print-narrative-page" key={`${run.id}-continuation-${index}`} data-testid={`print-narrative-continuation-${run.id}-${index+1}`}>
+    return <PrintDocument className="print-run-page print-narrative-page" key={`${run.id}-continuation-${index}`} data-testid={`print-narrative-continuation-${run.id}-${index+1}`}>
     <PageHeader title="Narrative Addition / Continuation" formNumber="U-10.192" report={report} run={run} pageReference={reference} subtitle={`Related run ${formatTime(run.occurredAt)}`}/>
     <People report={report}/>
     <div className="print-run-fields">
@@ -208,22 +229,30 @@ function NarrativeContinuationPages({report,run,pageReferences}:{report:Report;r
       <Field label="Primary form" value={PRIMARY_RUN_FORMS.find(item=>item.key===run.runKind)?.label||run.runKind}/>
     </div>
     <section className="print-run-narrative print-narrative-continuation"><b>Narrative · continuation</b><p>{text||' '}</p></section>
-    <footer className="print-run-footer">Narrative continued from the related run record · {reference??'Training-folder reference unavailable'}.</footer>
-  </article>;
+    <footer className="print-run-footer">Narrative continued from the related run record · {reference??'Training-folder reference unavailable'}.<PrintableColumbusFooterMarks /></footer>
+    </PrintDocument>;
   })}</Fragment>;
 }
 
 
-function Checklist({title,sections,state,failures,prefix,notApplicable}:{title:string;sections:readonly {title:string;items:readonly {label:string;help:string}[]}[];state:Record<string,boolean>;failures?:Record<string,string[]>;prefix:string;notApplicable:boolean}) {
-  let offset=0;
+function Checklist({title,sections,state,failures,prefix,notApplicable,tail,support}:{title:string;sections:readonly RevisedChecklistSection[];state:Record<string,boolean>;failures?:Record<string,string[]>;prefix:string;notApplicable:boolean;tail?:React.ReactNode;support:React.ReactNode}) {
+  const introduction=<><h2>{title}</h2><p>Not applicable: {notApplicable?'Yes':'No'} · ☒ complete · ☐ not complete · ◩ partly completed. A combined row is complete only when all listed actions are complete. New items start checked; the FTO must verify each row.</p></>;
   return <section className="print-run-checklist">
-    <h2>{title}</h2><p>Not applicable: {notApplicable?'Yes':'No'} · ☒ checked · ☐ unchecked. New task items start checked; the FTO must verify each item and clear anything not completed acceptably.</p>
-    {sections.map(section=>{const start=offset;offset+=section.items.length;return <section className="print-run-checkgroup" key={section.title||start}>{section.title&&<h3>{section.title}</h3>}<ul>{section.items.map((item,index)=>{const key=`${prefix}${start+index}`;return <li key={start+index} title={item.help}><b>{state[key]!==false?'☒':'☐'}</b><span>{item.label}{failures?.[key]?.map(action=><span className="print-run-failure-detail" key={action}><span>Not completed: </span><strong>{action}</strong></span>)}</span></li>})}</ul></section>})}
+    <div className="print-checklist-intro">{introduction}</div>
+    <div className="print-run-checklist-groups" data-category-count={sections.length}>
+      {sections.map((section,index)=><PrintSectionPanel className="print-run-checkgroup" key={section.title} title={section.title} heading={3}><ul style={{'--print-checklist-rows':section.items.length} as React.CSSProperties}>{section.items.map(item=>{
+        const value=revisedRowState(state,prefix,item.indices);
+        const failedActions=item.indices.flatMap(index=>failures?.[`${prefix}${index}`]??[]);
+        return <PrintChecklistRow key={item.id} label={item.label} help={item.help} {...value}
+          details={failedActions.length>0?<span className="print-run-failure-detail">{failedActions.map((action,actionIndex)=><span key={`${actionIndex}-${action}`}><span>Not completed: </span><strong>{action}</strong></span>)}</span>:undefined}/>;
+      })}</ul>{index===sections.length-1&&!tail&&<div className="print-equal-support">{support}</div>}</PrintSectionPanel>)}
+      {tail&&<div className="print-equal-support">{tail}</div>}
+    </div>
   </section>;
 }
 
 function Field({label,value}:{label:string;value:string}) {
-  return <span><b>{label}</b>{value||'—'}</span>;
+  return <PrintField label={label}>{value||'—'}</PrintField>;
 }
 
 function formatTime(value:string) {

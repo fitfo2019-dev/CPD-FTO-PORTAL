@@ -38,7 +38,7 @@ const submittedPrimaryCounts = {
 } as const;
 const submittedSupplementCounts = { arrest_process: 62, ovi_process: 63, narrative_addition: 0, building_search: 71 } as const;
 
-test('run form checklists keep one checkbox for every submitted form item', () => {
+test('legacy saved run task arrays keep every original submitted form item', () => {
   for (const [form, expected] of Object.entries(submittedPrimaryCounts)) {
     assert.equal(RUN_CHECKLIST_ITEMS[form as keyof typeof RUN_CHECKLIST_ITEMS].length, expected, form);
     assert.equal(

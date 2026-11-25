@@ -38,6 +38,7 @@ import { getNextReportDate } from '@/lib/training-calendar.js';
 import FtoClassesPage from '@/pages/fto-classes.js';
 import { PortalRouteSwitch, UiPreviewRouter } from '@/lib/portal-routing.js';
 import ApprovalPreviews from '@/pages/approval-previews.js';
+import RunChecklistPreview from '@/pages/run-checklist-preview.js';
 import AgencyPacketsPage from '@/pages/agency-packets.js';
 import { createFtoTestPacketWorkspace } from '@/lib/test-packet.js';
 import { OperationalProfileProvider, useOperationalProfile } from '@/state/operational-profile.js';
@@ -243,7 +244,7 @@ function WorkspaceRoutes() {
         <Route path="/substitute-fto" component={SubstituteFtoPage} />
          <Route path="/fto-classes" component={FtoClassesPage} />
         <Route path="/reports/:id/nrt-follow-up" component={NrtFollowUpPage} />
-         <Route path="/reports/:id">{(params) => <ShiftStartGate key={params.id} reportId={params.id}/>}</Route>
+         <Route path="/reports/:id">{(params: {id:string}) => <ShiftStartGate key={params.id} reportId={params.id}/>}</Route>
         <Route path="/training" component={Training} />
         <Route path="/settings" component={Settings} />
         <Route path="/resources" component={HelpPage} />
@@ -369,9 +370,14 @@ function ClerkRoutes() {
         signUp={<SignUpPage />}
         uiPreview={<DevelopmentUiPreview />}
         developmentRoutes={import.meta.env.DEV ? (
-          <Route path="/fto-test-packet-preview/*?">
-            <DevelopmentFtoTestPacketPreview />
-          </Route>
+          <>
+            <Route path="/fto-test-packet-preview/*?">
+              <DevelopmentFtoTestPacketPreview />
+            </Route>
+            <Route path="/run-checklist-preview">
+              <RunChecklistPreview />
+            </Route>
+          </>
         ) : null}
         protectedPortal={<AuthenticatedWorkspace />}
       />

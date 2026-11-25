@@ -53,35 +53,68 @@ export const defaultSubstationOrientationChecklist=():Record<SubstationOrientati
 
 /** Approved Example B display groups; original persisted task keys are unchanged. */
 const COMBINED_ORIENTATION_ROWS = [
-  ['building_orientation','locker_rooms','restrooms','break_room','vending'],
-  ['vehicle_status_board','cruiser_keys','relief_car'],
-  ['computer_access','daily_bulletin','division_email'],
-  ['paperwork_box','outgoing_mail','subpoena_book'],
-  ['traffic_citation_book','parking_citation_book'],
-  ['paperwork_supplies','briefcase_clipboard','copier_printer'],
-  ['riot_helmet','riot_padding'], ['rain_gear','traffic_vest'], ['tychem','tyvek'],
-  ['rubber_gloves','rubber_boots','chem_tape'], ['directives','complaint_manual','aid_manual'],
-  ['cvs','pa_system'], ['trunk_equipment','personal_equipment'],
-  ['car_radio','walkie','radios','car_to_car'], ['computer','division_computer'],
-  ['ohleg','leads','courtview','common_pleas'], ['internet','s_drive','powerdms','daily_email'],
-  ['boundaries','cruiser_districts','adjacent_precincts'],
-  ['directions','major_roads','one_way_streets'],
-  ['cfd_stations','hospitals','landmarks','schools'],
-] as const satisfies readonly (readonly SubstationOrientationKey[])[];
+  {categoryName:'Building and Facilities',keys:['building_orientation','locker_rooms','restrooms','break_room','vending']},
+  {categoryName:'Vehicle Assignment and Keys',keys:['vehicle_status_board','cruiser_keys','relief_car']},
+  {categoryName:'Computer Access and Daily Information',keys:['computer_access','daily_bulletin','division_email']},
+  {categoryName:'Paperwork, Mail, and Subpoenas',keys:['paperwork_box','outgoing_mail','subpoena_book']},
+  {categoryName:'Citation Books',keys:['traffic_citation_book','parking_citation_book']},
+  {categoryName:'Paperwork Supplies and Setup',keys:['paperwork_supplies','briefcase_clipboard','copier_printer']},
+  {categoryName:'Riot Protection',keys:['riot_helmet','riot_padding']},
+  {categoryName:'Rain and Traffic Gear',keys:['rain_gear','traffic_vest']},
+  {categoryName:'Protective Suits',keys:['tychem','tyvek']},
+  {categoryName:'Chemical Protective Accessories',keys:['rubber_gloves','rubber_boots','chem_tape']},
+  {categoryName:'Manuals and Directives',keys:['directives','complaint_manual','aid_manual']},
+  {categoryName:'Cruiser Video and PA Systems',keys:['cvs','pa_system']},
+  {categoryName:'Cruiser Equipment Storage',keys:['trunk_equipment','personal_equipment']},
+  {categoryName:'Radio Communications',keys:['car_radio','walkie','radios','car_to_car']},
+  {categoryName:'Computer Systems',keys:['computer','division_computer']},
+  {categoryName:'Records Database Access',keys:['ohleg','leads','courtview','common_pleas']},
+  {categoryName:'Digital Resources and Email',keys:['internet','s_drive','powerdms','daily_email']},
+  {categoryName:'Precinct Boundaries and Districts',keys:['boundaries','cruiser_districts','adjacent_precincts']},
+  {categoryName:'Roads and Navigation',keys:['directions','major_roads','one_way_streets']},
+  {categoryName:'Community Facilities and Landmarks',keys:['cfd_stations','hospitals','landmarks','schools']},
+] as const satisfies readonly {categoryName:string;keys:readonly SubstationOrientationKey[]}[];
 
 export const SUBSTATION_ORIENTATION_GROUPED_SECTIONS = SUBSTATION_ORIENTATION_SECTIONS.map(section => {
   const remaining = new Set<SubstationOrientationKey>(section.items.map(([key]) => key));
   const labels = new Map<SubstationOrientationKey,string>(section.items.map(([key,label]) => [key,label]));
-  const rows: {id:string; keys:readonly SubstationOrientationKey[]; label:string}[] = [];
+  const rows: {id:string; keys:readonly SubstationOrientationKey[]; label:string; categoryName:string|undefined}[] = [];
   for (const [key] of section.items) {
     if (!remaining.has(key)) continue;
-    const keys: readonly SubstationOrientationKey[] =
-      COMBINED_ORIENTATION_ROWS.find(group => group.some(item => item === key)) ?? [key];
+    const group = COMBINED_ORIENTATION_ROWS.find(group => group.keys.some(item => item === key));
+    const keys: readonly SubstationOrientationKey[] = group?.keys ?? [key];
     if (keys.some(item => !remaining.has(item))) throw new Error('Orientation groups must partition each section.');
-    rows.push({id:key,keys,label:keys.map(item => labels.get(item)).join('; ')});
+    rows.push({id:key,keys,label:keys.map(item => labels.get(item)).join('; '),categoryName:group?.categoryName});
     keys.forEach(item => remaining.delete(item));
   }
   return {...section,rows};
+});
+
+// Screen-only consolidation requested by the user. Keep the original 43 print rows above.
+const CATEGORY_ADDITIONAL_TASKS:Partial<Record<SubstationOrientationKey,readonly SubstationOrientationKey[]>>={
+  vehicle_status_board:['cruiser_inspection','prisoner_compartment','seat_belt'],
+  computer_access:['bwc_tower'],
+  riot_helmet:['taser_location','taser_log','taser_spark_test','taser_belt'],
+  rubber_gloves:['gas_mask','gas_mask_card','mask_filter'],
+  directives:['review_directives_sop'],
+  cvs:['emergency_lights'],
+  trunk_equipment:['radar_laser','shotgun_locker','clearing_barrel','shotgun_rack'],
+  car_radio:['emergency_banners','police_fire','communications_failure'],
+  boundaries:['precinct_information','problem_areas','other_areas'],
+};
+const CATEGORY_DISPLAY_NAMES:Partial<Record<SubstationOrientationKey,string>>={
+  vehicle_status_board:'Vehicle Assignment, Keys, and Safety',
+  riot_helmet:'Riot Protection and Taser',
+  cvs:'Cruiser Video, PA, and Emergency Controls',
+};
+const originalTaskLabels=new Map<SubstationOrientationKey,string>(
+  SUBSTATION_ORIENTATION_SECTIONS.flatMap(section=>section.items.map(([key,label])=>[key,label] as const)),
+);
+
+export const SUBSTATION_ORIENTATION_CATEGORIES=COMBINED_ORIENTATION_ROWS.map(group=>{
+  const id=group.keys[0];
+  const keys:readonly SubstationOrientationKey[]=[...group.keys,...(CATEGORY_ADDITIONAL_TASKS[id]??[])];
+  return {id,categoryName:CATEGORY_DISPLAY_NAMES[id]??group.categoryName,keys,label:keys.map(key=>originalTaskLabels.get(key)).join('; ')};
 });
 
 export function orientationGroupState(checklist:Readonly<Record<string,boolean>>, keys:readonly SubstationOrientationKey[]) {

@@ -9,6 +9,10 @@ import {
 import { formatDateDMY } from "@/lib/training-calendar.js";
 import { activityTotals } from "@/lib/run-activity.js";
 import { weeklyRatingCount } from "@/lib/weekly-rating-counts.js";
+import { PrintableColumbusFooterMarks, PrintableColumbusHeader } from "@/components/printable-columbus-header.js";
+import { PrintDocument } from "@/components/print-template.js";
+import { printRatingColumns } from "@/lib/print-rating-layout.js";
+import { PrintActivityTotals } from "@/components/print-activity-totals.js";
 
 const RATINGS = ["NO", "A", "RT", "UA", "NRT"] as const;
 
@@ -29,15 +33,20 @@ export function PrintableWeeklySummary({
 }) {
   const first = reports[0];
   const assignmentLabel=assignment??phaseAssignmentLabel(first?.ftoAssignment,first?.shift,first?.cruiserDistrict);
+  const ratingColumns = printRatingColumns(CATEGORY_GROUPS);
+  const ratingRows = ratingColumns.map(column => column.flatMap(group => [
+    { kind: 'group' as const, group },
+    ...SEG_CATEGORIES.filter(item => item.group === group).map(item => ({ kind: 'category' as const, item })),
+  ]));
   return (
-    <section
+    <PrintDocument as="section" landscape
       className="print-summary"
       aria-hidden="true"
       data-testid="print-weekly-summary"
     >
       <header className="print-summary-header">
         <div>
-          <p>Columbus Division of Police · Field Training Program</p>
+          <PrintableColumbusHeader formId="U-10.173" />
           <h1>Probationary Officer Weekly Performance Summary</h1>
           <b>U-10.173</b>
         </div>
@@ -76,67 +85,37 @@ export function PrintableWeeklySummary({
           </span>
         ))}
       </div>
-      <table className="print-summary-rating-table">
+      <div className="print-summary-panels"><table className="print-summary-rating-table">
+        <colgroup>{ratingColumns.flatMap((_,index) => [
+          <col key={`label-${index}`} className="print-rating-label-column" />,
+          ...RATINGS.map(rating => <col key={`${index}-${rating}`} className="print-rating-choice-column" />),
+        ])}</colgroup>
         <thead>
           <tr>
-            <th>Performance category</th>
-            {RATINGS.map((rating) => <th key={rating}>{rating}</th>)}
+            {ratingColumns.flatMap((_,index) => [
+              <th key={`label-${index}`}>Performance category</th>,
+              ...RATINGS.map(rating => <th key={`${index}-${rating}`}>{rating}</th>),
+            ])}
           </tr>
         </thead>
         <tbody>
-          {CATEGORY_GROUPS.map((group) => [
-            <tr key={`group-${group}`} className="print-summary-group-row">
-              <th colSpan={6}>{group} · weekly count</th>
-            </tr>,
-            ...SEG_CATEGORIES.filter((item) => item.group === group).map(({ key, label }) => (
-              <tr key={key}>
-                <td>{label}</td>
-                {RATINGS.map((rating) => (
-                  <td
-                    key={rating}
-                    className={`print-summary-rating-${rating.toLowerCase()}${
-                      rating === "UA" || rating === "NRT" ? " print-summary-flag" : ""
-                    }`}
-                  >
-                    {weeklyRatingCount(reports, key, rating)}
-                  </td>
-                ))}
-              </tr>
-            )),
-          ])}
-        </tbody>
-      </table>
-      <table className="print-summary-activity">
-        <thead>
-          <tr>
-            <th colSpan={6}>Weekly Activity Summary · totals</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from(
-            { length: Math.ceil(DAILY_ACTIVITY_FIELDS.length / 6) },
-            (_, row) => (
-              <tr key={row}>
-                {DAILY_ACTIVITY_FIELDS.slice(row * 6, row * 6 + 6).map(
-                  ({ key, label }) => (
-                    <td key={key}>
-                      <span>{label}</span>
-                      <b>
-                        {reports.reduce(
-                          (total, report) =>
-                            total + activityTotals(report)[key],
-                          0,
-                        )}
-                      </b>
-                    </td>
-                  ),
-                )}
-              </tr>
-            ),
+          {Array.from({ length: Math.max(...ratingRows.map(rows => rows.length)) },(_,rowIndex) =>
+            <tr key={rowIndex}>{ratingRows.flatMap((rows,columnIndex) => {
+              const row=rows[rowIndex];
+              if (!row) return [<td key={`blank-${columnIndex}`} colSpan={6} className="print-rating-empty" aria-hidden="true" />];
+              if (row.kind==='group') return [<th key={`group-${columnIndex}`} colSpan={6} className="print-rating-group-cell">{row.group} · weekly count</th>];
+              return [
+                <td key={`label-${columnIndex}`}>{row.item.label}</td>,
+                ...RATINGS.map(rating => <td key={`${columnIndex}-${rating}`} className={`print-summary-rating-${rating.toLowerCase()}${rating==='UA'||rating==='NRT'?' print-summary-flag':''}`}>{weeklyRatingCount(reports,row.item.key,rating)}</td>),
+              ];
+            })}</tr>
           )}
         </tbody>
       </table>
-      <p className="print-summary-note">
+      <section><h2>Weekly Activity Summary · totals</h2><PrintActivityTotals totals={Object.fromEntries(DAILY_ACTIVITY_FIELDS.map(({key})=>[
+        key,reports.reduce((total,report)=>total+activityTotals(report)[key],0),
+      ])) as ReturnType<typeof activityTotals>}/></section>
+      </div><p className="print-summary-note">
         Numbers in the evaluation columns count reviewed daily selections for
         each descriptive rating; unreviewed defaults are excluded. They are not
         numeric performance ratings.
@@ -144,7 +123,8 @@ export function PrintableWeeklySummary({
       <footer className="print-summary-footer">
         Weekly Performance Summary · U-10.173 · Prepared from {reports.length}{" "}
         local daily log(s)
+        <PrintableColumbusFooterMarks />
       </footer>
-    </section>
+    </PrintDocument>
   );
 }

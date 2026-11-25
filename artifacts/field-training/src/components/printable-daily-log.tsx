@@ -1,7 +1,5 @@
 import React from 'react';
 import {
-  DAILY_ACTIVITY_FIELDS,
-  DAILY_ACTIVITY_COLUMNS,
   SEG_CATEGORIES,
   SEG_RATING_COLUMNS,
   SEG_RATING_GROUP_LABELS,
@@ -14,6 +12,9 @@ import { formatDateDMY, getSundaySaturdayWeek, type TrainingFolderDayReference }
 import { activityTotals } from '@/lib/run-activity.js';
 import { dailyLogContinuations } from '@/lib/narrative-continuation.js';
 import { buildOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
+import { PrintableColumbusFooterMarks, PrintableColumbusHeader } from '@/components/printable-columbus-header.js';
+import { PrintDocument } from '@/components/print-template.js';
+import { PrintActivityTotals } from '@/components/print-activity-totals.js';
 
 const RATINGS = ['NO', 'A', 'RT', 'UA', 'NRT'] as const;
 
@@ -23,24 +24,23 @@ export function PrintableDailyLog({ report, dayReference, packet:providedPacket 
   const packet = providedPacket ?? buildOperationalPacket(report, { dayReference });
   const pageReference = packet.pages.find(page => page.kind === 'daily_summary')?.reference;
   const continuationPages = packet.pages.filter(page => page.kind === 'daily_continuation');
-  const activityFields = new Map(DAILY_ACTIVITY_FIELDS.map(field => [field.key, field]));
   const activityCounts = activityTotals(report);
   const continuations=dailyLogContinuations(report);
   const noteValue=(label:string,value:string)=>{
     const index=continuations.findIndex(page=>page.label===label);
     return index<0?value:`See narrative continuation ${continuationPages[index]?.reference??''}.`;
   };
-  const ratingRows = SEG_RATING_COLUMNS.map(column => column.flatMap(group => [
+  const ratingColumns = SEG_RATING_COLUMNS;
+  const ratingRows = ratingColumns.map(column => column.flatMap(group => [
     { type: 'group' as const, group },
     ...SEG_CATEGORIES.filter(item => item.group === group).map(item => ({ type: 'category' as const, item })),
   ]));
   const ratingRowCount = Math.max(...ratingRows.map(column => column.length));
-  const activityRowCount = Math.max(...DAILY_ACTIVITY_COLUMNS.map(column => column.keys.length));
   return (
-    <><section className="print-form" aria-hidden="true" data-testid="print-daily-log">
+    <><PrintDocument as="section" landscape className="print-form" aria-hidden="true" data-testid="print-daily-log">
       <header className="print-form-header">
         <div>
-          <p className="print-agency">Columbus Division of Police · Field Training Program</p>
+          <PrintableColumbusHeader formId="U-10.174" />
           <h1>Probationary Officer Daily Performance Log</h1>
           <p className="print-form-number">Daily Performance Log · U-10.174</p>
         </div>
@@ -72,17 +72,17 @@ export function PrintableDailyLog({ report, dayReference, packet:providedPacket 
         {RATINGS.map(rating => <span key={rating}><b>{rating}</b><span>{ratingLabel(rating)}</span></span>)}
       </div>
 
-      <div className="print-rating-columns">
+      <div className="print-daily-tables"><div className="print-rating-columns">
         <table className="print-rating-table">
           <colgroup>
-            {SEG_RATING_COLUMNS.flatMap((_, blockIndex) => [
+            {ratingColumns.flatMap((_, blockIndex) => [
               <col key={`category-${blockIndex}`} className="print-rating-label-column" />,
               ...RATINGS.map(rating => <col key={`rating-${blockIndex}-${rating}`} className="print-rating-choice-column" />),
             ])}
           </colgroup>
           <thead>
             <tr>
-              {SEG_RATING_COLUMNS.flatMap((_, blockIndex) => [
+              {ratingColumns.flatMap((_, blockIndex) => [
                 <th key={`category-heading-${blockIndex}`}>Category</th>,
                 ...RATINGS.map(rating => <th key={`rating-heading-${blockIndex}-${rating}`}>{rating}</th>),
               ])}
@@ -124,59 +124,27 @@ export function PrintableDailyLog({ report, dayReference, packet:providedPacket 
           <span>Enter or review the count for each item. A zero means none were recorded.</span>
         </div>
         <div className="print-activity-columns">
-          <table className="print-activity-table">
-            <colgroup>
-              {DAILY_ACTIVITY_COLUMNS.flatMap((_, blockIndex) => [
-                <col key={`activity-label-${blockIndex}`} className="print-activity-label-column" />,
-                <col key={`activity-count-${blockIndex}`} className="print-activity-count-column" />,
-              ])}
-            </colgroup>
-            <thead>
-              <tr>{DAILY_ACTIVITY_COLUMNS.map(column => <th key={column.title} colSpan={2}>{column.title}</th>)}</tr>
-              <tr>{DAILY_ACTIVITY_COLUMNS.flatMap((_, blockIndex) => [
-                <th key={`activity-heading-${blockIndex}`}>Activity</th>,
-                <th key={`count-heading-${blockIndex}`}>Count</th>,
-              ])}</tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: activityRowCount }, (_, rowIndex) => (
-                <tr key={`activity-row-${rowIndex}`}>
-                  {DAILY_ACTIVITY_COLUMNS.map((column, blockIndex) => {
-                    const key = column.keys[rowIndex];
-                    const field = key ? activityFields.get(key) : undefined;
-                    return field
-                      ? [
-                        <td key={`activity-${blockIndex}-${key}`}>{field.label}</td>,
-                        <td key={`count-${blockIndex}-${key}`} className="print-activity-count">{activityCounts[key]}</td>,
-                      ]
-                      : [
-                        <td key={`activity-blank-${blockIndex}`} className="print-activity-empty" />,
-                        <td key={`count-blank-${blockIndex}`} className="print-activity-empty" />,
-                      ];
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <PrintActivityTotals totals={activityCounts} blocks={4} countLabel="Count"/>
         </div>
       </section>
-
+      </div>
       <div className="print-notes-grid">
         <PrintText label="FTO comments / shift narrative" value={noteValue('FTO comments / shift narrative',report.narrative)} />
         <PrintText label="Corrective training / retraining" value={noteValue('Corrective training / retraining',report.remedial)} />
       </div>
       <footer className="print-form-footer">
         {report.status === 'draft' ? 'Local draft' : 'Local record'} · Not server-confirmed
+        <PrintableColumbusFooterMarks />
       </footer>
-    </section>
+    </PrintDocument>
     {continuations.map((page,index)=>{
       const reference=continuationPages[index]?.reference;
-      return <article key={index} className="print-form print-daily-narrative-continuation">
-        <header className="print-form-header"><div><p>Daily Performance Log · U-10.174 · Narrative continuation</p><h1>{page.label}</h1></div><b data-training-folder-page={reference}>{reference}</b></header>
+      return <PrintDocument key={index} className="print-form print-daily-narrative-continuation">
+        <header className="print-form-header"><div><PrintableColumbusHeader formId="U-10.174" /><p>Daily Performance Log · U-10.174 · Narrative continuation</p><h1>{page.label}</h1></div><b data-training-folder-page={reference}>{reference}</b></header>
         <p>{report.recruitName} · {report.recruitBadge} · {formatDateDMY(report.date)} · FTO {report.ftoName} · {report.ftoBadge}</p>
         <p className="print-daily-continuation-text">{page.text}</p>
-        <footer>Continuation {page.part} of {page.total} · Local copy · Not server-confirmed</footer>
-      </article>;
+        <footer className="print-form-footer">Continuation {page.part} of {page.total} · Local copy · Not server-confirmed<PrintableColumbusFooterMarks /></footer>
+      </PrintDocument>;
     })}</>
   );
 }

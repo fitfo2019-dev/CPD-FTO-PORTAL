@@ -5,6 +5,7 @@ import { useOperationalStateMachine, useWorkspace } from '@/state/workspace.js';
 import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
 import { PageHead, Panel, StatusPill } from '@/components/bits.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
+import { applyCurrentDateTimeShortcut } from '@/lib/date-time-shortcut.js';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import {
   DIVISION_DIRECTIVES, DIVISION_DIRECTIVE_SOURCE_REVISION, DIVISION_DIRECTIVE_SOURCE_URL,
@@ -12,12 +13,14 @@ import {
 import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { cn } from '@/lib/utils.js';
-import { currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getNextReportDate, getPhaseScheduleInfo, getSundaySaturdayWeek, getWeekdayIndex, parseDateDMY, requiredDaysOff, shiftWeekDescription, splitDateTimeEntryMDY } from '@/lib/training-calendar.js';
+import { formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getNextReportDate, getPhaseScheduleInfo, getSundaySaturdayWeek, getWeekdayIndex, parseDateDMY, requiredDaysOff, shiftWeekDescription, splitDateTimeEntryMDY } from '@/lib/training-calendar.js';
 import { isValidAssignment } from '@/lib/cpd-geography.js';
 import { PrintableDailyLog } from '@/components/printable-daily-log.js';
 import { PrintableDailyForms } from '@/components/printable-daily-forms.js';
 import { activityDiscrepancies, activityTotals, buildClearanceDocuments, clearanceDerivedActivityCounts, manualActivityEntryForTotal, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
 import { checklistForMetadata, resetPrimaryChecklist } from '@/lib/run-checklist-state.js';
+import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS } from '@/lib/revised-run-checklists.js';
+import { RunChecklistFields } from '@/components/run-checklist-fields.js';
 import { buildRunNarrativeDraft } from '@/lib/run-narrative-draft.js';
 import { isRtRestricted } from '@/lib/model.js';
 import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatRadioCode, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes.js';
@@ -41,6 +44,8 @@ import '@/components/run-sheet-workflow.css';
 import { PacketSubmitControl } from '@/components/packet-review/submit-control.js';
 
 import { activeFtoIdentity, useOperationalProfile } from '@/state/operational-profile.js';
+
+import { RunOptionsDialog } from '@/components/run-options-dialog.js';
 
 type EditorStage = 'shift'|'duty'|'runs'|'activity'|'evaluation'|'narrative';
 type FailurePromptTarget = { form:RunChecklistSourceForm;key:string;label:string;choices:readonly string[];mode:'clear'|'edit' };
@@ -111,6 +116,7 @@ export default function ReportEditor() {
   const [runError, setRunError] = useState('');
   const [runDispatched, setRunDispatched] = useState(true);
   const [trafficMode, setTrafficMode] = useState<TrainingRun['trafficMode']>('none');
+  const [runOptionsOpen,setRunOptionsOpen] = useState(false);
   const [activityFlags, setActivityFlags] = useState<Partial<Record<ActivityKey,boolean>>>({});
   const [dispatchedCode, setDispatchedCode] = useState('');
   const [situationFoundCode, setSituationFoundCode] = useState('');
@@ -179,12 +185,7 @@ export default function ReportEditor() {
   const primaryDirectiveReview=directiveReviews[runKind]??defaultDirectiveReviewRecord();
   const primaryChecklistAllChecked=checkItems.length>0&&checkItems.every((_,index)=>runChecklist[`task-${index}`]!==false)
     &&(primaryDirectiveIndex<0||(runChecklist[`task-${primaryDirectiveIndex}`]!==false&&primaryDirectiveReview.divisionDirectives&&primaryDirectiveReview.ohioRevisedCode&&primaryDirectiveReview.columbusCityCode&&primaryDirectiveReview.other));
-  let checklistOffset=0;
-  const primaryChecklistGroups=RUN_CHECKLIST_SECTIONS[runKind].map(section=>{
-    const start=checklistOffset;
-    checklistOffset+=section.items.length;
-    return {...section,start};
-  });
+  const primaryChecklistGroups=REVISED_PRIMARY_CHECKLISTS[runKind];
   const runMeta = { runKind, trafficMode, isDispatched:runDispatched, arrestMade, transportedAfterArrest:arrestMade && transported, arrestProcessRequired, buildingSearchRequired, oviProcessed, oviProcessRequired, narrativeAdditionRequired };
   const requiredSupplements = requiredSupplementalForms(runMeta);
   const workflowDraft: RunWorkflowDraft = {
@@ -457,6 +458,22 @@ export default function ReportEditor() {
     });
     setRunError('');
   };
+  const renderChecklistFailureDetails=(form:RunChecklistSourceForm,prefix:string,indices:readonly number[],labels:readonly string[])=>(
+    <div className="ml-6 space-y-1">
+      {indices.map(index=>{
+        const key=`${prefix}${index}`;
+        const label=labels[index]??`Checklist item ${index+1}`;
+        const actions=runChecklistFailures[key]??[];
+        const choices=runFailureActionChoices(form,key,label);
+        if(!actions.length&&!(choices&&runChecklist[key]===false))return null;
+        const target={form,key,label};
+        return <div key={index} className="text-xs text-muted-foreground">
+          {actions.map((action,actionIndex)=><span key={`${index}-${actionIndex}`} className="block">Not completed: <strong className="font-bold text-destructive">{action}</strong></span>)}
+          {choices&&runChecklist[key]===false&&<button type="button" onClick={()=>openFailurePrompt(target,'edit')} className="min-h-8 text-left font-semibold text-primary underline" data-testid={`button-edit-checklist-failure-${prefix.replaceAll('-','')}-${index}`}>{actions.length?'Edit specific actions':'Add specific actions'}</button>}
+        </div>;
+      })}
+    </div>
+  );
 
   const addRun = () => {
     if (!r || !editable) return;
@@ -551,6 +568,7 @@ export default function ReportEditor() {
   };
   const resetRunForm = () => {
     setRiskPrompt(false);setRiskCodeDirty(false);setRiskCandidate('');
+    setRunOptionsOpen(false);
     setRunOpen(false);
     deficiencyEditor.resetIncident();
     const pendingId=editingRunId??runDraftId;
@@ -614,7 +632,7 @@ export default function ReportEditor() {
     resetRunForm();
     const kind = seed.runKind;
     const dispatched = kind==='call_for_service'?true:kind==='self_initiated'?false:true;
-    const mode: TrainingRun['trafficMode'] = kind==='traffic_stop'?'motor_vehicle':'none';
+    const mode: TrainingRun['trafficMode'] = 'none';
     setRunKind(kind); setRunDispatched(dispatched); setTrafficMode(mode);
     const importedArrest=seed.clearanceCode==='3V';
     setRunChecklist(checklistForMetadata({ runKind:kind, trafficMode:mode, isDispatched:dispatched, arrestMade:importedArrest, transportedAfterArrest:importedArrest, arrestProcessRequired:importedArrest, buildingSearchRequired:false, oviProcessed:false, oviProcessRequired:false, narrativeAdditionRequired:false }, {}));
@@ -629,6 +647,7 @@ export default function ReportEditor() {
     setRunDispatchedAtText(seed.dispatchedAtText); setRunClearedAtText(seed.clearedAtText);
     setNewRunOpen(false); setStage('runs'); setRunStep(kind==='traffic_stop'||kind==='high_risk_stop'?'primary':'details');
     setRunOpen(true);
+    setRunOptionsOpen(kind==='traffic_stop'||kind==='high_risk_stop');
   };
   const requestNewRun = () => {
     if (runFormDirty) {
@@ -643,6 +662,7 @@ export default function ReportEditor() {
     const mode:TrainingRun['trafficMode']=stopSwitch?trafficMode:next==='traffic_stop'?'motor_vehicle':'none';
     const previousKind = runKind;
     setRunKind(next);setRunDispatched(dispatched);setTrafficMode(mode);
+    setRunOptionsOpen(next==='traffic_stop'||next==='high_risk_stop');
     setDispatchedCode(current=>current||DEFAULT_RUN_TYPE_CODES[next]||'');
     // Primary task indices mean different things per form: reset them; keep supplement answers.
     setRunChecklist(prev=>resetPrimaryChecklist({...runMeta,runKind:next,trafficMode:mode,isDispatched:dispatched},prev));
@@ -779,8 +799,8 @@ export default function ReportEditor() {
       <Panel id="shift-details" title="Shift metadata" className="mb-4 scroll-mt-28">
         <p className="border-b px-4 py-3 text-sm text-muted-foreground">The assigned FTO’s name and badge come from the phase assignment and are saved as this report’s identity snapshot.</p>
         <fieldset disabled={!editable} className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
-          <F l="Shift date (MM/DD/YYYY)"><input type="text" inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={dateText} onChange={e=>{const value=formatDateEntryMDY(e.target.value);setDateText(value);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,value));applyShiftDate(value);}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const today=currentDateTimeMDY().date;setDateText(today);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,today));applyShiftDate(today);}}} data-testid="input-date" /><span className="text-xs font-normal text-muted-foreground">Slashes are added automatically. Enter ? then press Enter for today.</span></F>
-           <F l="Shift time"><input required type="text" inputMode="numeric" maxLength={5} placeholder="HH:MM" className={inp+' mono'} value={r.shiftStartTime??''} onChange={event=>set('shiftStartTime',formatTimeEntry24H(event.target.value))} data-testid="input-shift-start-time" /><span className="text-xs font-normal text-muted-foreground">Use 24-hour time, for example 08:30 or 17:30. Type four digits; the colon is added automatically.</span></F>
+          <F l="Shift date (MM/DD/YYYY)"><input type="text" inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={dateText} onChange={e=>{const value=formatDateEntryMDY(e.target.value);setDateText(value);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,value));applyShiftDate(value);}} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'date',today=>{setDateText(today);if(!editingRunId)setRunDateTimeText(current=>alignRunDateToShift(current,today));applyShiftDate(today);})} data-testid="input-date" /><span className="text-xs font-normal text-muted-foreground">Slashes are added automatically. Enter ? then press Tab for today.</span></F>
+            <F l="Shift time"><input required type="text" inputMode="numeric" maxLength={5} placeholder="HH:MM" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" className={inp+' mono'} value={r.shiftStartTime??''} onChange={event=>set('shiftStartTime',formatTimeEntry24H(event.target.value))} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'time',value=>set('shiftStartTime',value))} data-testid="input-shift-start-time" /><span className="text-xs font-normal text-muted-foreground">Enter the actual shift start time in 24-hour HH:MM format; four digits add the colon. Enter ? then press Tab for the current time.</span></F>
           <F l="Shift (from case folder)"><input className={inp} value={shiftDisplayLabel(r.shift)} disabled data-testid="input-shift" /></F>
           <F l="Phase (from case folder)"><input className={inp} value={phaseLabel(r.phase)} disabled data-testid="input-phase" /></F>
           <F l="Probationary Officer (PO)"><input className={inp} value={r.recruitName} onChange={e=>set('recruitName',e.target.value)} data-testid="input-po-name" /></F>
@@ -882,8 +902,8 @@ export default function ReportEditor() {
                    <button type="button" className="min-h-10 rounded border bg-card px-3 text-sm font-semibold"
                      onClick={()=>askStopRisk()} data-testid="button-change-stop-type">Change Stop Type</button>
                  </div>}
-                 <F l="Run event date · MM/DD/YYYY"><input required inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={runDateTimeParts.date} onChange={event=>{const date=formatDateEntryMDY(event.target.value);setRunDateTimeText(`${date}${runTimeText?` ${runTimeText}`:''}`);setRunError('');}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const now=currentDateTimeMDY();setRunDateTimeText(`${now.date} ${now.time}`);setRunTimeText(now.time);setRunError('');}}} data-testid="input-run-date" /></F>
-                 <F l="Run event time"><input required type="text" inputMode="numeric" maxLength={5} placeholder="HH:MM" className={inp+' mono'} value={runTimeText} onChange={event=>{const time=formatTimeEntry24H(event.target.value);setRunTimeText(time);setRunDateTimeText(current=>{const date=splitDateTimeEntryMDY(current).date;return date?`${date}${time?` ${time}`:''}`:'';});setRunError('');}} data-testid="input-run-time" /><span className="text-xs font-normal text-muted-foreground">Use 24-hour time for when the call was aired or initiated, for example 08:30 or 17:30. The colon is added automatically.</span></F>
+                  <F l="Run event date · MM/DD/YYYY"><input required inputMode="text" maxLength={10} placeholder="MM/DD/YYYY" className={inp+' mono'} value={runDateTimeParts.date} onChange={event=>{const date=formatDateEntryMDY(event.target.value);setRunDateTimeText(date==='?'?'?':`${date}${runTimeText?` ${runTimeText}`:''}`);setRunError('');}} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){applyCurrentDateTimeShortcut(event,'datetime',value=>{const [date,time]=value.split(' ');setRunDateTimeText(value);setRunTimeText(time??'');setRunError('');});return;}applyCurrentDateTimeShortcut(event,'date',date=>{setRunDateTimeText(`${date}${runTimeText?` ${runTimeText}`:''}`);setRunError('');});}} data-testid="input-run-date" /></F>
+                  <F l="Run event time"><input required type="text" inputMode="numeric" maxLength={5} placeholder="HH:MM" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" className={inp+' mono'} value={runTimeText} onChange={event=>{const time=formatTimeEntry24H(event.target.value);setRunTimeText(time);setRunDateTimeText(current=>{const date=splitDateTimeEntryMDY(current).date;return date?`${date}${time?` ${time}`:''}`:'';});setRunError('');}} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'time',time=>{setRunTimeText(time);setRunDateTimeText(current=>{const date=splitDateTimeEntryMDY(current).date;return date?`${date} ${time}`:'';});setRunError('');})} data-testid="input-run-time" /><span className="text-xs font-normal text-muted-foreground">Enter the time the call was aired or initiated in 24-hour HH:MM format; four digits add the colon. Enter ? then press Tab for the current time. Correct dispatch details as needed.</span></F>
                  <F l="Incident Number"><input className={inp} value={incidentNumber} onChange={event=>setIncidentNumber(event.target.value)} maxLength={120} data-testid="input-run-incident-number" /></F>
                  <F l="Unit / cruiser assignment"><input className={inp+' mono'} value={runUnitNumber} onChange={event=>setRunUnitNumber(event.target.value)} maxLength={40} placeholder="Assigned unit or cruiser" data-testid="input-run-unit-number" /></F>
                  <F l="Dispatched at · MM/DD/YYYY HH:MM"><input className={inp+' mono'} value={runDispatchedAtText} onChange={event=>setRunDispatchedAtText(event.target.value)} maxLength={16} placeholder="Optional" data-testid="input-run-dispatched-at" /></F>
@@ -894,7 +914,6 @@ export default function ReportEditor() {
                  <F l="ZIP code"><input className={inp} value={runLocationZip} onChange={event=>setRunLocationZip(event.target.value)} maxLength={10} data-testid="input-run-zip" /></F>
                  <F l="Zone"><input className={inp} value={runZone} onChange={event=>setRunZone(event.target.value)} maxLength={40} data-testid="input-run-zone" /></F>
                  <F l="Cruiser district"><input className={inp} value={runCruiserDistrict} onChange={event=>setRunCruiserDistrict(event.target.value)} maxLength={40} data-testid="input-run-cruiser-district" /></F>
-                {runKind==='traffic_stop' && <F l="Traffic violator"><SearchableSelect className={inp} value={trafficMode==='none'?'motor_vehicle':trafficMode} onChange={e=>{const mode=e.target.value as TrainingRun['trafficMode'];setTrafficMode(mode);recompute({trafficMode:mode});setRunError('');}} data-testid="select-traffic-violator"><option value="motor_vehicle">Motor vehicle</option><option value="pedestrian">Pedestrian</option><option value="bicycle">Bicycle</option><option value="other">Other</option></SearchableSelect></F>}
                 <F l="Run type / 10-code">
                   <div className="flex min-w-0">
                     <span className={radioCodePrefix} aria-hidden="true">10-</span>
@@ -933,38 +952,22 @@ export default function ReportEditor() {
               {arrestMade&&transported&&<F l="Actual transport destination"><input disabled={!editable} className={inp} maxLength={200} value={transportDestination} onChange={event=>{setTransportDestination(event.target.value);setRunError('');}} placeholder="Enter the destination that actually occurred" data-testid="input-transport-destination"/></F>}
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={!editable} checked={oviProcessed} onChange={e=>{const value=e.target.checked;setOviProcessed(value);recompute({oviProcessed:value});}} data-testid="checkbox-ovi-processed" />OVI processing occurred</label>
             </div>
-            <section className="mt-4 rounded border bg-card p-3" data-testid="section-quick-add-forms">
-              <div className="text-sm font-bold">Attach forms to this run</div>
-              <p className="mb-2 mt-0.5 text-xs text-muted-foreground">Each form becomes its own sheet in this run and inherits the incident number, location, date and time, PO, FTO, and cruiser. Attaching a form never records an arrest, transport, clearance, or statistic.</p>
-              <div className="run-quick-add">{QUICK_ADD.map(item=>{const lock=quickAddLock(item.form);const on=requiredSupplements.includes(item.form);return <label key={item.form} className={cn(on&&'is-on',(!editable||!!lock)&&'opacity-80')} title={lock??item.label}>
-                <input type="checkbox" disabled={!editable||!!lock} checked={on} onChange={event=>toggleQuickAdd(item.form,event.target.checked)} data-testid={`checkbox-quick-add-${item.form}`}/>
-                <span>{item.label}<small>{lock??(on?'Attached as a separate sheet':'Not attached')}</small></span>
-              </label>;})}</div>
+            <section className="mt-4 rounded border bg-card p-3">
+              <div className="text-sm font-bold">Optional Items and Additional Forms</div>
+              <p className="mt-1 text-xs text-muted-foreground">Choose Traffic Violator, Solve Citation/Summons, additional forms, or related activity only when needed. Unselected optional items do not print.</p>
+              <button type="button" onClick={()=>setRunOptionsOpen(true)} className="mt-3 min-h-11 rounded border bg-card px-4 text-sm font-bold" data-testid="button-open-run-options">{editable?'Choose':'View'} Optional Items and Forms</button>
+              <p className="mt-2 text-xs">{trafficMode!=='none'?`Traffic violator: ${trafficMode.replaceAll('_',' ')} · `:''}{requiredSupplements.length} additional form(s) · {Object.values(activityFlags).filter(Boolean).length} activity selection(s)</p>
             </section>
-              <div className="mt-3 rounded border border-accent/40 bg-accent/5 p-3" data-testid="section-related-activity">
-                 <div className="font-semibold text-sm">Related activity recorded on this run</div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {arrestMade
-                    ? 'For an arrest, select Prisoner Searches and Prisoners Slated only when they occurred. Select each other report or activity that was completed; the arrest flag does not add statistics automatically.'
-                    : trafficSolveSuggestion
-                      ? 'For this 10-6 Traffic Stop, select Solve Citation/Summons* when applicable. Do not select PremierOne Reports or Axon Reports for this traffic-stop citation.'
-                      : 'Select each statistic that actually applies to this run. No statistics are preselected from the run type, codes, or forms.'}
-                  {' '}These selections are supporting records only. They never change daily, weekly, phase, class, or monthly statistics; enter official totals manually in Daily Activity Summary.
-                </p>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">Check every completed statistic that applies to this run.</span>
-                  <button type="button" disabled={!editable} onClick={()=>{setActivityFlags({});setRunError('');}} className="min-h-10 rounded border border-destructive/60 bg-card px-3 text-xs font-bold text-destructive disabled:opacity-50" data-testid="button-clear-run-activity">Clear all stats</button>
-               </div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {DAILY_ACTIVITY_FIELDS.map(({key,label})=>{
-                    const premierOneNotApplicable=key==='premierOneReports'&&runKind==='traffic_stop'&&dispatchedCode==='6'&&['1V','3V'].includes(clearanceCode);
-                    return <label key={key} title={premierOneNotApplicable?'For a 10-6 Traffic Stop with 1V or 3V, clear PremierOne Reports and select Solve Citation/Summons* only when applicable.':''} className="flex min-h-10 items-center gap-2 rounded border bg-card px-2 text-xs leading-4">
-                    <input type="checkbox" disabled={!editable||(premierOneNotApplicable&&!activityFlags[key])} checked={!!activityFlags[key]} onChange={event=>{setActivityFlags(current=>({...current,[key]:event.target.checked}));setRunError('');}} data-testid={`checkbox-related-activity-${key}`}/>
-                    <span>{label}</span>
-                  </label>;
-                  })}
-                </div>
-              </div>
+            <RunOptionsDialog open={runOptionsOpen} onOpenChange={setRunOptionsOpen} disabled={!editable}
+              showTraffic={runKind==='traffic_stop'||runKind==='high_risk_stop'} trafficMode={trafficMode}
+              onTrafficChange={mode=>{setTrafficMode(mode);recompute({trafficMode:mode});setRunError('');}}
+              forms={QUICK_ADD.map(item=>({key:item.form,label:item.label,selected:requiredSupplements.includes(item.form),lockedReason:quickAddLock(item.form)}))}
+              onFormChange={toggleQuickAdd}
+              activities={DAILY_ACTIVITY_FIELDS.map(({key,label})=>({key,label,selected:!!activityFlags[key],
+                disabled:key==='premierOneReports'&&runKind==='traffic_stop'&&dispatchedCode==='6'&&['1V','3V'].includes(clearanceCode)&&!activityFlags[key]}))}
+              onActivityChange={(key,selected)=>{setActivityFlags(current=>({...current,[key]:selected}));setRunError('');}}
+              onClearActivities={()=>{setActivityFlags({});setRunError('');}}
+              activityHint={arrestMade?'Select Prisoner Searches and Prisoners Slated only when they occurred. Other activities must also have actually occurred.':trafficSolveSuggestion?'For this 10-6 Traffic Stop, select Solve Citation/Summons when applicable. Do not select PremierOne Reports for this traffic-stop citation.':'Choose only completed reports and activities. Nothing is preselected from the run type, codes, or attached forms.'}/>
             </div>}
             {currentStep.id==='primary'&&<div data-testid="sheet-primary">
             <div className="mt-4 rounded border bg-card p-3">
@@ -972,18 +975,22 @@ export default function ReportEditor() {
                 <div className="font-semibold text-sm" title={RUN_FORM_GUIDANCE[runKind]}>{selectedForm.label}</div>
                 <div className="flex flex-wrap gap-2">
                 <label className="flex min-h-11 items-center gap-2 rounded border px-3 text-sm font-semibold"><input type="checkbox" disabled={!editable} checked={!!runChecklist['na-task']} onChange={event=>{const notApplicable=event.target.checked;setRunChecklist(current=>({...current,'na-task':notApplicable,...(notApplicable?Object.fromEntries(checkItems.map((_,index)=>[`task-${index}`,false])):{})}));if(notApplicable){setRunChecklistFailures(current=>{const next={...current};checkItems.forEach((_,index)=>{delete next[`task-${index}`];});return next;});}if(notApplicable&&primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);setRunError('');}} data-testid="checkbox-run-na"/>Not applicable</label>
-                    <button type="button" disabled={!editable} onClick={()=>{const targets=primaryChecklistGroups.flatMap(group=>group.items.map((item,index)=>({form:runKind,key:`task-${group.start+index}`,label:item.label})));if(primaryChecklistAllChecked)clearChecklistItems(targets,'na-task');else selectChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,!primaryChecklistAllChecked);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-run-checklist">{primaryChecklistAllChecked?'Deselect all':'Select all'}</button>
-                   <button type="button" disabled={!editable} onClick={()=>{const targets=primaryChecklistGroups.flatMap(group=>group.items.map((item,index)=>({form:runKind,key:`task-${group.start+index}`,label:item.label})));clearChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid="button-clear-run-checklist">Clear all checkboxes</button>
+                     <button type="button" disabled={!editable} onClick={()=>{const targets=checkItems.map((label,index)=>({form:runKind,key:`task-${index}`,label}));if(primaryChecklistAllChecked)clearChecklistItems(targets,'na-task');else selectChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,!primaryChecklistAllChecked);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-run-checklist">{primaryChecklistAllChecked?'Deselect all':'Select all'}</button>
+                    <button type="button" disabled={!editable} onClick={()=>{const targets=checkItems.map((label,index)=>({form:runKind,key:`task-${index}`,label}));clearChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid="button-clear-run-checklist">Clear all checkboxes</button>
                 </div>
               </div>
                 <details className="mt-2 rounded border bg-muted/30 p-2 text-xs"><summary className="cursor-pointer font-semibold">{RUN_FORM_GUIDANCE[runKind]}</summary><p className="mt-1">The segments below follow the selected manual form. Hover or focus each item for its meaning. Check only when the PO completed the action acceptably; clear it if not completed acceptably, not applicable, or performed by the FTO, and document deficiencies or training in the narrative.</p></details>
-                <p className="my-2 rounded border border-warn/50 bg-warn/10 p-2 text-xs">Run checklist items start checked. Review every segment before saving; clear any item the PO did not complete acceptably or that did not apply.</p>
+                <p className="my-2 rounded border border-warn/50 bg-warn/10 p-2 text-xs">Run checklist items start checked. Review every segment before saving; clear any item the PO did not complete acceptably or that did not apply. A combined row is checked only when every listed action is complete. Mixed rows retain the saved individual task values until you explicitly change them.</p>
                <div className="mt-2 grid gap-3">
-                       {primaryChecklistGroups.map(group=><fieldset key={group.title} disabled={!editable||!!runChecklist['na-task']} className="rounded border p-3">
-                         {group.title&&<legend className="px-2 text-xs font-bold"><button type="button" disabled={!editable||!!runChecklist['na-task']} aria-label={`Toggle ${group.title} checklist`} aria-pressed={group.items.every((_,index)=>runChecklist[`task-${group.start+index}`]!==false)} onClick={()=>{const targets=group.items.map((item,index)=>({form:runKind,key:`task-${group.start+index}`,label:item.label}));const allChecked=targets.every(target=>runChecklist[target.key]!==false);if(allChecked)clearChecklistItems(targets,'na-task');else selectChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=group.start&&primaryDirectiveIndex<group.start+group.items.length)setDirectiveReviewFlags(runKind,!allChecked);}} data-testid={`button-toggle-run-section-${runKind}-${group.start}`}>{group.title}</button></legend>}
-                        <div className="grid gap-2 sm:grid-cols-2">{group.items.map((item,index)=>{const itemIndex=group.start+index;const key=`task-${itemIndex}`;const target={form:runKind,key,label:item.label};const actionChoices=runFailureActionChoices(runKind,key,item.label);return <div key={itemIndex} className="rounded-sm py-1"><label title={checklistHelp(selectedForm.label,item.help)} aria-label={`${item.label}. ${item.help}`} className="flex items-start gap-2 text-xs leading-5"><input type="checkbox" checked={runChecklist[key]!==false} onChange={e=>changeRunChecklistItem(target,e.target.checked)} data-testid={`checkbox-run-task-${itemIndex}`} /><span className="min-w-0">{item.label}{runChecklistFailures[key]?.map(action=><span key={action} className="block text-muted-foreground">Not completed: <strong className="font-bold text-destructive">{action}</strong></span>)}</span></label>{actionChoices&&runChecklist[key]===false&&<button type="button" onClick={()=>openFailurePrompt(target,'edit')} className="ml-6 mt-1 min-h-8 text-left text-xs font-semibold text-primary underline" data-testid={`button-edit-run-failure-${itemIndex}`}>{runChecklistFailures[key]?.length?'Edit specific actions':'Add specific actions'}</button>}</div>})}</div>
-                    </fieldset>)}
-                     {primaryDirectiveIndex>=0&&runChecklist[`task-${primaryDirectiveIndex}`]!==false&&<DirectiveReviewEditor value={primaryDirectiveReview} disabled={!editable} dataTestId={`directive-review-${runKind}`} onChange={(field,value)=>updateDirectiveReview(runKind,field,value)}/>}
+                      <RunChecklistFields sections={primaryChecklistGroups} state={runChecklist} prefix="task-"
+                        disabled={!editable||!!runChecklist['na-task']} testId={`checklist-primary-${runKind}`}
+                        onChange={(indices,checked)=>{
+                          const targets=indices.map(index=>({form:runKind,key:`task-${index}`,label:checkItems[index]}));
+                          if(checked)selectChecklistItems(targets,'na-task');else clearChecklistItems(targets,'na-task');
+                          if(indices.includes(primaryDirectiveIndex))setDirectiveReviewFlags(runKind,checked);
+                        }}
+                        renderItemDetails={indices=>renderChecklistFailureDetails(runKind,'task-',indices,checkItems)}/>
+                     {primaryDirectiveIndex>=0&&<DirectiveReviewEditor value={primaryDirectiveReview} disabled={!editable||runChecklist[`task-${primaryDirectiveIndex}`]===false} dataTestId={`directive-review-${runKind}`} onChange={(field,value)=>updateDirectiveReview(runKind,field,value)}/>}
                </div>
               {sheetReviewFooter('primary')}
             </div>
@@ -995,20 +1002,26 @@ export default function ReportEditor() {
                   const supplementDirectiveReview=directiveReviews[supplement]??defaultDirectiveReviewRecord();
                   const supplementAllChecked=supplementItems.length>0&&supplementItems.every((_,index)=>runChecklist[`supp-${supplement}-${index}`]!==false)
                     &&(supplementDirectiveIndex<0||(runChecklist[`supp-${supplement}-${supplementDirectiveIndex}`]!==false&&supplementDirectiveReview.divisionDirectives&&supplementDirectiveReview.ohioRevisedCode&&supplementDirectiveReview.columbusCityCode&&supplementDirectiveReview.other));
-                 let supplementOffset=0;
-                 const groups=RUN_SUPPLEMENT_CHECKLIST_SECTIONS[supplement].map(section=>{const start=supplementOffset;supplementOffset+=section.items.length;return {...section,start};});
+                 const groups=REVISED_SUPPLEMENT_CHECKLISTS[supplement];
                  return <div key={supplement} className="mt-3 rounded border border-accent/40 bg-accent/5 p-3" data-testid={`section-supplement-${supplement}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2"><div className="font-semibold text-sm" title={SUPPLEMENTAL_FORM_GUIDANCE[supplement]}>{form.label}</div>
                       {supplementItems.length>0&&<div className="flex flex-wrap gap-2">
                         <label className="flex min-h-11 items-center gap-2 rounded border px-3 text-sm font-semibold"><input type="checkbox" disabled={!editable} checked={!!runChecklist[`na-supp-${supplement}`]} onChange={event=>{const notApplicable=event.target.checked;setRunChecklist(current=>({...current,[`na-supp-${supplement}`]:notApplicable,...(notApplicable?Object.fromEntries(supplementItems.map((_,index)=>[`supp-${supplement}-${index}`,false])):{})}));if(notApplicable){setRunChecklistFailures(current=>{const next={...current};supplementItems.forEach((_,index)=>{delete next[`supp-${supplement}-${index}`];});return next;});}if(notApplicable&&supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);setRunError('');}} data-testid={`checkbox-supplement-na-${supplement}`}/>Not applicable</label>
-                         <button type="button" disabled={!editable} onClick={()=>{const targets=groups.flatMap(group=>group.items.map((item,index)=>({form:supplement,key:`supp-${supplement}-${group.start+index}`,label:item.label})));if(supplementAllChecked)clearChecklistItems(targets,`na-supp-${supplement}`);else selectChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,!supplementAllChecked);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-toggle-supplement-${supplement}`}>{supplementAllChecked?'Deselect all':'Select all'}</button>
-                         <button type="button" disabled={!editable} onClick={()=>{const targets=groups.flatMap(group=>group.items.map((item,index)=>({form:supplement,key:`supp-${supplement}-${group.start+index}`,label:item.label})));clearChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid={`button-clear-supplement-${supplement}`}>Clear all checkboxes</button>
+                         <button type="button" disabled={!editable} onClick={()=>{const targets=supplementItems.map((label,index)=>({form:supplement,key:`supp-${supplement}-${index}`,label}));if(supplementAllChecked)clearChecklistItems(targets,`na-supp-${supplement}`);else selectChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,!supplementAllChecked);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-toggle-supplement-${supplement}`}>{supplementAllChecked?'Deselect all':'Select all'}</button>
+                          <button type="button" disabled={!editable} onClick={()=>{const targets=supplementItems.map((label,index)=>({form:supplement,key:`supp-${supplement}-${index}`,label}));clearChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid={`button-clear-supplement-${supplement}`}>Clear all checkboxes</button>
                       </div>}
                    </div>
                      <p className="mt-2 rounded border bg-muted/30 p-2 text-xs">{SUPPLEMENTAL_FORM_GUIDANCE[supplement]}</p>
                      {supplementItems.length>0?<><details className="mt-2 rounded border bg-muted/30 p-2 text-xs"><summary className="cursor-pointer font-semibold">How to review this form</summary><p className="mt-1">Hover or focus each item for its meaning. Check only when the PO completed the action acceptably. Clear it if not completed acceptably, not applicable, or performed by the FTO; document deficiencies and training in the narrative.</p></details>
-                       <div className="mt-2 grid gap-3">{groups.map(group=><fieldset key={group.title||group.start} disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} className="rounded border border-accent/30 p-3">{group.title&&<legend className="px-2 text-xs font-bold"><button type="button" disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} aria-label={`Toggle ${group.title} checklist`} aria-pressed={group.items.every((_,index)=>runChecklist[`supp-${supplement}-${group.start+index}`]!==false)} onClick={()=>{const targets=group.items.map((item,index)=>({form:supplement,key:`supp-${supplement}-${group.start+index}`,label:item.label}));const allChecked=targets.every(target=>runChecklist[target.key]!==false);if(allChecked)clearChecklistItems(targets,`na-supp-${supplement}`);else selectChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=group.start&&supplementDirectiveIndex<group.start+group.items.length)setDirectiveReviewFlags(supplement,!allChecked);}} data-testid={`button-toggle-supplement-section-${supplement}-${group.start}`}>{group.title}</button></legend>}<div className="grid gap-2 sm:grid-cols-2">{group.items.map((item,index)=>{const itemIndex=group.start+index;const key=`supp-${supplement}-${itemIndex}`;const target={form:supplement,key,label:item.label};const actionChoices=runFailureActionChoices(supplement,key,item.label);return <div key={itemIndex} className="rounded-sm py-1"><label title={checklistHelp(form.label,item.help)} aria-label={`${item.label}. ${item.help}`} className="flex items-start gap-2 text-xs leading-5"><input type="checkbox" checked={runChecklist[key]!==false} onChange={event=>changeRunChecklistItem(target,event.target.checked)} data-testid={`checkbox-supplement-${supplement}-${itemIndex}`} /><span className="min-w-0">{item.label}{runChecklistFailures[key]?.map(action=><span key={action} className="block text-muted-foreground">Not completed: <strong className="font-bold text-destructive">{action}</strong></span>)}</span></label>{actionChoices&&runChecklist[key]===false&&<button type="button" onClick={()=>openFailurePrompt(target,'edit')} className="ml-6 mt-1 min-h-8 text-left text-xs font-semibold text-primary underline" data-testid={`button-edit-supplement-failure-${supplement}-${itemIndex}`}>{runChecklistFailures[key]?.length?'Edit specific actions':'Add specific actions'}</button>}</div>})}</div></fieldset>)}</div>
-                     {supplementDirectiveIndex>=0&&runChecklist[`supp-${supplement}-${supplementDirectiveIndex}`]!==false&&<DirectiveReviewEditor value={supplementDirectiveReview} disabled={!editable} dataTestId={`directive-review-${supplement}`} onChange={(field,value)=>updateDirectiveReview(supplement,field,value)}/>}</>:<p className="mt-2 text-xs text-muted-foreground">The submitted form has no separate checkbox list here.</p>}
+                      <RunChecklistFields sections={groups} state={runChecklist} prefix={`supp-${supplement}-`}
+                        disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} testId={`checklist-supplement-${supplement}`}
+                        onChange={(indices,checked)=>{
+                           const targets=indices.map(index=>({form:supplement,key:`supp-${supplement}-${index}`,label:supplementItems[index]}));
+                           if(checked)selectChecklistItems(targets,`na-supp-${supplement}`);else clearChecklistItems(targets,`na-supp-${supplement}`);
+                          if(indices.includes(supplementDirectiveIndex))setDirectiveReviewFlags(supplement,checked);
+                         }}
+                         renderItemDetails={indices=>renderChecklistFailureDetails(supplement,`supp-${supplement}-`,indices,supplementItems)}/>
+                     {supplementDirectiveIndex>=0&&<DirectiveReviewEditor value={supplementDirectiveReview} disabled={!editable||runChecklist[`supp-${supplement}-${supplementDirectiveIndex}`]===false} dataTestId={`directive-review-${supplement}`} onChange={(field,value)=>updateDirectiveReview(supplement,field,value)}/>}</>:<p className="mt-2 text-xs text-muted-foreground">The submitted form has no separate checkbox list here.</p>}
                      {supplement==='narrative_addition'&&<p className="mt-2 rounded border bg-card p-2 text-xs">The continuation pages print the run narrative written on the Narrative &amp; save sheet. Changing that narrative requires this sheet to be reviewed again.</p>}
                      {sheetReviewFooter(supplement)}
                </div>;
@@ -1051,7 +1064,7 @@ export default function ReportEditor() {
                    <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><div className="font-semibold text-sm">{form?.label ?? 'Training run'}</div><div className="text-xs text-muted-foreground">{formatDateTimeMDY(run.occurredAt)} · {run.isDispatched?'Dispatched':'Self-initiated'}</div></div><button type="button" disabled={!editable} onClick={()=>requestEditRun(run)} className="rounded border px-2 py-1 text-xs font-semibold disabled:opacity-50" data-testid={`button-edit-run-${run.id}`}>Edit</button><button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>set('runs',r.runs.filter(item=>item.id!==run.id))})} aria-label="Remove run" className="rounded border p-1.5 text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}><Trash className="h-4 w-4" /></button></div>
                   <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]"><span className="rounded bg-muted px-2 py-0.5" data-testid={`status-run-form-${run.id}`}>{run.formStatus.replace('_',' ')}</span>{supplements.map(name=><span key={name} className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5">{name}</span>)}</div>
                    <p className="mt-1 text-xs">Run: {run.dispatchedCode ? `10-${run.dispatchedCode}`:'Not recorded'} · Found: {run.situationFoundCode ? formatRadioCode(run.situationFoundCode):'Not recorded'} · Clearance: {run.clearanceCode || 'Not recorded'}</p>
-                      {run.runKind==='traffic_stop'&&<p className="mt-1 text-xs">Traffic violator: {run.trafficMode.replace('_',' ')}{run.activityFlags?.solveCitationSummons?' · Solve Citation/Summons selected':''}</p>}
+                      {(run.runKind==='traffic_stop'||run.runKind==='high_risk_stop')&&run.trafficMode!=='none'&&<p className="mt-1 text-xs">Traffic violator: {run.trafficMode.replaceAll('_',' ')}{run.activityFlags?.solveCitationSummons?' · Solve Citation/Summons selected':''}</p>}
                    {failureSummaries.length>0&&<div className="mt-2 rounded border border-destructive/30 bg-destructive/5 p-2" data-testid={`list-run-failures-${run.id}`}>
                      <div className="text-xs font-bold">Unchecked run checklist items</div>
                      <ul className="mt-1 space-y-1">{failureSummaries.map(item=><li key={item.key} className="text-xs">

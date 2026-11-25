@@ -336,7 +336,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
       runNarrativeParts.forEach((narrativePart, partIndex) => runRows.push([
          safeText(report.recruitName), safeText(report.recruitBadge), formatDateDMY(report.date),
          safeText(report.shift), safeText(assignmentValue(report)), safeText(formatDateTimeMDY(run.occurredAt)), safeText(primary?.label ?? 'Unassigned primary form'),
-        supplements.map(form => form.formNumber ? `${form.label} (${form.formNumber})` : form.label).join('; '),
+        supplements.map(({ label, formNumber }) => formNumber ? `${label} (${formNumber})` : label).join('; '),
         safeText(run.formStatus), run.isDispatched ? 'Yes' : 'No', run.arrestMade ? 'Yes' : 'No',
           run.transportedAfterArrest ? 'Yes' : 'No', safeText(run.transportDestinationType ?? ''), safeText(run.transportDestination ?? ''), run.oviProcessed ? 'Yes' : 'No', safeText(run.trafficMode),
          safeText(narrativePart), `${partIndex + 1} of ${runNarrativeParts.length}`,

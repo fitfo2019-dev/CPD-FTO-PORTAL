@@ -11,7 +11,7 @@ import {
   type RatingEntry,
   type Report,
 } from './model.js';
-import { buildMonthlyWorkbook } from './monthly-export.js';
+import { buildMonthlyWorkbook, serializeMonthlyWorkbook } from './monthly-export.js';
 import { validateReportsForExport } from './export-validation.js';
 import { buildClassWorkbook } from './exportWorkbook.js';
 import { assertExportCopy } from '../../test-support/export-copy-boundaries.js';
@@ -171,6 +171,22 @@ test('monthly workbook renders four supplied weekly ranges without leaking incid
   }
   assert.equal(workbook.Sheets['Week 1']!['!cols']?.length,24);
   assert.equal(workbook.Sheets['Week 1']['!pageSetup'].orientation,'landscape');
+  const saved=serializeMonthlyWorkbook(workbook);
+  const archive=XLSX.CFB.read(new Uint8Array(saved),{type:'array'});
+  const roundTrip=XLSX.read(saved,{type:'array'});
+  assert.deepEqual(roundTrip.SheetNames,workbook.SheetNames);
+  workbook.SheetNames.forEach((name,index)=>{
+    const xml=new TextDecoder().decode(Uint8Array.from(XLSX.CFB.find(archive,`/xl/worksheets/sheet${index+1}.xml`)!.content));
+    assert.match(xml,/<pageSetup[^>]*orientation="landscape"[^>]*fitToWidth="1"[^>]*fitToHeight="1"/);
+    assert.match(xml,/<pageSetUpPr fitToPage="1"/);
+    assert.match(xml,/<pageMargins left="0\.5" right="0\.5" top="0\.5" bottom="0\.5" header="0\.1" footer="0\.1"\/>/);
+    assert.match(xml,/<oddFooter>.*Template revised 11\/24\/2026<\/oddFooter>/);
+    assert.deepEqual(roundTrip.Sheets[name]['!merges'],workbook.Sheets[name]['!merges']);
+    assert.equal(roundTrip.Sheets[name]['!ref'],workbook.Sheets[name]['!ref']);
+    for(const [address,cell] of Object.entries(workbook.Sheets[name])) {
+      if(!address.startsWith('!')&&cell.v!==undefined)assert.equal(roundTrip.Sheets[name][address]?.v,cell.v);
+    }
+  });
   const runSupportText = JSON.stringify(Object.values(workbook.Sheets));
   assert.equal(runSupportText.includes('PRIVATE-INCIDENT'), false);
   assert.equal(runSupportText.includes('PRIVATE-LOCATION'), false);

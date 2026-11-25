@@ -11,7 +11,8 @@ import { useWorkspace } from '@/state/workspace.js';
 import { CPD_GEOGRAPHY, cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, ftoCruiserDistrictsForShift, cpdPrecinctsForZone, isUniversalFtoAssignment, isValidFtoAssignment } from '@/lib/cpd-geography.js';
 import { assignmentToCaseFolder, TrainingAssignmentsPanel } from '@/components/training-assignments-panel.js';
 import { PHASES, PHASE_LENGTH_WEEKS, SHIFTS, SHIFT_LABEL, WEEKDAYS, phaseLabel, type Phase, type PhaseCaseFolder, type Shift, type TrainingAssignment, type Weekday } from '@/lib/model.js';
-import { createPhaseWeekRanges, currentDateTimeMDY, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getCaseFolderWeekRanges, getSundaySaturdayWeek, parseDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
+import { createPhaseWeekRanges, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getCaseFolderWeekRanges, getSundaySaturdayWeek, parseDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
+import { applyCurrentDateTimeShortcut } from '@/lib/date-time-shortcut.js';
 import { useToast } from '@/hooks/use-toast.js';
 
 const DAY_VALUES=[0,1,2,3,4,5,6] as const;
@@ -251,18 +252,18 @@ export default function PhaseSetupPage() {
               form.setValue('phaseStartDate',value,{shouldDirty:true,shouldValidate:true});
               const start=parseDateDMY(value);
               if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(phaseValue) as Phase,start,0,form.getValues('scheduledWeeks')).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});
-            }} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();const value=currentDateTimeMDY().date;form.setValue('phaseStartDate',value,{shouldDirty:true,shouldValidate:true});const start=parseDateDMY(value);if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(phaseValue) as Phase,start,0,form.getValues('scheduledWeeks')).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});}}} data-testid="input-phase-start"/>{canManageAssignment&&<span className="text-xs font-normal text-muted-foreground">Type digits for automatic MM/DD/YYYY formatting. Enter ? then press Enter for today.</span>}</Field>
+            }} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'date',value=>{form.setValue('phaseStartDate',value,{shouldDirty:true,shouldValidate:true});const start=parseDateDMY(value);if(start)form.setValue('phaseWeekRanges',createPhaseWeekRanges(Number(phaseValue) as Phase,start,0,form.getValues('scheduledWeeks')).map(range=>({startDate:formatDateDMY(range.startDate),endDate:formatDateDMY(range.endDate)})),{shouldDirty:true,shouldValidate:true});})} data-testid="input-phase-start"/>{canManageAssignment&&<span className="text-xs font-normal text-muted-foreground">Type digits for automatic MM/DD/YYYY formatting. Enter ? then press Tab for today.</span>}</Field>
             <fieldset className="grid gap-3 rounded-sm border bg-muted/20 p-4">
               <legend className="px-2 text-sm font-bold">Phase week dates · Sunday–Saturday</legend>
               {phaseWeekRanges.map((range,index)=><div key={index} className="grid gap-3 sm:grid-cols-2">
                 <Field label={`Week ${index+1} starts · MM/DD/YYYY`} error={phaseRangeFieldError(index,'startDate')}><input className={textInput} inputMode="text" placeholder="MM/DD/YYYY" value={range.startDate} onChange={event=>{
                   const next=[...phaseWeekRanges];next[index]={...next[index],startDate:formatDateEntryMDY(event.target.value)};
                   form.setValue('phaseWeekRanges',next,{shouldDirty:true,shouldValidate:true});
-                }} data-testid={`input-phase-week-${index+1}-start`}/></Field>
+                }} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'date',value=>{const next=[...phaseWeekRanges];next[index]={...next[index],startDate:value};form.setValue('phaseWeekRanges',next,{shouldDirty:true,shouldValidate:true});})} data-testid={`input-phase-week-${index+1}-start`}/></Field>
                 <Field label={`Week ${index+1} ends · MM/DD/YYYY`} error={phaseRangeFieldError(index,'endDate')}><input className={textInput} inputMode="text" placeholder="MM/DD/YYYY" value={range.endDate} onChange={event=>{
                   const next=[...phaseWeekRanges];next[index]={...next[index],endDate:formatDateEntryMDY(event.target.value)};
                   form.setValue('phaseWeekRanges',next,{shouldDirty:true,shouldValidate:true});
-                }} data-testid={`input-phase-week-${index+1}-end`}/></Field>
+                }} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'date',value=>{const next=[...phaseWeekRanges];next[index]={...next[index],endDate:value};form.setValue('phaseWeekRanges',next,{shouldDirty:true,shouldValidate:true});})} data-testid={`input-phase-week-${index+1}-end`}/></Field>
               </div>)}
               {fieldError('phaseWeekRanges')&&<p className="text-sm text-destructive" role="alert">{fieldError('phaseWeekRanges')}</p>}
               <p className="text-xs text-muted-foreground">The date ranges set the workbook’s phase-week tabs. Extra approved weeks are included with Week 4 in Excel.</p>

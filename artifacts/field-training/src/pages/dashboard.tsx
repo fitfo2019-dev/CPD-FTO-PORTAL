@@ -1,5 +1,5 @@
 import { Link } from 'wouter';
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import { ArrowRight, ClipboardList, FolderOpen, UsersRound, CalendarClock, CalendarDays, FileCheck2, BookOpen } from 'lucide-react';
 import { useWorkspace } from '@/state/workspace.js';
 import { CATEGORIES, CATEGORY_LABEL, canViewClass, evaluationProgress, needsJustification, phaseAssignmentLabel, ROLE_LABEL } from '@/lib/model.js';
@@ -122,7 +122,7 @@ export default function Dashboard() {
 }
 
 function WorkflowCard({step,title,status,href,action,primary,disabled}:{step:string;title:string;status:string;href:string;action:string;primary?:boolean;disabled?:boolean}) {
-  return <Link href={disabled?'#':href} aria-disabled={disabled} onClick={event=>{if(disabled)event.preventDefault();}} className={`flex min-h-36 flex-col rounded border bg-card p-4 transition-colors ${disabled?'cursor-not-allowed opacity-50':'hover:border-primary'} ${primary?'border-primary/60':''}`} data-testid={`workflow-${title.toLowerCase().replaceAll(' ','-')}`}>
+  return <Link href={disabled?'#':href} aria-disabled={disabled} onClick={(event:MouseEvent<HTMLAnchorElement>)=>{if(disabled)event.preventDefault();}} className={`flex min-h-36 flex-col rounded border bg-card p-4 transition-colors ${disabled?'cursor-not-allowed opacity-50':'hover:border-primary'} ${primary?'border-primary/60':''}`} data-testid={`workflow-${title.toLowerCase().replaceAll(' ','-')}`}>
     <div className="flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-muted text-sm font-bold">{step}</span><b>{title}</b></div>
     <p className="mt-3 flex-1 text-sm text-muted-foreground">{status}</p>
     <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold">{action}<ArrowRight className="h-4 w-4"/></span>
@@ -130,7 +130,7 @@ function WorkflowCard({step,title,status,href,action,primary,disabled}:{step:str
 }
 
 function ActionLink({href,icon,title,detail,primary,disabled,testId}:{href:string;icon:ReactNode;title:string;detail:string;primary?:boolean;disabled?:boolean;testId:string}) {
-  return <Link href={disabled?'#':href} aria-disabled={disabled} onClick={event=>{if(disabled)event.preventDefault();}} data-testid={testId} className={`flex min-h-[6.5rem] items-start gap-3 rounded border p-3 transition-colors ${disabled?'cursor-not-allowed opacity-50':'hover:border-primary'} ${primary?'border-primary bg-card':'border-border bg-card'}`}>
+  return <Link href={disabled?'#':href} aria-disabled={disabled} onClick={(event:MouseEvent<HTMLAnchorElement>)=>{if(disabled)event.preventDefault();}} data-testid={testId} className={`flex min-h-[6.5rem] items-start gap-3 rounded border p-3 transition-colors ${disabled?'cursor-not-allowed opacity-50':'hover:border-primary'} ${primary?'border-primary bg-card':'border-border bg-card'}`}>
     <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded bg-primary/10 text-primary">{icon}</span>
     <span className="min-w-0"><b className="block text-sm leading-snug">{title}</b><span className="mt-1 block text-xs text-muted-foreground">{detail}</span></span>
   </Link>;

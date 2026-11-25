@@ -478,6 +478,20 @@ storage_version_token = "1795453927538174"
 content_type = "image/jpeg"
 
 [[outputs]]
+id = "7LSWh_3KqRIvpy71VWpoj"
+uri = "file://generated-artifacts/orientation-print/Orientation-Branded-Page-Review.pdf"
+type = "pdf"
+title = "Columbus letterhead sample-based PDF proof"
+description = "Latest one-page orientation form styled after your reference: navy top band, gold curve, silver badge left, City wordmark and DIVISION OF POLICE / FIELD TRAINING OFFICE centered, and patch right."
+logical_id = "59dc5423-21a9-4d3a-8d17-551646894bf1"
+content_hash = "sha256:c928bdaa741de71569dc4c49e3731e497f4f73d18f55384dc4f120c372de24f1"
+size = 234896
+mtime_ms = 1795449272196
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/59dc5423-21a9-4d3a-8d17-551646894bf1/20e75580-34bc-4106-a19a-e2f5924a3f4f"
+storage_version_token = "1795449288444243"
+content_type = "application/pdf"
+
+[[outputs]]
 id = "UfRt_r674llgVF6NrElbM"
 uri = "file://generated-artifacts/coordinator-packet-workflow-preview.jpg"
 type = "image"
@@ -490,6 +504,20 @@ mtime_ms = 1795454225665
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/7dbfe034-6502-41d6-b46e-9c5a44ce8806/a6c039ea-8943-43e1-aa8c-0cbcedbef013"
 storage_version_token = "1795454247218482"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "eMKlRv4KoyIQBEM3NvZom"
+uri = "file://generated-artifacts/orientation-print/Orientation-Branded-Page-Review-preview.png"
+type = "image"
+title = "Updated Columbus letterhead preview"
+description = "Rendered view of the latest print proof with the supplied letterhead layout."
+logical_id = "719d2cf3-c683-4c54-b8ac-c0f7fd06aa35"
+content_hash = "sha256:843b64daa0d7932aa5b59cd54335451efb855a536ddb7488967e1371a45e38f7"
+size = 279790
+mtime_ms = 1795449272700
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/719d2cf3-c683-4c54-b8ac-c0f7fd06aa35/76a852c4-fa34-4daa-a749-b158a9ac9d6d"
+storage_version_token = "1795449289091034"
+content_type = "image/png"
 
 [[outputs]]
 id = "XKxuZ5_ncwOPfg4-yoTC1"
@@ -588,3 +616,269 @@ mtime_ms = 1795538356105
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/f0c33c35-1ad0-4496-afa6-c014bafe27c7/1e5e16fc-bbef-4958-aec9-2b7b90b72d59"
 storage_version_token = "1795538522380044"
 content_type = "text/html"
+
+[[outputs]]
+id = "g_KIsaR8GHn_qUGysRB4O"
+uri = "file://generated-artifacts/run-form-proofs/Single-Page-FTO-Base-Forms.pdf"
+type = "pdf"
+title = "All 17 Forms — Updated Checkbox Spacing"
+description = "The complete updated base-form set. Each form still occupies one physical page, with no reduction in task text size."
+logical_id = "b9654164-f972-4067-b97c-7939b76dd3b8"
+content_hash = "sha256:9e2ca061211a166f42682059b04ff8e7e1660f83c8ecf26693f336411480a0e5"
+size = 3861729
+mtime_ms = 1795522149778
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/b9654164-f972-4067-b97c-7939b76dd3b8/ec8facce-289d-44bc-9da9-b8d8a9e92d6f"
+storage_version_token = "1795522231596738"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "BI4jhYfRHEuxlSGKJIYVV"
+uri = "file://generated-artifacts/run-form-proofs/Narrative-Continuation-Examples.pdf"
+type = "pdf"
+title = "Narrative Continuation Examples"
+description = "Separate narrative attachments showing the content allowed to continue beyond the single-page base forms."
+logical_id = "eac8aeb1-e8c3-4ff1-ba05-e4f74c28d793"
+content_hash = "sha256:a3713ff50616e632d0472a2a4df8c9735d94f99d0c07a3346f5e82e950ba4b88"
+size = 635617
+mtime_ms = 1795468062757
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/eac8aeb1-e8c3-4ff1-ba05-e4f74c28d793/2cd37a0b-8e3b-488b-866d-f845cadb8ee8"
+storage_version_token = "1795468643510453"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "lGY4ewbLIRB_9bA_uanlb"
+uri = "file://generated-artifacts/run-form-proofs/All-Run-Form-Previews.pdf"
+type = "pdf"
+title = "All 13 form previews — PDF"
+description = "One-page proofs for Substation Orientation, Reporting for Duty, all seven primary run forms, all three checklist supplements, and Narrative Addition / Continuation. Uses fictional data and the design from your uploaded PDF."
+logical_id = "38544084-6543-44cb-b3ce-efd2374b1918"
+content_hash = "sha256:66be32bcfed56d075d65224ce7793cf0dc454496888044f71e861a09b01d6fec"
+size = 3010528
+mtime_ms = 1795461374721
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/38544084-6543-44cb-b3ce-efd2374b1918/0dfd066e-65aa-45c4-b917-4aa28ebe9a54"
+storage_version_token = "1795461513214884"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "-PoIJ5zUStiuQFp7goNur"
+uri = "file://generated-artifacts/run-form-proofs/All-Run-Form-Preview-Gallery.html"
+type = "html"
+title = "Preview every form — expandable gallery"
+description = "All 13 actual PDF page images together. Click a page to enlarge it and compare the letterhead, field tables, checklist sections, and footer."
+logical_id = "d16d8c93-f648-495d-90ee-6c4997e6b84c"
+content_hash = "sha256:4ec697f8e29d8be9f19736cd2b55766e5d5592beaa97f3b3687c0630fc1672dc"
+size = 4529380
+mtime_ms = 1795461374841
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/d16d8c93-f648-495d-90ee-6c4997e6b84c/178a63e6-b2e9-44e8-b3b2-d433220fd000"
+storage_version_token = "1795461514167919"
+content_type = "text/html"
+
+[[outputs]]
+id = "7L51ubuB9Lr7-ORfq4UbQ"
+uri = "file://generated-artifacts/run-form-proofs/Individual-Run-Form-Previews.zip"
+type = "unspecified"
+title = "Individual form PDFs"
+description = "Download each of the 13 form proofs separately."
+logical_id = "cfc81ae8-73b2-46e2-bde7-f7d900833605"
+content_hash = "sha256:b84f560c859b0ce381efe84e58576cb8664d94ccdf4a229b1cba826c0e18201c"
+size = 2881871
+mtime_ms = 1795461374829
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/cfc81ae8-73b2-46e2-bde7-f7d900833605/d8416295-8d13-45d8-be31-7e927cb73d42"
+storage_version_token = "1795461514822038"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "w6gjKk5rpRjzQdjTjCST0"
+uri = "file://generated-artifacts/run-form-proofs/All-FTO-Form-Preview-Gallery.html"
+type = "html"
+title = "All FTO Form Previews"
+description = "Zoomable gallery of the related form designs and narrative continuations."
+logical_id = "b0f3c9f2-5f30-46b6-8a6a-4024fe73ceea"
+content_hash = "sha256:5373eb085c8033f89206cd12ff23557184095a78aff02763b408d26aff239763"
+size = 6458998
+mtime_ms = 1795560191458
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/b0f3c9f2-5f30-46b6-8a6a-4024fe73ceea/58c7ea50-4d52-4149-9c7c-83ffa6448e16"
+storage_version_token = "1795561691461632"
+content_type = "text/html"
+
+[[outputs]]
+id = "U3mdNUuEtCE9OSadkL7DM"
+uri = "file://generated-artifacts/run-form-proofs/All-FTO-Form-Previews.pdf"
+type = "pdf"
+title = "Complete FTO Print/PDF Preview Set"
+description = "All 20 form and continuation designs, exported with fictional data, selectable text, and browser headers and footers disabled."
+logical_id = "2d85176d-96e2-417a-9cd0-c446f0095379"
+content_hash = "sha256:52246533eb19e7e7b1d7700778ee8a2311d1239dfb6a3188b8cd60195cb4e8ca"
+size = 4605334
+mtime_ms = 1795465423897
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/2d85176d-96e2-417a-9cd0-c446f0095379/e3d09d63-8447-4e6d-bfb4-dde05cb11c85"
+storage_version_token = "1795465551719821"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "wFZk0TL1TZ4a9wlu5bxgz"
+uri = "file://generated-artifacts/run-form-proofs/Representative-Daily-and-Monthly.pdf"
+type = "pdf"
+title = "Daily and Monthly PDF Examples"
+description = "Two representative forms. Each occupies one physical page."
+logical_id = "872173c6-9474-4899-aadc-ed45cc710d1f"
+content_hash = "sha256:21d7eb8542b638ccc71491b0a6cc2ed29f8d60cd7b6bca1817906b0bc1ed3e97"
+size = 449961
+mtime_ms = 1795468523173
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/872173c6-9474-4899-aadc-ed45cc710d1f/b98fa9f7-7862-48d5-91b5-d245e7b885e6"
+storage_version_token = "1795468644075022"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "4lU_Muf-1MBB8S4IFYgIM"
+uri = "file://generated-artifacts/run-form-proofs/daily-performance-log.pdf"
+type = "pdf"
+title = "Daily Log — Landscape Preview"
+description = "Original three rating blocks with activity groups below; one Letter landscape sheet using fictional data."
+logical_id = "4b4b82ef-8fc4-4276-9239-4765a18328aa"
+content_hash = "sha256:7514acd0f65390da5e82873205668f4dea88049ce36b207de2c038129ff3e068"
+size = 229336
+mtime_ms = 1795509790879
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/4b4b82ef-8fc4-4276-9239-4765a18328aa/91eacb14-11bf-46f4-857d-bd7886c09726"
+storage_version_token = "1795510431634419"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "rW-18gIzt0si1C4yPlzsO"
+uri = "file://generated-artifacts/run-form-proofs/Monthly-Excel-Landscape-Preview.xlsx"
+type = "table"
+title = "Monthly Landscape Workbook Preview"
+description = "Four-tab monthly workbook preview with landscape print setup; fictional data."
+logical_id = "452eaabd-afc6-4bbe-a7d3-014aad15c0b4"
+content_hash = "sha256:8273a9c8f7e04de79891d36da8aaa869ebafad9ba0d7481d88e290a69df263a9"
+size = 61400
+mtime_ms = 1795560177274
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/452eaabd-afc6-4bbe-a7d3-014aad15c0b4/b95b4c48-df22-4c07-9256-d05a7ae71105"
+storage_version_token = "1795561692013232"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "HKe-nVvKTPQ3uU3aTodc0"
+uri = "file://generated-artifacts/run-form-proofs/weekly-acknowledgement.pdf"
+type = "pdf"
+title = "Weekly Acknowledgement — Corrected Preview"
+description = "Three equal comment areas, aligned signatures and dates, and clearly labeled saved personnel and week fields."
+logical_id = "444961c2-d2db-4ae5-a580-86a62a73fe77"
+content_hash = "sha256:896513c0d1e0ab169b6d1a4e337e8642c7c56a356b561d57533f3475f1dde2cf"
+size = 210487
+mtime_ms = 1795512127339
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/444961c2-d2db-4ae5-a580-86a62a73fe77/cbe9a9fb-8023-4c4d-89de-210c9d724117"
+storage_version_token = "1795512931262110"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "wdJ7LOhzQ45X5J4nxCMsK"
+uri = "file://generated-artifacts/run-form-proofs/Run-Classification-Header-Examples.pdf"
+type = "pdf"
+title = "Training Only and Actual Run Header Examples"
+description = "Both saved classification states, without a boxed Header Option category."
+logical_id = "f41d5cef-0c3c-4766-9760-bf515b9a4beb"
+content_hash = "sha256:e928f9db7dfa066d6a21225193b47b1f84d85629daf572f086093c2f4914dcb3"
+size = 462072
+mtime_ms = 1795512363400
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/f41d5cef-0c3c-4766-9760-bf515b9a4beb/27491ac2-6577-4d82-86a3-0996bfe093f8"
+storage_version_token = "1795512932551061"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "SyZq5dYcx_uegZ3dXV39J"
+uri = "file://generated-artifacts/run-form-proofs/Checkbox-Spacing-Review.pdf"
+type = "pdf"
+title = "Checkbox Spacing Review"
+description = "Focused print preview of five representative forms at actual-size layout."
+logical_id = "5a2b30ad-b6ce-45d4-9a49-6f22a06d1c0f"
+content_hash = "sha256:4ca0d9cbb0f9e7ff51fc4f9b083d3c0b9111448623c12f8a59be6793bfb6cb69"
+size = 1140877
+mtime_ms = 1795522149818
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/5a2b30ad-b6ce-45d4-9a49-6f22a06d1c0f/3c60b00c-a722-4fd9-8015-77660aeb6dd1"
+storage_version_token = "1795561692903226"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "ZHk3h-fNnjeh1GVebuWQm"
+uri = "file://generated-artifacts/run-form-proofs/FTO-Forms-Export-Packet.pdf"
+type = "pdf"
+title = "FTO Forms Export Packet"
+description = "Current 21-page PDF: 20 related form designs, using fictional data."
+logical_id = "dcad37c5-3d42-4567-b605-dfe2d37c7aa9"
+content_hash = "sha256:67075f4864276a649188d48a4dbbfdd9231fbc4f8b08f3b7714e43158f1c3a8a"
+size = 4498321
+mtime_ms = 1795560232386
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/dcad37c5-3d42-4567-b605-dfe2d37c7aa9/9e78a64e-90bc-45c0-9ff7-8cbd01fc55df"
+storage_version_token = "1795561690807887"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "3DE-myuFQES9t60qDMrmq"
+uri = "file://generated-artifacts/run-form-proofs/FTO-Forms-Export-Packet.zip"
+type = "unspecified"
+title = "FTO Forms Export Packet ZIP"
+description = "Combined packet, individual form PDFs, preview gallery, and landscape monthly workbook."
+logical_id = "481c2fb6-38b9-40eb-a13e-121b0d498788"
+content_hash = "sha256:cb33ab9eeaa8033637f9b26bbd959b212f621e019ab15728c224288a32881372"
+size = 13382136
+mtime_ms = 1795532770494
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/481c2fb6-38b9-40eb-a13e-121b0d498788/1ed52906-5e83-4088-b062-ca0379e3cf2f"
+storage_version_token = "1795532800091215"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "Zm1dLA-o5upYAxPSZbmGw"
+uri = "file://generated-artifacts/run-form-proofs/weekly-log-continuation-verification.pdf"
+type = "pdf"
+title = "Weekly Log — Continuation Preview"
+description = "Two-page fictional long-note test showing the shared continuation layout."
+logical_id = "fe51db17-a145-4e92-9efb-e2de03626107"
+content_hash = "sha256:3b2328a9831381a340e604768c88aeed8707f7daec037453aef3d5f44ee01137"
+size = 222455
+mtime_ms = 1795530554415
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/fe51db17-a145-4e92-9efb-e2de03626107/f9ab6fd1-fffb-438d-bc67-2178b04fccbe"
+storage_version_token = "1795530621246037"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "CU4uig-Z00tLmbOYSnh3W"
+uri = "file://generated-artifacts/run-form-proofs/weekly-performance-log.pdf"
+type = "pdf"
+title = "Weekly Performance Log PDF"
+description = "One-page branded weekly log preview; the actual route uses the same print component."
+logical_id = "5304f0c8-497a-4164-a235-59339f1b9abf"
+content_hash = "sha256:a66e5ed9a4a1bca985a7fab900426751f92b239e09e9dbd9afc2f18bc5ac3bef"
+size = 212886
+mtime_ms = 1795532754135
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/5304f0c8-497a-4164-a235-59339f1b9abf/f2dde483-1708-4518-8bbe-71452b929522"
+storage_version_token = "1795532801234877"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "EREGY0YuljlpO_oXd44pU"
+uri = "file://generated-artifacts/run-form-proofs/updated-font-preview/orientation-layout-review.pdf"
+type = "pdf"
+title = "Updated Substation Orientation PDF"
+description = "One-page Letter print preview with the revised equal-size boxes and adjusted text sizing."
+logical_id = "c861671c-d1d5-46ac-9795-4d9739d08c0d"
+content_hash = "sha256:e21cd458b8122730ccf5441d2fcb82469d3972acd2687dea45cd9981f0a6231e"
+size = 221080
+mtime_ms = 1795563103025
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/c861671c-d1d5-46ac-9795-4d9739d08c0d/ebb8bcc1-ff65-463e-888e-bb1ae069f052"
+storage_version_token = "1795563122956835"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "1SFqhO9GLU9tuCOxjuY1b"
+uri = "file://generated-artifacts/run-form-proofs/updated-font-preview/raster/orientation.png"
+type = "image"
+title = "Substation Orientation Page Preview"
+description = "Full-page image of the actual PDF output for quick review."
+logical_id = "396ae013-628f-4a83-bb64-c138ed41105f"
+content_hash = "sha256:101bab5e546638dd5580955e97a2c253abdd06639048cf233f2db484be2d6295"
+size = 273224
+mtime_ms = 1795563103369
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/396ae013-628f-4a83-bb64-c138ed41105f/39256bf5-8403-43fb-ba74-1749d0d452ad"
+storage_version_token = "1795563123528523"
+content_type = "image/png"

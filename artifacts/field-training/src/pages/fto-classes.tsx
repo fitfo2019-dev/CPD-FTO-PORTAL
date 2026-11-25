@@ -5,7 +5,8 @@ import { PageHead, Panel } from '@/components/bits.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { useWorkspace } from '@/state/workspace.js';
 import { PHASES, PHASE_LENGTH_WEEKS, ROLE_LABEL, phaseLabel, uid, type FtoPhasePosting, type FtoPhaseSignup, type Phase } from '@/lib/model.js';
-import { formatDateDMY, formatDateEntryMDY, getPhaseEndDate, localISODate, parseDateDMY } from '@/lib/training-calendar.js';
+import { formatDateDMY, formatDateEntryMDY, getPhaseEndDate, parseDateDMY } from '@/lib/training-calendar.js';
+import { applyCurrentDateTimeShortcut } from '@/lib/date-time-shortcut.js';
 
 const inputClass='h-11 w-full rounded border bg-card px-3 text-sm';
 
@@ -105,7 +106,7 @@ export default function FtoClassesPage() {
           </select>
         </label>
         <label className="grid gap-1 text-sm font-semibold">Phase start date · MM/DD/YYYY
-          <input className={inputClass} inputMode="text" placeholder="MM/DD/YYYY" value={startDateText} onChange={event=>setStartDateText(formatDateEntryMDY(event.target.value))} onKeyDown={event=>{if(event.key==='Enter'&&event.currentTarget.value.trim()==='?'){event.preventDefault();setStartDateText(formatDateDMY(localISODate()));}}} data-testid="input-fto-post-start-date"/>
+          <input className={inputClass} inputMode="text" placeholder="MM/DD/YYYY" value={startDateText} onChange={event=>setStartDateText(formatDateEntryMDY(event.target.value))} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'date',setStartDateText)} data-testid="input-fto-post-start-date"/>
         </label>
         <div className="flex flex-col justify-end gap-1">
           <div className="min-h-11 rounded border bg-muted/30 px-3 py-2 text-sm" data-testid="text-fto-phase-date-range">

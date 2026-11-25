@@ -7,6 +7,7 @@ import { useWorkspace } from '@/state/workspace.js';
 import { uid, type CoverageRequest } from '@/lib/model.js';
 import { formatDateDMY, formatDateTimeEntryMDY, formatDateTimeMDY } from '@/lib/training-calendar.js';
 import { parseRunDateTime } from '@/lib/run-details.js';
+import { applyCurrentDateTimeShortcut } from '@/lib/date-time-shortcut.js';
 
 const inputClass='min-h-11 w-full rounded border bg-card px-3 text-sm';
 
@@ -85,10 +86,10 @@ export default function SubstituteFtoPage() {
         <div className="rounded border bg-muted/30 p-3 text-sm"><span className="label-caps">Class and phase</span><p className="mt-1 break-words font-semibold">{folder.className} · Phase {folder.phase}</p></div>
         <div className="rounded border bg-muted/30 p-3 text-sm sm:col-span-2"><span className="label-caps">Requesting FTO</span><p className="mt-1 break-words font-semibold">{folder.ftoName} · #{folder.ftoBadge}</p></div>
         <label className="grid gap-1 text-sm font-semibold">Coverage starts · MM/DD/YYYY HH:MM
-          <input className={inputClass} inputMode="text" placeholder="MM/DD/YYYY HH:MM" maxLength={16} value={startText} onChange={event=>setStartText(formatDateTimeEntryMDY(event.target.value))} data-testid="input-coverage-start"/>
+          <input className={inputClass} inputMode="text" placeholder="MM/DD/YYYY HH:MM" maxLength={16} value={startText} onChange={event=>setStartText(formatDateTimeEntryMDY(event.target.value))} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'datetime',setStartText)} data-testid="input-coverage-start"/>
         </label>
         <label className="grid gap-1 text-sm font-semibold">Coverage ends · MM/DD/YYYY HH:MM
-          <input className={inputClass} inputMode="text" placeholder="MM/DD/YYYY HH:MM" maxLength={16} value={endText} onChange={event=>setEndText(formatDateTimeEntryMDY(event.target.value))} data-testid="input-coverage-end"/>
+          <input className={inputClass} inputMode="text" placeholder="MM/DD/YYYY HH:MM" maxLength={16} value={endText} onChange={event=>setEndText(formatDateTimeEntryMDY(event.target.value))} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'datetime',setEndText)} data-testid="input-coverage-end"/>
         </label>
         <label className="grid gap-1 text-sm font-semibold sm:col-span-2">Reason or scheduling note
           <textarea className="min-h-24 rounded border bg-card p-3 text-sm font-normal" maxLength={2000} value={reason} onChange={event=>setReason(event.target.value)} placeholder="Add a short note for the FTO team." data-testid="input-coverage-reason"/>

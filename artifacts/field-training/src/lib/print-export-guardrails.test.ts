@@ -10,7 +10,7 @@ const workspaceRoot = resolve(fieldTrainingRoot, '../..');
 test('print page sizes and margins remain explicit for browser/PDF exports', async () => {
   const css = await readFile(resolve(fieldTrainingRoot, 'src/index.css'), 'utf8');
   assert.match(css, /@page\s*\{\s*size:\s*letter portrait;\s*margin:\s*0\.3in;\s*\}/);
-  assert.match(css, /@page fieldready-weekly-log\s*\{\s*size:\s*letter portrait;\s*margin:\s*0\.45in;\s*\}/);
+  assert.match(css, /@page fieldready-weekly-log\s*\{\s*size:\s*letter portrait;\s*margin:\s*0\.3in;\s*\}/);
   assert.match(css, /\.print-weekly-log-page:last-child\s*\{\s*break-after:\s*auto;\s*page-break-after:\s*auto;\s*\}/);
 });
 

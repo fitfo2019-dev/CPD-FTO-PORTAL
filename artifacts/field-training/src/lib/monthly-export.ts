@@ -11,6 +11,7 @@ import { formatDateMDY, getSundaySaturdayWeek } from './training-calendar.js';
 import { categoryIsNotApplicable, weeklyRatingCount } from './weekly-rating-counts.js';
 import { spreadsheetText } from './spreadsheet-text.js';
 import type { PhaseWeekRange } from './model.js';
+import { formTemplateRevision } from './form-revisions.js';
 
 const border = Object.fromEntries(['top','bottom','left','right'].map(edge=>[edge,{style:'thin',color:{rgb:'FF000000'}}]));
 const allColumns = 24;
@@ -237,15 +238,42 @@ export function buildMonthlyWorkbook(reports: Report[], monthKey: string, phaseW
     sheet['!cols']=Array.from({length:allColumns},(_,column)=>({wch:column%8<3?9:4.5}));
     sheet['!rows']=rows.map((_,row)=>({hpt:row===0?24:row===3||row===activityTitleRow?22:row===commentsRow?48:groupHeaderRows.has(row)||categoryHeaderRows.has(row)?18:16}));
     sheet['!pageSetup']={orientation:'landscape',fitToWidth:1,fitToHeight:1,paperSize:9};
-    sheet['!pageMargins']={left:0.2,right:0.2,top:0.25,bottom:0.25,header:0.1,footer:0.1};
+    sheet['!pageMargins']={left:0.5,right:0.5,top:0.5,bottom:0.5,header:0.1,footer:0.1};
     XLSX.utils.book_append_sheet(workbook,sheet,`Week ${index+1}`);
   }
   return workbook;
 }
 
+/** xlsx-js-style does not serialize !pageSetup. Preserve the worksheet
+ * layout/styles and explicitly write the existing print settings into OOXML. */
+export function serializeMonthlyWorkbook(workbook: XLSX.WorkBook): ArrayBuffer {
+  const archive=XLSX.CFB.read(new Uint8Array(XLSX.write(workbook,{type:'array',bookType:'xlsx'})),{type:'array'});
+  workbook.SheetNames.forEach((_,index)=>{
+    const entry=XLSX.CFB.find(archive,`/xl/worksheets/sheet${index+1}.xml`);
+    if(!entry?.content)throw new Error(`Monthly worksheet ${index+1} could not be prepared for printing.`);
+    let xml=new TextDecoder().decode(Uint8Array.from(entry.content));
+    const setup='<pageSetUpPr fitToPage="1"/>';
+    if(/<sheetPr\b/.test(xml)) {
+      xml=xml.replace(/<pageSetUpPr\b[^>]*\/>/g,'');
+      xml=xml.replace(/<sheetPr([^>]*)\/>/,`<sheetPr$1>${setup}</sheetPr>`);
+      if(!xml.includes(setup))xml=xml.replace(/(<sheetPr\b[^>]*>)/,`$1${setup}`);
+    } else xml=xml.replace(/(<worksheet\b[^>]*>)/,`$1<sheetPr>${setup}</sheetPr>`);
+    xml=xml.replace(/<(?:pageMargins|pageSetup)\b[^>]*\/>/g,'');
+    const printSettings=`<pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="1"/><headerFooter><oddFooter>&amp;L&amp;8Template revised ${formTemplateRevision('monthly_workbook')}</oddFooter></headerFooter>`;
+    xml=xml.replace(/(?=<ignoredErrors\b|<\/worksheet>)/,printSettings);
+    entry.content=Array.from(new TextEncoder().encode(xml));
+    entry.size=entry.content.length;
+  });
+  const output=XLSX.CFB.write(archive,{type:'array',fileType:'zip',compression:true});
+  return Uint8Array.from(output instanceof ArrayBuffer?new Uint8Array(output):output).buffer;
+}
+
 export function exportMonthlyWorkbook(reports: Report[], monthKey: string, phaseWeekRanges?:readonly PhaseWeekRange[]) {
   const workbook=buildMonthlyWorkbook(reports,monthKey,phaseWeekRanges);
   const name=`Field_Training_Monthly_Summary_${monthKey.replaceAll('-','')}.xlsx`;
-  XLSX.writeFile(workbook,name);
+  const url=URL.createObjectURL(new Blob([serializeMonthlyWorkbook(workbook)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const link=document.createElement('a');
+  link.href=url;link.download=name;document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
   return name;
 }

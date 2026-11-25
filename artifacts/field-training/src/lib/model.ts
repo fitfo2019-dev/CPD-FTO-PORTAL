@@ -157,13 +157,13 @@ export const DAILY_ACTIVITY_COLUMNS: ReadonlyArray<{ title: string; keys: readon
 ];
 export type DailyActivitySummary = Record<ActivityKey, number>;
 export const PRIMARY_RUN_FORMS = [
-  { key:'call_for_service', label:'Call for Service', formNumber:'' },
-  { key:'self_initiated', label:'Self-Initiated Run / Training', formNumber:'' },
-  { key:'domestic_incident', label:'Domestic Incident', formNumber:'' },
-  { key:'traffic_crash', label:'Traffic Crash Investigation', formNumber:'' },
-  { key:'traffic_stop', label:'Traffic Stop', formNumber:'' },
-  { key:'high_risk_stop', label:'High Risk Traffic Stop', formNumber:'' },
-  { key:'building_search', label:'Building Search', formNumber:'' },
+  { key:'call_for_service', label:'Call for Service', formNumber:'U-10.182' },
+  { key:'self_initiated', label:'Self-Initiated Run / Training', formNumber:'U-10.183' },
+  { key:'domestic_incident', label:'Domestic Incident', formNumber:'U-10.184' },
+  { key:'traffic_crash', label:'Traffic Crash Investigation', formNumber:'U-10.185' },
+  { key:'traffic_stop', label:'Traffic Stop', formNumber:'U-10.186' },
+  { key:'high_risk_stop', label:'High Risk Traffic Stop', formNumber:'U-10.187' },
+  { key:'building_search', label:'Building Search', formNumber:'U-10.190' },
 ] as const;
 export const RUN_FORM_GUIDANCE: Record<PrimaryRunForm,string> = {
   call_for_service:'Use for dispatched calls unless a dedicated Domestic Incident, Traffic Crash, Traffic Stop, Building Search, or High Risk Traffic Stop form applies.',
@@ -177,9 +177,9 @@ export const RUN_FORM_GUIDANCE: Record<PrimaryRunForm,string> = {
 export type PrimaryRunForm = typeof PRIMARY_RUN_FORMS[number]['key'];
 export const SUPPLEMENTAL_RUN_FORMS = [
   { key:'arrest_process', label:'Arrest Process', formNumber:'U-10.188' },
-  { key:'ovi_process', label:'OVI Process', formNumber:'' },
+  { key:'ovi_process', label:'OVI Process', formNumber:'U-10.189' },
   { key:'narrative_addition', label:'Narrative Addition / Continuation', formNumber:'U-10.192' },
-  { key:'building_search', label:'Building Search', formNumber:'' },
+  { key:'building_search', label:'Building Search', formNumber:'U-10.190' },
 ] as const;
 export const SUPPLEMENTAL_FORM_GUIDANCE: Record<(typeof SUPPLEMENTAL_RUN_FORMS)[number]['key'],string> = {
   arrest_process:'The manual requires Arrest Process for an arrest that is transported for processing; also select it for payout arrests or transfers to another jurisdiction. Select U-10.100 Reports in the related activity checkboxes only when the Arrest Report was completed; no statistic is added automatically.',
