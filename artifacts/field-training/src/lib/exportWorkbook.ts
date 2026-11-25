@@ -4,6 +4,7 @@ import {
   CATEGORIES,
   DAILY_ACTIVITY_FIELDS,
   DAILY_DUTY_CHECKLIST,
+  PHASE_PROGRAM_WEEK_START,
   phaseAssignmentLabel,
   RUN_CHECKLIST_SECTIONS,
   RUN_SUPPLEMENT_CHECKLIST_SECTIONS,
@@ -20,7 +21,7 @@ import {
   type PhaseCaseFolder,
 } from './model.js';
 import { splitExcelText, substationOrientationXlsxRows, weeklyPerformanceLogXlsxRows } from './extended-form-rows.js';
-import { formatDateDMY, formatDateTimeMDY, getSundaySaturdayWeek } from './training-calendar.js';
+import { formatDateDMY, formatDateTimeMDY, getPhaseWeekNumber, getSundaySaturdayWeek } from './training-calendar.js';
 import { weeklyWorkbookForm } from './weekly-workbook-form.js';
 import { CLEARANCE_CODES, RADIO_CODES, formatRadioCode } from './radio-codes.js';
 import { activityTotals } from './run-activity.js';
@@ -28,7 +29,7 @@ import { validateClassWorkbookInputs } from './export-validation.js';
 import { resolveOperationalPacket } from './operational-state-machine.js';
 import { spreadsheetText } from './spreadsheet-text.js';
 import { categoryIsNotApplicable, effectiveCategoryRating, weeklyRatingCount } from './weekly-rating-counts.js';
-import { collectDeficiencies } from './seg-deficiencies.js';
+import { collectDeficiencies, collectSelectedFailureActions } from './seg-deficiencies.js';
 import { buildClearanceDocuments } from './run-activity.js';
 
 const safeText = (value: unknown): string | number => {
@@ -449,11 +450,33 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
     ['Reporting for Duty Form','Form number not verified in the attached manual','Reporting for Duty','Daily print packet'],
     ['Daily Performance Log','U-10.174','Daily Summary Index; SEG Ratings; Daily Activity; Daily Narratives; UA NRT Follow-up','Daily Performance Log + duty and run forms'],
     ['Weekly Performance Summary','U-10.173','Weekly Totals; Weekly Form tabs','Weekly Performance Summary print view'],
+    ['Selected missed actions','Saved specific run-checklist action selections','Selected Missed Actions','Workbook export only; one row per selected action occurrence'],
     ['Weekly Performance Log Supplement','U-10.174S','Weekly Log Supplement','Weekly Performance Log Supplement print view'],
     ['Weekly Packet Acknowledgement','Separate acknowledgement workflow','Weekly Acknowledgements','Acknowledgement print view'],
     ...PRIMARY_RUN_FORMS.map(form=>[form.label,form.formNumber,'Run Forms; Run Checklist','Daily print packet']),
     ...SUPPLEMENTAL_RUN_FORMS.map(form=>[form.label,form.formNumber||'Supplemental form','Run Forms; Run Checklist','Daily print packet']),
     ['Scope','Device-local records','Values are exported from saved workspace records; no server or Patrol View data is included.','Browser print-to-PDF; review the page setup and margins.'],
+  ];
+  const selectedMissedActionRows:(string|number)[][]=[
+    ['Training week','Week start','Week end','Class','Probationary Officer','PO badge','Phase','Shift date','Source form','Form number','Source checklist task','Selected missed action','Form page reference','Daily log ID','Run ID','Run status','Checklist review','Count basis','Saved selection occurrences'],
+    ...sorted.flatMap(report=>{
+      const packet=resolveOperationalPacket(report,folders,orientations);
+      const week=getSundaySaturdayWeek(report.date);
+      const phaseFolder=folders.find(folder=>folder.phase===report.phase&&folder.recruitBadge===report.recruitBadge
+        &&(folder.className??'')===(report.className??''));
+      const phaseWeek=report.phaseWeek??(phaseFolder
+        ?getPhaseWeekNumber(report.date,phaseFolder.phaseStartDate,phaseFolder.phaseWeekRanges)
+        :undefined);
+      const programWeek=phaseWeek?PHASE_PROGRAM_WEEK_START[report.phase]+phaseWeek-1:undefined;
+      const weekLabel=programWeek?`Week ${programWeek}`:`Week of ${formatDateDMY(week?.start??report.date)}`;
+      return collectSelectedFailureActions(report,packet).map(item=>[
+        weekLabel,week?.start??'',week?.end??'',safeText(report.className??''),safeText(report.recruitName),
+        safeText(report.recruitBadge),`Phase ${report.phase}`,formatDateDMY(report.date),safeText(item.formLabel),
+        safeText(item.formNumber),safeText(item.taskLabel),safeText(item.action),safeText(item.reference??''),
+        safeText(report.id),safeText(item.runId),item.runComplete?'Complete':'Incomplete',
+        item.checklistReviewed?'Reviewed':'Not reviewed','One saved action selection; not a SEG rating',1,
+      ]);
+    }),
   ];
 
   const sheets: [string, (string | number)[][]][] = [
@@ -499,6 +522,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
       ];});
       }),
     ]],
+    ['Selected Missed Actions',selectedMissedActionRows],
     ['Generated Document Payloads', [
       ['Daily log ID','Run ID','Draft payload ID','Form','Charge ID','Charge description','Scope'],
       ...reports.flatMap(report=>report.runs.flatMap(run=>buildClearanceDocuments(run).map(document=>[

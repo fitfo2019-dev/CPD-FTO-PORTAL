@@ -3,7 +3,7 @@ import test from 'node:test';
 import { CATEGORIES, defaultRatings, defaultReportingForDutyRecord, emptyDailyActivitySummary, newRunChecklist, RUN_CHECKLIST_ITEMS, type Category, type Report, type TrainingRun } from './model.js';
 import { seedReports } from './seed.js';
 import { buildOperationalPacket } from './operational-state-machine.js';
-import { collectDeficiencies, overrideDeficiency, reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from './seg-deficiencies.js';
+import { collectDeficiencies, collectSelectedFailureActions, overrideDeficiency, reconcileDeficiencyRatings, SEG_TASK_DIRECTORY } from './seg-deficiencies.js';
 import { weeklyRatingCount } from './weekly-rating-counts.js';
 import { buildClearanceDocuments, clearanceDerivedActivityCounts, activityTotals } from './run-activity.js';
 import { mergeReviewedUaEntries } from './weekly-performance-log.js';
@@ -101,6 +101,10 @@ test('specific primary and supplemental actions remain evidence under their sour
     ['Gapped the handcuffs'],
   ]);
   const groups=collectDeficiencies(report,operational);
+  const selectedActions=collectSelectedFailureActions(report,operational);
+  assert.deepEqual(selectedActions.map(item=>item.action),['Documented entry in CAD','Gapped the handcuffs']);
+  assert.deepEqual(selectedActions.map(item=>item.form),['building_search','arrest_process']);
+  assert.ok(selectedActions.every(item=>item.reportId===report.id&&item.runId===sourceRun.id&&item.reference));
   assert.equal(groups.length,2);
   for(const exception of operational.exceptions){
     const page=operational.pages.find(item=>item.page===exception.page);
@@ -114,6 +118,9 @@ test('specific primary and supplemental actions remain evidence under their sour
   assert.ok(!reconciled.ratings.contentAccuracy.justification.includes('Documented entry in CAD'),'selected actions are evidence, not generated narrative');
   assert.ok(groups.some(group=>group.tasks.some(task=>task.failureActions?.includes('Gapped the handcuffs'))));
   assert.ok(!reconciled.ratings.initiatingArrests.justification.includes('provided additional training'));
+  const uncheckedWithoutSelection={...run('unchecked-no-action'),checklist:{...newRunChecklist('building_search'),'task-67':false}};
+  const noSelectionReport={...base(),runs:[uncheckedWithoutSelection]};
+  assert.deepEqual(collectSelectedFailureActions(noSelectionReport,packet(noSelectionReport)),[]);
 });
 
 test('manual overrides restore the old category and preserve long narratives; rechecking restores the baseline',()=>{

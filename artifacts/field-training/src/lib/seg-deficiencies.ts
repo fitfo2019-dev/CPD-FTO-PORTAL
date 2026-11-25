@@ -1,5 +1,5 @@
 import {
-  CATEGORIES, DAILY_DUTY_CHECKLIST, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS,
+  CATEGORIES, DAILY_DUTY_CHECKLIST, PRIMARY_RUN_FORMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, SUPPLEMENTAL_RUN_FORMS,
   type Category, type ChecklistDeficiencyGroup, type PrimaryRunForm, type Report, type SupplementalRunForm,
 } from './model.js';
 import type { OperationalPacket } from './operational-state-machine.js';
@@ -68,6 +68,71 @@ export const OFFICER_SAFETY_LOCK_CATEGORIES:readonly Category[]=[
   'threatAssessment','initiatingArrests','handlingPrisoners','vehicleStops',
   'runApproach','buildingSearch','patDownSearches',
 ];
+
+export interface SelectedFailureActionOccurrence {
+  id: string;
+  action: string;
+  reportId: string;
+  reportDate: string;
+  recruitName: string;
+  recruitBadge: string;
+  className: string;
+  phase: Report['phase'];
+  runId: string;
+  form: PrimaryRunForm | SupplementalRunForm;
+  formLabel: string;
+  formNumber: string;
+  taskKey: string;
+  taskLabel: string;
+  page: number;
+  reference?: string;
+  runComplete: boolean;
+  checklistReviewed: boolean;
+}
+
+/** Return only explicitly saved action choices; this does not create narratives or SEG ratings. */
+export function collectSelectedFailureActions(
+  report: Report,
+  packet: OperationalPacket,
+): SelectedFailureActionOccurrence[] {
+  const pages = new Map(packet.pages.map(page => [page.page, page]));
+  const runs = new Map(report.runs.map(run => [run.id, run]));
+  const occurrences: SelectedFailureActionOccurrence[] = [];
+  for (const exception of packet.exceptions) {
+    if (!exception.runId || !exception.failureActions?.length) continue;
+    const run = runs.get(exception.runId);
+    const page = pages.get(exception.page);
+    if (!run || !page) throw new Error('A selected failure action is missing its source run or form page.');
+    const form = page.supplement ?? run.runKind;
+    const formDefinition = page.supplement
+      ? SUPPLEMENTAL_RUN_FORMS.find(item => item.key === page.supplement)
+      : PRIMARY_RUN_FORMS.find(item => item.key === run.runKind);
+    if (!formDefinition) throw new Error(`A selected failure action has an unknown source form: ${form}.`);
+    for (const [actionIndex, action] of exception.failureActions.entries()) {
+      occurrences.push({
+        id: `${exception.id}:${actionIndex}`,
+        action,
+        reportId: report.id,
+        reportDate: report.date,
+        recruitName: report.recruitName,
+        recruitBadge: report.recruitBadge,
+        className: report.className ?? '',
+        phase: report.phase,
+        runId: run.id,
+        form,
+        formLabel: formDefinition.label,
+        formNumber: formDefinition.formNumber ?? '',
+        taskKey: exception.taskKey,
+        taskLabel: exception.task,
+        page: exception.page,
+        ...(exception.reference ? { reference: exception.reference } : {}),
+        runComplete: run.formStatus === 'complete',
+        checklistReviewed: !!run.checklistReviewedAt,
+      });
+    }
+  }
+  return occurrences;
+}
 
 export function collectDeficiencies(report: Report, packet: OperationalPacket): ChecklistDeficiencyGroup[] {
   if (!report.deficiencyAutomationEnabled) return [];

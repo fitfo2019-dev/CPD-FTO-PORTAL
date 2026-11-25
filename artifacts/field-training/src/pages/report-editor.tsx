@@ -141,7 +141,13 @@ export default function ReportEditor() {
   const [riskCandidate,setRiskCandidate]=useState<PrimaryRunForm|''>('');
   const [riskCodeDirty,setRiskCodeDirty]=useState(false);
   const [confirmAction, setConfirmAction] = useState<{title:string;body:string;label:string;action:()=>void}|null>(null);
-  const [stage, setStage] = useState<EditorStage>(()=>EDITOR_STAGES.find(item=>`#${item.hash}`===window.location.hash)?.id??'shift');
+  const [stage, setStage] = useState<EditorStage>(()=>EDITOR_STAGES.find(item=>`#${item.hash}`===window.location.hash)?.id??(window.location.hash.startsWith('#run-')?'runs':'shift'));
+  useEffect(()=>{
+    const target=decodeURIComponent(window.location.hash.slice(1));
+    if(!target.startsWith('run-')||target==='run-forms')return;
+    const frame=requestAnimationFrame(()=>document.getElementById(target)?.scrollIntoView({block:'start'}));
+    return ()=>cancelAnimationFrame(frame);
+  },[]);
   const [oviProcessed, setOviProcessed] = useState(false);
   const [narrativeAdditionRequired, setNarrativeAdditionRequired] = useState(false);
   const [runNarrative, setRunNarrative] = useState('');
@@ -1060,7 +1066,7 @@ export default function ReportEditor() {
                    return item ? `${item.label}${item.formNumber ? ` · ${item.formNumber}` : ''}` : '';
                  }).filter(Boolean);
                  const failureSummaries=runChecklistFailureSummaries(run);
-                return <li key={run.id} className="py-3" data-testid={`row-training-run-${run.id}`}>
+                return <li id={`run-${run.id}`} key={run.id} className="scroll-mt-28 py-3" data-testid={`row-training-run-${run.id}`}>
                    <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><div className="font-semibold text-sm">{form?.label ?? 'Training run'}</div><div className="text-xs text-muted-foreground">{formatDateTimeMDY(run.occurredAt)} · {run.isDispatched?'Dispatched':'Self-initiated'}</div></div><button type="button" disabled={!editable} onClick={()=>requestEditRun(run)} className="rounded border px-2 py-1 text-xs font-semibold disabled:opacity-50" data-testid={`button-edit-run-${run.id}`}>Edit</button><button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>set('runs',r.runs.filter(item=>item.id!==run.id))})} aria-label="Remove run" className="rounded border p-1.5 text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}><Trash className="h-4 w-4" /></button></div>
                   <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]"><span className="rounded bg-muted px-2 py-0.5" data-testid={`status-run-form-${run.id}`}>{run.formStatus.replace('_',' ')}</span>{supplements.map(name=><span key={name} className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5">{name}</span>)}</div>
                    <p className="mt-1 text-xs">Run: {run.dispatchedCode ? `10-${run.dispatchedCode}`:'Not recorded'} · Found: {run.situationFoundCode ? formatRadioCode(run.situationFoundCode):'Not recorded'} · Clearance: {run.clearanceCode || 'Not recorded'}</p>

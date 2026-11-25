@@ -159,6 +159,15 @@ test('workbook rows carry selected failure actions in bold red without expanding
   assert.equal(exceptionCell.s.font.bold,true);
   assert.equal(exceptionCell.s.font.color.rgb,'FF9B1C1C');
   assert.equal(exceptionRows.length,2,'specific actions stay attached to one parent task');
+  const missedRows=XLSX.utils.sheet_to_json<(string|number)[]>(workbook.Sheets['Selected Missed Actions'],{header:1});
+  const missedHeaders=missedRows[0] as string[];
+  assert.equal(missedRows.length,3,'each saved action selection is one export occurrence');
+  assert.equal(missedRows[1][missedHeaders.indexOf('Selected missed action')],'Documented entry in CAD');
+  assert.equal(missedRows[2][missedHeaders.indexOf('Selected missed action')],'Documented exit in CAD');
+  assert.equal(missedRows[1][missedHeaders.indexOf('Saved selection occurrences')],1);
+  assert.equal(missedRows[1][missedHeaders.indexOf('Source form')],'Building Search');
+  assert.equal(missedRows[1][missedHeaders.indexOf('Run ID')],run.id);
+  assert.equal(missedRows[1][missedHeaders.indexOf('Daily log ID')],report.id);
   const exportedBytes=XLSX.write(workbook,{type:'buffer',bookType:'xlsx'});
   assert.ok(exportedBytes.length>0);
   const exported=XLSX.read(exportedBytes,{type:'buffer'});

@@ -604,6 +604,20 @@ storage_version_token = "1795584620652877"
 content_type = "application/pdf"
 
 [[outputs]]
+id = "cE17dFhsA0qtT7GZt4h7t"
+uri = "file://screenshots/weekly-summary-preview.jpg"
+type = "image"
+title = "Weekly missed-actions preview"
+description = "Fictional-data preview of the weekly summary section and its empty state."
+logical_id = "b85e7a1a-c5db-42e7-b3aa-a98661eeb41a"
+content_hash = "sha256:952894c8c834cf7ae15ae674e19af219f10434370be5dbb5c815c8dc6bd7ba45"
+size = 506110
+mtime_ms = 1795585406138
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/b85e7a1a-c5db-42e7-b3aa-a98661eeb41a/8af21c20-1c6f-4fe4-986f-8fa21e4f3b15"
+storage_version_token = "1795585421489762"
+content_type = "image/jpeg"
+
+[[outputs]]
 id = "G_M8LNY0e8lXuzGYRqNME"
 uri = "file://generated-artifacts/website-records/City-of-Columbus-Executive-Brief.html"
 type = "html"

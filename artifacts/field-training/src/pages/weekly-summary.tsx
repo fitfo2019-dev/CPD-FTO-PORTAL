@@ -11,6 +11,8 @@ import { formatDateDMY, getPhaseWeekNumber, getSundaySaturdayWeek } from '@/lib/
 import { activityTotals } from '@/lib/run-activity.js';
 import { categoryIsNotApplicable, weeklyRatingCount } from '@/lib/weekly-rating-counts.js';
 import { ACTIVITY_MANUAL_DEFINITIONS, SEG_MANUAL_DEFINITIONS, WEEKLY_ACTIVITY_SUMMARY_DEFINITION, WEEKLY_RATING_SUMMARY_DEFINITION } from '@/lib/weekly-summary-manual-definitions.js';
+import { collectSelectedFailureActions } from '@/lib/seg-deficiencies.js';
+import { resolveOperationalPacket } from '@/lib/operational-state-machine.js';
 
 export default function WeeklySummaryPage() {
   const { ws } = useWorkspace();
@@ -40,6 +42,60 @@ export default function WeeklySummaryPage() {
   const reports = week
     ? ownerReports.filter(report => getSundaySaturdayWeek(report.date)?.start === week.start)
     : [];
+  const selectedActionWeeks = useMemo(() => {
+    const groups = new Map<string, {
+      key: string;
+      start: string;
+      end: string;
+      phase: string;
+      programWeek?: number;
+      actions: Map<string, ReturnType<typeof collectSelectedFailureActions>>;
+    }>();
+    for (const report of ownerReports) {
+      const calendarWeek = getSundaySaturdayWeek(report.date);
+      if (!calendarWeek) continue;
+      const phaseFolder = ws.phaseFolders.find(folder =>
+        folder.phase === report.phase && folder.recruitBadge === report.recruitBadge
+        && (folder.className ?? '') === (report.className ?? ''),
+      ) ?? (ws.caseFolder?.phase === report.phase && ws.caseFolder.recruitBadge === report.recruitBadge
+        && (ws.caseFolder.className ?? '') === (report.className ?? '') ? ws.caseFolder : undefined);
+      const phaseWeek = report.phaseWeek ?? (phaseFolder
+        ? getPhaseWeekNumber(report.date, phaseFolder.phaseStartDate, phaseFolder.phaseWeekRanges)
+        : undefined);
+      const programWeek = phaseWeek ? PHASE_PROGRAM_WEEK_START[report.phase] + phaseWeek - 1 : undefined;
+      const key = `${report.phase}:${calendarWeek.start}`;
+      const group = groups.get(key) ?? {
+        key,
+        start: calendarWeek.start,
+        end: calendarWeek.end,
+        phase: String(report.phase),
+        ...(programWeek ? { programWeek } : {}),
+        actions: new Map<string, ReturnType<typeof collectSelectedFailureActions>>(),
+      };
+      const occurrences = collectSelectedFailureActions(
+        report,
+        resolveOperationalPacket(report, ws.phaseFolders, ws.substationOrientations),
+      );
+      for (const occurrence of occurrences) {
+        const actionOccurrences = group.actions.get(occurrence.action) ?? [];
+        actionOccurrences.push(occurrence);
+        group.actions.set(occurrence.action, actionOccurrences);
+      }
+      if (occurrences.length) groups.set(key, group);
+    }
+    return [...groups.values()]
+      .sort((a, b) => b.start.localeCompare(a.start) || a.phase.localeCompare(b.phase))
+      .map(group => ({
+        ...group,
+        title: `${group.programWeek ? `Week ${group.programWeek}` : `Week of ${formatDateDMY(group.start)}`} · Phase ${group.phase}`,
+        actionGroups: [...group.actions.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([action, occurrences]) => ({
+            action,
+            occurrences: occurrences.sort((a, b) => a.reportDate.localeCompare(b.reportDate) || a.id.localeCompare(b.id)),
+          })),
+      }));
+  }, [ownerReports, ws.phaseFolders, ws.substationOrientations, ws.caseFolder]);
   const reviewedReports=reports.filter(report=>!!report.ratingsReviewedAt&&!report.limboDay);
   const completedRuns=reports.flatMap(report=>report.runs).filter(run=>run.formStatus==='complete' && !!run.checklistReviewedAt);
   const runChecklistGroups=[
@@ -180,6 +236,41 @@ export default function WeeklySummaryPage() {
             {runChecklistGroups.filter(group=>group.runs.length>0).map(group=><section key={group.key} className="min-w-0 rounded border p-3" data-testid={`run-rollup-${group.key}`}>
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-2 border-b pb-2"><h3 className="min-w-0 font-semibold text-sm">{group.title}</h3><span className="shrink-0 rounded bg-muted px-2 py-1 text-xs font-semibold">{group.runs.length} complete</span></div>
               <div className="mt-2 divide-y">{group.items.map(item=><div key={item.key} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3 py-2 text-xs"><span className="min-w-0">{item.label}</span><b className="mono min-w-8 text-right">{group.runs.reduce((total,run)=>total+(run.checklist[item.key]===true?1:0),0)}</b></div>)}</div>
+            </section>)}
+          </div>}
+      </Panel>
+
+      <Panel id="selected-missed-actions" title={`Selected missed actions · ${selectedActionWeeks.reduce((total, group) => total + group.actionGroups.reduce((weekTotal, actionGroup) => weekTotal + actionGroup.occurrences.length, 0), 0)} saved selections`} className="mb-4">
+        <p className="border-b p-4 text-sm text-muted-foreground">
+          Counts include explicitly saved action selections only. These occurrences are separate from SEG ratings and do not create narratives or additional failures.
+        </p>
+        {selectedActionWeeks.length === 0
+          ? <p className="p-4 text-sm text-muted-foreground" data-testid="text-no-selected-missed-actions">No saved specific missed actions are recorded for this recruit.</p>
+          : <div className="divide-y">
+            {selectedActionWeeks.map(group => <section key={group.key} className="p-4" data-testid={`missed-actions-week-${group.key.replace(':', '-')}`}>
+              <h3 className="mb-3 border-b pb-2 text-sm font-bold">{group.title} · {formatDateDMY(group.start)}–{formatDateDMY(group.end)}</h3>
+              <div className="space-y-4">
+                {group.actionGroups.map(actionGroup => <section key={actionGroup.action} className="min-w-0 rounded-sm border p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h4 className="min-w-0 font-semibold text-sm">{actionGroup.action}</h4>
+                    <span className="shrink-0 rounded bg-muted px-2 py-1 text-xs font-semibold" data-testid={`count-missed-action-${group.key}-${actionGroup.action}`}>
+                      {actionGroup.occurrences.length} {actionGroup.occurrences.length === 1 ? 'occurrence' : 'occurrences'}
+                    </span>
+                  </div>
+                  <ul className="mt-2 divide-y">
+                    {actionGroup.occurrences.map(occurrence => <li key={occurrence.id} className="py-2 text-xs">
+                      <Link
+                        href={`/reports/${occurrence.reportId}#run-${occurrence.runId}`}
+                        className="font-semibold text-primary underline underline-offset-2"
+                        data-testid={`link-missed-action-source-${occurrence.id}`}
+                      >
+                        {formatDateDMY(occurrence.reportDate)} · {occurrence.formLabel}{occurrence.formNumber ? ` · ${occurrence.formNumber}` : ''} · {occurrence.taskLabel} · Run {occurrence.runId}{occurrence.reference ? ` · ${occurrence.reference}` : ''}
+                      </Link>
+                      <span className="ml-2 text-muted-foreground">{occurrence.runComplete ? 'Complete' : 'Incomplete'} · {occurrence.checklistReviewed ? 'reviewed' : 'not reviewed'}</span>
+                    </li>)}
+                  </ul>
+                </section>)}
+              </div>
             </section>)}
           </div>}
       </Panel>
