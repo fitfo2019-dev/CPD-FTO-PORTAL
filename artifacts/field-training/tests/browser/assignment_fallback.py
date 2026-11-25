@@ -5,6 +5,7 @@ Uses sync Playwright, asserts actual provider/editor/hook behavior, never a DB.
 No stored cookies, test credentials, or auth bypass are part of this runner.
 """
 import json
+import time
 from urllib.parse import urlparse
 from playwright.sync_api import expect
 
@@ -245,4 +246,173 @@ def run(context, base_url, subject):
                 if not page.is_closed():
                     page.evaluate("window.__fallbackHarness?.dispose()")
                     page.close()
+
+    # Same-account save race: an older refetch must not replace a confirmed PUT.
+    page = context.new_page()
+    saved = profile(subject, "9150E-1", 1)
+    held, profile_get_responses, profile_get_failures = [], [], []
+    put_bodies, dispatches, fixture_errors = [], [], []
+    hold_next_profile_get = False
+
+    def route_save_race(route):
+        nonlocal saved, hold_next_profile_get
+        request = route.request
+        path = urlparse(request.url).path
+        if path == "/api/v1/account/operational-profile":
+            if request.method == "GET":
+                if hold_next_profile_get:
+                    hold_next_profile_get = False
+                    held.append(route)
+                    return
+                route.fulfill(json=saved)
+            elif request.method == "PUT":
+                body = request.post_data_json
+                put_bodies.append(body)
+                if body != {"assignmentToken": "9150E", "expectedVersion": 1}:
+                    fixture_errors.append(f"Unexpected assignment PUT: {body!r}")
+                    route.fulfill(status=400, json={"error": "Unexpected fixture body"})
+                    return
+                saved = profile(subject, body["assignmentToken"], 2)
+                route.fulfill(json=saved)
+            else:
+                fixture_errors.append(f"Unexpected profile method: {request.method}")
+                route.fulfill(status=405, json={"error": "Unexpected profile method"})
+        elif path == "/api/v1/account/operational-profile/history":
+            route.fulfill(json={"subject": subject, "entries": [], "nextBeforeVersion": None})
+        elif path == "/api/v1/dispatch/event-ingress":
+            body = request.post_data_json
+            dispatches.append(body)
+            route.fulfill(json={"status": "success", "metadata": {"total_records": 1},
+                                "data": [{"location": "Fictional current location",
+                                          "cadIdentity": saved["identity"]}]})
+        else:
+            fixture_errors.append(f"Unconfigured API route: {path}")
+            route.fulfill(status=503, json={"error": "Unconfigured test API"})
+
+    def record_profile_response(response):
+        request = response.request
+        if (request.method == "GET"
+                and urlparse(request.url).path == "/api/v1/account/operational-profile"):
+            profile_get_responses.append(response)
+
+    def record_profile_failure(request):
+        if (request.method == "GET"
+                and urlparse(request.url).path == "/api/v1/account/operational-profile"):
+            profile_get_failures.append(request.failure or "")
+
+    try:
+        page.route("**/api/**", route_save_race)
+        page.route("**/__assignment-fallback-test", lambda route: route.fulfill(
+            content_type="text/html", body=DOCUMENT))
+        page.add_init_script("(" + CONTROLS + ")('absent')")
+        page.on("response", record_profile_response)
+        page.on("requestfailed", record_profile_failure)
+        page.goto(base_url.rstrip("/") + "/__assignment-fallback-test")
+        page.wait_for_function("window.__harnessModule")
+        page.evaluate("window.__fallbackHarness = window.__harnessModule.mount()")
+        field = page.get_by_test_id("input-operational-assignment")
+        expect(field).to_have_value("9150E-1")
+        page.wait_for_function("""() => {
+            const snapshot = window.__fallbackHarness.snapshot();
+            return snapshot?.profile?.version === 1 &&
+              snapshot?.prefills.length === 1 &&
+              snapshot?.ingress !== 'loading';
+        }""")
+        assert len(profile_get_responses) == 1
+        account_id = page.evaluate("window.Clerk.user.id")
+        assert account_id == subject, "The race must remain within the authenticated account"
+
+        def blur():
+            page.evaluate("""() => {
+                Object.defineProperty(document, 'visibilityState', {
+                  configurable: true, get: () => 'hidden'
+                });
+                document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+                window.dispatchEvent(new Event('blur'));
+            }""")
+
+        def focus():
+            page.evaluate("""() => {
+                Object.defineProperty(document, 'visibilityState', {
+                  configurable: true, get: () => 'visible'
+                });
+                document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+                window.dispatchEvent(new Event('focus'));
+            }""")
+
+        hold_next_profile_get = True
+        blur()
+        focus()
+        deadline = time.monotonic() + 5
+        while not held and time.monotonic() < deadline:
+            page.wait_for_timeout(25)
+        assert len(held) == 1, "Expected one held same-account profile refresh"
+        assert len(profile_get_responses) == 1, "The old GET must remain unresolved before saving"
+
+        field.fill("9150E")
+        page.get_by_test_id("button-save-operational-profile").click()
+        expect(page.get_by_test_id("text-profile-saved")).to_have_text(
+            "Assignment saved. It will apply to future packets only.")
+        expect(field).to_have_value("9150E")
+        expect(page.get_by_test_id("text-profile-cad")).to_have_text("9150E")
+        expect(page.get_by_test_id("button-save-operational-profile")).to_be_disabled()
+        page.wait_for_function("""subject => {
+            const snapshot = window.__fallbackHarness.snapshot();
+            const cached = window.__fallbackHarness.cachedProfile(subject);
+            return snapshot?.profile?.version === 2 &&
+              cached?.version === 2 &&
+              cached?.identity?.assignmentToken === '9150E' &&
+              cached?.identity?.cadUnit === '9150E';
+        }""", subject)
+        assert put_bodies == [{"assignmentToken": "9150E", "expectedVersion": 1}]
+        page.wait_for_function(
+            "window.__fallbackHarness.snapshot()?.prefills.length >= 2")
+        assert any(body.get("cadUnit") == "9150E" for body in dispatches), dispatches
+
+        old_profile = profile(subject, "9150E-1", 1)
+        release_error = None
+        try:
+            held[0].fulfill(json=old_profile)
+        except Exception as error:
+            # Classify from the browser's request/response events below rather
+            # than treating every failed route fulfillment as cancellation.
+            release_error = str(error)
+        page.wait_for_timeout(250)
+
+        if len(profile_get_responses) > 1:
+            stale_outcome = "late-response-ignored"
+        else:
+            assert profile_get_failures, "The held GET was neither delivered nor reported canceled"
+            assert any("abort" in failure.lower() or "cancel" in failure.lower()
+                       for failure in profile_get_failures), {
+                           "failures": profile_get_failures, "releaseError": release_error,
+                       }
+            stale_outcome = "browser-fetch-cancelled"
+
+        snapshot = page.evaluate("window.__fallbackHarness.snapshot()")
+        cached = page.evaluate(
+            "subject => window.__fallbackHarness.cachedProfile(subject)", subject)
+        assert snapshot["profile"]["version"] == 2
+        assert snapshot["profile"]["identity"]["assignmentToken"] == "9150E"
+        assert snapshot["profile"]["identity"]["cadUnit"] == "9150E"
+        assert cached["version"] == 2
+        assert cached["identity"]["cadUnit"] == "9150E"
+        expect(field).to_have_value("9150E")
+        expect(page.get_by_test_id("text-profile-cad")).to_have_text("9150E")
+        expect(page.get_by_test_id("text-profile-saved")).to_be_visible()
+        expect(page.get_by_test_id("button-save-operational-profile")).to_be_disabled()
+        assert len(dispatches) >= 1
+        assert not fixture_errors, fixture_errors
+        results.append({
+            "case": "same-account-save-beats-held-profile-refresh",
+            "putBodies": put_bodies,
+            "savedVersion": snapshot["profile"]["version"],
+            "savedCadUnit": snapshot["profile"]["identity"]["cadUnit"],
+            "staleGetOutcome": stale_outcome,
+            "passed": True,
+        })
+    finally:
+        if not page.is_closed():
+            page.evaluate("window.__fallbackHarness?.dispose()")
+            page.close()
     return results

@@ -54,6 +54,7 @@ export function mount() {
   );
   return {
     snapshot: () => latest,
+    cachedProfile: (subject: string) => cache.getQueryData(["operational-profile", subject]),
     managers: () => ({ focused: focusManager.isFocused(), online: onlineManager.isOnline() }),
     // No manager setters, invalidation, refetch calls, or alternate profile store.
     dispose() { root.unmount(); cache.clear(); host.remove(); },
