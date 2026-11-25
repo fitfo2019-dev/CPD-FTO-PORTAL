@@ -12,6 +12,7 @@ import { dirname, extname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import {
+  assertArchiveFileMatchesSource,
   assertReleaseArchiveContents,
   getResourceCatalogFileNames,
 } from "./bundle-package-contents.js";
@@ -31,6 +32,30 @@ const outputDir = join(workspaceRoot, "dist-production");
 const archivePath = join(workspaceRoot, "dist-production.zip");
 const excludedBuildHelpers = new Set(["pino-file.mjs", "pino-pretty.mjs"]);
 const approvedArchiveMaxBytes = 26_214_400;
+
+async function readArchiveFile(
+  archivePath: string,
+  entryPath: string,
+): Promise<Buffer> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    execFile(
+      "unzip",
+      ["-p", archivePath, entryPath],
+      { encoding: "buffer", maxBuffer: 64 * 1024 * 1024 },
+      (error, stdout) => {
+        if (error) {
+          rejectPromise(
+            new Error(`Could not read ${entryPath} from the release archive.`, {
+              cause: error,
+            }),
+          );
+          return;
+        }
+        resolvePromise(stdout);
+      },
+    );
+  });
+}
 
 async function readManifest(path: string): Promise<PackageManifest> {
   return JSON.parse(await readFile(path, "utf8")) as PackageManifest;
@@ -234,6 +259,23 @@ async function bundlePackage(): Promise<void> {
     expectedArchiveEntries: archiveEntries,
     actualArchiveEntries: archiveListing.stdout.trim().split("\n").filter(Boolean),
   });
+  for (const [archiveDirectory, sourceDirectory, fileNames] of [
+    ["resources", resourceSourceDir, resourceFiles],
+    ["migrations", migrationSourceDir, migrationFiles],
+  ] as const) {
+    for (const fileName of fileNames) {
+      const archiveEntry = join(archiveDirectory, fileName);
+      const [sourceContents, packagedContents] = await Promise.all([
+        readFile(join(sourceDirectory, fileName)),
+        readArchiveFile(archivePath, archiveEntry),
+      ]);
+      assertArchiveFileMatchesSource(
+        archiveEntry,
+        sourceContents,
+        packagedContents,
+      );
+    }
+  }
 
   const archiveStats = await stat(archivePath);
   console.log(

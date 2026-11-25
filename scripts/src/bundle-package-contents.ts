@@ -44,6 +44,21 @@ export function assertSameFileSet(
   throw new Error(`${label} do not match:\n${details.join("\n")}`);
 }
 
+export function assertArchiveFileMatchesSource(
+  archivePath: string,
+  sourceContents: Uint8Array,
+  packagedContents: Uint8Array,
+): void {
+  const contentsMatch =
+    sourceContents.length === packagedContents.length &&
+    sourceContents.every((byte, index) => byte === packagedContents[index]);
+  if (!contentsMatch) {
+    throw new Error(
+      `Packaged contents do not match the source file: ${archivePath}`,
+    );
+  }
+}
+
 export function assertNoGeneratedOrWorkspaceFiles(
   archiveEntries: Iterable<string>,
 ): void {

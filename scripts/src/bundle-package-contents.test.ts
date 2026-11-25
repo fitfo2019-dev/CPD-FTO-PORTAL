@@ -1,10 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  assertArchiveFileMatchesSource,
   assertReleaseArchiveContents,
   assertSameFileSet,
   getResourceCatalogFileNames,
 } from "./bundle-package-contents.js";
+
+test("accepts packaged bytes that match the source file", () => {
+  assert.doesNotThrow(() =>
+    assertArchiveFileMatchesSource(
+      "resources/reference.pdf",
+      Uint8Array.from([0, 255, 37, 128]),
+      Uint8Array.from([0, 255, 37, 128]),
+    ),
+  );
+});
+
+test("reports the archive path when packaged bytes differ from the source", () => {
+  assert.throws(
+    () =>
+      assertArchiveFileMatchesSource(
+        "migrations/first.sql",
+        Uint8Array.from([1, 2, 3]),
+        Uint8Array.from([1, 2]),
+      ),
+    /Packaged contents do not match the source file: migrations\/first\.sql/,
+  );
+});
 
 test("reads every file name from the resource catalog", () => {
   const names = getResourceCatalogFileNames(`
