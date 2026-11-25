@@ -12,7 +12,8 @@ function requestedTopic(role: Role) {
 }
 
 export function ApplicationHelpDesk({ role }: { role: Role }) {
-  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState<{ role: Role; query: string }>(() => ({ role, query: '' }));
+  const query = search.role === role ? search.query : '';
   const [selectedId, setSelectedId] = useState(() => requestedTopic(role));
   const availableTopics = useMemo(() => getApplicationHelpTopicsForRole(role), [role]);
   const matches = useMemo(() => {
@@ -57,7 +58,7 @@ export function ApplicationHelpDesk({ role }: { role: Role }) {
           <input
             type="search"
             value={query}
-            onChange={event => setQuery(event.target.value)}
+            onChange={event => setSearch({ role, query: event.target.value })}
             placeholder="Search saving, access, packets…"
             className="h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
             aria-label="Search Help Desk topics"
@@ -132,7 +133,7 @@ export function ApplicationHelpDesk({ role }: { role: Role }) {
           ) : (
             <div className="grid min-h-40 place-content-center justify-items-start gap-2 py-6 text-sm text-muted-foreground" role="status">
               <p>No matching topics. Try another search or clear the field.</p>
-              <button type="button" onClick={() => setQuery('')} className="font-semibold text-primary underline underline-offset-2">
+              <button type="button" onClick={() => setSearch({ role, query: '' })} className="font-semibold text-primary underline underline-offset-2">
                 Clear search
               </button>
             </div>

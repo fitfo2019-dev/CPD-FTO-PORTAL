@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import React, { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 import { ApplicationHelpDesk } from '../components/application-help-desk.js';
 import {
@@ -68,6 +67,7 @@ async function withMountedHelpDesk(
     value: () => undefined,
   });
   const container = dom.window.document.getElementById('root')!;
+  const { createRoot } = await import('react-dom/client');
   const root = createRoot(container);
   const renderRole = async (role: Role) => {
     await act(async () => root.render(createElement(ApplicationHelpDesk, { role })));
@@ -206,6 +206,48 @@ test('Help Desk immediately replaces a restricted answer after an in-place role 
     assert.equal(answer.querySelector('h3')?.textContent, 'Save and reopen a local draft');
     assert.doesNotMatch(answer.textContent ?? '', /Import a roster/);
     assert.equal(window.location.search, '?topic=roster-import');
+  });
+});
+
+test('Help Desk clears a previous role-only search and shows topics available to the new role', async () => {
+  await withMountedHelpDesk('', async (container, renderRole) => {
+    await renderRole('fto_coordinator');
+    const input = container.querySelector<HTMLInputElement>('[data-testid="input-application-help-search"]')!;
+    const setInputValue = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    setInputValue?.call(input, 'xlsx');
+    await act(async () => {
+      input.focus();
+      input.dispatchEvent(new window.InputEvent('input', {
+        data: 'xlsx',
+        inputType: 'insertText',
+        bubbles: true,
+      }));
+    });
+
+    assert.equal(input.value, 'xlsx');
+    assert.deepEqual(
+      Array.from(container.querySelectorAll('nav button')).map(button => button.textContent),
+      ['Import a roster'],
+    );
+    assert.equal(container.querySelector('article h3')?.textContent, 'Import a roster');
+
+    await renderRole('po');
+
+    assert.equal(input.value, '');
+    assert.deepEqual(
+      Array.from(container.querySelectorAll('nav button')).map(button => button.textContent),
+      [
+        'Save and reopen a local draft',
+        'Check record status',
+        'Activate an account',
+        'Check an agency packet action',
+      ],
+    );
+    assert.equal(container.querySelector('article h3')?.textContent, 'Save and reopen a local draft');
+    assert.doesNotMatch(container.textContent ?? '', /Import a roster/);
   });
 });
 
