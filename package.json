@@ -12,6 +12,7 @@
     "context:write": "pnpm --filter @workspace/scripts exec tsx src/write-context.ts",
     "export:executive-brief": "node scripts/src/export-executive-brief.mjs",
     "test:executive-brief-export": "node --test scripts/src/export-executive-brief.test.mjs",
+    "smoke:production-package": "node scripts/src/smoke-production-package.mjs",
     "test:staging": "pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/src/developer-staging/staging.test.ts",
     "bundle:production": "pnpm run build:api && pnpm --filter @workspace/scripts run bundle-package",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",

@@ -320,6 +320,9 @@ The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v
   defaults to `/`; set `PORTAL_BASE_PATH` only when the agency will serve the
   portal from a specific slash-terminated prefix. Same-origin `/api` forwarding
   must be configured separately.
+- `pnpm run smoke:production-package` — extracts the ZIP outside the repository,
+  installs only its declared production dependencies, starts the API with
+  non-operational test settings, and verifies `/api/healthz`.
   Configure the portal's production Clerk publishable key and approved origin
   before building; never put a secret key in a `VITE_` variable.
 - The approved combined-archive ceiling is 26,214,400 bytes. The packager
