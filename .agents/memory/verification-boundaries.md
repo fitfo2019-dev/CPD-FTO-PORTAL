@@ -31,6 +31,15 @@ Do not equate a successful PostgreSQL `GRANT` statement with a successful privil
 
 **How to apply:** Verify effective permissions, not just whether the database accepted a permission-related statement.
 
+Zod coercing date schemas accept `null` by converting it to the Unix epoch, so
+successful parsing alone does not prove a field is nullable.
+
+**Why:** A response-schema parity test treated `z.coerce.date()` as nullable
+because `safeParse(null)` succeeded, despite the parsed value being a `Date`.
+
+**How to apply:** When checking nullability on coercing schemas, confirm parsing
+returns `null`, not merely that parsing succeeds.
+
 Distinguish table-wide INSERT from column-only UPDATE when verifying additive
 PostgreSQL migrations.
 

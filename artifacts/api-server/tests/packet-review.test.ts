@@ -15,8 +15,12 @@ import { CompletePacketsEnvelope } from "../src/lib/packet-contract.js";
 import {createPacketReviewStore} from "../src/lib/packet-review-store.js";
 import {
   AcknowledgeTrainingPacketBody,
+  AcknowledgeTrainingPacketResponse,
+  ListTrainingPacketsResponse,
   ReleaseTrainingPacketBody,
+  ReleaseTrainingPacketResponse,
   WithdrawTrainingPacketBody,
+  WithdrawTrainingPacketResponse,
 } from "@workspace/api-zod";
 
 const coordinator: AgencyIdentity = { id: "coordinator", badge: "10", role: "FTO_COORDINATOR" };
@@ -45,6 +49,12 @@ const packetReviewValidators = [
   },
 ] as const;
 
+const packetReviewResponseValidators = [
+  { action: "release", schemaName: "TrainingPacketsEnvelope", validator: ReleaseTrainingPacketResponse },
+  { action: "acknowledge", schemaName: "TrainingPacketsEnvelope", validator: AcknowledgeTrainingPacketResponse },
+  { action: "withdraw", schemaName: "TrainingPacketsEnvelope", validator: WithdrawTrainingPacketResponse },
+] as const;
+
 type OpenApiProperty = {
   type?: string;
   format?: string;
@@ -53,6 +63,95 @@ type OpenApiProperty = {
   maxLength?: number;
   enum?: (string | number | boolean)[];
 };
+
+function readOpenApiPacketReviewResponseSchema(action: string, schemaName: string) {
+  const openApi = readFileSync(new URL("../../../lib/api-spec/openapi.yaml", import.meta.url), "utf8");
+  const lines = openApi.split(/\r?\n/);
+  const path = `/v1/training-packets/{id}/${action}`;
+  const pathIndex = lines.findIndex(line => line === `  ${path}:`);
+  assert.ok(pathIndex >= 0, `Packet ${action} action (${schemaName}): OpenAPI path ${path} is missing.`);
+  const nextPathIndex = lines.findIndex((line, index) => index > pathIndex && /^  \//.test(line));
+  const pathLines = lines.slice(pathIndex + 1, nextPathIndex < 0 ? lines.length : nextPathIndex);
+  const responseStart = pathLines.findIndex(line => /^\s*"200":/.test(line));
+  assert.ok(responseStart >= 0, `Packet ${action} action (${schemaName}): OpenAPI 200 response is missing.`);
+  const responseEnd = pathLines.findIndex((line, index) => index > responseStart && /^\s*default:/.test(line));
+  const responseLines = pathLines.slice(responseStart, responseEnd < 0 ? undefined : responseEnd);
+  const responseSchema = responseLines
+    .map(line => line.match(/^\s*schema:\s*\{\s*\$ref:\s*["']#\/components\/schemas\/([^"']+)["']\s*\}/)?.[1])
+    .find(Boolean);
+  assert.equal(responseSchema, schemaName,
+    `Packet ${action} action (${schemaName}): OpenAPI 200 response references ${responseSchema ?? "no schema"}.`);
+  return { lines };
+}
+
+function parseOpenApiObjectLines(
+  lines: string[],
+  schemaName: string,
+  indent: number,
+  label = schemaName,
+) {
+  const pad = " ".repeat(indent);
+  const requiredLine = lines.find(line => line.startsWith(`${pad}required:`));
+  assert.ok(requiredLine, `${label}: OpenAPI object has no required list.`);
+  const required = requiredLine.match(/\[([^\]]*)\]/)?.[1]
+    .split(",").map(field => field.trim()).filter(Boolean) ?? [];
+  const propertiesIndex = lines.findIndex(line => line === `${pad}properties:`);
+  assert.ok(propertiesIndex >= 0, `${label}: OpenAPI object has no properties.`);
+  const propertyIndent = indent + 2;
+  const propertyPad = " ".repeat(propertyIndent);
+  const propertyLines = lines.slice(propertiesIndex + 1);
+  const properties = propertyLines
+    .map(line => line.match(new RegExp(`^${propertyPad}([A-Za-z0-9_]+):`))?.[1])
+    .filter((field): field is string => Boolean(field));
+  const additionalProperties = lines.find(line => line.startsWith(`${pad}additionalProperties:`))?.trim();
+  const nullable = properties.filter(field => {
+    const propertyIndex = propertyLines.findIndex(line =>
+      line.match(new RegExp(`^${propertyPad}([A-Za-z0-9_]+):`))?.[1] === field);
+    const nextPropertyIndex = propertyLines.findIndex((line, index) =>
+      index > propertyIndex && new RegExp(`^${propertyPad}[A-Za-z0-9_]+:`).test(line));
+    const definitionLines = propertyLines.slice(propertyIndex,
+      nextPropertyIndex < 0 ? undefined : nextPropertyIndex);
+    const declaration = definitionLines[0] ?? "";
+    const nullableType = /\btype:\s*\[\s*["']?[^,\]]+["']?,\s*["']null["']?\s*\]/.test(declaration);
+    const oneOfIsNullable = definitionLines.some(line =>
+      line === `${propertyPad}  oneOf:`) &&
+      definitionLines.some(line => /\{\s*type:\s*["']null["']\s*\}/.test(line));
+    return nullableType || oneOfIsNullable;
+  });
+  return { required, properties, additionalProperties, nullable };
+}
+
+function readOpenApiComponent(lines: string[], schemaName: string, label: string) {
+  const schemaIndex = lines.findIndex(line => line === `    ${schemaName}:`);
+  assert.ok(schemaIndex >= 0, `${label}: OpenAPI component ${schemaName} is missing.`);
+  const nextSchemaIndex = lines.findIndex((line, index) =>
+    index > schemaIndex && /^    [A-Z][A-Za-z0-9]+:\s*$/.test(line));
+  const schemaLines = lines.slice(schemaIndex + 1, nextSchemaIndex < 0 ? lines.length : nextSchemaIndex);
+  return parseOpenApiObjectLines(schemaLines, schemaName, 6, `${label}; ${schemaName}`);
+}
+
+function readOpenApiInlineObject(
+  lines: string[],
+  parentSchema: string,
+  propertyName: string,
+  label: string,
+) {
+  const schemaIndex = lines.findIndex(line => line === `    ${parentSchema}:`);
+  assert.ok(schemaIndex >= 0, `${label}: OpenAPI component ${parentSchema} is missing.`);
+  const nextSchemaIndex = lines.findIndex((line, index) =>
+    index > schemaIndex && /^    [A-Z][A-Za-z0-9]+:\s*$/.test(line));
+  const schemaLines = lines.slice(schemaIndex + 1, nextSchemaIndex < 0 ? lines.length : nextSchemaIndex);
+  const propertyIndex = schemaLines.findIndex(line => line === `        ${propertyName}:`);
+  assert.ok(propertyIndex >= 0, `${label}: OpenAPI ${parentSchema}.${propertyName} object is missing.`);
+  const nextPropertyIndex = schemaLines.findIndex((line, index) =>
+    index > propertyIndex && /^        [A-Za-z0-9_]+:/.test(line));
+  return parseOpenApiObjectLines(
+    schemaLines.slice(propertyIndex, nextPropertyIndex < 0 ? undefined : nextPropertyIndex),
+    `${parentSchema}.${propertyName}`,
+    10,
+    label,
+  );
+}
 
 function readOpenApiPacketReviewBodySchema(action: string, schemaName: string) {
   const openApi = readFileSync(new URL("../../../lib/api-spec/openapi.yaml", import.meta.url), "utf8");
@@ -123,6 +222,67 @@ function validReviewPropertyValue(property: OpenApiProperty): string | number | 
   assert.fail(`No valid sample is defined for OpenAPI type ${property.type ?? "missing"}.`);
 }
 
+function assertObjectMatchesOpenApi(
+  label: string,
+  openApi: ReturnType<typeof readOpenApiComponent>,
+  schema: { shape: Record<string, { safeParse(value: unknown): { success: boolean; data?: unknown } }> },
+) {
+  const validatorFields = Object.keys(schema.shape).sort();
+  const openApiFields = [...openApi.properties].sort();
+  assert.deepEqual(validatorFields, openApiFields, `${label}: server validator properties differ from OpenAPI.`);
+  const required = validatorFields.filter(field => !schema.shape[field].safeParse(undefined).success).sort();
+  assert.deepEqual(required, [...openApi.required].sort(), `${label}: required fields differ from OpenAPI.`);
+  const nullable = validatorFields.filter(field => {
+    const result = schema.shape[field].safeParse(null);
+    return result.success && result.data === null;
+  }).sort();
+  assert.deepEqual(nullable, [...openApi.nullable].sort(), `${label}: nullable fields differ from OpenAPI.`);
+}
+
+function packetReviewResponseFixture() {
+  return {
+    status: "success",
+    metadata: { total_records: 1, role: "FTO_COORDINATOR" },
+    data: [{
+      id: "packet-1",
+      assignment_id: randomUUID(),
+      record_date: "2026-11-25",
+      phase: 1,
+      server_version: 1,
+      sync_status: "local_draft_pending",
+      report: {
+        operationalIdentity: {
+          assignmentToken: "1234D", districtToken: "1234", cadUnit: "1234D", company: "D",
+        },
+        id: "report-1",
+        date: "2026-11-25",
+        phase: 1,
+        className: "",
+        recruitName: "Recruit",
+        recruitBadge: "20",
+        ftoName: "FTO",
+        ftoBadge: "30",
+        runs: [],
+        activity: {},
+        reportingForDuty: {},
+        ratings: {},
+        status: "draft",
+        narrative: "",
+        remedial: "",
+        recruitComments: "",
+      },
+      content_hash: "a".repeat(64),
+      released_to_po: false,
+      released_at: null,
+      withdrawn_at: null,
+      withdrawal_reason: null,
+      acknowledgment: null,
+      amendment_of: null,
+      amendment_reason: null,
+    }],
+  };
+}
+
 test("packet-review server validators match OpenAPI request schemas", async t => {
   for (const { action, schemaName, validator } of packetReviewValidators) {
     await t.test(`${action} (${schemaName})`, () => {
@@ -175,6 +335,117 @@ test("packet-review server validators match OpenAPI request schemas", async t =>
 
       assert.equal(validator.strict().safeParse({ ...validBody, forged_review_state: true }).success, false,
         `${label}: generated validator must reject unknown properties.`);
+    });
+  }
+});
+
+test("packet-review response validators match OpenAPI schemas", async t => {
+  const responseSchema = CompletePacketsEnvelope;
+  const responseData = responseSchema.shape.data.element;
+  const reportSchema = responseData.shape.report;
+  const identitySchema = reportSchema.shape.operationalIdentity.unwrap();
+  const acknowledgmentSchema = responseData.shape.acknowledgment.unwrap();
+  const componentSchemas = [
+    ["TrainingPacketsEnvelope", responseSchema],
+    ["TrainingPacketRecord", responseData],
+    ["TrainingPacketReport", reportSchema],
+    ["OperationalIdentity", identitySchema],
+    ["TrainingPacketAcknowledgment", acknowledgmentSchema],
+  ] as const;
+
+  for (const { action, schemaName, validator } of packetReviewResponseValidators) {
+    await t.test(`${action} (${schemaName})`, async () => {
+      const { lines } = readOpenApiPacketReviewResponseSchema(action, schemaName);
+      assert.deepEqual(
+        Object.keys(validator.shape).sort(),
+        Object.keys(ListTrainingPacketsResponse.shape).sort(),
+        `Packet ${action} action (${schemaName}): generated response schema differs from the server response shape.`,
+      );
+
+      for (const [componentName, serverSchema] of componentSchemas) {
+        const openApi = readOpenApiComponent(
+          lines,
+          componentName,
+          `Packet ${action} action (${schemaName})`,
+        );
+        assertObjectMatchesOpenApi(
+          `Packet ${action} action (${schemaName}; ${componentName})`,
+          openApi,
+          serverSchema,
+        );
+        const expectedAdditionalProperties = componentName === "TrainingPacketReport"
+          ? "additionalProperties: true"
+          : "additionalProperties: false";
+        assert.equal(openApi.additionalProperties, expectedAdditionalProperties,
+          `Packet ${action} action (${schemaName}; ${componentName}): OpenAPI unknown-field policy changed.`);
+      }
+      const metadataOpenApi = readOpenApiInlineObject(
+        lines,
+        "TrainingPacketsEnvelope",
+        "metadata",
+        `Packet ${action} action (${schemaName})`,
+      );
+      assertObjectMatchesOpenApi(
+        `Packet ${action} action (${schemaName}; TrainingPacketsEnvelope.metadata)`,
+        metadataOpenApi,
+        responseSchema.shape.metadata,
+      );
+      assert.equal(metadataOpenApi.additionalProperties, "additionalProperties: false",
+        `Packet ${action} action (${schemaName}; TrainingPacketsEnvelope.metadata): OpenAPI must reject unknown fields.`);
+
+      const envelope = packetReviewResponseFixture();
+      const validResult = responseSchema.safeParse(envelope);
+      assert.equal(validResult.success, true,
+        `Packet ${action} action (${schemaName}): server validator rejected the OpenAPI-valid response: ${
+          validResult.success ? "" : JSON.stringify(validResult.error.issues)}`);
+      assert.equal(responseSchema.safeParse({ ...envelope, unexpected: true }).success, false,
+        `Packet ${action} action (${schemaName}; TrainingPacketsEnvelope): server must reject unknown fields.`);
+      assert.equal(responseSchema.safeParse({
+        ...envelope,
+        metadata: { ...envelope.metadata, unexpected: true },
+      }).success, false,
+      `Packet ${action} action (${schemaName}; TrainingPacketsEnvelope.metadata): server must reject unknown fields.`);
+
+      const record = envelope.data[0];
+      assert.equal(responseSchema.safeParse({
+        ...envelope,
+        data: [{ ...record, unexpected: true }],
+      }).success, false,
+      `Packet ${action} action (${schemaName}; TrainingPacketRecord): server must reject unknown fields.`);
+      const reportExtension = responseSchema.safeParse({
+        ...envelope,
+        data: [{ ...record, report: { ...record.report, openReportExtension: true } }],
+      });
+      assert.equal(reportExtension.success, true,
+        `Packet ${action} action (${schemaName}; TrainingPacketReport): server must preserve OpenAPI extensions.`);
+      if (reportExtension.success) {
+        assert.equal(reportExtension.data.data[0]?.report.openReportExtension, true,
+          `Packet ${action} action (${schemaName}; TrainingPacketReport): server must retain extension fields.`);
+      }
+      assert.equal(responseSchema.safeParse({
+        ...envelope,
+        data: [{
+          ...record,
+          report: {
+            ...record.report,
+            operationalIdentity: { ...record.report.operationalIdentity, unexpected: true },
+          },
+        }],
+      }).success, false,
+      `Packet ${action} action (${schemaName}; OperationalIdentity): server must reject unknown fields.`);
+      const acknowledged = {
+        ...record,
+        acknowledgment: {
+          acknowledged_at: new Date().toISOString(),
+          content_hash: "b".repeat(64),
+          comments: "",
+        },
+      };
+      assert.equal(responseSchema.safeParse({
+        ...envelope,
+        data: [{ ...acknowledged, acknowledgment: { ...acknowledged.acknowledgment, unexpected: true } }],
+      }).success, false,
+      `Packet ${action} action (${schemaName}; TrainingPacketAcknowledgment): server must reject unknown fields.`);
     });
   }
 });

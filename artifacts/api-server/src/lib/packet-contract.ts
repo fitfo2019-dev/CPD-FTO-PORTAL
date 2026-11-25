@@ -12,8 +12,12 @@ export const CompletePacketInput = SyncTrainingPacketsBody.extend({
     report: CompletePacketReport,
   }).strict().array().min(1).max(100),
 }).strict();
+const packetRecordSchema = ListTrainingPacketsResponse.shape.data.element;
+const packetAcknowledgmentSchema = packetRecordSchema.shape.acknowledgment.options[0].strict().nullable();
 export const CompletePacketsEnvelope = ListTrainingPacketsResponse.extend({
-  data: ListTrainingPacketsResponse.shape.data.element.extend({
+  metadata: ListTrainingPacketsResponse.shape.metadata.strict(),
+  data: packetRecordSchema.extend({
     report: CompletePacketReport,
-  }).array().max(100),
-});
+    acknowledgment: packetAcknowledgmentSchema,
+  }).strict().array().max(100),
+}).strict();
