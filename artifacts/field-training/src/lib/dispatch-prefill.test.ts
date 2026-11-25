@@ -189,6 +189,43 @@ test('a successful retry fills untouched fields but preserves manual corrections
   });
 });
 
+test('legacy runs reopen safely when structured dispatch fields are absent', () => {
+  const legacyRun: TrainingRun = {
+    id: 'legacy-dispatch-run',
+    occurredAt: '2026-11-23T14:00:00.000Z',
+    runKind: 'traffic_stop',
+    isDispatched: true,
+    trafficMode: 'motor_vehicle',
+    arrestMade: false,
+    transportedAfterArrest: false,
+    oviProcessed: false,
+    narrativeAdditionRequired: false,
+    formStatus: 'complete',
+    checklist: {},
+    narrative: 'Legacy run with no structured dispatch details.',
+  };
+  const savedSnapshot = structuredClone(legacyRun);
+
+  assert.deepEqual(restoreDispatchPrefillFields(legacyRun), {
+    incidentNumber: '',
+    runLocation: '',
+    runLocationCity: '',
+    runLocationState: '',
+    runLocationZip: '',
+    runZone: '',
+    runCruiserDistrict: '',
+    clearanceCode: '',
+    dispatchedCode: '6',
+  });
+  assert.deepEqual(legacyRun, savedSnapshot, 'restoring editor defaults must not mutate the saved run');
+
+  const correctedRun: TrainingRun = { ...legacyRun, dispatchedCode: '17A' };
+  assert.equal(restoreDispatchPrefillFields(correctedRun).dispatchedCode, '17A');
+
+  const intentionallyBlankRun: TrainingRun = { ...legacyRun, dispatchedCode: '' };
+  assert.equal(restoreDispatchPrefillFields(intentionallyBlankRun).dispatchedCode, '');
+});
+
 test("dispatch ingress time is a default only until the FTO changes it", () => {
   assert.equal(applyDispatchPrefillValue("11/23/2026", "11/23/2026", "11/22/2026 14:05"), "11/22/2026 14:05");
   assert.equal(applyDispatchPrefillValue("11/23/2026 13:55", "11/23/2026", "11/22/2026 14:05"), "11/23/2026 13:55");
