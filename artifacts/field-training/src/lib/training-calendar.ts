@@ -49,6 +49,7 @@ export function formatDateEntryMDY(value: string): string {
 
 /** Predictable 24-hour typing, independent of the browser's AM/PM controls. */
 export function formatTimeEntry24H(value: string): string {
+  if (value.trim() === '?') return '?';
   const separated = /^(\d{1,2}):(\d{0,2})$/.exec(value);
   if (separated) return `${separated[1].padStart(2, '0')}:${separated[2]}`;
   const digits = value.replace(/\D/g, '').slice(0, 4);
@@ -72,6 +73,13 @@ export function formatDateTimeEntryMDY(value: string): string {
 }
 
 export function splitDateTimeEntryMDY(value: string): { date: string; time: string } {
+  // Separate controls can temporarily have a blank or incomplete date. Never
+  // fold their time digits into that date while the FTO corrects it.
+  const separated = /^(\S*)\s+(.*)$/.exec(value);
+  if (separated) return {
+    date: formatDateEntryMDY(separated[1]),
+    time: formatTimeEntry24H(separated[2].trim()),
+  };
   const formatted = formatDateTimeEntryMDY(value);
   if (formatted === '?') return { date: '?', time: '?' };
   const [date = '', time = ''] = formatted.split(' ');

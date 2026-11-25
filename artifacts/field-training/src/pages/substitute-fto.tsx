@@ -5,7 +5,7 @@ import { PageHead, Panel } from '@/components/bits.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { useWorkspace } from '@/state/workspace.js';
 import { uid, type CoverageRequest } from '@/lib/model.js';
-import { formatDateDMY, formatDateTimeEntryMDY, formatDateTimeMDY } from '@/lib/training-calendar.js';
+import { formatDateTimeEntryMDY, formatDateTimeMDY } from '@/lib/training-calendar.js';
 import { parseRunDateTime } from '@/lib/run-details.js';
 import { applyCurrentDateTimeShortcut } from '@/lib/date-time-shortcut.js';
 

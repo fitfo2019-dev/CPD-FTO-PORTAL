@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { formatDateTimeEntryMDY, formatTimeEntry24H } from './training-calendar.js';
+import { formatDateEntryMDY, formatDateTimeEntryMDY, formatTimeEntry24H, splitDateTimeEntryMDY } from './training-calendar.js';
 import { parseRunDateTime } from './run-details.js';
 
 function typeAtEnd(initial: string, keys: string) {
@@ -12,6 +12,8 @@ test('shift and run time entry accepts four digits or explicit colons without an
     assert.equal([...typed].reduce((value, key) => formatTimeEntry24H(value + key), ''), expected);
   }
   assert.equal(formatTimeEntry24H(''), '');
+  assert.equal(formatTimeEntry24H('?'), '?');
+  assert.equal(formatTimeEntry24H(' ? '), '?');
   assert.equal(formatTimeEntry24H('08:'), '08:');
   assert.equal(formatTimeEntry24H('08:3'), '08:3');
   assert.equal(parseRunDateTime(`11/16/2026 ${formatTimeEntry24H('2460')}`), undefined);
@@ -36,4 +38,18 @@ test('incomplete and out-of-range times remain invalid and the current-time shor
     assert.equal(parseRunDateTime(value), undefined, value);
   }
   assert.equal(formatDateTimeEntryMDY('?'), '?');
+});
+
+test('correcting a separate run date never folds an existing time into its date digits',()=>{
+  let date='';
+  for(const key of '04212025'){
+    const entry=splitDateTimeEntryMDY(`${formatDateEntryMDY(date+key)} 08:30`);
+    date=entry.date;
+    assert.equal(entry.time,'08:30');
+  }
+  assert.equal(date,'04/21/2025');
+  assert.deepEqual(splitDateTimeEntryMDY(' 08:30'),{date:'',time:'08:30'});
+  assert.deepEqual(splitDateTimeEntryMDY('04/ 08:30'),{date:'04',time:'08:30'});
+  assert.deepEqual(splitDateTimeEntryMDY('04/21/2025 ?'),{date:'04/21/2025',time:'?'});
+  assert.equal(parseRunDateTime(' 08:30'),undefined);
 });
