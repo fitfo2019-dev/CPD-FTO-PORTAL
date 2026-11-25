@@ -635,14 +635,14 @@ content_type = "text/html"
 id = "IuIWgvi0YvitMNbbIeYwB"
 uri = "file://generated-artifacts/website-records/City-of-Columbus-Chain-of-Command-Brief.pdf"
 type = "pdf"
-title = "City of Columbus Chain of Command Brief (PDF)"
-description = "Renamed and regenerated from the canonical briefing; retains the established print styling."
+title = "Columbus FTO Portal Brief"
+description = "Regenerated PDF with a clickable contents page linking to the brief’s canonical sections."
 logical_id = "31489a28-9b72-49ee-b7f1-30b829ba6fb9"
-content_hash = "sha256:b64a01917a5ccbd8de06550d499eb8541f3ae72bba56a0f8318ff41ff9265195"
-size = 269028
-mtime_ms = 1795585458809
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/31489a28-9b72-49ee-b7f1-30b829ba6fb9/c0096cbd-061f-4267-9e73-b9dde9eea0d1"
-storage_version_token = "1795585470677509"
+content_hash = "sha256:cc88d144846c9e9d72d58f99f8f11962c9c347ad2c5f501e9586afdc2d8ac7db"
+size = 287389
+mtime_ms = 1795647729923
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/31489a28-9b72-49ee-b7f1-30b829ba6fb9/fbd73083-b3bd-47fe-9b41-25ac49e9acc3"
+storage_version_token = "1795647811022720"
 content_type = "application/pdf"
 
 [[outputs]]

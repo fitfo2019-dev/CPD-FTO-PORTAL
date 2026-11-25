@@ -29,6 +29,11 @@ code { font-size: 8.3pt; background: #edf1f5; overflow-wrap: anywhere; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #ccd4dd; background: #f4f6f8; padding: 10px; font-size: 8pt; }
 a { color: #07578c; text-decoration: underline; }
 img { max-width: 100%; }
+.contents { break-before: page; break-after: page; }
+.contents h2 { margin-top: 0; }
+.contents ul { columns: 2; column-gap: 24px; padding-left: 18px; }
+.contents li { break-inside: avoid; margin: 0 0 6px; }
+.contents a { text-decoration: none; }
 `.trim();
 
 function escapeHtml(value) {
@@ -81,8 +86,12 @@ function isBlockStart(lines, index) {
 
 export function markdownToHtml(markdown) {
   const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const levelTwoHeadings = extractLevelTwoHeadings(markdown);
+  const headingByLine = new Map(levelTwoHeadings.map((heading) => [heading.lineIndex, heading]));
+  const sections = levelTwoHeadings.filter((heading) => heading.isSection);
   const blocks = [];
   let index = 0;
+  let contentsInserted = false;
 
   while (index < lines.length) {
     const line = lines[index];
@@ -94,7 +103,13 @@ export function markdownToHtml(markdown) {
     const heading = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
     if (heading) {
       const level = heading[1].length;
-      blocks.push(`<h${level}>${renderInline(heading[2])}</h${level}>`);
+      const section = level === 2 ? headingByLine.get(index) : undefined;
+      if (section && section.isSection && !contentsInserted && sections.length > 0) {
+        blocks.push(renderContents(sections));
+        contentsInserted = true;
+      }
+      const idAttribute = section ? ` id="${section.id}"` : "";
+      blocks.push(`<h${level}${idAttribute}>${renderInline(heading[2])}</h${level}>`);
       index += 1;
       continue;
     }
@@ -163,6 +178,58 @@ export function markdownToHtml(markdown) {
   }
 
   return blocks.join("\n");
+}
+
+function extractLevelTwoHeadings(markdown) {
+  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const headingLines = [];
+  let firstHeadingLine = -1;
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const match = lines[lineIndex].match(/^##\s+(.+?)\s*#*\s*$/);
+    if (match) headingLines.push({ lineIndex, source: match[1] });
+    if (firstHeadingLine === -1 && /^#\s+/.test(lines[lineIndex])) firstHeadingLine = lineIndex;
+  }
+
+  const titleSubtitleLine = headingLines[0]?.lineIndex;
+  const isTitleSubtitle =
+    titleSubtitleLine !== undefined &&
+    firstHeadingLine >= 0 &&
+    titleSubtitleLine > firstHeadingLine &&
+    lines.slice(firstHeadingLine + 1, titleSubtitleLine).every((line) => !line.trim());
+  const usedIds = new Set();
+
+  return headingLines.map(({ lineIndex, source }, headingIndex) => {
+    const label = inlineToPlainText(source);
+    const baseId =
+      label
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "section";
+    let id = baseId;
+    let suffix = 2;
+    while (usedIds.has(id)) {
+      id = `${baseId}-${suffix}`;
+      suffix += 1;
+    }
+    usedIds.add(id);
+
+    return {
+      id,
+      isSection: !(isTitleSubtitle && headingIndex === 0),
+      label,
+      lineIndex,
+    };
+  });
+}
+
+function renderContents(sections) {
+  const items = sections
+    .map(({ id, label }) => `<li><a href="#${id}">${escapeHtml(label)}</a></li>`)
+    .join("\n");
+  return `<nav class="contents" aria-label="Contents">\n<h2>Contents</h2>\n<ul>\n${items}\n</ul>\n</nav>`;
 }
 
 function inlineToPlainText(markdown) {
