@@ -663,6 +663,19 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
     };
     assert.deepEqual(await readAttribution(), expectedAttribution);
 
+    const readRequestRow = async () => {
+      const result = await ownerPool!.query(
+        "SELECT * FROM agency_training.phase_extension_requests WHERE id=$1",
+        [requestId],
+      );
+      assert.equal(result.rowCount, 1);
+      return result.rows[0];
+    };
+    const pendingRow = await readRequestRow();
+    assert.equal(pendingRow.status, "pending");
+    assert.equal(pendingRow.reviewed_at, null);
+    assert.equal(pendingRow.reviewed_by_user_id, null);
+
     // Exercise each column independently while pending so neither another
     // denied column nor the terminal-decision guard can hide a broadened grant.
     for (const [column, replacement] of [
@@ -686,6 +699,26 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
         expectedAttribution,
         `Denied ${column} update must preserve stored attribution`,
       );
+
+      // Supply a valid review alongside exactly one forbidden column so the
+      // transition guard cannot mask a broadened identity-column grant.
+      for (const status of ["approved", "denied"]) {
+        await assert.rejects(
+          runtimePool.query(
+            `UPDATE agency_training.phase_extension_requests
+             SET status=$3, reviewed_at=NOW(), reviewed_by_user_id=$4,
+               ${column}=$2 WHERE id=$1`,
+            [requestId, replacement, status, coordinatorA.userId],
+          ),
+          { code: "42501" },
+          `Runtime must not combine ${status} review with rewriting ${column}`,
+        );
+        assert.deepEqual(
+          await readRequestRow(),
+          pendingRow,
+          `Denied ${column} update with ${status} review must leave the entire pending row unchanged`,
+        );
+      }
     }
 
     await withApi(coordinatorA, store, async baseUrl => {
