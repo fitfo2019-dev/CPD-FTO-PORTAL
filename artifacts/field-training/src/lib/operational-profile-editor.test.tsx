@@ -21,17 +21,24 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
   let profile:OperationalProfileContext={subject:"TEST-FTO",role:"FTO",badge:"TEST-BADGE",version:1,identity:parseOperationalIdentity("9150E-1")};
   let saved=structuredClone(profile);
   let error:string|undefined;
-  let failures=false,writes=0;
+   let failures=false,writes=0,loseResponse=false,reloadFails=false;
   const root=createRoot(dom.window.document.getElementById("root")!);
   const save=async(token:string,version:number)=>{
     writes++;
     if(failures)throw new OperatorFacingError("This assignment changed elsewhere. Reload the saved assignment before retrying.");
     assert.equal(version,saved.version);
     saved={...saved,identity:parseOperationalIdentity(token),version:version+1};
+     if(loseResponse){
+       loseResponse=false;
+       throw new OperatorFacingError("The profile save was not confirmed. Reload the saved assignment before retrying. Existing packets are unchanged.");
+     }
     profile=structuredClone(saved);
     return saved;
   };
-  const refresh=async()=>{profile=structuredClone(saved);error=undefined;return profile;};
+   const refresh=async()=>{
+     if(reloadFails)throw new OperatorFacingError("The profile could not be refreshed. Your entry is retained.");
+     profile=structuredClone(saved);error=undefined;return profile;
+   };
   const render=()=>root.render(<OperationalProfileStateContext.Provider value={{
     profile:error?undefined:profile,editorProfile:profile,pending:false,error,contextKey:`${profile.subject}:${profile.version}`,save,refresh,
   }}><OperationalProfilePanel/></OperationalProfileStateContext.Provider>);
@@ -94,6 +101,45 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
     assert.equal(saved.identity?.cadUnit,"9150E");
     assert.equal(saved.identity?.side,undefined);
     assert.equal(element("text-profile-cruiser").textContent,"Not supplied");
+
+     for(const role of ["FTO","PO"] as const){
+       profile={subject:`FICTIONAL-LOST-${role}`,role,badge:`TEST-${role}`,version:0,identity:null};
+       saved=structuredClone(profile);
+       await act(async()=>render());
+       for(const token of ["9150E","9150E-1","9150E-2","9150E"]){
+         const version=profile.version;
+         const writesBefore:number=writes;
+         loseResponse=true;
+         await input(token);await submit();await act(async()=>render());
+         assert.equal(writes,writesBefore+1,"No automatic retry after a committed write loses its response");
+         assert.equal(saved.version,version+1);
+         assert.equal(profile.version,version,"Unconfirmed response cannot advance the editor's known version");
+         assert.equal(element<HTMLInputElement>("input-operational-assignment").value,token);
+         assert.match(element("text-profile-error").textContent!,/save was not confirmed/);
+         assert.equal(dom.window.document.querySelector('[data-testid="text-profile-saved"]'),null);
+         assert.equal(element<HTMLButtonElement>("button-save-operational-profile").disabled,true);
+         await input("9999D-1");await submit();
+         assert.equal(writes,writesBefore+1,"Changing the token cannot bypass the reload gate");
+         reloadFails=true;
+         await act(async()=>element("button-reload-operational-profile").click());
+         assert.equal(element<HTMLInputElement>("input-operational-assignment").value,"9999D-1");
+         assert.equal(element<HTMLButtonElement>("button-save-operational-profile").disabled,true);
+         await submit();
+         assert.equal(writes,writesBefore+1,"A failed reload cannot unlock saving");
+         reloadFails=false;
+         await act(async()=>element("button-reload-operational-profile").click());await act(async()=>render());
+         assert.equal(profile.version,version+1);
+         assert.equal(element<HTMLInputElement>("input-operational-assignment").value,token);
+         assert.equal(element("text-profile-cad").textContent,token);
+         assert.equal(dom.window.document.querySelector('[data-testid="text-profile-error"]'),null);
+         assert.equal(element<HTMLButtonElement>("button-save-operational-profile").disabled,true,"Reloaded profile is clean, not saved again");
+         assert.equal(writes,writesBefore+1,"Reload is read-only");
+       }
+       await input("2222C-1");await submit();await act(async()=>render());
+       assert.equal(saved.version,5,"Explicit new edit uses the version obtained by reload");
+       assert.equal(saved.identity?.assignmentToken,"2222C-1");
+       assert.match(element("text-profile-saved").textContent!,/Assignment saved/);
+     }
   }finally{
     await act(async()=>root.unmount());dom.window.close();
     for(const [key,descriptor]of previous)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);

@@ -51,3 +51,25 @@ test("refreshed unsided profile stays unsided through the actual generated GET a
     assert.equal("cruiserNumber" in result.identity!,false);
   }
 });
+
+test("generated save client never retries an unconfirmed write and preserves stale-version conflicts",async t=>{
+  const calls:{method:string;body:unknown}[]=[];
+  const lostResponse=new TypeError("FICTIONAL response lost after commit");
+  let loseResponse=true;
+  const committed={...profile,version:2,identity:parseOperationalIdentity("9150E")};
+  t.mock.method(globalThis,"fetch",async(_input:unknown,init?:RequestInit)=>{
+    const method=init?.method??"GET";
+    calls.push({method,body:init?.body?JSON.parse(String(init.body)):undefined});
+    if(method==="GET")return json(committed);
+    if(loseResponse){loseResponse=false;throw lostResponse;}
+    return json({error:"PROFILE_VERSION_CONFLICT"},409);
+  });
+  const stale={assignmentToken:"9150E",expectedVersion:1};
+  await assert.rejects(updateOperationalProfile(stale),error=>error===lostResponse);
+  assert.deepEqual(calls,[{method:"PUT",body:stale}]);
+  assert.deepEqual(await getOperationalProfile(),committed);
+  await assert.rejects(updateOperationalProfile(stale),{status:409});
+  assert.deepEqual(calls,[
+    {method:"PUT",body:stale},{method:"GET",body:undefined},{method:"PUT",body:stale},
+  ]);
+});

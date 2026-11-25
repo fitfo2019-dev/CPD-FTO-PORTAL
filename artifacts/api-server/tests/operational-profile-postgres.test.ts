@@ -6,8 +6,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import pg from "pg";
+import express from "express";
 import { parseOperationalIdentity } from "@workspace/api-zod/operational-profile";
 import { createOperationalProfileStore } from "../src/lib/operational-profile-store.js";
+import { createOperationalProfileRouter } from "../src/routes/operational-profile.js";
 import { hashUserIdentifier } from "../src/utils/cryptoUtils.js";
 import type { AgencyIdentity } from "../src/security/agencyIdentity.js";
 
@@ -159,6 +161,98 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
         assert.equal((await row(legacy)).cruiser_number, "9150");
       }
       assert.equal((await row(legacy)).version, 10);
+    });
+
+    await t.test("lost HTTP save responses preserve committed creation and optional-side edits until explicit reload", async () => {
+      for (const role of ["FTO", "PO"] as const) {
+        const identity: AgencyIdentity = { id: `FICTIONAL-LOST-RESPONSE-${role}`, badge: `TEST-LOST-${role}`, role };
+        let dropResponse = false;
+        let writes = 0;
+        let dropped = 0;
+        const app = express();
+        app.use(express.json());
+        app.use((_req, res, next) => {
+          const json = res.json.bind(res);
+          res.json = body => {
+            if (dropResponse && _req.method === "PUT" && res.statusCode === 200) {
+              // The router calls json only AFTER the real store's SQL completed.
+              dropResponse = false;
+              dropped++;
+              res.destroy();
+              return res;
+            }
+            return json(body);
+          };
+          next();
+        });
+        app.use(createOperationalProfileRouter((_req, res, next) => {
+          res.locals.agencyIdentity = identity;
+          next();
+        }, () => ({
+          read: store.read,
+          save: (...args) => { writes++; return store.save(...args); },
+        })));
+        const server = app.listen(0, "127.0.0.1");
+        await new Promise<void>(resolve => server.once("listening", resolve));
+        const address = server.address();
+        assert.ok(address && typeof address === "object");
+        const url = `http://127.0.0.1:${address.port}/v1/account/operational-profile`;
+        const put = (body: unknown) => fetch(url, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        });
+        try {
+          let loaded = await (await fetch(url)).json();
+          assert.equal(loaded.version, 0);
+          assert.equal(loaded.identity, null);
+          const tokens = role === "FTO"
+            ? ["9150E", "9150E-1", "9150E-2", "9150E"]
+            : ["1234A-2", "1234A", "1234A-1", "1234A-2"];
+          for (const assignmentToken of tokens) {
+            const staleInput = { assignmentToken, expectedVersion: loaded.version };
+            const before = (await db.query("SELECT * FROM agency_training.operational_profiles ORDER BY subject_hash")).rows;
+            const writesBefore = writes;
+            dropResponse = true;
+            await assert.rejects(put(staleInput), TypeError);
+            assert.equal(dropResponse, false, "Response was dropped only after a successful commit");
+            assert.equal(writes, writesBefore + 1, "A lost response must not automatically retry a PUT");
+            const committed = await row(identity);
+            const derived = parseOperationalIdentity(assignmentToken);
+            assert.equal(committed.version, loaded.version + 1);
+            assert.equal(committed.assignment_token, assignmentToken);
+            assert.equal(committed.district_token, derived.districtToken);
+            assert.equal(committed.cad_unit, derived.cadUnit);
+            assert.equal(committed.company, derived.company);
+            assert.equal(committed.side, derived.side ?? null);
+            assert.equal(committed.cruiser_number, null);
+            const committedRows = (await db.query("SELECT * FROM agency_training.operational_profiles ORDER BY subject_hash")).rows;
+            assert.deepEqual(committedRows.filter(value => value.subject_hash !== committed.subject_hash),
+              before.filter(value => value.subject_hash !== committed.subject_hash));
+            assert.equal(committedRows.filter(value => value.subject_hash === committed.subject_hash).length, 1);
+            for (const retryToken of [assignmentToken, "9999D-1"]) {
+              const retry = await put({ ...staleInput, assignmentToken: retryToken });
+              assert.equal(retry.status, 409);
+              assert.deepEqual(await retry.json(), { error: versionConflict.code });
+            }
+            const reload = await fetch(url);
+            assert.equal(reload.status, 200);
+            assert.equal(reload.headers.get("cache-control"), "no-store");
+            loaded = await reload.json();
+            assert.deepEqual(loaded, JSON.parse(JSON.stringify(await store.read(identity))),
+              "HTTP reload returns the committed store result with JSON-serialized timestamps");
+            assert.deepEqual(loaded.identity, derived);
+            assert.equal(loaded.version, staleInput.expectedVersion + 1);
+            const retryAfterReload = await put(staleInput);
+            assert.equal(retryAfterReload.status, 409, "Reload cannot make the former version valid again");
+            assert.deepEqual(await retryAfterReload.json(), { error: versionConflict.code });
+            assert.deepEqual((await db.query("SELECT * FROM agency_training.operational_profiles ORDER BY subject_hash")).rows,
+              committedRows, "Rejected retries and reload leave all rows and timestamps unchanged");
+          }
+          assert.equal(dropped, tokens.length);
+          assert.equal(writes, tokens.length * 4);
+        } finally {
+          await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+        }
+      }
     });
 
     await t.test("runtime cannot rewrite authority, grant roster access or remove profile evidence", async () => {
