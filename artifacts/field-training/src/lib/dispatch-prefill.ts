@@ -154,6 +154,12 @@ export type SavedRunDispatchFields = {
   dispatchedCode: string;
 };
 
+export function isDispatchedRunMissingIncidentNumber(
+  run: Pick<TrainingRun, 'isDispatched' | 'incidentNumber'>,
+): boolean {
+  return run.isDispatched && !run.incidentNumber?.trim();
+}
+
 export function serializeDispatchPrefillFields(
   draft: DispatchPrefillDraft,
 ): Pick<

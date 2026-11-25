@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyDispatchIncidentRetry, applyDispatchPrefill, applyDispatchPrefillValue, mapDispatchPrefillResponse, mapDispatchIncidentResponse, restoreDispatchPrefillFields, selectDispatchIncidentMatch, serializeDispatchPrefillFields, type DispatchIncidentDraftFields, type DispatchPrefillDraft } from "./dispatch-prefill.js";
+import { applyDispatchIncidentRetry, applyDispatchPrefill, applyDispatchPrefillValue, isDispatchedRunMissingIncidentNumber, mapDispatchPrefillResponse, mapDispatchIncidentResponse, restoreDispatchPrefillFields, selectDispatchIncidentMatch, serializeDispatchPrefillFields, type DispatchIncidentDraftFields, type DispatchPrefillDraft } from "./dispatch-prefill.js";
 import { lookupDispatchIncident } from "../components/dispatch-incident-lookup.js";
 import { OfflineStorage } from "./offlineStorage.js";
 import type { TrainingRun } from "./model.js";
@@ -224,6 +224,14 @@ test('legacy runs reopen safely when structured dispatch fields are absent', () 
 
   const intentionallyBlankRun: TrainingRun = { ...legacyRun, dispatchedCode: '' };
   assert.equal(restoreDispatchPrefillFields(intentionallyBlankRun).dispatchedCode, '');
+});
+
+test('only dispatched runs with blank incident numbers trigger the submission warning',()=>{
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:true}),true);
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:true,incidentNumber:'   '}),true);
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:true,incidentNumber:'INC-2468'}),false);
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:false}),false);
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:false,incidentNumber:''}),false);
 });
 
 test("dispatch ingress time is a default only until the FTO changes it", () => {

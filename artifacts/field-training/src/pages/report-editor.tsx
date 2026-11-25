@@ -30,7 +30,7 @@ import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
 import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
 import { authoredReportSnapshot } from '@/lib/protected-packets.js';
 import { getRunWorkflowSteps, runSheetReviewSnapshot, type RunSheetKey, type RunWorkflowDraft } from '@/lib/run-workflow.js';
-import { restoreDispatchPrefillFields, serializeDispatchPrefillFields } from '@/lib/dispatch-prefill.js';
+import { isDispatchedRunMissingIncidentNumber, restoreDispatchPrefillFields, serializeDispatchPrefillFields } from '@/lib/dispatch-prefill.js';
 import { isArrestSeverity, isArrestType } from '@/lib/arrest-classification.js';
 import { ArrestClassificationFields } from '@/components/arrest-classification-fields.js';
 import { RunStepRail, SheetStatus, sheetHasEdits } from '@/components/run-sheet-workflow.js';
@@ -1225,7 +1225,18 @@ export default function ReportEditor() {
       </Panel>
       </>}
 
-      <PacketSubmitControl reportId={r.id} disabled={isDirty||runFormDirty||isNew}/>
+      <PacketSubmitControl
+        reportId={r.id}
+        disabled={isDirty||runFormDirty||isNew}
+        missingIncidentNumberCount={r.runs.filter(isDispatchedRunMissingIncidentNumber).length}
+        onReturnToMissingRun={()=>{
+          const missingRun=r.runs.find(isDispatchedRunMissingIncidentNumber);
+          if(!missingRun)return;
+          setStage('runs');
+          editRun(missingRun);
+          window.scrollTo({top:0,behavior:'smooth'});
+        }}
+      />
       <div className="editor-savebar" data-testid="bar-daily-save">
         <button type="button" disabled={EDITOR_STAGES[0].id===stage} onClick={()=>{const i=EDITOR_STAGES.findIndex(item=>item.id===stage);setStage(EDITOR_STAGES[Math.max(0,i-1)].id);window.scrollTo({top:0});}} className="inline-flex min-h-10 items-center gap-1 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-40" data-testid="button-stage-back"><ChevronLeft className="h-4 w-4"/>Back</button>
         <span className="editor-savebar-state" data-testid="status-daily-save">
