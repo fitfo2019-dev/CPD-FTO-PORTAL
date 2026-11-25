@@ -105,7 +105,7 @@ const coordinatorAssignmentScope = (userIdParam: number, hashParam: number) => `
 )`;
 
 export function createPhaseExtensionRequestStore(
-  pool: Pick<Pool, "query">,
+  pool: Pick<Pool, "query" | "connect">,
 ): PhaseExtensionRequestStore {
   return {
     async listForFto(userId) {
@@ -201,27 +201,54 @@ export function createPhaseExtensionRequestStore(
     },
     async review(id, reviewerUserId, decision) {
       const status = decision === "approve" ? "approved" : "denied";
-      const result = await pool.query<RequestRow>(
-        `UPDATE agency_training.phase_extension_requests r
-         SET status = $4, reviewed_at = NOW(), reviewed_by_user_id = $2
-         WHERE r.id = $1 AND r.status = 'pending'
-           AND ${coordinatorAssignmentScope(2, 3)}
-         RETURNING ${columns}`,
-        [id, reviewerUserId, hashUserIdentifier(reviewerUserId), status],
-      );
-      if (result.rows[0]) {
-        return { request: toRequest(result.rows[0]), alreadyResolved: false };
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const assignment = await client.query<{ po_id: string | null }>(
+          `SELECT a.po_id
+           FROM agency_training.phase_extension_requests r
+           JOIN agency_training.assignments a ON a.id = r.assignment_id
+           WHERE r.id = $1`,
+          [id],
+        );
+        if (assignment.rows[0]?.po_id) {
+          // Coordinator handoffs take this same lock. Acquire it in a prior
+          // statement so the ownership query gets a fresh READ COMMITTED
+          // snapshot after a handoff that was already in progress commits.
+          await client.query(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+            [`po:${assignment.rows[0].po_id}`],
+          );
+        }
+        const result = await client.query<RequestRow>(
+          `UPDATE agency_training.phase_extension_requests r
+           SET status = $4, reviewed_at = NOW(), reviewed_by_user_id = $2
+           WHERE r.id = $1 AND r.status = 'pending'
+             AND ${coordinatorAssignmentScope(2, 3)}
+           RETURNING ${columns}`,
+          [id, reviewerUserId, hashUserIdentifier(reviewerUserId), status],
+        );
+        if (result.rows[0]) {
+          await client.query("COMMIT");
+          return { request: toRequest(result.rows[0]), alreadyResolved: false };
+        }
+        const existing = await client.query<RequestRow>(
+          `SELECT ${columns}
+           FROM agency_training.phase_extension_requests r
+           WHERE r.id = $1 AND ${coordinatorAssignmentScope(2, 3)}`,
+          [id, reviewerUserId, hashUserIdentifier(reviewerUserId)],
+        );
+        await client.query("COMMIT");
+        return {
+          request: existing.rows[0] ? toRequest(existing.rows[0]) : null,
+          alreadyResolved: Boolean(existing.rows[0]),
+        };
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
       }
-      const existing = await pool.query<RequestRow>(
-        `SELECT ${columns}
-         FROM agency_training.phase_extension_requests r
-         WHERE r.id = $1 AND ${coordinatorAssignmentScope(2, 3)}`,
-        [id, reviewerUserId, hashUserIdentifier(reviewerUserId)],
-      );
-      return {
-        request: existing.rows[0] ? toRequest(existing.rows[0]) : null,
-        alreadyResolved: Boolean(existing.rows[0]),
-      };
     },
   };
 }

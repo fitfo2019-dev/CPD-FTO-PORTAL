@@ -17,6 +17,7 @@ import {
   type PhaseExtensionRequestStore,
   type SharedPhaseExtensionRequest,
 } from "../lib/phase-extension-store.js";
+import { createPacketReviewStore } from "../lib/packet-review-store.js";
 import { hashUserIdentifier as hash } from "../utils/cryptoUtils.js";
 import {
   createPhaseExtensionRequestsRouter,
@@ -167,7 +168,19 @@ test("agency migration installs phase-extension requests and roster-scoped revie
       ],
     );
 
-    const pool = { query: (sql: string, params?: unknown[]) => db.query(sql, params) } as unknown as Pick<Pool, "query">;
+    const query = (sql: string, params?: unknown[]) => {
+      if (["BEGIN", "COMMIT", "ROLLBACK"].includes(sql)) {
+        return db.exec(sql).then(() => ({ rows: [] }));
+      }
+      if (sql.includes("pg_advisory_xact_lock")) {
+        return Promise.resolve({ rows: [] });
+      }
+      return db.query(sql, params);
+    };
+    const pool = {
+      query,
+      connect: async () => ({ query, release() {} }),
+    } as unknown as Pick<Pool, "query" | "connect">;
     const store = createPhaseExtensionRequestStore(pool);
 
     await t.test("only a matching active FTO assignment can submit, and roster details override client claims", async () => {
@@ -369,7 +382,7 @@ test("agency migration installs phase-extension requests and roster-scoped revie
   }
 });
 
-test("phase-extension requests work with the documented non-owner PostgreSQL grants", async () => {
+test("phase-extension reviews serialize with Coordinator handoffs under runtime grants", async () => {
   const dir = mkdtempSync(join(tmpdir(), "phase-extension-"));
   const dataDir = join(dir, "data");
   const portProbe = createServer();
@@ -401,8 +414,9 @@ test("phase-extension requests work with the documented non-owner PostgreSQL gra
 
     const assignmentId = randomUUID();
     await ownerPool.query(
-      `INSERT INTO agency_training.coordinator_directory(id,name) VALUES ($1,'Test Coordinator')`,
-      [coordinatorA.userId],
+      `INSERT INTO agency_training.coordinator_directory(id,name) VALUES
+       ($1,'Test Coordinator A'),($2,'Test Coordinator B')`,
+      [coordinatorA.userId, coordinatorB.userId],
     );
     await ownerPool.query(
       `INSERT INTO agency_training.assignments (
@@ -474,7 +488,11 @@ test("phase-extension requests work with the documented non-owner PostgreSQL gra
         `SELECT ${readableColumns.join(",")} FROM agency_training.${table}`,
       );
       assert.deepEqual(allowed.fields.map(field => field.name), readableColumns);
-      assert.equal(allowed.rows.length, 1, `Runtime must read the seeded ${table} row`);
+      assert.equal(
+        allowed.rows.length,
+        table === "coordinator_directory" ? 2 : 1,
+        `Runtime must read the seeded ${table} rows`,
+      );
 
       // Check each private identity field separately so one denied field
       // cannot mask an accidental grant on another. Wildcards must fail too.
@@ -634,6 +652,101 @@ test("phase-extension requests work with the documented non-owner PostgreSQL gra
       [assignmentId],
     );
     assert.equal(assignment.rows[0].active, true);
+
+    // Start a trusted Coordinator handoff and pause it immediately after it
+    // acquires the per-PO lock. A former Coordinator review must wait, then
+    // re-check against the newly committed mapping rather than an old snapshot.
+    const raceRequestId = `handoff-race-${randomUUID()}`;
+    await store.create(ftoA.userId, { ...request, id: raceRequestId });
+    const poId = "test-phase-po-a";
+    const lockKey = `po:${poId}`;
+    let finishHandoff!: () => void;
+    let signalHandoffLock!: () => void;
+    let signalReviewLockAttempt!: () => void;
+    const handoffGate = new Promise<void>(resolve => { finishHandoff = resolve; });
+    const handoffLockAcquired = new Promise<void>(resolve => { signalHandoffLock = resolve; });
+    const reviewLockAttempted = new Promise<void>(resolve => { signalReviewLockAttempt = resolve; });
+
+    const instrumentPool = (
+      source: pg.Pool,
+      onLock: (afterAcquire: boolean) => void | Promise<void>,
+    ) => new Proxy(source, {
+      get(target, property, receiver) {
+        if (property === "query") return target.query.bind(target);
+        if (property === "connect") {
+          return async () => {
+            const client = await target.connect();
+            const queryClient = client.query.bind(client);
+            return {
+              query: async (sql: string, values?: unknown[]) => {
+                const lockQuery = sql.includes("pg_advisory_xact_lock") &&
+                  values?.[0] === lockKey;
+                if (lockQuery) onLock(false);
+                const result = await queryClient(sql, values);
+                if (lockQuery) await onLock(true);
+                return result;
+              },
+              release: client.release.bind(client),
+            } as unknown as pg.PoolClient;
+          };
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    }) as pg.Pool;
+
+    const handoffPool = instrumentPool(ownerPool, async acquired => {
+      if (!acquired) return;
+      signalHandoffLock();
+      await handoffGate;
+    });
+    const handoff = createPacketReviewStore(handoffPool).assign(
+      { id: coordinatorA.userId, badge: "TEST-COORD-A", role: "FTO_COORDINATOR" },
+      { po_id: poId, coordinator_id: coordinatorB.userId, expected_revision: 1 },
+    );
+
+    const waitWithTimeout = async (promise: Promise<void>, message: string) => {
+      let timer: NodeJS.Timeout | undefined;
+      try {
+        await Promise.race([
+          promise,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(message)), 5_000);
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
+    try {
+      await waitWithTimeout(handoffLockAcquired, "Coordinator handoff did not acquire its PO lock.");
+      const reviewedByFormer = createPhaseExtensionRequestStore(
+        instrumentPool(runtimePool, acquired => {
+          if (!acquired) signalReviewLockAttempt();
+        }),
+      );
+      let formerReviewSettled = false;
+      const formerReview = reviewedByFormer
+        .review(raceRequestId, coordinatorA.userId, "approve")
+        .then(result => {
+          formerReviewSettled = true;
+          return result;
+        });
+      await waitWithTimeout(reviewLockAttempted, "Former Coordinator review did not request the PO lock.");
+      await new Promise(resolve => setTimeout(resolve, 30));
+      assert.equal(formerReviewSettled, false, "review must wait for the in-flight handoff");
+
+      finishHandoff();
+      await handoff;
+      const formerResult = await formerReview;
+      assert.equal(formerResult.request, null);
+      assert.equal(formerResult.alreadyResolved, false);
+
+      const newResult = await store.review(raceRequestId, coordinatorB.userId, "approve");
+      assert.equal(newResult.request?.status, "approved");
+      assert.equal(newResult.alreadyResolved, false);
+    } finally {
+      finishHandoff();
+    }
   } finally {
     await runtimePool?.end();
     await ownerPool?.end();

@@ -49,3 +49,15 @@ distinguishing receipt, correction and approval.
 **How to apply:** Never silently overwrite a newer local correction or route to
 a typed recipient. Do not seed fictional staff/packets to make an unconfigured
 agency service look operational.
+
+Coordinator handoffs and phase-extension decisions must serialize on the same
+per-PO transaction advisory lock. A review must acquire that lock in one
+statement, then check the current Coordinator in a later READ COMMITTED
+statement; a lock wait does not refresh the snapshot of the statement that
+started waiting.
+
+**Why:** Otherwise a review can wait for a handoff to commit and still decide
+against the former Coordinator using its earlier statement snapshot.
+
+**How to apply:** Keep handoff and review lock keys identical, and do not combine
+the lock wait and the authorization check into one SQL statement.

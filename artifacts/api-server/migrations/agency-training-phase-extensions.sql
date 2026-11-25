@@ -1,6 +1,10 @@
 -- Apply after agency-training-packet-review.sql to the agency database.
 -- Phase-extension decisions use the same trusted assignments and PO/Coordinator
 -- routing as packet review; no browser-supplied roster data is authoritative.
+-- Review transactions must take the same pg_advisory_xact_lock(hashtextextended(
+-- 'po:' || po_id, 0)) used by trusted Coordinator handoffs before checking
+-- current ownership. Keep ownership validation in a later READ COMMITTED
+-- statement so a reviewer waiting on a handoff sees the committed mapping.
 BEGIN;
 CREATE TABLE agency_training.phase_extension_requests (
   id text PRIMARY KEY,
