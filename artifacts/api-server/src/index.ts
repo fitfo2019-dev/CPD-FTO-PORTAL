@@ -56,9 +56,13 @@ process.on("unhandledRejection", (reason) =>
 async function startServer(): Promise<void> {
   if (process.env.AGENCY_PACKET_SYNC_ENABLED === "true") {
     const required = ["AGENCY_DATABASE_URL", "AGENCY_ROLE_CLAIM_PATH",
-      "AGENCY_VERIFIED_CLAIM_PATH", "AGENCY_BADGE_CLAIM_PATH", "AUDIT_ID_HMAC_KEY"];
+      "AGENCY_VERIFIED_CLAIM_PATH", "AGENCY_BADGE_CLAIM_PATH", "AUDIT_ID_HMAC_KEY",
+      "AGENCY_PACKET_TEST_ENV_APPROVED"];
     if (required.some(key => !process.env[key]?.trim())) {
-      throw new Error("Agency packet sync requires database, verified identity claim mappings and audit configuration.");
+      throw new Error("Agency packet sync requires an approved isolated test environment, database, verified identity claim mappings and audit configuration.");
+    }
+    if (process.env.AGENCY_PACKET_TEST_ENV_APPROVED !== "true" || process.env.NODE_ENV === "production") {
+      throw new Error("Agency packet sync is disabled outside an explicitly approved non-production test environment.");
     }
   }
   // Load application modules after installing process handlers so startup

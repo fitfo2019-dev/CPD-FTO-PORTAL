@@ -2,6 +2,47 @@
 
 ## Agency packet storage and offline-first sync — implementation boundary
 
+### Task #105 status: IT handoff ready — live acceptance check pending
+
+The packet API, separate approval and sync gates, migrations and IT setup
+instructions are prepared for handoff. This workspace has no approved test URL,
+agency-managed storage or verified staff accounts configured. No production
+settings or operational data were changed. Preparing and packaging this
+implementation does not require those external services.
+
+The separate-account browser check is an IT acceptance step after setup, not a
+prerequisite for handing over the implementation. Before running it, IT must
+approve an isolated test URL and provision three verified fictional-data
+profiles: an assigned FTO, that FTO's assigned Coordinator, and an unassigned
+staff account. Confirm that a synced draft stays out of the Coordinator's
+active inbox, only explicit FTO finalization makes it visible, and unassigned,
+stale or unready submissions cannot create inbox entries. Synthetic SQL and
+scripted-pool checks do not substitute for this browser check.
+
+### Recorded verification results — 2026-11-24 and 2026-11-25
+
+The initial focused run passed 9 configuration/draft checks, 19 API route and
+review checks, and 23 offline vault checks. After syncing with main, the latest
+focused run passed 40 API/configuration checks and 25 offline vault checks.
+The updated launch-readiness suite passed 12/12; LR-01, LR-02 and LR-06 now pass.
+The earlier 25-pass/3-fail launch-readiness result is historical and is not the
+current suite result.
+
+After rebasing, `pnpm typecheck`, the Field Training production build and
+`pnpm run bundle:production` succeeded. The final package combines API and
+portal output and is approximately **12.9 MB**. The API JavaScript bundle is
+**1,146,179 bytes**; its compiler displays an informational size marker.
+The fail-closed storage gate is present in source and the rebuilt package.
+Deployment was not performed or verified, and no environment values, production
+settings or operational records were changed.
+
+These automated checks use local or synthetic test data. The required separate
+account browser check remains an IT acceptance step after an approved isolated
+test URL and three verified fictional-data accounts are provisioned. Local
+encrypted IndexedDB saves remain independent of network access. Draft sync
+remains unsubmitted and hidden from Coordinator reads until explicit FTO
+finalization revalidates the server-held assignment roster.
+
 The portal continues to save locally in its passphrase-encrypted IndexedDB
 vault without requiring a network request. New daily reports initialize
 `syncStatus: local_draft_pending`. Workspace saves atomically retain the local
@@ -24,8 +65,8 @@ unattempted with a clear error. Each successful batch is acknowledged locally
 before the next request; a failed or interrupted request retains its exact
 snapshot and operation IDs for retry, while earlier acknowledgments stay saved.
 The operation reports success only after the eligible packet queue is empty.
-After sandbox preview and user approval, the Daily Records
-page now connects it to Review and Upload, with a packet list, sealing warning
+After sandbox preview and user approval, the Daily Records page connects it to
+Review and Upload, with a packet list, sealing warning
 and mandatory acknowledgement. Pending, uploading, failed/unconfirmed and
 synchronized/sealed outcomes are distinguished. Save Locally still only saves
 locally. Failed upload state is separate from local-save errors.
@@ -47,10 +88,21 @@ checks. Agency IT must provide and approve both network routes before real use.
 
 ### Agency deployment configuration
 
+For IT handoff, keep packet sync off in this workspace. On the approved
+isolated, non-production test server, configure the agency connection and
+verified identity/roster prerequisites first, then set both
+`AGENCY_PACKET_TEST_ENV_APPROVED=true` and `AGENCY_PACKET_SYNC_ENABLED=true`.
+The API rejects packet storage in production regardless of these settings.
+This gate is separate from synthetic staging and does not itself establish
+agency approval, provision identities or authorize operational use.
+
 Packet storage uses a separate, agency-managed PostgreSQL connection:
 
 - `AGENCY_PACKET_SYNC_ENABLED=true` explicitly enables the adapter; absent/false
   leaves it unavailable without breaking local saves.
+- `AGENCY_PACKET_TEST_ENV_APPROVED=true` is required for an explicitly approved
+  non-production test environment. It is a separate approval gate, not a
+  substitute for IT approval or verified test identities.
 - `AGENCY_DATABASE_URL` is the agency DBA-provided PostgreSQL connection string,
   with the agency's TLS certificate verification settings.
 - `AGENCY_ROLE_CLAIM_PATH`, `AGENCY_BADGE_CLAIM_PATH`, and
