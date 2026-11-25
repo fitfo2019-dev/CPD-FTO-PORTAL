@@ -4,8 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "codegen": "orval --config ./orval.config.ts && pnpm run test:packet-actions && pnpm -w run typecheck:libs",
-    "test:packet-actions": "node --test ./tests/packet-actions.test.mjs"
+    "codegen": "orval --config ./orval.config.ts && pnpm run test:generated-requests && pnpm -w run typecheck:libs",
+    "test:generated-requests": "node --test ./tests/packet-actions.test.mjs",
+    "test:packet-actions": "pnpm run test:generated-requests"
   },
   "devDependencies": {
     "orval": "^8.41.0"
