@@ -565,14 +565,14 @@ content_type = "text/html"
 id = "Y7FYSQrEQVi3tORpGBT7-"
 uri = "file://generated-artifacts/website-records/Columbus-FTO-Website-Overview.pdf"
 type = "pdf"
-title = "Updated Website Overview — Personal Records Copy"
-description = "Refreshed after the latest main-workspace merge. The PDF now distinguishes editable draft synchronization from explicit final submission."
+title = "Updated Website Information Brief — Personal Records Copy"
+description = "Includes the latest main-workspace patrol-assignment catalog update. Prepared Nov 25, 2026; the PDF text was checked against the source briefing."
 logical_id = "d4ce9dbc-0743-4a42-bbf8-84640dc2fec1"
-content_hash = "sha256:399b46492e24c9bb76e047b5b742d96378d928be3cff46f5bf381cc9690574b7"
-size = 137426
-mtime_ms = 1795531598891
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/d4ce9dbc-0743-4a42-bbf8-84640dc2fec1/57448ed6-3a62-4e56-8e2c-1ac119d764c7"
-storage_version_token = "1795531622186682"
+content_hash = "sha256:84ef263b25b9026c2e9f9b10b64f6de554ae36c040c4515e80cf56576162c8f8"
+size = 140071
+mtime_ms = 1795592601543
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/d4ce9dbc-0743-4a42-bbf8-84640dc2fec1/62550ea8-39de-48c1-8952-d00589683a42"
+storage_version_token = "1795592615121779"
 content_type = "application/pdf"
 
 [[outputs]]
