@@ -606,6 +606,50 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
       assert.equal(ftoPayload.data[0].status, "pending");
     });
 
+    const expectedAttribution = {
+      assignment_id: assignmentId,
+      requester_user_id: ftoA.userId,
+      recruit_name: "Trusted Recruit",
+      recruit_badge: "TEST-PO-A",
+      requesting_fto_name: "Trusted FTO",
+      requesting_fto_badge: "TEST-FTO-A",
+    };
+    const readAttribution = async () => {
+      const result = await ownerPool!.query(
+        `SELECT assignment_id,requester_user_id,recruit_name,recruit_badge,
+          requesting_fto_name,requesting_fto_badge
+         FROM agency_training.phase_extension_requests WHERE id=$1`,
+        [requestId],
+      );
+      return result.rows[0];
+    };
+    assert.deepEqual(await readAttribution(), expectedAttribution);
+
+    // Exercise each column independently while pending so neither another
+    // denied column nor the terminal-decision guard can hide a broadened grant.
+    for (const [column, replacement] of [
+      ["assignment_id", randomUUID()],
+      ["requester_user_id", ftoB.userId],
+      ["recruit_name", "Rewritten Recruit"],
+      ["recruit_badge", "TEST-PO-REWRITTEN"],
+      ["requesting_fto_name", "Rewritten FTO"],
+      ["requesting_fto_badge", "TEST-FTO-REWRITTEN"],
+    ]) {
+      await assert.rejects(
+        runtimePool.query(
+          `UPDATE agency_training.phase_extension_requests SET ${column}=$2 WHERE id=$1`,
+          [requestId, replacement],
+        ),
+        { code: "42501" },
+        `Runtime must not rewrite request attribution: ${column}`,
+      );
+      assert.deepEqual(
+        await readAttribution(),
+        expectedAttribution,
+        `Denied ${column} update must preserve stored attribution`,
+      );
+    }
+
     await withApi(coordinatorA, store, async baseUrl => {
       const coordinatorList = await fetch(`${baseUrl}/v1/phase-extension-requests`);
       const coordinatorPayload = await coordinatorList.json() as { data: SharedPhaseExtensionRequest[] };
@@ -628,7 +672,7 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
     await assert.rejects(runtimePool.query(
       "UPDATE agency_training.phase_extension_requests SET justification='rewritten' WHERE id=$1",
       [requestId],
-    ));
+    ), { code: "42501" });
     await assert.rejects(runtimePool.query(
       `UPDATE agency_training.phase_extension_requests
        SET status='denied', reviewed_at=NOW(), reviewed_by_user_id=$2 WHERE id=$1`,
@@ -647,6 +691,7 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
       status: "approved",
       justification: request.justification,
     });
+    assert.deepEqual(await readAttribution(), expectedAttribution);
     const assignment = await ownerPool.query(
       "SELECT active FROM agency_training.assignments WHERE id=$1",
       [assignmentId],
