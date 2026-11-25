@@ -303,7 +303,11 @@ test("PO packet history pagination excludes drafts, unreleased and withdrawn pac
         record_date: "2026-11-23",
         phase: 1,
         server_version: 1,
-        report: { id },
+        report: {
+          id,
+          recruitName: owner.id === po.id ? "Alex Recruit" : "Other Recruit",
+          recruitBadge: owner.badge,
+        },
         submission_status: options.submissionStatus ?? "submitted",
         content_hash: "a".repeat(64),
         released_to_po: released,
@@ -336,8 +340,11 @@ test("PO packet history pagination excludes drafts, unreleased and withdrawn pac
         assert.match(sql, /a\.po_id_hash = \$2 AND a\.po_badge_hash = \$3/);
         assert.match(sql, /p\.released_to_po = true AND p\.withdrawn_at IS NULL/);
         assert.match(sql, /p\.submission_status = 'submitted' OR \$1 = 'FTO'/);
+        assert.match(sql, /\(\$4::text IS NULL OR/);
+        assert.match(sql, /\$6::date IS NULL OR p\.record_date >= \$6::date/);
+        assert.match(sql, /\$7::date IS NULL OR p\.record_date <= \$7::date/);
         assert.match(sql, /\(p\.record_date, p\.id\) < \(\$8::date, \$9::text\)/);
-        const [role, identityHash, badgeHash, , , , , afterDate, afterId, limit] = parameters;
+        const [role, identityHash, badgeHash, recruit, , dateFrom, dateTo, afterDate, afterId, limit] = parameters;
         const visible = packets.filter(packet =>
           role === "PO" &&
           hashUserIdentifier(packet.poId) === identityHash &&
@@ -345,9 +352,14 @@ test("PO packet history pagination excludes drafts, unreleased and withdrawn pac
           packet.row.released_to_po === true &&
           packet.row.withdrawn_at === null &&
           packet.row.submission_status === "submitted",
-        ).filter(packet => afterDate == null || String(packet.row.record_date) < String(afterDate) ||
-          (String(packet.row.record_date) === String(afterDate) &&
-            String(packet.row.id) < String(afterId)))
+        ).filter(packet => recruit == null ||
+          String(packet.row.report.recruitName).toLowerCase().includes(String(recruit).toLowerCase()) ||
+          String(packet.row.report.recruitBadge).toLowerCase().includes(String(recruit).toLowerCase()))
+          .filter(packet => (dateFrom == null || String(packet.row.record_date) >= String(dateFrom)) &&
+            (dateTo == null || String(packet.row.record_date) <= String(dateTo)))
+          .filter(packet => afterDate == null || String(packet.row.record_date) < String(afterDate) ||
+            (String(packet.row.record_date) === String(afterDate) &&
+              String(packet.row.id) < String(afterId)))
           .sort((left, right) => String(right.row.record_date).localeCompare(String(left.row.record_date)) ||
             String(right.row.id).localeCompare(String(left.row.id)))
           .slice(0, Number(limit))
@@ -359,14 +371,17 @@ test("PO packet history pagination excludes drafts, unreleased and withdrawn pac
     release() {},
   };
   const store = createAgencyPacketStore({ connect: async () => client } as unknown as pg.Pool);
-  const firstPage = await store.readPage(po, audit);
+  const readPage = (identity: AgencyIdentity, cursor?: string,
+    filters: { recruit?: string; dateFrom?: string; dateTo?: string } = {}) =>
+    store.readPage(identity, audit, cursor, filters);
+  const firstPage = await readPage(po);
   assert.equal(firstPage.data.length, 100);
   assert.equal(firstPage.hasMore, true);
   const cursor = encodePacketCursor(
     String(firstPage.data.at(-1)!.record_date),
     String(firstPage.data.at(-1)!.id),
   );
-  const secondPage = await store.readPage(po, audit, cursor);
+  const secondPage = await readPage(po, cursor);
   assert.equal(secondPage.data.length, 1);
   assert.equal(secondPage.hasMore, false);
 
@@ -383,13 +398,45 @@ test("PO packet history pagination excludes drafts, unreleased and withdrawn pac
 
   // A cursor only carries position; a new PO request must still apply that
   // request's own identity and the same visibility rules.
-  const reusedByOtherPo = await store.readPage(otherPo, audit, cursor);
+  const reusedByOtherPo = await readPage(otherPo, cursor);
   assert.equal(reusedByOtherPo.data.length, 3);
   assert.ok(reusedByOtherPo.data.every(packet =>
     String(packet.assignment_id) === "other-po-assignment" &&
     packet.released_to_po === true &&
     packet.withdrawn_at === null &&
     packet.sync_status === "submitted_complete",
+  ));
+
+  const filters = {
+    recruit: "Alex Recruit",
+    dateFrom: "2026-11-23",
+    dateTo: "2026-11-23",
+  };
+  const firstFilteredPage = await readPage(po, undefined, filters);
+  assert.equal(firstFilteredPage.data.length, 100);
+  assert.equal(firstFilteredPage.hasMore, true);
+  const filteredCursor = encodePacketCursor(
+    String(firstFilteredPage.data.at(-1)!.record_date),
+    String(firstFilteredPage.data.at(-1)!.id),
+    filters,
+  );
+  const callsBeforeRejectedCursors = calls.length;
+  await assert.rejects(
+    readPage(po, filteredCursor, { ...filters, recruit: "Different Recruit" }),
+    error => error instanceof PacketError && error.code === "INVALID_PACKET_CURSOR",
+  );
+  await assert.rejects(
+    readPage(po, filteredCursor, { ...filters, dateFrom: "2026-11-22" }),
+    error => error instanceof PacketError && error.code === "INVALID_PACKET_CURSOR",
+  );
+  assert.equal(calls.length, callsBeforeRejectedCursors);
+
+  const secondFilteredPage = await readPage(po, filteredCursor, filters);
+  assert.equal(secondFilteredPage.data.length, 1);
+  assert.equal(secondFilteredPage.hasMore, false);
+  assert.ok([...firstFilteredPage.data, ...secondFilteredPage.data].every(packet =>
+    String(packet.report.recruitName) === filters.recruit &&
+    String(packet.assignment_id) === "assigned-po-assignment",
   ));
   assert.ok(calls.every(call => call.parameters[0] === "PO"));
 });
