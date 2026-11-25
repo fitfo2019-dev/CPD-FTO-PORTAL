@@ -1,7 +1,7 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, type ReactNode } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useUser } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGetOperationalProfile, updateOperationalProfile, type OperationalProfileContext } from "@workspace/api-client-react";
+import { getOperationalProfile, useGetOperationalProfile, updateOperationalProfile, type OperationalProfileContext } from "@workspace/api-client-react";
 import { OperationalAssignmentToken, OperationalIdentitySnapshot, type OperationalIdentity } from "@workspace/api-zod/operational-profile";
 import { OperatorFacingError } from "@/lib/operator-errors.js";
 import type { PhaseCaseFolder } from "@/lib/model.js";
@@ -9,6 +9,7 @@ import type { PhaseCaseFolder } from "@/lib/model.js";
 type ProfileState = {
   profile?: OperationalProfileContext; editorProfile?: OperationalProfileContext;
   pending: boolean; contextKey: string; error?: string;
+  successfulRead?: number;
   save?(assignmentToken: string, expectedVersion: number): Promise<OperationalProfileContext>;
   refresh?(): Promise<OperationalProfileContext>;
   confirmCadIdentity?(identity: OperationalIdentity, expectedContextKey: string): void;
@@ -22,6 +23,7 @@ export function OperationalProfileProvider({ children }: { children: ReactNode }
   const { user, isLoaded, isSignedIn } = useUser();
   const subject = isLoaded && isSignedIn ? user?.id : undefined;
   const subjectRef = useRef(subject); subjectRef.current = subject;
+  const [successfulRead, setSuccessfulRead] = useState(0);
   const controllers = useRef(new Set<AbortController>());
   const channel = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
@@ -43,6 +45,14 @@ export function OperationalProfileProvider({ children }: { children: ReactNode }
     query: {
       queryKey: ["operational-profile", subject], enabled: !!subject, retry: false,
       staleTime: 0, refetchOnWindowFocus: true, refetchOnReconnect: true, refetchInterval: 30_000,
+      queryFn: async ({ signal }) => {
+        const saved = await getOperationalProfile({ credentials: "include", signal });
+        if (!subject || signal.aborted || subjectRef.current !== subject || saved.subject !== subject)
+          throw new OperatorFacingError("The agency profile could not be refreshed. Saved packets are unchanged.");
+        // Only a confirmed GET establishes read recovery, not a PUT or CAD cache update.
+        setSuccessfulRead(read => read + 1);
+        return saved;
+      },
     },
     request: { credentials: "include" },
   });
@@ -93,7 +103,7 @@ export function OperationalProfileProvider({ children }: { children: ReactNode }
   }, [cache]);
   return <Context.Provider value={{
     profile, editorProfile: query.data?.subject === subject ? query.data : undefined,
-    pending: !!subject && query.isPending,
+    pending: !!subject && query.isPending, successfulRead,
     contextKey: `${subject ?? ""}:${profile?.version ?? "unavailable"}`,
     error: query.isError ? "The agency profile service is unavailable or your account is not authorized. Existing packets are unchanged." : undefined,
     save, refresh, confirmCadIdentity,

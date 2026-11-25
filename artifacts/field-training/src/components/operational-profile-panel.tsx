@@ -20,7 +20,7 @@ export function OperationalProfilePanel() {
     </div></Panel>;
   }
   return <React.Fragment key={profile.subject}>
-    <ProfileEditor profile={profile} save={state.save} refresh={state.refresh} unavailable={state.error}/>
+    <ProfileEditor profile={profile} save={state.save} refresh={state.refresh} unavailable={state.error} successfulRead={state.successfulRead}/>
     <OperationalProfileHistoryPanel subject={profile.subject} version={profile.version} unavailable={!!state.error}/>
   </React.Fragment>;
 }
@@ -34,24 +34,32 @@ function RetryProfile({ refresh }: { refresh: () => Promise<OperationalProfileCo
   </button>{error&&<p role="alert">{error}</p>}</>;
 }
 
-function ProfileEditor({ profile, save, refresh, unavailable }: {
+function ProfileEditor({ profile, save, refresh, unavailable, successfulRead = 0 }: {
   profile: OperationalProfileContext;
   save: (token: string, version: number) => Promise<OperationalProfileContext>;
   refresh: () => Promise<OperationalProfileContext>;
   unavailable?: string;
+  successfulRead?: number;
 }) {
   const [token, setToken] = useState(profile.identity?.assignmentToken ?? "");
   const [baseToken, setBaseToken] = useState(token);
   const [version, setVersion] = useState(profile.version);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [refreshError, setRefreshError] = useState<{ message: string; successfulRead: number }>();
   const [message, setMessage] = useState("");
   const [requiresReload, setRequiresReload] = useState(false);
   const mounted = useRef(true);
   const dirty = token !== baseToken;
   const valid = OperationalAssignmentToken.safeParse(token).success;
   const derived = valid ? parseOperationalIdentity(token) : undefined;
+  const visibleRefreshError = refreshError && (unavailable || successfulRead <= refreshError.successfulRead)
+    ? refreshError.message : "";
+  const visibleError = error || visibleRefreshError;
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+  useEffect(()=>{
+    if (!unavailable && refreshError && successfulRead > refreshError.successfulRead) setRefreshError(undefined);
+  },[unavailable,successfulRead,refreshError]);
   useEffect(()=>{
     if (!dirty && !pending) {
       const saved = profile.identity?.assignmentToken ?? "";
@@ -62,9 +70,10 @@ function ProfileEditor({ profile, save, refresh, unavailable }: {
   const accept = (saved: OperationalProfileContext) => {
     const value = saved.identity?.assignmentToken ?? "";
     setToken(value); setBaseToken(value); setVersion(saved.version); setRequiresReload(false);
+    setError(""); setRefreshError(undefined);
   };
   async function submit(event: FormEvent) {
-    event.preventDefault(); setError(""); setMessage("");
+    event.preventDefault(); setError(""); setRefreshError(undefined); setMessage("");
     if (unavailable || pending || requiresReload || profile.version !== version) return;
     if (!valid) { setError("Use four district digits, an uppercase shift letter, and optional side -1 or -2, for example 9150E or 9150E-1."); return; }
     setPending(true);
@@ -85,8 +94,8 @@ function ProfileEditor({ profile, save, refresh, unavailable }: {
           <p className="mt-1 text-xs text-muted-foreground">Badge {profile.badge} · This form cannot change roles or badges.</p></div>
         <div><label htmlFor="operational-assignment-token" className="label-caps">Operational assignment token</label>
           <input id="operational-assignment-token" value={token} disabled={pending} maxLength={7} autoCapitalize="characters" autoComplete="off" spellCheck={false}
-            aria-invalid={!!error || (dirty && !valid)} aria-describedby="operational-assignment-help"
-            onChange={event=>{setToken(event.target.value);setError("");setMessage("");}}
+            aria-invalid={!!visibleError || (dirty && !valid)} aria-describedby="operational-assignment-help"
+            onChange={event=>{setToken(event.target.value);setError("");setRefreshError(undefined);setMessage("");}}
             className="mt-2 h-10 w-full rounded border bg-card px-3 text-sm mono disabled:opacity-50" data-testid="input-operational-assignment"/>
           <p id="operational-assignment-help" className="mt-1 text-xs text-muted-foreground">Four district digits and an uppercase shift letter; optional side -1 or -2. Examples: 9150E, 9150E-1, 9150E-2.</p>
         </div>
@@ -97,7 +106,7 @@ function ProfileEditor({ profile, save, refresh, unavailable }: {
       </div>
       <p className="border-l-4 border-primary bg-primary/5 p-3"><strong>Future packets only.</strong> Saving changes your account's operational assignment, not your training roster, role, badge or record access. Existing packets and manual Cruiser corrections stay unchanged. A PO profile never replaces the FTO vehicle context.</p>
       {dirty&&profile.version!==version&&<p role="status" className="text-warn">A newer saved assignment is available. Your unsaved entry is retained; reload it before saving.</p>}
-      {error&&<p role="alert" className="text-destructive" data-testid="text-profile-error">{error}</p>}
+      {visibleError&&<p role="alert" className="text-destructive" data-testid="text-profile-error">{visibleError}</p>}
       {unavailable&&<p role="alert" className="text-destructive">{unavailable} Your unsaved entry is retained. Reload to reconnect.</p>}
       {message&&<p role="status" data-testid="text-profile-saved">{message}</p>}
       <div className="flex flex-wrap gap-2">
@@ -107,9 +116,11 @@ function ProfileEditor({ profile, save, refresh, unavailable }: {
         </button>
         <button type="button" disabled={pending} className="inline-flex h-10 items-center gap-1.5 rounded border px-3 font-semibold disabled:opacity-50"
           data-testid="button-reload-operational-profile" onClick={async()=>{
-            setPending(true);setError("");setMessage("");
+            setPending(true);setRefreshError(undefined);setMessage("");
             try{const saved=await refresh();if(mounted.current)accept(saved);}
-            catch(cause){if(mounted.current)setError(operatorErrorMessage(cause,"The profile could not be refreshed. Your entry is retained."));}
+            catch(cause){if(mounted.current)setRefreshError({
+              message:operatorErrorMessage(cause,"The profile could not be refreshed. Your entry is retained."),successfulRead,
+            });}
             finally{if(mounted.current)setPending(false);}
           }}><RotateCw className="h-4 w-4"/>{dirty?"Discard edits and reload":"Reload saved assignment"}</button>
       </div>
