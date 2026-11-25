@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "codegen": "orval --config ./orval.config.ts && pnpm run test:generated-requests && pnpm -w run typecheck:libs",
-    "test:generated-requests": "node --test ./tests/packet-actions.test.mjs",
+    "test:generated-requests": "node --test ./tests/packet-actions.test.mjs ./tests/server-routes.test.mjs",
     "test:packet-actions": "pnpm run test:generated-requests"
   },
   "devDependencies": {
