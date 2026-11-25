@@ -35,6 +35,15 @@ export function ApplicationHelpDesk({ role }: { role: Role }) {
     setSelectedId(requestedTopic(role));
   }, [role]);
 
+  useEffect(() => {
+    const syncTopicFromHistory = () => {
+      setSearch({ role, query: '' });
+      setSelectedId(requestedTopic(role));
+    };
+    window.addEventListener('popstate', syncTopicFromHistory);
+    return () => window.removeEventListener('popstate', syncTopicFromHistory);
+  }, [role]);
+
   return (
     <section
       id="application-help"

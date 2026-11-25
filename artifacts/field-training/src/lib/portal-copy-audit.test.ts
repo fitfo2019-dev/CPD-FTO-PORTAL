@@ -88,6 +88,23 @@ async function withMountedHelpDesk(
   }
 }
 
+async function navigateHistory(direction: 'back' | 'forward') {
+  await act(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        window.removeEventListener('popstate', onPopState);
+        reject(new Error(`Timed out waiting for browser ${direction} navigation`));
+      }, 1000);
+      const onPopState = () => {
+        window.clearTimeout(timeout);
+        resolve();
+      };
+      window.addEventListener('popstate', onPopState, { once: true });
+      window.history[direction]();
+    });
+  });
+}
+
 test('application-use topics are searchable and include steps, results, and recovery', () => {
   const ids = new Set(APPLICATION_HELP_TOPICS.map(topic => topic.id));
   assert.equal(ids.size, APPLICATION_HELP_TOPICS.length, 'topic ids must be unique');
@@ -190,6 +207,39 @@ test('Help Desk deep links show an allowed answer when the role cannot access th
     await renderRole('po');
 
     const answer = container.querySelector('article')!;
+    assert.equal(answer.querySelector('h3')?.textContent, 'Save and reopen a local draft');
+    assert.doesNotMatch(answer.textContent ?? '', /Import a roster/);
+  });
+});
+
+test('Help Desk follows back and forward topic navigation for the active role', async () => {
+  await withMountedHelpDesk('?topic=local-save', async (container, renderRole) => {
+    await renderRole('fto');
+    window.history.pushState({}, '', '/resources?topic=roster-import');
+    window.history.pushState({}, '', '/resources?topic=record-status');
+
+    await navigateHistory('back');
+    assert.equal(window.location.search, '?topic=roster-import');
+    assert.equal(container.querySelector('article h3')?.textContent, 'Import a roster');
+
+    await navigateHistory('forward');
+    assert.equal(window.location.search, '?topic=record-status');
+    assert.equal(container.querySelector('article h3')?.textContent, 'Check record status');
+  });
+});
+
+test('Help Desk history navigation keeps restricted topic answers hidden', async () => {
+  await withMountedHelpDesk('?topic=local-save', async (container, renderRole) => {
+    await renderRole('po');
+    window.history.pushState({}, '', '/resources?topic=roster-import');
+
+    await navigateHistory('back');
+    assert.equal(window.location.search, '?topic=local-save');
+    assert.equal(container.querySelector('article h3')?.textContent, 'Save and reopen a local draft');
+
+    await navigateHistory('forward');
+    const answer = container.querySelector('article')!;
+    assert.equal(window.location.search, '?topic=roster-import');
     assert.equal(answer.querySelector('h3')?.textContent, 'Save and reopen a local draft');
     assert.doesNotMatch(answer.textContent ?? '', /Import a roster/);
   });
