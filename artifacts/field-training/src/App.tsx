@@ -194,6 +194,13 @@ function ClerkWorkspaceSessionPurger() {
 function WorkspaceRoutes() {
   const { epoch, ws } = useWorkspace();
   const [path]=useLocation();
+  // FTO Sergeant previews expose role-appropriate Help Desk guidance only.
+  // Assignment authority remains a separate server-side capability.
+  if (ws.role === 'fto_sgt') return <RoutedErrorBoundary><Switch>
+    <Route path="/resources" component={HelpPage}/>
+    <Route path="/help"><Redirect to="/resources"/></Route>
+    <Route>{() => <Redirect to="/resources"/>}</Route>
+  </Switch></RoutedErrorBoundary>;
   // This route authorizes through the signed server role, never the local role preview.
   if(path==='/packet-submissions') return <RoutedErrorBoundary><PacketSubmissionsPage/></RoutedErrorBoundary>;
   // Fail closed in the COC preview: no draft/class route is rendered.

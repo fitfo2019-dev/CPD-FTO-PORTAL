@@ -585,11 +585,12 @@ export function evaluationProgress(r: Report): 'Limbo day'|'Not started'|'In pro
   })) return 'Needs follow-up';
   return r.ratingsReviewedAt ? 'Complete' : 'Review required';
 }
-export type Role = 'po'|'fto'|'fto_coordinator'|'fto_coc'|'policenet'|'policenet_admin_sgt';
-export const ROLES: Role[] = ['po','fto','fto_coordinator','fto_coc','policenet','policenet_admin_sgt'];
+export type Role = 'po'|'fto'|'fto_sgt'|'fto_coordinator'|'fto_coc'|'policenet'|'policenet_admin_sgt';
+export const ROLES: Role[] = ['po','fto','fto_sgt','fto_coordinator','fto_coc','policenet','policenet_admin_sgt'];
 export const ROLE_LABEL: Record<Role,string> = {
   po:'PO',
   fto:'FTO',
+  fto_sgt:'FTO Sergeant',
   fto_coordinator:'FTO Coordinator',
   fto_coc:'FTO COC',
   policenet:'POLICENET',
@@ -601,7 +602,7 @@ export const normalizePreviewRole = (value: unknown): Role => {
   if (value==='recruit') return 'po';
   if (value==='admin') return 'fto_coordinator';
   if (value==='coc') return 'fto_coc';
-  if (value==='sergeant' || value==='fto_sgt') return 'po';
+  if (value==='sergeant' || value==='fto_sgt') return 'fto_sgt';
   return ROLES.includes(value as Role) ? value as Role : 'po';
 };
 export const canViewClass = (role: Role) => role === 'fto' || role === 'fto_coordinator';

@@ -151,15 +151,20 @@ FTO data without rewriting historical reports.
 visible for Coordinator resolution. Do not create local activation or approval
 states that appear official.
 
-Application-use Help Desk topics declare their audiences explicitly. Keep local
-save and record-status guidance shared; account activation is PO-only, roster
-imports are Coordinator-only, phase requests are for FTOs and Coordinators, and
-packet-action help is for PO, FTO, Coordinator, and COC roles. A contextual link
-to a topic outside the current role's audience must not reveal that answer.
+Application-use Help Desk topics declare their audiences explicitly. FTO, FTO
+Sgt., FTO Coordinator, and FTO COC can see all Help Desk topics; PO sees shared
+guidance and topics addressed to PO; technical roles see shared guidance only.
+This broader guidance visibility does not grant access to another role's
+screens, records, or actions. A contextual link outside a role's visible
+audience must not reveal that answer.
 
 **Why:** The user approved a preview that keeps role-specific portal guidance
-separate while preserving shared save and status help.
+separate while preserving shared save and status help, then clarified that all
+FTO-level and supervisory roles should see all Help Desk information while PO
+remains the least-privileged audience.
 
 **How to apply:** Assign an audience whenever adding a topic, and keep each
-contextual link within its audience. When a deep link is out of scope for the
-current role, show an available topic instead.
+contextual link within its audience. FTO and supervisory audiences can use all
+topics; PO and technical deep links outside their visibility must show an
+available topic instead. Never treat Help Desk visibility as authorization for
+the associated operational screen or action.

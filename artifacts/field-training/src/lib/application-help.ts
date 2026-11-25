@@ -40,6 +40,18 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
     recovery: 'If no confirmation appears, do not treat the record as submitted. Refresh its status before retrying.',
   },
   {
+    id: 'fto-sergeant-access',
+    title: 'Understand FTO Sergeant access',
+    roles: ['fto_sgt'],
+    keywords: 'FTO Sergeant assigned class monitoring assignment management Coordinator COC scope',
+    steps: [
+      'Use class-monitoring or assignment-management actions only when they are enabled for your assigned scope.',
+      'Coordinator roster controls and COC packet review are separate roles.',
+    ],
+    expectedResult: 'FTO Sergeant access does not include editing narratives, ratings, or statistics by default.',
+    recovery: 'If an expected action is unavailable, confirm the assigned scope with the authorized Coordinator.',
+  },
+  {
     id: 'shift-sheet',
     title: 'Leave an edited shift sheet',
     roles: ['fto'],
@@ -108,6 +120,9 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
 ];
 
 export function getApplicationHelpTopicsForRole(role: Role): readonly ApplicationHelpTopic[] {
+  if (role === 'fto' || role === 'fto_sgt' || role === 'fto_coordinator' || role === 'fto_coc') {
+    return APPLICATION_HELP_TOPICS;
+  }
   return APPLICATION_HELP_TOPICS.filter(topic =>
     topic.roles === 'all' || topic.roles.includes(role),
   );

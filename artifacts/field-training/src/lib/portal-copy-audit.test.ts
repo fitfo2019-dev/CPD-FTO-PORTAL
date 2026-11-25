@@ -56,7 +56,7 @@ test('Help Desk topics are limited to their declared roles with shared guidance 
     }
   }
   assert.ok(getApplicationHelpTopicsForRole('po').some(topic => topic.id === 'account-access'));
-  for (const role of ['fto', 'fto_coordinator', 'fto_coc', 'policenet', 'policenet_admin_sgt'] as const) {
+  for (const role of ['policenet', 'policenet_admin_sgt'] as const) {
     assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'account-access'));
   }
 
@@ -66,9 +66,38 @@ test('Help Desk topics are limited to their declared roles with shared guidance 
   );
   assert.ok(getApplicationHelpTopicsForRole('fto').some(topic => topic.id === 'phase-request'));
   assert.ok(getApplicationHelpTopicsForRole('fto_coordinator').some(topic => topic.id === 'phase-request'));
-  for (const role of ['po', 'fto_coc', 'policenet', 'policenet_admin_sgt'] as const) {
+  for (const role of ['po', 'policenet', 'policenet_admin_sgt'] as const) {
     assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'roster-import'));
     assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'phase-request'));
+  }
+  for (const role of ['fto', 'fto_sgt', 'fto_coordinator', 'fto_coc'] as const) {
+    assert.ok(getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'roster-import'));
+    assert.ok(getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'phase-request'));
+  }
+  const sergeantTopics = getApplicationHelpTopicsForRole('fto_sgt');
+  assert.deepEqual(
+    sergeantTopics.map(topic => topic.id),
+    APPLICATION_HELP_TOPICS.map(topic => topic.id),
+  );
+  assert.ok(sergeantTopics.some(topic => topic.roles !== 'all' && topic.roles.includes('fto_sgt')));
+  for (const role of ['fto', 'fto_sgt', 'fto_coordinator', 'fto_coc'] as const) {
+    assert.deepEqual(
+      getApplicationHelpTopicsForRole(role).map(topic => topic.id),
+      APPLICATION_HELP_TOPICS.map(topic => topic.id),
+      `${role} should see all Help Desk guidance`,
+    );
+  }
+  assert.deepEqual(
+    getApplicationHelpTopicsForRole('po').map(topic => topic.id),
+    ['local-save', 'record-status', 'account-access', 'packet-status'],
+    'PO should see only shared topics and topics explicitly assigned to PO',
+  );
+  for (const role of ['policenet', 'policenet_admin_sgt'] as const) {
+    assert.deepEqual(
+      getApplicationHelpTopicsForRole(role).map(topic => topic.id),
+      ['local-save', 'record-status'],
+      `${role} should not see operational Help Desk topics`,
+    );
   }
   for (const role of ['po', 'fto', 'fto_coordinator', 'fto_coc'] as const) {
     assert.ok(getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'packet-status'));
@@ -85,6 +114,7 @@ test('contextual Help Desk links resolve to an available answer for the relevant
     { role: 'fto' as const, id: 'local-save' },
     { role: 'po' as const, id: 'account-access' },
     { role: 'fto_coc' as const, id: 'packet-status' },
+    { role: 'fto_sgt' as const, id: 'fto-sergeant-access' },
     { role: 'fto' as const, id: 'phase-request' },
   ];
   for (const { role, id } of linkTopics) {
@@ -121,10 +151,15 @@ test('every portal role can find Help Desk on desktop and mobile navigation', ()
   const roleNavStart = shell.indexOf('const ROLE_NAV');
   const roleNavEnd = shell.indexOf('const navTestId');
   const roleNavSource = shell.slice(roleNavStart, roleNavEnd);
-  assert.equal((roleNavSource.match(/\bRESOURCES\b/g) ?? []).length, 6);
+  assert.equal((roleNavSource.match(/\bRESOURCES\b/g) ?? []).length, 7);
+  assert.match(roleNavSource, /fto_sgt:\s*\[\s*RESOURCES,\s*\]/);
   assert.match(shell, /label: 'Help Desk'/);
   assert.match(shell, /visibleNav\.slice\(0, 4\), RESOURCES/);
-  assert.equal((app.match(/<Route path="\/resources" component=\{HelpPage\}/g) ?? []).length, 4);
+  assert.equal((app.match(/<Route path="\/resources" component=\{HelpPage\}/g) ?? []).length, 5);
+  const sergeantGate = app.slice(app.indexOf("if (ws.role === 'fto_sgt')"), app.indexOf('// This route authorizes'));
+  assert.match(sergeantGate, /<Route path="\/resources" component=\{HelpPage\}/);
+  assert.match(sergeantGate, /<Redirect to="\/resources"\/>/);
+  assert.ok(app.indexOf("if (ws.role === 'fto_sgt')") < app.indexOf("if(path==='/packet-submissions')"));
 });
 
 test('relevant screens link directly to practical help topics', () => {

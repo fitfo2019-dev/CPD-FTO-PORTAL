@@ -29,8 +29,9 @@ const dailyDutyItems = DAILY_DUTY_CHECKLIST.reduce<Array<{ key: string; label: s
 );
 
 test('only current portal roles are selectable; legacy roles normalize safely',()=>{
-  assert.deepEqual(ROLES,['po','fto','fto_coordinator','fto_coc','policenet','policenet_admin_sgt']);
-  assert.equal(normalizePreviewRole('sergeant'),'po');
+  assert.deepEqual(ROLES,['po','fto','fto_sgt','fto_coordinator','fto_coc','policenet','policenet_admin_sgt']);
+  assert.equal(normalizePreviewRole('sergeant'),'fto_sgt');
+  assert.equal(normalizePreviewRole('fto_sgt'),'fto_sgt');
   assert.equal(normalizePreviewRole('recruit'),'po');
   assert.equal(normalizePreviewRole('admin'),'fto_coordinator');
   assert.equal(normalizePreviewRole('unknown'),'po');
@@ -38,6 +39,8 @@ test('only current portal roles are selectable; legacy roles normalize safely',(
   assert.equal(isTechnicalRole('policenet'),true);
   assert.equal(isTechnicalRole('policenet_admin_sgt'),true);
   assert.equal(isTechnicalRole('fto_coordinator'),false);
+  assert.equal(isTechnicalRole('fto_sgt'),false);
+  assert.equal(canViewClass('fto_sgt'),false);
 });
 
 test('roster import defaults an omitted starting phase to Phase I',()=>{

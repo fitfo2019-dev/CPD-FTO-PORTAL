@@ -29,6 +29,9 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     RESOURCES,
     { href: '/settings', label: 'Account Settings', icon: Settings },
   ],
+  fto_sgt: [
+    RESOURCES,
+  ],
   fto_coordinator: [
     HOME,
     { href: '/packet-submissions', label: 'Packet Submission Inbox', icon: ClipboardList },
@@ -125,6 +128,8 @@ export function Shell({ children }: { children: ReactNode }) {
     w.setRole(role);
     setLocation(role === 'fto_coc'
       ? '/command-review'
+      : role === 'fto_sgt'
+        ? '/resources'
       : role === 'po'
         ? '/role-access'
         : isTechnicalRole(role)
