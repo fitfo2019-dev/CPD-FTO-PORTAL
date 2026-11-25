@@ -769,7 +769,7 @@ paths:
       operationId: listPhaseExtensionRequests
       tags: [phase-extensions]
       summary: List phase extension requests available to the signed-in staff member
-      description: FTOs receive their own request statuses; FTO Coordinators receive pending requests. The server verifies the Clerk session and role metadata.
+      description: FTOs receive their own request statuses; FTO Coordinators receive pending requests and denials with explanations within their current assignment scope. The server verifies the Clerk session and role metadata.
       responses:
         "200":
           description: Authorized phase extension requests
@@ -812,7 +812,7 @@ paths:
       operationId: reviewPhaseExtensionRequest
       tags: [phase-extensions]
       summary: Approve or deny a pending request as an FTO Coordinator
-      description: The server verifies the signed-in Coordinator role and records the decision without trusting client role preview.
+      description: The server verifies the signed-in Coordinator role and records the decision without trusting client role preview. A denial may include a short explanation; approval does not accept one.
       requestBody:
         required: true
         content:
@@ -1066,17 +1066,19 @@ components:
       allOf:
         - $ref: "#/components/schemas/PhaseExtensionRequestInput"
         - type: object
-          required: [status, createdAt, reviewedAt]
+          required: [status, createdAt, reviewedAt, denialExplanation]
           properties:
             status: { type: string, enum: [pending, approved, denied] }
             createdAt: { type: string, format: date-time }
             reviewedAt: { type: ["string", "null"], format: date-time }
+            denialExplanation: { type: ["string", "null"], maxLength: 500 }
     PhaseExtensionReviewInput:
       type: object
       additionalProperties: false
       required: [decision]
       properties:
         decision: { type: string, enum: [approve, deny] }
+        denialExplanation: { type: string, minLength: 1, maxLength: 500 }
     PhaseExtensionRequestsMetadata:
       type: object
       additionalProperties: false

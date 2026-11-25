@@ -455,6 +455,11 @@ export type PhaseExtensionRequest = PhaseExtensionRequestInput & ({
   createdAt: string;
   /** @nullable */
   reviewedAt: string | null;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  denialExplanation: string | null;
 });
 
 export type PhaseExtensionReviewInputDecision = typeof PhaseExtensionReviewInputDecision[keyof typeof PhaseExtensionReviewInputDecision];
@@ -467,6 +472,11 @@ export const PhaseExtensionReviewInputDecision = {
 
 export interface PhaseExtensionReviewInput {
   decision: PhaseExtensionReviewInputDecision;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  denialExplanation?: string;
 }
 
 export type PhaseExtensionRequestsMetadataRole = typeof PhaseExtensionRequestsMetadataRole[keyof typeof PhaseExtensionRequestsMetadataRole];

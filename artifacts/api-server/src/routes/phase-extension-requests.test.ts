@@ -121,6 +121,7 @@ test("agency migration installs phase-extension requests and roster-scoped revie
     await db.exec(await migration("agency-training.sql"));
     await db.exec(await migration("agency-training-packet-review.sql"));
     await db.exec(await migration("agency-training-phase-extensions.sql"));
+    await db.exec(await migration("agency-training-phase-extension-denial-explanations.sql"));
     await db.exec(await migration("agency-training-legacy-coordinator-reconciliation.sql"));
     const schema = await db.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables
@@ -303,6 +304,75 @@ test("agency migration installs phase-extension requests and roster-scoped revie
       });
     });
 
+    await t.test("denial explanations are visible only to the requester and assigned Coordinator", async () => {
+      const deniedRequest = { ...request, id: "phase-extension-denial-explanation" };
+      await withApi(ftoA, store, async baseUrl => {
+        const submitted = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(deniedRequest),
+        });
+        assert.equal(submitted.status, 201, await submitted.clone().text());
+      });
+
+      await withApi(coordinatorB, store, async baseUrl => {
+        const denied = await fetch(`${baseUrl}/v1/phase-extension-requests/${deniedRequest.id}/review`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            decision: "deny",
+            denialExplanation: "Include the planned coaching dates in the request.",
+          }),
+        });
+        assert.equal(denied.status, 200, await denied.clone().text());
+        const result = await denied.json() as { data: SharedPhaseExtensionRequest[] };
+        assert.equal(result.data[0].status, "denied");
+        assert.equal(result.data[0].denialExplanation, "Include the planned coaching dates in the request.");
+
+        const coordinatorList = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const coordinatorRequests = (await coordinatorList.json() as {
+          data: SharedPhaseExtensionRequest[];
+        }).data;
+        assert.equal(
+          coordinatorRequests.find(item => item.id === deniedRequest.id)?.denialExplanation,
+          "Include the planned coaching dates in the request.",
+        );
+      });
+
+      await withApi(coordinatorA, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const requests = (await list.json() as { data: SharedPhaseExtensionRequest[] }).data;
+        assert.equal(requests.some(item => item.id === deniedRequest.id), false);
+      });
+
+      await withApi(ftoA, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const requests = (await list.json() as { data: SharedPhaseExtensionRequest[] }).data;
+        assert.equal(
+          requests.find(item => item.id === deniedRequest.id)?.denialExplanation,
+          "Include the planned coaching dates in the request.",
+        );
+      });
+
+      await withApi(ftoB, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const requests = (await list.json() as { data: SharedPhaseExtensionRequest[] }).data;
+        assert.equal(requests.some(item => item.id === deniedRequest.id), false);
+      });
+
+      await withApi(coordinatorB, store, async baseUrl => {
+        const approvalWithExplanation = await fetch(`${baseUrl}/v1/phase-extension-requests/${request.id}/review`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            decision: "approve",
+            denialExplanation: "This must not be recorded as an approval note.",
+          }),
+        });
+        assert.equal(approvalWithExplanation.status, 400);
+      });
+    });
+
     await t.test("legacy assignments route pending requests by the trusted Coordinator hash", async () => {
       const legacyAssignment = {
         ftoId: ftoA.userId,
@@ -423,6 +493,7 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
     await ownerPool.query(await migration("agency-training.sql"));
     await ownerPool.query(await migration("agency-training-packet-review.sql"));
     await ownerPool.query(await migration("agency-training-phase-extensions.sql"));
+    await ownerPool.query(await migration("agency-training-phase-extension-denial-explanations.sql"));
     await ownerPool.query(await migration("agency-training-legacy-coordinator-reconciliation.sql"));
 
     const assignmentId = randomUUID();
@@ -470,7 +541,7 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
         recruit_badge,phase,phase_start_date,requesting_fto_name,
         requesting_fto_badge,extension_type,requested_weeks,justification,
         status,created_at) ON agency_training.phase_extension_requests TO phase_extension_runtime;
-      GRANT UPDATE (status,reviewed_at,reviewed_by_user_id)
+      GRANT UPDATE (status,reviewed_at,reviewed_by_user_id,denial_explanation)
         ON agency_training.phase_extension_requests TO phase_extension_runtime;`);
 
     runtimePool = new pg.Pool({ host: dir, port, user: "phase_extension_runtime", database: "postgres", max: 3 });
@@ -751,11 +822,15 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
       const reviewed = await fetch(`${baseUrl}/v1/phase-extension-requests/${requestId}/review`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ decision: "approve" }),
+        body: JSON.stringify({
+          decision: "deny",
+          denialExplanation: "Clarify the requested training dates.",
+        }),
       });
       assert.equal(reviewed.status, 200, await reviewed.clone().text());
       const reviewedPayload = await reviewed.json() as { data: SharedPhaseExtensionRequest[] };
-      assert.equal(reviewedPayload.data[0].status, "approved");
+      assert.equal(reviewedPayload.data[0].status, "denied");
+      assert.equal(reviewedPayload.data[0].denialExplanation, "Clarify the requested training dates.");
     });
 
     await assert.rejects(runtimePool.query(
@@ -777,12 +852,14 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
     ));
 
     const persisted = await ownerPool.query(
-      `SELECT status,justification FROM agency_training.phase_extension_requests WHERE id=$1`,
+      `SELECT status,justification,denial_explanation
+       FROM agency_training.phase_extension_requests WHERE id=$1`,
       [requestId],
     );
     assert.deepEqual(persisted.rows[0], {
-      status: "approved",
+      status: "denied",
       justification: request.justification,
+      denial_explanation: "Clarify the requested training dates.",
     });
     assert.deepEqual(await readAttribution(), expectedAttribution);
     const assignment = await ownerPool.query(

@@ -11,6 +11,7 @@ type WirePhaseExtensionRequest = Omit<
 > & {
   createdAt: string;
   reviewedAt: string | null;
+  denialExplanation: string | null;
 };
 
 type RequestsEnvelope = {
@@ -50,7 +51,8 @@ function parseEnvelope(value: unknown): RequestsEnvelope {
       typeof item.requestedWeeks !== "number" || typeof item.justification !== "string" ||
       !["pending", "approved", "denied"].includes(String(item.status)) ||
       typeof item.createdAt !== "string" ||
-      !(item.reviewedAt === null || typeof item.reviewedAt === "string")) {
+      !(item.reviewedAt === null || typeof item.reviewedAt === "string") ||
+      !(item.denialExplanation === null || typeof item.denialExplanation === "string")) {
       throw new PhaseExtensionApiError("The shared request service returned an invalid request.");
     }
     return item as unknown as WirePhaseExtensionRequest;
@@ -72,6 +74,7 @@ function toLocalRequest(request: WirePhaseExtensionRequest): PhaseExtensionReque
     status: request.status,
     createdAt: request.createdAt,
     reviewedAt: request.reviewedAt ?? undefined,
+    denialExplanation: request.denialExplanation ?? undefined,
   };
 }
 
@@ -178,10 +181,16 @@ export async function reviewSharedPhaseExtensionRequest(
   token: string,
   id: string,
   approve: boolean,
+  denialExplanation?: string,
 ): Promise<PhaseExtensionRequest> {
   const [reviewed] = (await send(token, `/${encodeURIComponent(id)}/review`, {
     method: "POST",
-    body: JSON.stringify({ decision: approve ? "approve" : "deny" }),
+    body: JSON.stringify({
+      decision: approve ? "approve" : "deny",
+      ...(approve || !denialExplanation?.trim()
+        ? {}
+        : { denialExplanation: denialExplanation.trim() }),
+    }),
   })).data;
   if (!reviewed) throw new PhaseExtensionApiError("The shared request service did not return the review.");
   return reviewed;

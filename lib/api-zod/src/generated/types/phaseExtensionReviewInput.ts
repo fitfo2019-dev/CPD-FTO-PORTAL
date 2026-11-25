@@ -9,4 +9,9 @@ import type { PhaseExtensionReviewInputDecision } from './phaseExtensionReviewIn
 
 export interface PhaseExtensionReviewInput {
   decision: PhaseExtensionReviewInputDecision;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  denialExplanation?: string;
 }

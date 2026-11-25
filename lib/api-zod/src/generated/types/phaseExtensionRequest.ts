@@ -13,4 +13,9 @@ export type PhaseExtensionRequest = PhaseExtensionRequestInput & ({
   createdAt: Date;
   /** @nullable */
   reviewedAt: Date | null;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  denialExplanation: string | null;
 });

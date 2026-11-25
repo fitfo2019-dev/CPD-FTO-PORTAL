@@ -2531,7 +2531,7 @@ export const DownloadResourceFileResponse = zod.unknown()
 
 
 /**
- * FTOs receive their own request statuses; FTO Coordinators receive pending requests. The server verifies the Clerk session and role metadata.
+ * FTOs receive their own request statuses; FTO Coordinators receive pending requests and denials with explanations within their current assignment scope. The server verifies the Clerk session and role metadata.
  * @summary List phase extension requests available to the signed-in staff member
  */
 export const listPhaseExtensionRequestsResponseMetadataTotalRecordsMin = 0;
@@ -2557,6 +2557,8 @@ export const listPhaseExtensionRequestsResponseDataItemOneRequestedWeeksMax = 52
 
 export const listPhaseExtensionRequestsResponseDataItemOneJustificationMax = 4000;
 
+export const listPhaseExtensionRequestsResponseDataItemTwoDenialExplanationMax = 500;
+
 
 
 export const ListPhaseExtensionRequestsResponse = zod.object({
@@ -2580,7 +2582,8 @@ export const ListPhaseExtensionRequestsResponse = zod.object({
 }).and(zod.object({
   "status": zod.enum(['pending', 'approved', 'denied']),
   "createdAt": zod.coerce.date(),
-  "reviewedAt": zod.coerce.date().nullable()
+  "reviewedAt": zod.coerce.date().nullable(),
+  "denialExplanation": zod.string().max(listPhaseExtensionRequestsResponseDataItemTwoDenialExplanationMax).nullable()
 })))
 })
 
@@ -2649,6 +2652,8 @@ export const submitPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax = 5
 
 export const submitPhaseExtensionRequestResponseDataItemOneJustificationMax = 4000;
 
+export const submitPhaseExtensionRequestResponseDataItemTwoDenialExplanationMax = 500;
+
 
 
 export const SubmitPhaseExtensionRequestResponse = zod.object({
@@ -2672,13 +2677,14 @@ export const SubmitPhaseExtensionRequestResponse = zod.object({
 }).and(zod.object({
   "status": zod.enum(['pending', 'approved', 'denied']),
   "createdAt": zod.coerce.date(),
-  "reviewedAt": zod.coerce.date().nullable()
+  "reviewedAt": zod.coerce.date().nullable(),
+  "denialExplanation": zod.string().max(submitPhaseExtensionRequestResponseDataItemTwoDenialExplanationMax).nullable()
 })))
 })
 
 
 /**
- * The server verifies the signed-in Coordinator role and records the decision without trusting client role preview.
+ * The server verifies the signed-in Coordinator role and records the decision without trusting client role preview. A denial may include a short explanation; approval does not accept one.
  * @summary Approve or deny a pending request as an FTO Coordinator
  */
 export const reviewPhaseExtensionRequestPathIdMax = 64;
@@ -2691,8 +2697,13 @@ export const ReviewPhaseExtensionRequestParams = zod.object({
   "id": zod.string().min(1).max(reviewPhaseExtensionRequestPathIdMax).regex(reviewPhaseExtensionRequestPathIdRegExp)
 })
 
+export const reviewPhaseExtensionRequestBodyDenialExplanationMax = 500;
+
+
+
 export const ReviewPhaseExtensionRequestBody = zod.object({
-  "decision": zod.enum(['approve', 'deny'])
+  "decision": zod.enum(['approve', 'deny']),
+  "denialExplanation": zod.string().min(1).max(reviewPhaseExtensionRequestBodyDenialExplanationMax).optional()
 })
 
 export const reviewPhaseExtensionRequestResponseMetadataTotalRecordsMin = 0;
@@ -2718,6 +2729,8 @@ export const reviewPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax = 5
 
 export const reviewPhaseExtensionRequestResponseDataItemOneJustificationMax = 4000;
 
+export const reviewPhaseExtensionRequestResponseDataItemTwoDenialExplanationMax = 500;
+
 
 
 export const ReviewPhaseExtensionRequestResponse = zod.object({
@@ -2741,7 +2754,8 @@ export const ReviewPhaseExtensionRequestResponse = zod.object({
 }).and(zod.object({
   "status": zod.enum(['pending', 'approved', 'denied']),
   "createdAt": zod.coerce.date(),
-  "reviewedAt": zod.coerce.date().nullable()
+  "reviewedAt": zod.coerce.date().nullable(),
+  "denialExplanation": zod.string().max(reviewPhaseExtensionRequestResponseDataItemTwoDenialExplanationMax).nullable()
 })))
 })
 

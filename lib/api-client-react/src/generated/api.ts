@@ -2945,7 +2945,7 @@ export const getListPhaseExtensionRequestsUrl = () => {
 }
 
 /**
- * FTOs receive their own request statuses; FTO Coordinators receive pending requests. The server verifies the Clerk session and role metadata.
+ * FTOs receive their own request statuses; FTO Coordinators receive pending requests and denials with explanations within their current assignment scope. The server verifies the Clerk session and role metadata.
  * @summary List phase extension requests available to the signed-in staff member
  */
 export const listPhaseExtensionRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<PhaseExtensionRequestsEnvelope> => {
@@ -3136,7 +3136,7 @@ export const getReviewPhaseExtensionRequestUrl = (id: string,) => {
 }
 
 /**
- * The server verifies the signed-in Coordinator role and records the decision without trusting client role preview.
+ * The server verifies the signed-in Coordinator role and records the decision without trusting client role preview. A denial may include a short explanation; approval does not accept one.
  * @summary Approve or deny a pending request as an FTO Coordinator
  */
 export const reviewPhaseExtensionRequest = async (id: string,

@@ -11,7 +11,7 @@ import { operatorErrorMessage, operatorErrorToast, reportUnexpectedOperatorError
 
 interface PhaseExtensionReviewViewProps {
   requests:readonly PhaseExtensionRequest[];
-  onReview(id:string,approve:boolean):Promise<void>;
+  onReview(id:string,approve:boolean,denialExplanation?:string):Promise<void>;
   reviewingId?:string;
   loading?:boolean;
   error?:string|null;
@@ -19,11 +19,11 @@ interface PhaseExtensionReviewViewProps {
 }
 
 export function PhaseExtensionReviewView({requests,onReview,reviewingId,loading,error,previewOnly=false}:PhaseExtensionReviewViewProps) {
-  return <Panel title={`Pending phase extension requests · ${requests.length}`} className="mb-4" id="panel-phase-extension-review">
+  return <Panel title={`Phase extension requests · ${requests.length}`} className="mb-4" id="panel-phase-extension-review">
     {error&&<p role="alert" className="border-b bg-destructive/5 p-4 text-sm text-destructive">{error}</p>}
     {previewOnly&&<p role="status" className="border-b bg-amber-50 p-4 text-sm text-amber-950">Fictional request shown for preview only. Review actions and shared-service access are disabled.</p>}
     {loading&&<p role="status" className="border-b p-4 text-sm text-muted-foreground">Loading shared requests…</p>}
-    {!loading&&!error&&!requests.length&&<p className="p-4 text-sm text-muted-foreground">No pending requests are available.</p>}
+    {!loading&&!error&&!requests.length&&<p className="p-4 text-sm text-muted-foreground">No phase extension requests are available.</p>}
     {!!requests.length&&<ul className="divide-y">
       {requests.map(request=><li key={request.id} className="grid gap-3 p-4" data-testid={`phase-extension-request-${request.id}`}>
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -35,10 +35,24 @@ export function PhaseExtensionReviewView({requests,onReview,reviewingId,loading,
           <time className="text-xs text-muted-foreground" dateTime={request.createdAt}>{new Date(request.createdAt).toLocaleDateString()}</time>
         </div>
         <p className="whitespace-pre-wrap text-sm">{request.justification}</p>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" disabled={previewOnly||!!reviewingId} onClick={()=>void onReview(request.id,true)} className="min-h-10 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid={`button-approve-extension-${request.id}`}>{reviewingId===request.id?'Saving…':'Approve'}</button>
-          <button type="button" disabled={previewOnly||!!reviewingId} onClick={()=>void onReview(request.id,false)} className="min-h-10 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-deny-extension-${request.id}`}>Deny</button>
-        </div>
+        {request.status==='denied'&&request.denialExplanation&&<div className="rounded border bg-muted/40 p-3" data-testid={`denial-explanation-coordinator-${request.id}`}>
+          <p className="text-xs font-bold uppercase text-muted-foreground">Coordinator explanation</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm">{request.denialExplanation}</p>
+        </div>}
+        {request.status==='pending'&&<>
+          <label className="grid gap-1 text-sm font-semibold" htmlFor={`denial-explanation-${request.id}`}>
+            Denial explanation (optional)
+            <textarea id={`denial-explanation-${request.id}`} rows={3} maxLength={500} className="min-h-20 rounded border bg-card p-3 text-sm font-normal" placeholder="Add context for the requesting FTO" data-testid={`textarea-denial-explanation-${request.id}`}/>
+            <span className="text-xs font-normal text-muted-foreground">500 characters maximum. Used only when denying.</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={previewOnly||!!reviewingId} onClick={()=>void onReview(request.id,true)} className="min-h-10 rounded bg-primary px-4 text-sm font-bold uppercase text-primary-foreground disabled:opacity-50" data-testid={`button-approve-extension-${request.id}`}>{reviewingId===request.id?'Saving…':'Approve'}</button>
+            <button type="button" disabled={previewOnly||!!reviewingId} onClick={event=>{
+              const field=event.currentTarget.closest('li')?.querySelector<HTMLTextAreaElement>(`[data-testid="textarea-denial-explanation-${request.id}"]`);
+              void onReview(request.id,false,field?.value);
+            }} className="min-h-10 rounded border bg-card px-4 text-sm font-bold uppercase disabled:opacity-50" data-testid={`button-deny-extension-${request.id}`}>Deny</button>
+          </div>
+        </>}
       </li>)}
     </ul>}
     <p className="border-t px-4 py-3 text-xs text-muted-foreground">{previewOnly?'Fictional preview data stays in memory and clears on refresh. No request or decision is sent.':'Requests and review decisions are stored by the authenticated agency service and are available across devices.'}</p>
@@ -91,14 +105,14 @@ export function PhaseExtensionPanel() {
     return ()=>{active=false;window.clearInterval(timer);};
   },[getToken,isLoaded,isSignedIn,ws.role,vault,previewOnly]);
 
-  async function reviewRequest(id:string,approve:boolean) {
+  async function reviewRequest(id:string,approve:boolean,denialExplanation?:string) {
     if(previewOnly)return;
     setReviewingId(id);
     try {
       const token=await getToken();
       if(!token)throw new PhaseExtensionApiError('Sign in again to review this request.',401);
-      const reviewed=await reviewSharedPhaseExtensionRequest(token,id,approve);
-      setSharedRequests(current=>current.filter(request=>request.id!==id));
+      const reviewed=await reviewSharedPhaseExtensionRequest(token,id,approve,denialExplanation);
+      setSharedRequests(current=>[reviewed,...current.filter(request=>request.id!==id)]);
       setServiceError(null);
       toast(approve
         ?{title:'Extension approved',description:`${reviewed.className} · ${reviewed.recruitName} can see the decision from their device.`}
@@ -136,7 +150,13 @@ export function PhaseExtensionPanel() {
   if(previewOnly)return null;
 
   if(ws.role==='fto_coordinator'&&serverRole==='FTO_COORDINATOR') {
-    return <PhaseExtensionReviewView requests={sharedRequests.filter(request=>request.status==='pending')} onReview={reviewRequest} reviewingId={reviewingId} loading={loading} error={serviceError}/>;
+    return <PhaseExtensionReviewView
+      requests={sharedRequests.filter(request=>request.status==='pending'||(request.status==='denied'&&!!request.denialExplanation))}
+      onReview={reviewRequest}
+      reviewingId={reviewingId}
+      loading={loading}
+      error={serviceError}
+    />;
   }
 
   if(ws.role==='fto_coordinator') {
@@ -164,6 +184,10 @@ export function PhaseExtensionPanel() {
         <p className="text-sm">{request.extensionType==='limbo_period'?'Limbo period':'Training phase'} · {request.requestedWeeks} additional week{request.requestedWeeks===1?'':'s'}</p>
         <p className="text-sm text-muted-foreground">{request.status==='local_draft'?'Saved on this device · not sent':request.status==='pending'?'Submitted · awaiting Coordinator review':request.status==='approved'?'Approved':'Denied'}</p>
         {request.reviewedAt&&<time className="text-xs text-muted-foreground" dateTime={request.reviewedAt}>Reviewed {new Date(request.reviewedAt).toLocaleDateString()}</time>}
+        {request.status==='denied'&&request.denialExplanation&&<div className="mt-1 rounded border bg-muted/40 p-3" data-testid={`denial-explanation-fto-${request.id}`}>
+          <p className="text-xs font-bold uppercase text-muted-foreground">Coordinator explanation</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm">{request.denialExplanation}</p>
+        </div>}
         {request.status==='local_draft'&&<button type="button" onClick={()=>void retryDraft(request)} disabled={vault!=='unlocked'||!isLoaded||!isSignedIn||loading} className="mt-2 min-h-10 justify-self-start rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-retry-extension-${request.id}`}>Send saved request</button>}
       </li>)}
     </ul>
