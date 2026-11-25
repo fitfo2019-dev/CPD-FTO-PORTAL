@@ -32,3 +32,16 @@ account boundary, separate from trusted roster provisioning. Snapshot the active
 FTO's vehicle context only when creating a packet; PO account changes and later
 vehicle changes must not rewrite saved FTO packet context. Preserve manual
 Cruiser corrections and use CAD identity, not that display field, for dispatch.
+
+The user approved the isolated own-account assignment-history preview for
+integration beneath the existing Account Settings assignment editor. This is
+not approval to replace that editor, restyle the portal, or expand history reads
+to supervisors or other accounts.
+
+**Why:** The preview approval was specifically for officers reviewing their
+own operational token changes, with server time/actor and a clearly labeled
+start of recorded history.
+
+**How to apply:** Preserve that scope in later history enhancements. Do not
+invent pre-tracking changes or infer a packet's frozen identity from current
+account values.

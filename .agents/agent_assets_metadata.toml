@@ -910,3 +910,17 @@ mtime_ms = 1795563103369
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/396ae013-628f-4a83-bb64-c138ed41105f/39256bf5-8403-43fb-ba74-1749d0d452ad"
 storage_version_token = "1795563123528523"
 content_type = "image/png"
+
+[[outputs]]
+id = "EJI-XN-54bRW436vpVNW3"
+uri = "file://generated-artifacts/assignment-history-preview.jpg"
+type = "image"
+title = "Cruiser assignment history preview"
+description = "Fictional own-account history preview; not yet integrated into the portal."
+logical_id = "85c481c3-53ce-4934-bb9a-eb20dd2a685b"
+content_hash = "sha256:6fc900d310eb7eb13a7a5d9f4763c3e1bee6dfbfb0e46c415201a69b0f2f5733"
+size = 40952
+mtime_ms = 1795587941558
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/85c481c3-53ce-4934-bb9a-eb20dd2a685b/60f76ffb-baa1-4e9b-9786-6ae6a24b61c3"
+storage_version_token = "1795587954375843"
+content_type = "image/jpeg"

@@ -1,3 +1,4 @@
+import React from "react";
 import { Search } from "lucide-react";
 
 export function EmptyState({ title = "No matching resources", description = "Try another title or browse all resources." }: {

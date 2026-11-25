@@ -31,6 +31,45 @@ export interface OperationalIdentity {
   side?: OperationalIdentitySide;
 }
 
+export type OperationalProfileHistoryEntryActor = typeof OperationalProfileHistoryEntryActor[keyof typeof OperationalProfileHistoryEntryActor];
+
+
+export const OperationalProfileHistoryEntryActor = {
+  self: 'self',
+  agency_migration: 'agency_migration',
+} as const;
+
+export type OperationalProfileHistoryEntryEvent = typeof OperationalProfileHistoryEntryEvent[keyof typeof OperationalProfileHistoryEntryEvent];
+
+
+export const OperationalProfileHistoryEntryEvent = {
+  created: 'created',
+  changed: 'changed',
+  baseline: 'baseline',
+} as const;
+
+export interface OperationalProfileHistoryEntry {
+  /** @minimum 1 */
+  version: number;
+  /** @nullable */
+  oldToken: string | null;
+  /** @nullable */
+  newToken: string | null;
+  recordedAt: string;
+  actor: OperationalProfileHistoryEntryActor;
+  event: OperationalProfileHistoryEntryEvent;
+}
+
+export interface OperationalProfileHistory {
+  subject: string;
+  entries: OperationalProfileHistoryEntry[];
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  nextBeforeVersion: number | null;
+}
+
 export interface OperationalProfileInput {
   /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   assignmentToken: string;
@@ -1114,6 +1153,14 @@ export interface ApiError {
   error_code: string;
   message: string;
 }
+
+export type GetOperationalProfileHistoryParams = {
+/**
+ * @minimum 1
+ * @maximum 2147483647
+ */
+beforeVersion?: number;
+};
 
 export type ListPacketSubmissionsParams = {
 /**

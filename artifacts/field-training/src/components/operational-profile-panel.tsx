@@ -5,6 +5,7 @@ import type { OperationalProfileContext } from "@workspace/api-client-react";
 import { Panel } from "@/components/bits.js";
 import { useOperationalProfile } from "@/state/operational-profile.js";
 import { operatorErrorMessage } from "@/lib/operator-errors.js";
+import { OperationalProfileHistoryPanel } from "./operational-profile-history.js";
 
 /** Approved addition only; existing vault controls and form presentation stay intact. */
 export function OperationalProfilePanel() {
@@ -18,7 +19,10 @@ export function OperationalProfilePanel() {
       {state.refresh && <RetryProfile refresh={state.refresh}/>}
     </div></Panel>;
   }
-  return <ProfileEditor key={profile.subject} profile={profile} save={state.save} refresh={state.refresh} unavailable={state.error}/>;
+  return <React.Fragment key={profile.subject}>
+    <ProfileEditor profile={profile} save={state.save} refresh={state.refresh} unavailable={state.error}/>
+    <OperationalProfileHistoryPanel subject={profile.subject} version={profile.version} unavailable={!!state.error}/>
+  </React.Fragment>;
 }
 
 function RetryProfile({ refresh }: { refresh: () => Promise<OperationalProfileContext> }) {

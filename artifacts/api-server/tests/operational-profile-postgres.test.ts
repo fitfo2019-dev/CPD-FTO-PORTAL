@@ -108,6 +108,7 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
     const directoryBefore = (await db.query("SELECT * FROM agency_training.coordinator_directory")).rows;
     const oldRow = await row(legacy);
     await migrate("operational-profile-optional-sides");
+    await migrate("operational-profile-history");
 
     await t.test("migration retains legacy evidence and invalidates former profile versions", async () => {
       const upgraded = await row(legacy);
@@ -209,6 +210,11 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
         assert.equal(raw.company, saved.identity?.company);
         assert.equal(raw.side, saved.identity?.side ?? null);
         assert.equal(raw.cruiser_number, null);
+        const history = await store.history(identity);
+        assert.equal(history.entries.length, 1);
+        assert.equal(history.entries[0].event, "created");
+        assert.equal(history.entries[0].newToken, assignmentToken);
+        assert.equal(history.entries[0].actor, "self");
       }
     });
 
@@ -232,6 +238,12 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
         assert.equal(raw.cad_unit, derived.cadUnit);
         assert.equal(raw.company, derived.company);
         assert.equal(raw.side, derived.side ?? null);
+        const history = await store.history(identity);
+        assert.equal(history.entries.length, expectedVersion + 1);
+        assert.equal(history.entries[0].newToken, derived.assignmentToken);
+        assert.equal(history.entries[0].version, raw.version);
+        assert.equal(history.entries[0].recordedAt.toISOString(), raw.updated_at.toISOString());
+        if (expectedVersion > 0) assert.equal(history.entries[0].oldToken, history.entries[1].newToken);
       };
       await compete(raced, 0);
       const untouchedPo = await row(po);
@@ -340,6 +352,18 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
       }
     });
 
+    await t.test("history insertion failure rolls the entire profile save back", async () => {
+      const before = await row(fto);
+      const historyBefore = await store.history(fto);
+      await db.query("REVOKE INSERT ON agency_training.operational_profile_history FROM profile_runtime");
+      await assert.rejects(store.save(fto, { assignmentToken: "9999Z", expectedVersion: before.version }), permissionDenied);
+      assert.deepEqual(await row(fto), before);
+      assert.deepEqual(await store.history(fto), historyBefore);
+      const absent = { ...fto, id: "FICTIONAL-HISTORY-FAILURE" };
+      await assert.rejects(store.save(absent, { assignmentToken: "9999Z", expectedVersion: 0 }), permissionDenied);
+      assert.equal(await row(absent), undefined);
+      await db.query("GRANT INSERT ON agency_training.operational_profile_history TO profile_runtime");
+    });
     await t.test("runtime cannot rewrite authority, grant roster access or remove profile evidence", async () => {
       for (const table of ["assignments", "coordinator_directory"]) {
         for (const statement of [
@@ -367,6 +391,16 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
         "UPDATE agency_training.operational_profiles SET cruiser_number='FORGED'",
         "UPDATE agency_training.operational_profiles SET subject_hash=repeat('f',64)",
       ]) await assert.rejects(limited.query(statement), permissionDenied);
+      const historyBefore = (await db.query("SELECT * FROM agency_training.operational_profile_history ORDER BY subject_hash,version")).rows;
+      for (const statement of [
+        "UPDATE agency_training.operational_profile_history SET new_token='9999Z'",
+        "DELETE FROM agency_training.operational_profile_history",
+        "TRUNCATE agency_training.operational_profile_history",
+      ]) {
+        await assert.rejects(limited.query(statement), permissionDenied);
+        await assert.rejects(db.query(statement), permissionDenied);
+      }
+      assert.deepEqual((await db.query("SELECT * FROM agency_training.operational_profile_history ORDER BY subject_hash,version")).rows, historyBefore);
       assert.deepEqual((await db.query("SELECT * FROM agency_training.operational_profiles ORDER BY subject_hash")).rows, profilesBefore);
       assert.deepEqual((await db.query("SELECT * FROM agency_training.assignments")).rows, rosterBefore);
       assert.deepEqual((await db.query("SELECT * FROM agency_training.coordinator_directory")).rows, directoryBefore);

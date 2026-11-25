@@ -19,3 +19,5 @@ COMMIT;
 -- (assignment_token,cruiser_number,cad_unit,company,side,version,updated_at).
 -- Never grant DELETE/TRUNCATE, ownership, or changes to trusted roster tables.
 -- Trusted invitation provisioning may seed this table using the same parser.
+-- Then apply operational-profile-optional-sides.sql and
+-- operational-profile-history.sql, including their narrow runtime grants.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  getOperationalProfile, updateOperationalProfile, getPacketReviewContext,
+  getOperationalProfile, updateOperationalProfile, getOperationalProfileHistory, getPacketReviewContext,
   customFetch,
 } from "@workspace/api-client-react";
 import { parseOperationalIdentity } from "@workspace/api-zod/operational-profile";
@@ -9,6 +9,25 @@ import { parseOperationalIdentity } from "@workspace/api-zod/operational-profile
 const profile={subject:"TEST-FTO",role:"FTO",badge:"TEST",version:1,
   identity:parseOperationalIdentity("9150E-1"),updatedAt:"2026-11-24T14:00:00.000Z"};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json"}});
+test("generated history client uses own-account paginated object contract and rejects malformed responses",async t=>{
+  const entry={version:2,oldToken:"9150E-1",newToken:"9150E",recordedAt:"2026-11-25T06:10:00.000Z",actor:"self",event:"changed"};
+  const history={subject:profile.subject,entries:[entry],nextBeforeVersion:null};
+  let body:unknown=history;
+  const urls:string[]=[];
+  t.mock.method(globalThis,"fetch",async(input:string|URL|Request)=>{
+    urls.push(String(input));return json(body);
+  });
+  assert.deepEqual(await getOperationalProfileHistory(),history);
+  assert.deepEqual(await getOperationalProfileHistory({beforeVersion:3}),history);
+  assert.deepEqual(urls,["/api/v1/account/operational-profile/history","/api/v1/account/operational-profile/history?beforeVersion=3"]);
+  for(const invalid of [{},{...history,entries:[{...entry,recordedAt:"invalid"}]},
+    {...history,entries:[{...entry,actor:"unverified"}]}, {...history,nextBeforeVersion:-1},
+    {status:"success",metadata:{},data:[history]}]){
+    body=invalid;await assert.rejects(getOperationalProfileHistory(),/documented contract/);
+  }
+  body=history;
+  await assert.rejects(customFetch("/api/v1/account/operational-profile/history",{method:"POST"}),/success envelope/);
+});
 test("generated profile clients accept the real documented raw GET/PUT responses, not artificial envelope fixtures",async t=>{
   const calls:{url:string;method:string;body:unknown}[]=[];
   t.mock.method(globalThis,"fetch",async(input:string|URL|Request,init?:RequestInit)=>{

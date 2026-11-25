@@ -5,6 +5,7 @@
 @import '@clerk/themes/shadcn.css';
 @import 'tw-animate-css';
 @import './layout-safety.css';
+@import './components/operational-profile-history.css';
 @plugin "@tailwindcss/typography";
 @plugin "daisyui" {
   themes: false;

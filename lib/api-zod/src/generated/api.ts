@@ -8,6 +8,35 @@
 import * as zod from 'zod';
 
 
+/**
+ * Own-account history only. Identity and actor come from the verified server session. No account selector is accepted.
+ */
+export const getOperationalProfileHistoryQueryBeforeVersionMax = 2147483647;
+
+
+
+export const GetOperationalProfileHistoryQueryParams = zod.object({
+  "beforeVersion": zod.coerce.number().int().min(1).max(getOperationalProfileHistoryQueryBeforeVersionMax).optional()
+})
+
+
+
+
+
+export const GetOperationalProfileHistoryResponse = zod.object({
+  "subject": zod.string(),
+  "entries": zod.array(zod.object({
+  "version": zod.number().int().min(1),
+  "oldToken": zod.string().nullable(),
+  "newToken": zod.string().nullable(),
+  "recordedAt": zod.coerce.date(),
+  "actor": zod.enum(['self', 'agency_migration']),
+  "event": zod.enum(['created', 'changed', 'baseline'])
+})),
+  "nextBeforeVersion": zod.number().int().min(1).nullable()
+})
+
+
 export const getOperationalProfileResponseVersionMin = 0;
 
 export const getOperationalProfileResponseIdentityOneAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');

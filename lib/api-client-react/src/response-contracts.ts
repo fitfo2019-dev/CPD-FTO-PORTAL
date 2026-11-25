@@ -1,5 +1,5 @@
 import {
-  GetOperationalProfileResponse, UpdateOperationalProfileResponse,
+  GetOperationalProfileHistoryResponse, GetOperationalProfileResponse, UpdateOperationalProfileResponse,
   GetPacketReviewContextResponse, UpdatePacketCoordinatorResponse,
   ListPacketSubmissionsResponse, GetPacketSubmissionResponse, ActOnPacketSubmissionResponse,
 } from "@workspace/api-zod";
@@ -19,6 +19,7 @@ const saveProfile = UpdateOperationalProfileResponse.extend({ identity: liveIden
  * generated client's documented JSON string types. */
 export function objectResponseContract(method: string, pathname: string): ResponseSchema | undefined {
   switch (`${method} ${pathname}`) {
+    case "GET /api/v1/account/operational-profile/history": return GetOperationalProfileHistoryResponse.strict();
     case "GET /api/v1/account/operational-profile": return readProfile;
     case "PUT /api/v1/account/operational-profile": return saveProfile;
     case "GET /api/v1/packet-review/context": return GetPacketReviewContextResponse;

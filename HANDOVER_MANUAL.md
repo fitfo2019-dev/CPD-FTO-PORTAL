@@ -845,7 +845,8 @@ by default:
    Then apply `migrations/agency-training-packet-review.sql` and
    `migrations/agency-training-packet-guards.sql` in that order. These are
    followed by `migrations/operational-profiles.sql` and then
-   `migrations/operational-profile-optional-sides.sql` for own-account cruiser
+   `migrations/operational-profile-optional-sides.sql` and then
+   `migrations/operational-profile-history.sql` for own-account cruiser
    profiles; review its narrow column-level runtime grants. Read the bundled
    `OPERATIONAL_PROFILES.md` for profile provisioning and the UI approval boundary.
    The ZIP includes compiled `portal/` static assets for agency reverse-proxy

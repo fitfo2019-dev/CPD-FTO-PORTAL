@@ -548,6 +548,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/fto-law-library-schema':
+        specifier: workspace:*
+        version: link:../fto-law-library-schema
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3

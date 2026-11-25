@@ -1,8 +1,8 @@
 # City of Columbus Chain of Command Brief
 ## City of Columbus stakeholder briefing
 
-**Prepared:** November 24, 2026
-**Evidence cutoff:** Main-workspace source and handover material reviewed through November 24, 2026
+**Prepared:** November 25, 2026
+**Evidence cutoff:** Baseline source and handover review through November 24, 2026; own-account cruiser history source and isolated verification reviewed November 25, 2026
 **Purpose:** Explain the current portal, its workflows, integration readiness, and a practical way to measure a City-approved pilot.
 **Update policy:** This briefing is maintained as material changes reach the main workspace, through verified live production publication and formal handover. The evidence cutoff above marks the latest review; planned or unverified work is not presented as implemented.
 
@@ -58,6 +58,7 @@ New account registration is invitation-only in the portal. The sign-in flow and 
 - **Weekly and monthly outputs:** Weekly views summarize reviewed daily ratings and activity totals; a weekly performance-log supplement gathers relevant UA articulations and corrective-training time. Monthly summaries calculate counts and support local print/PDF and Excel export. The monthly Excel export has a four-week-range limit and reports an error rather than silently generating an incomplete workbook.
 - **Coordinator oversight:** Class and roster views can filter local records, show run/activity/rating summaries, find UA/NRT follow-up, and produce a local class workbook. The Coordinator dashboard also links to phase posts, coverage, packet queues, and saved paperwork.
 - **Resources:** The portal has an allowlisted resource catalog and authenticated file-download route. This is not a connected City records library or a role- and assignment-scoped document repository.
+- **Cruiser assignment history:** The approved Account Settings addition lets verified FTOs and POs read only their own saved operational-token changes, with old/new tokens, server-recorded time and actor, and older entries. Each successful token change and its history commit together; competing or rejected saves cannot leave partial evidence. History begins at an explicitly labeled tracking boundary for existing accounts and does not reconstruct earlier changes or rewrite packet snapshots. Disposable PostgreSQL, access-denial, generated-client and mounted-screen checks passed; City database migration/grants and actual agency use remain unverified and require City configuration.
 
 ### Local storage and shared records are different
 

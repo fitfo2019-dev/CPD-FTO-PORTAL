@@ -27,6 +27,7 @@ test("agency SQL atomically saves own profile, rejects stale concurrent saves an
     await db.exec("CREATE SCHEMA agency_training");
     await db.exec(await readFile(new URL("../migrations/operational-profiles.sql",import.meta.url),"utf8"));
     await db.exec(await readFile(new URL("../migrations/operational-profile-optional-sides.sql",import.meta.url),"utf8"));
+    await db.exec(await readFile(new URL("../migrations/operational-profile-history.sql",import.meta.url),"utf8"));
     const store=createOperationalProfileStore({query:(sql:string,args:unknown[])=>db.query(sql,args)} as unknown as pg.Pool);
     assert.equal((await store.read(fto)).identity,null);
     const creations=await Promise.allSettled(["9150E-1","9150E-2"].map(assignmentToken=>store.save(fto,{assignmentToken,expectedVersion:0})));
@@ -69,6 +70,7 @@ test("authenticated profile routes never accept another subject, roles, badges o
   };
   const profile={subject:fto.id,role:"FTO" as const,badge:fto.badge,version:1,identity:parseOperationalIdentity("9150E-1")};
   const router=createOperationalProfileRouter(auth,()=>({
+    history:async who=>({subject:who.id,entries:[],nextBeforeVersion:null}),
     read:async who=>({...profile,subject:who.id}),
     save:async(who,_input)=>{assert.equal(who.id,fto.id);writes++;return profile;},
   }));

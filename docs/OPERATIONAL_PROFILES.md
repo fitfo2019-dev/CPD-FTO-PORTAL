@@ -17,9 +17,10 @@ including in Precinct 8; they never infer district `80`.
 ## Agency installation
 
 The DBA must apply `migrations/operational-profiles.sql`, then
-`migrations/operational-profile-optional-sides.sql`, to the same agency
+`migrations/operational-profile-optional-sides.sql`, then
+`migrations/operational-profile-history.sql`, to the same agency
 database as the packet service and review its narrow runtime grants. Existing
-installations apply only the second migration. Grant INSERT and column-only
+installations apply only the migrations not already installed. Grant INSERT and column-only
 UPDATE on `district_token` in addition to the existing profile grants; do not
 widen roster authority. The upgrade preserves legacy `cruiser_number` values
 for audit only, makes missing side NULL, and changes each existing profile's
@@ -33,7 +34,7 @@ The separate legacy database schema is not the operational agency database.
 
 ### Least-privilege runtime grants
 
-After both profile migrations, the DBA applies the following to the existing
+After all three profile migrations, the DBA applies the following to the existing
 non-owner runtime role (replace `agency_runtime` with its approved role name).
 The revocations narrow any former table-wide INSERT/UPDATE and legacy
 `cruiser_number` write grants; they do not change stored evidence. Existing
@@ -44,6 +45,8 @@ inherit broader privileges or own this schema, its tables, or its owner role.
 ```sql
 GRANT USAGE ON SCHEMA agency_training TO agency_runtime;
 GRANT SELECT ON agency_training.operational_profiles TO agency_runtime;
+GRANT SELECT, INSERT ON agency_training.operational_profile_history TO agency_runtime;
+REVOKE UPDATE, DELETE, TRUNCATE ON agency_training.operational_profile_history FROM agency_runtime;
 REVOKE INSERT, UPDATE ON agency_training.operational_profiles FROM agency_runtime;
 REVOKE UPDATE (assignment_token,cruiser_number,cad_unit,company,side,version,updated_at)
   ON agency_training.operational_profiles FROM agency_runtime;
@@ -73,7 +76,8 @@ The test initializes its own temporary cluster and private Unix socket, disables
 TCP listening, and never reads database connection environment settings. It
 applies `agency-training.sql`, `agency-training-packet-review.sql`,
 `agency-training-packet-guards.sql`, `operational-profiles.sql`, and
-`operational-profile-optional-sides.sql` in that order, with fictional legacy
+`operational-profile-optional-sides.sql`, and `operational-profile-history.sql`
+in that order, with fictional legacy
 profile evidence inserted before the optional-side migration. It uses the exact
 grants above with a non-owner login to check sided/unsided creation, competing
 creation and compare-and-swap updates, stale versions, preserved legacy cruiser
@@ -98,6 +102,55 @@ Authenticated FTOs/POs read and update only
 `expectedVersion` (zero for creation). Conflicts return 409; refresh before
 retrying. Token and derivations commit in one compare-and-swap SQL statement.
 No role, badge, subject, roster or authority columns are writable.
+
+## Own-account assignment history
+
+The user approved the isolated `operations/AssignmentHistoryPreview` before
+integration. Account Settings now shows its history section beneath the existing
+assignment editor, without replacing the editor or changing packet forms.
+`GET /api/v1/account/operational-profile/history` authenticates every page and
+filters only by the signed-in subject's HMAC hash. It accepts only the optional
+integer `beforeVersion` cursor, returns up to 50 entries newest version first,
+and supplies `nextBeforeVersion` for older entries. Account/subject selectors
+are rejected. Coordinators and other roles cannot use this own-account endpoint.
+Responses are `no-store`; histories are not persisted in the local vault.
+
+Successful creation and changed-token saves append old/new tokens, profile
+version, the server-verified actor's HMAC hash and the profile's database timestamp
+inside the same SQL statement as the compare-and-swap mutation. Competing,
+invalid, unauthorized or rolled-back saves create no evidence. An unchanged
+token may advance the existing profile version but adds no transition. No raw
+credentials, badges, session tokens or raw actor identifiers are stored in this
+history. The response labels the actor as the officer's own verified account
+without exposing its stored hash.
+
+The history migration adds a clearly identified baseline for existing profiles
+at the migration's server time. That baseline records the token observed then;
+it does not assert when it originally became active or invent earlier changes.
+Packet creation times are device-reported, not a trusted server ordering
+guarantee. A packet's frozen operational identity remains its evidence; the
+history helps compare assignments without rewriting or inferring packet data.
+New-profile creation entries are distinguishable from migration baselines.
+The UI shows Columbus local time with its timezone and retains the exact ISO
+instant in the time element.
+
+Apply this additive migration and the documented grants in an agency maintenance
+window, with profile writes paused until the matching API build is running.
+Reconcile any trusted provisioning process so it appends creation evidence in the
+same transaction rather than writing profiles without history. Existing source
+migrations are not re-run. The migration locks profiles while observing the
+baseline. Runtime INSERT/SELECT is required only on the new history table; no
+new roster rights, table ownership, sequence rights or history mutation rights
+are needed. Triggers additionally reject UPDATE, DELETE and TRUNCATE. A trusted
+database owner can still disable triggers, so this is not independent immutable
+retention or a claim of tamper-proof storage. The API fails closed if the history
+table or its grants are absent; it never reports a partially saved profile.
+
+History reloads after profile-version changes, on focus/reconnect and every
+30 seconds. Its query cache includes subject and version; session changes clear
+the existing global cache and remount the workspace. Requests are abortable with
+a 15-second timeout. Failed or unauthorized refreshes hide stale history and
+offer retry without changing the assignment editor's unsaved input.
 
 ## Packet and dispatch behavior
 

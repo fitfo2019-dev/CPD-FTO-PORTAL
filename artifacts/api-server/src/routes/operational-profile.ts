@@ -1,5 +1,5 @@
 import { Router, type RequestHandler } from "express";
-import { UpdateOperationalProfileBody } from "@workspace/api-zod";
+import { GetOperationalProfileHistoryQueryParams, UpdateOperationalProfileBody } from "@workspace/api-zod";
 import { requireAgencyIdentity } from "../security/agencyIdentity.js";
 import { getOperationalProfileStore, type OperationalProfileStore } from "../lib/operational-profile-store.js";
 import { PacketError } from "../lib/packet-errors.js";
@@ -15,6 +15,19 @@ export function createOperationalProfileRouter(
       res.status(403).json({ error: "PROFILE_ACCESS_DENIED" }); return;
     }
     next();
+  });
+  router.get("/v1/account/operational-profile/history", async (req, res): Promise<void> => {
+    const query = GetOperationalProfileHistoryQueryParams.strict().safeParse(req.query);
+    if (!query.success) { res.status(400).json({ error: "INVALID_PROFILE_HISTORY_QUERY" }); return; }
+    try {
+      const store = resolveStore();
+      if (!store) throw new PacketError(503, "AGENCY_STORAGE_UNAVAILABLE");
+      res.json(await store.history(res.locals.agencyIdentity, query.data.beforeVersion));
+    } catch (error) {
+      res.status(error instanceof PacketError ? error.status : 503).json({
+        error: error instanceof PacketError ? error.code : "AGENCY_STORAGE_UNAVAILABLE",
+      });
+    }
   });
   for (const method of ["get", "put"] as const) router[method]("/v1/account/operational-profile", async (req, res): Promise<void> => {
     const input = method === "put" ? UpdateOperationalProfileBody.strict().safeParse(req.body) : undefined;

@@ -5,8 +5,13 @@ import { JSDOM } from "jsdom";
 import type { OperationalProfileContext } from "@workspace/api-client-react";
 import { parseOperationalIdentity } from "@workspace/api-zod/operational-profile";
 import { OperatorFacingError } from "./operator-errors.js";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-test("approved account editor validates own-profile saves, preserves conflicts, reloads and supports PO identity",async()=>{
+test("approved account editor validates own-profile saves, preserves conflicts, reloads and supports PO identity",async t=>{
+  t.mock.method(globalThis,"fetch",async()=>new Response(JSON.stringify({
+    subject:"TEST-FTO",entries:[],nextBeforeVersion:null,
+  }),{status:200,headers:{"Content-Type":"application/json"}}));
+  const cache = new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}});
   const dom=new JSDOM("<div id='root'></div>",{url:"https://localhost/settings",pretendToBeVisual:true});
   const previous=new Map<string,PropertyDescriptor|undefined>();
   for(const [key,value] of Object.entries({window:dom.window,document:dom.window.document,navigator:dom.window.navigator,
@@ -39,9 +44,9 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
      if(reloadFails)throw new OperatorFacingError("The profile could not be refreshed. Your entry is retained.");
      profile=structuredClone(saved);error=undefined;return profile;
    };
-  const render=()=>root.render(<OperationalProfileStateContext.Provider value={{
+  const render=()=>root.render(<QueryClientProvider client={cache}><OperationalProfileStateContext.Provider value={{
     profile:error?undefined:profile,editorProfile:profile,pending:false,error,contextKey:`${profile.subject}:${profile.version}`,save,refresh,
-  }}><OperationalProfilePanel/></OperationalProfileStateContext.Provider>);
+  }}><OperationalProfilePanel/></OperationalProfileStateContext.Provider></QueryClientProvider>);
   function element<T extends HTMLElement=HTMLElement>(id:string){
     const node=dom.window.document.querySelector<T>(`[data-testid="${id}"]`);assert.ok(node,id);return node;
   }
@@ -141,7 +146,7 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
        assert.match(element("text-profile-saved").textContent!,/Assignment saved/);
      }
   }finally{
-    await act(async()=>root.unmount());dom.window.close();
+    await act(async()=>root.unmount());cache.clear();dom.window.close();
     for(const [key,descriptor]of previous)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);
   }
 });
