@@ -277,3 +277,119 @@ test("packet history cursors cannot cross FTO or Coordinator roster scopes", asy
   assert.ok(coordinatorRead?.sql.includes("pc.coordinator_id=$5"));
   assert.ok(coordinatorRead?.sql.includes("a.coordinator_id_hash = $2"));
 });
+
+test("PO packet history pagination excludes drafts, unreleased and withdrawn packets", async () => {
+  type PoPacket = {
+    poId: string;
+    poBadge: string;
+    row: Record<string, unknown>;
+  };
+  const po: AgencyIdentity = { id: "assigned-po", badge: "po-badge", role: "PO" };
+  const otherPo: AgencyIdentity = { id: "other-po", badge: "other-po-badge", role: "PO" };
+  const packets: PoPacket[] = [];
+  const addPacket = (id: string, owner: AgencyIdentity, options: {
+    released?: boolean;
+    withdrawn?: boolean;
+    submissionStatus?: string;
+  } = {}) => {
+    const released = options.released ?? true;
+    const withdrawn = options.withdrawn ?? false;
+    packets.push({
+      poId: owner.id,
+      poBadge: owner.badge,
+      row: {
+        id,
+        assignment_id: `${owner.id}-assignment`,
+        record_date: "2026-11-23",
+        phase: 1,
+        server_version: 1,
+        report: { id },
+        submission_status: options.submissionStatus ?? "submitted",
+        content_hash: "a".repeat(64),
+        released_to_po: released,
+        released_at: released ? "2026-11-24T12:00:00Z" : null,
+        withdrawn_at: withdrawn ? "2026-11-25T12:00:00Z" : null,
+        withdrawal_reason: withdrawn ? "Corrected packet" : null,
+        amendment_of: null,
+        amendment_reason: null,
+        acknowledgment: null,
+      },
+    });
+  };
+
+  // More than one page of visible packets ensures the hidden records cannot
+  // leak in either the initial query or a subsequent keyset query.
+  for (let index = 0; index < 101; index++)
+    addPacket(`po-a-released-${String(index).padStart(3, "0")}`, po);
+  addPacket("po-a-unreleased-submitted", po, { released: false });
+  addPacket("po-a-unreleased-draft", po, { released: false, submissionStatus: "draft" });
+  addPacket("po-a-released-draft", po, { submissionStatus: "draft" });
+  addPacket("po-a-withdrawn", po, { released: false, withdrawn: true });
+  for (let index = 0; index < 3; index++)
+    addPacket(`aa-po-b-released-${String(index).padStart(3, "0")}`, otherPo);
+
+  const calls: Array<{ sql: string; parameters: unknown[] }> = [];
+  const client = {
+    async query(sql: string, parameters: unknown[] = []) {
+      if (sql.includes("FROM agency_training.packets p JOIN agency_training.packet_assignments")) {
+        calls.push({ sql, parameters });
+        assert.match(sql, /a\.po_id_hash = \$2 AND a\.po_badge_hash = \$3/);
+        assert.match(sql, /p\.released_to_po = true AND p\.withdrawn_at IS NULL/);
+        assert.match(sql, /p\.submission_status = 'submitted' OR \$1 = 'FTO'/);
+        assert.match(sql, /\(p\.record_date, p\.id\) < \(\$8::date, \$9::text\)/);
+        const [role, identityHash, badgeHash, , , , , afterDate, afterId, limit] = parameters;
+        const visible = packets.filter(packet =>
+          role === "PO" &&
+          hashUserIdentifier(packet.poId) === identityHash &&
+          hashUserIdentifier(packet.poBadge) === badgeHash &&
+          packet.row.released_to_po === true &&
+          packet.row.withdrawn_at === null &&
+          packet.row.submission_status === "submitted",
+        ).filter(packet => afterDate == null || String(packet.row.record_date) < String(afterDate) ||
+          (String(packet.row.record_date) === String(afterDate) &&
+            String(packet.row.id) < String(afterId)))
+          .sort((left, right) => String(right.row.record_date).localeCompare(String(left.row.record_date)) ||
+            String(right.row.id).localeCompare(String(left.row.id)))
+          .slice(0, Number(limit))
+          .map(packet => packet.row);
+        return { rows: visible };
+      }
+      return { rows: [] };
+    },
+    release() {},
+  };
+  const store = createAgencyPacketStore({ connect: async () => client } as unknown as pg.Pool);
+  const firstPage = await store.readPage(po, audit);
+  assert.equal(firstPage.data.length, 100);
+  assert.equal(firstPage.hasMore, true);
+  const cursor = encodePacketCursor(
+    String(firstPage.data.at(-1)!.record_date),
+    String(firstPage.data.at(-1)!.id),
+  );
+  const secondPage = await store.readPage(po, audit, cursor);
+  assert.equal(secondPage.data.length, 1);
+  assert.equal(secondPage.hasMore, false);
+
+  const allPoPages = [...firstPage.data, ...secondPage.data];
+  assert.equal(allPoPages.length, 101);
+  assert.ok(allPoPages.every(packet =>
+    String(packet.assignment_id) === "assigned-po-assignment" &&
+    packet.released_to_po === true &&
+    packet.withdrawn_at === null &&
+    packet.sync_status === "submitted_complete",
+  ));
+  assert.ok(allPoPages.every(packet => !String(packet.id).includes("unreleased") &&
+    !String(packet.id).includes("draft") && !String(packet.id).includes("withdrawn")));
+
+  // A cursor only carries position; a new PO request must still apply that
+  // request's own identity and the same visibility rules.
+  const reusedByOtherPo = await store.readPage(otherPo, audit, cursor);
+  assert.equal(reusedByOtherPo.data.length, 3);
+  assert.ok(reusedByOtherPo.data.every(packet =>
+    String(packet.assignment_id) === "other-po-assignment" &&
+    packet.released_to_po === true &&
+    packet.withdrawn_at === null &&
+    packet.sync_status === "submitted_complete",
+  ));
+  assert.ok(calls.every(call => call.parameters[0] === "PO"));
+});
