@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import checker from "vite-plugin-checker";
 import { defineConfig } from "vite";
 import { fieldReadyPwa } from "./pwa-plugin.js";
+import { bundleSizeBudgetPlugin } from "./bundle-size-budget.js";
 
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
@@ -56,6 +57,7 @@ export default defineConfig(async ({ command }) => {
   plugins: [
     fieldReadyPwa(basePath),
     normalizeZodRollupAnnotations(),
+    bundleSizeBudgetPlugin(),
     react(),
     checker({ typescript: true }),
     tailwindcss({ optimize: false }),
