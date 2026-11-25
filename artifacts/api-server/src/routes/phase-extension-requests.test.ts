@@ -121,6 +121,7 @@ test("agency migration installs phase-extension requests and roster-scoped revie
     await db.exec(await migration("agency-training.sql"));
     await db.exec(await migration("agency-training-packet-review.sql"));
     await db.exec(await migration("agency-training-phase-extensions.sql"));
+    await db.exec(await migration("agency-training-legacy-coordinator-reconciliation.sql"));
     const schema = await db.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema='agency_training' AND table_name='phase_extension_requests'`,
@@ -314,6 +315,17 @@ test("agency migration installs phase-extension requests and roster-scoped revie
         className: "Legacy Class",
       };
       await seedAssignment(db, legacyAssignment);
+      const candidate = await db.query<{
+        eligible_for_reconciliation: boolean;
+        pending_phase_extension_request_count: number;
+      }>(
+        `SELECT eligible_for_reconciliation,pending_phase_extension_request_count
+         FROM agency_training.legacy_coordinator_reconciliation_candidates
+         WHERE po_id=$1`,
+        [legacyAssignment.poId],
+      );
+      assert.equal(candidate.rows[0].eligible_for_reconciliation, true);
+      assert.equal(candidate.rows[0].pending_phase_extension_request_count, 0);
       const mapping = await db.query(
         "SELECT 1 FROM agency_training.po_coordinators WHERE po_id_hash=$1",
         [hash(legacyAssignment.poId)],
@@ -411,6 +423,7 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
     await ownerPool.query(await migration("agency-training.sql"));
     await ownerPool.query(await migration("agency-training-packet-review.sql"));
     await ownerPool.query(await migration("agency-training-phase-extensions.sql"));
+    await ownerPool.query(await migration("agency-training-legacy-coordinator-reconciliation.sql"));
 
     const assignmentId = randomUUID();
     await ownerPool.query(
@@ -503,6 +516,15 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
           `Runtime must not read ${table}.${column}`,
         );
       }
+    }
+
+    for (const sql of [
+      "SELECT * FROM agency_training.legacy_coordinator_reconciliation_candidates",
+      "SELECT * FROM agency_training.po_coordinator_reconciliation_audit",
+      `SELECT agency_training.reconcile_legacy_po_coordinator(
+        'test-phase-po-a','test-phase-coordinator-a','runtime','must be denied')`,
+    ]) {
+      await assert.rejects(runtimePool.query(sql), { code: "42501" }, sql);
     }
 
     // Use real PostgreSQL: permission failures (42501), not syntax or missing
@@ -771,6 +793,10 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
 
     // Seed a second recruit so an unrelated review can run while the first
     // recruit's Coordinator handoff holds its advisory lock.
+    await ownerPool.query(
+      "UPDATE agency_training.po_coordinators SET coordinator_id=$1 WHERE po_id=$2",
+      [coordinatorA.userId, "test-phase-po-b"],
+    );
     const otherAssignmentId = randomUUID();
     await ownerPool.query(
       `INSERT INTO agency_training.assignments (
@@ -798,7 +824,104 @@ test("phase-extension reviews serialize with Coordinator handoffs under runtime 
       className: "Class B",
       recruitBadge: "TEST-PO-B",
     });
+    // A legacy request remains with the same Coordinator as its canonical
+    // mapping is created; the compatibility hash route is no longer needed.
+    const legacyPoId = "test-phase-po-reconciliation";
+    const legacyAssignmentId = randomUUID();
+    await ownerPool.query(
+      `INSERT INTO agency_training.assignments (
+        id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,po_id_hash,
+        po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        fto_id,fto_badge,po_id,po_badge,coordinator_id
+      ) VALUES ($1,'Legacy Class',1,$2,$3,'Trusted Legacy FTO',$4,$5,
+        'Trusted Legacy Recruit',$6,'2026-11-01','2027-12-31',
+        $7,'TEST-FTO-LEGACY',$8,'TEST-PO-LEGACY',$9)`,
+      [
+        legacyAssignmentId,
+        hash(ftoA.userId),
+        hash("TEST-FTO-LEGACY"),
+        hash(legacyPoId),
+        hash("TEST-PO-LEGACY"),
+        hash(coordinatorA.userId),
+        ftoA.userId,
+        legacyPoId,
+        coordinatorA.userId,
+      ],
+    );
+    const legacyRequestId = `legacy-reconciliation-${randomUUID()}`;
+    await store.create(ftoA.userId, {
+      ...request,
+      id: legacyRequestId,
+      className: "Legacy Class",
+      recruitName: "Client supplied legacy name",
+      recruitBadge: "TEST-PO-LEGACY",
+    });
+    const legacyCandidate = await ownerPool.query<{
+      eligible_for_reconciliation: boolean;
+      pending_phase_extension_request_count: number;
+    }>(
+      `SELECT eligible_for_reconciliation,pending_phase_extension_request_count
+       FROM agency_training.legacy_coordinator_reconciliation_candidates
+       WHERE po_id=$1`,
+      [legacyPoId],
+    );
+    assert.deepEqual(legacyCandidate.rows[0], {
+      eligible_for_reconciliation: true,
+      pending_phase_extension_request_count: 1,
+    });
+    assert.equal((await store.listPending(coordinatorA.userId)).some(row => row.id === legacyRequestId), true);
+    assert.equal((await store.listPending(coordinatorB.userId)).some(row => row.id === legacyRequestId), false);
 
+    await assert.rejects(
+      ownerPool.query(
+        `SELECT agency_training.reconcile_legacy_po_coordinator($1,$2,$3,$4)`,
+        [legacyPoId, coordinatorB.userId, "verified-test-operator", "Intentionally mismatched test selection."],
+      ),
+      /Selected Coordinator does not match/,
+    );
+    const rejectedMapping = await ownerPool.query(
+      "SELECT 1 FROM agency_training.po_coordinators WHERE po_id=$1",
+      [legacyPoId],
+    );
+    assert.equal(rejectedMapping.rows.length, 0, "Rejected reconciliation must not create a mapping");
+    assert.equal((await store.listPending(coordinatorA.userId)).some(row => row.id === legacyRequestId), true);
+
+    await ownerPool.query(
+      `SELECT agency_training.reconcile_legacy_po_coordinator($1,$2,$3,$4)`,
+      [legacyPoId, coordinatorA.userId, "verified-test-operator", "Matched official roster entry."],
+    );
+    assert.equal((await store.listPending(coordinatorA.userId)).some(row => row.id === legacyRequestId), true);
+    assert.equal((await store.listPending(coordinatorB.userId)).some(row => row.id === legacyRequestId), false);
+    const reconciliation = await ownerPool.query<{
+      coordinator_id: string;
+      active_assignment_count: number;
+      pending_phase_extension_request_count: number;
+      reconciled_by: string;
+      reason: string;
+    }>(
+      `SELECT coordinator_id,active_assignment_count,pending_phase_extension_request_count,
+        reconciled_by,reason
+       FROM agency_training.po_coordinator_reconciliation_audit WHERE po_id=$1`,
+      [legacyPoId],
+    );
+    assert.deepEqual(reconciliation.rows[0], {
+      coordinator_id: coordinatorA.userId,
+      active_assignment_count: 1,
+      pending_phase_extension_request_count: 1,
+      reconciled_by: "verified-test-operator",
+      reason: "Matched official roster entry.",
+    });
+    await assert.rejects(
+      ownerPool.query("UPDATE agency_training.po_coordinator_reconciliation_audit SET reason='rewritten' WHERE po_id=$1", [legacyPoId]),
+      /immutable/,
+    );
+    await assert.rejects(
+      ownerPool.query(
+        `SELECT agency_training.reconcile_legacy_po_coordinator($1,$2,$3,$4)`,
+        [legacyPoId, coordinatorA.userId, "verified-test-operator", "Duplicate attempt."],
+      ),
+      /No unmapped active assignments/,
+    );
     // Start a trusted Coordinator handoff and pause it immediately after it
     // acquires PO A's lock. A former Coordinator review for PO A must wait,
     // while PO B's independent review completes before the handoff is released.

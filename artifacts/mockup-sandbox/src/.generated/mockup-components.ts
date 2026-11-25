@@ -28,6 +28,6 @@ export const modules: ModuleMap = {
   "./components/mockups/packet-history/PacketHistoryFiltersPreview.tsx": () => import("../components/mockups/packet-history/PacketHistoryFiltersPreview.tsx"),
   "./components/mockups/packet-upload/DraftFinalizationPreview.tsx": () => import("../components/mockups/packet-upload/DraftFinalizationPreview.tsx"),
   "./components/mockups/packet-upload/PacketUploadPreview.tsx": () => import("../components/mockups/packet-upload/PacketUploadPreview.tsx"),
-  "./components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx": () => import("../components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx"),
-  "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx")
+  "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx"),
+  "./components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx": () => import("../components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx")
 };
