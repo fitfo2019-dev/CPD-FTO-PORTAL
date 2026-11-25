@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import { CheckCheck, Printer } from 'lucide-react';
 import { PageHead, Panel } from '@/components/bits.js';
 import { PrintableSubstationOrientation } from '@/components/printable-extended-forms.js';
@@ -13,6 +13,7 @@ import { formatDateDMY, formatDateTimeMDY, formatDateTimeEntryMDY, formatTrainin
 import { parseRunDateTime } from '@/lib/run-details.js';
 import { useWorkspace } from '@/state/workspace.js';
 import { resolveOperationalPacket } from '@/lib/operational-state-machine.js';
+import { savedOrientationContext } from '@/lib/saved-orientation.js';
 
 export default function SubstationOrientationPage() {
   const {ws,vault,upsertSubstationOrientation,previewOnly}=useWorkspace();
@@ -22,7 +23,12 @@ export default function SubstationOrientationPage() {
     document.body.classList.add('print-substation-route');
     return()=>document.body.classList.remove('print-substation-route');
   },[]);
-  const folder=ws.caseFolder;
+  const search=useSearch();
+  const savedId=new URLSearchParams(search).get('orientation');
+  const savedContext=savedId!==null
+    ?savedOrientationContext(savedId,[...(ws.caseFolder?[ws.caseFolder]:[]),...ws.phaseFolders],ws.substationOrientations)
+    :undefined;
+  const folder=savedId!==null?savedContext?.folder:ws.caseFolder;
   const canAccess=ws.role==='fto'||ws.role==='fto_coordinator';
   const canEdit=ws.role==='fto';
   const firstDay=folder ? getNextReportDate(folder,[]) : '';
@@ -30,7 +36,7 @@ export default function SubstationOrientationPage() {
     ?getTrainingFolderDayReference(folder.phase,firstDay,folder.phaseStartDate,folder.daysOff)
     :undefined;
   const orientationPageReference=formatTrainingFolderPageReference(orientationDayReference,2);
-  const existing=folder ? ws.substationOrientations.find(item=>item.recruitBadge===folder.recruitBadge&&item.className===folder.className&&item.phaseStartDate===firstDay&&(item.phase??1)===folder.phase) : undefined;
+  const existing=savedId!==null?savedContext?.existing:folder ? ws.substationOrientations.find(item=>item.recruitBadge===folder.recruitBadge&&item.className===folder.className&&item.phaseStartDate===firstDay&&(item.phase??1)===folder.phase) : undefined;
   const initial=useMemo<SubstationOrientationRecord|null>(()=>folder?existing
     ?{...existing,phase:existing.phase??folder.phase}
     :{

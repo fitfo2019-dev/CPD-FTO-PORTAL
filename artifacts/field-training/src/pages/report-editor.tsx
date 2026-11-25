@@ -46,6 +46,7 @@ import { PacketSubmitControl } from '@/components/packet-review/submit-control.j
 import { activeFtoIdentity, useOperationalProfile } from '@/state/operational-profile.js';
 
 import { RunOptionsDialog } from '@/components/run-options-dialog.js';
+import { savedOrientationHref } from '@/lib/saved-orientation.js';
 
 type EditorStage = 'shift'|'duty'|'runs'|'activity'|'evaluation'|'narrative';
 type FailurePromptTarget = { form:RunChecklistSourceForm;key:string;label:string;choices:readonly string[];mode:'clear'|'edit' };
@@ -759,6 +760,7 @@ export default function ReportEditor() {
   const radioCodeInput='h-10 min-w-0 flex-1 rounded-r border bg-card px-3 font-mono text-base uppercase disabled:opacity-70';
   const week = getSundaySaturdayWeek(r.date);
   const orientationForReport=operationalPacket?.orientation;
+  const orientationHref=savedOrientationHref(ws.role,orientationForReport);
   const trainingDayReference=operationalPacket?.dayReference;
   const runDerivedActivity=runDerivedActivityCounts(r?.runs??[]);
   const trafficSolveSuggestion=runKind==='traffic_stop'&&dispatchedCode==='6'&&citationSummonsRecorded;
@@ -775,7 +777,7 @@ export default function ReportEditor() {
       <PageHead kicker="Shift workspace · Daily Performance Log · U-10.174" title={r.recruitName ? `PO ${r.recruitName} #${r.recruitBadge}` : 'Probationary Officer shift'}>
         <StatusPill s={r.status} />
         <button type="button" data-testid="button-print-daily-log" onClick={() => { if(operationalPacket?.blockingIssues.length){toast({title:'Complete the phase-start packet',description:operationalPacket.blockingIssues.join(' '),variant:'destructive'});return;} window.print(); }} className="h-10 px-3 rounded border bg-card text-sm font-bold inline-flex items-center gap-1.5"><Printer className="h-4 w-4" />Print all forms / PDF</button>
-        {r.phase===1&&<Link href="/substation-orientation" className="inline-flex h-10 items-center rounded border bg-card px-3 text-sm font-bold">Substation Orientation</Link>}
+        {orientationHref&&<Link href={orientationHref} data-testid="link-saved-orientation" className="inline-flex h-10 items-center rounded border bg-card px-3 text-sm font-bold">Substation Orientation</Link>}
         {(editable || commentsEditable) && <button data-testid="button-save-draft" onClick={()=>save()} className="h-10 px-4 rounded bg-primary text-primary-foreground font-bold text-sm active:scale-[.98] transition">{commentsEditable ? 'Save comments' : 'Save draft'}{isDirty && ' *'}</button>}
         {editable && <button data-testid="button-save-next-workday" onClick={()=>save(false,true)} className="h-10 rounded border bg-card px-3 text-sm font-semibold">Save and next workday</button>}
         {editable && !isLimboDay && <button type="button" className="h-10 rounded border bg-card px-3 text-sm font-bold" onClick={()=>{setReviewConfirmed(false);setReviewOpen(true);}} data-testid="button-review-ratings">Review before submission</button>}
