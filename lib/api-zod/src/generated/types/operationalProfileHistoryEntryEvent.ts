@@ -13,4 +13,5 @@ export const OperationalProfileHistoryEntryEvent = {
   created: 'created',
   changed: 'changed',
   baseline: 'baseline',
+  cleared: 'cleared',
 } as const;

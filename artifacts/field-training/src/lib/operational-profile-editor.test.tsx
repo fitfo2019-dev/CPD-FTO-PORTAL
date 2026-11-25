@@ -16,7 +16,9 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
   const previous=new Map<string,PropertyDescriptor|undefined>();
   for(const [key,value] of Object.entries({window:dom.window,document:dom.window.document,navigator:dom.window.navigator,
     HTMLElement:dom.window.HTMLElement,HTMLInputElement:dom.window.HTMLInputElement,Node:dom.window.Node,
-    Event:dom.window.Event,IS_REACT_ACT_ENVIRONMENT:true})){
+    Event:dom.window.Event,CustomEvent:dom.window.CustomEvent,MutationObserver:dom.window.MutationObserver,
+    NodeFilter:dom.window.NodeFilter,HTMLButtonElement:dom.window.HTMLButtonElement,
+    getComputedStyle:dom.window.getComputedStyle.bind(dom.window),IS_REACT_ACT_ENVIRONMENT:true})){
     previous.set(key,Object.getOwnPropertyDescriptor(globalThis,key));
     Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});
   }
@@ -44,8 +46,14 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
      if(reloadFails)throw new OperatorFacingError("The profile could not be refreshed. Your entry is retained.");
      profile=structuredClone(saved);error=undefined;return profile;
    };
+  let clears=0;
+  const clear=async(version:number)=>{
+    if(failures)throw new OperatorFacingError("The profile clear was not confirmed. Reload the saved assignment before retrying.");
+    assert.equal(version,saved.version);
+    clears++;saved={...saved,identity:null,version:version+1};profile=structuredClone(saved);return saved;
+  };
   const render=()=>root.render(<QueryClientProvider client={cache}><OperationalProfileStateContext.Provider value={{
-    profile:error?undefined:profile,editorProfile:profile,pending:false,error,contextKey:`${profile.subject}:${profile.version}`,save,refresh,
+    profile:error?undefined:profile,editorProfile:profile,pending:false,error,contextKey:`${profile.subject}:${profile.version}`,save,clear,refresh,
   }}><OperationalProfilePanel/></OperationalProfileStateContext.Provider></QueryClientProvider>);
   function element<T extends HTMLElement=HTMLElement>(id:string){
     const node=dom.window.document.querySelector<T>(`[data-testid="${id}"]`);assert.ok(node,id);return node;
@@ -62,17 +70,38 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
   try{
     await act(async()=>render());
     assert.equal(element("text-profile-cruiser").textContent,"Not supplied");
-    assert.equal(element("text-profile-cad").textContent,"9150E-1");
+    assert.equal(element("text-profile-cad").textContent,"9150E");
     assert.equal(dom.window.document.querySelectorAll("select").length,0,"Signed roles are not editable");
     await input("9150E-3");await submit();
     assert.equal(writes,0);
+    assert.equal(element<HTMLButtonElement>("button-clear-operational-profile").disabled,true,"Clearing cannot discard an unsaved entry");
     assert.match(element("text-profile-error").textContent!,/side -1 or -2/);
     await input("1234A-2");await submit();await act(async()=>render());
     assert.equal(writes,1);
     assert.equal(saved.identity?.assignmentToken,"1234A-2");
     assert.match(element("text-profile-saved").textContent!,/future packets only/);
     assert.equal(element("text-profile-cruiser").textContent,"Not supplied");
-    assert.equal(element("text-profile-cad").textContent,"1234A-2");
+    assert.equal(element("text-profile-cad").textContent,"1234A");
+
+    await act(async()=>element("button-clear-operational-profile").click());
+    assert.equal(element<HTMLButtonElement>("button-confirm-clear-profile").disabled,true);
+    const cancel=dom.window.document.querySelector<HTMLButtonElement>('[role="alertdialog"] button');
+    assert.ok(cancel);
+    assert.equal(dom.window.document.activeElement,cancel,"Cancel receives default focus");
+    await act(async()=>cancel.click());
+    assert.equal(clears,0);
+    assert.equal(saved.identity?.assignmentToken,"1234A-2");
+    await act(async()=>element("button-clear-operational-profile").click());
+    await act(async()=>element<HTMLInputElement>("checkbox-clear-no-vehicle").click());
+    await act(async()=>element("button-confirm-clear-profile").click());await act(async()=>render());
+    assert.equal(clears,1);
+    assert.equal(structuredClone(saved).identity,null);
+    assert.equal(element<HTMLInputElement>("input-operational-assignment").value,"");
+    assert.equal(element("text-profile-cad").textContent,"");
+    assert.equal(element<HTMLButtonElement>("button-clear-operational-profile").disabled,true);
+    assert.match(element("text-profile-saved").textContent!,/No vehicle assigned/);
+    await input("1234A-2");await submit();await act(async()=>render());
+    assert.equal(saved.identity?.assignmentToken,"1234A-2","Assignment can be saved after clearing");
 
     failures=true;await input("5678B-1");await submit();
     assert.equal(saved.identity?.assignmentToken,"1234A-2");
@@ -99,7 +128,7 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
     await input("9150E-2");await submit();await act(async()=>render());
     assert.equal(saved.subject,"TEST-PO");
     assert.equal(saved.version,1);
-    assert.equal(saved.identity?.cadUnit,"9150E-2");
+    assert.equal(saved.identity?.cadUnit,"9150E");
     profile=saved;
     await act(async()=>render());
     await input("9150E");await submit();await act(async()=>render());
@@ -135,7 +164,7 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
          await act(async()=>element("button-reload-operational-profile").click());await act(async()=>render());
          assert.equal(profile.version,version+1);
          assert.equal(element<HTMLInputElement>("input-operational-assignment").value,token);
-         assert.equal(element("text-profile-cad").textContent,token);
+          assert.equal(element("text-profile-cad").textContent,token.slice(0,5));
          assert.equal(dom.window.document.querySelector('[data-testid="text-profile-error"]'),null);
          assert.equal(element<HTMLButtonElement>("button-save-operational-profile").disabled,true,"Reloaded profile is clean, not saved again");
          assert.equal(writes,writesBefore+1,"Reload is read-only");
@@ -145,6 +174,21 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
        assert.equal(saved.identity?.assignmentToken,"2222C-1");
        assert.match(element("text-profile-saved").textContent!,/Assignment saved/);
      }
+    await act(async()=>element("button-clear-operational-profile").click());
+    saved={...saved,version:saved.version+1,identity:parseOperationalIdentity("1234A-1")};profile=structuredClone(saved);
+    await act(async()=>render());
+    await act(async()=>element<HTMLInputElement>("checkbox-clear-no-vehicle").click());
+    await act(async()=>element("button-confirm-clear-profile").click());
+    assert.equal(clears,1,"A confirmation opened for an older version cannot clear a replacement");
+    assert.match(element("text-profile-error").textContent!,/changed elsewhere/);
+    await act(async()=>element("button-reload-operational-profile").click());await act(async()=>render());
+    failures=true;
+    await act(async()=>element("button-clear-operational-profile").click());
+    await act(async()=>element<HTMLInputElement>("checkbox-clear-no-vehicle").click());
+    await act(async()=>element("button-confirm-clear-profile").click());
+    assert.equal(element<HTMLButtonElement>("button-clear-operational-profile").disabled,true);
+    assert.match(element("text-profile-error").textContent!,/clear was not confirmed/);
+    assert.equal(saved.identity?.assignmentToken,"1234A-1");
   }finally{
     await act(async()=>root.unmount());cache.clear();dom.window.close();
     for(const [key,descriptor]of previous)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);

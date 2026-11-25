@@ -18,7 +18,10 @@ export interface OperationalIdentity {
   cruiserNumber?: string;
   /** @pattern ^[0-9]{4}$ */
   districtToken?: string;
-  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
+  /**
+     * Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.
+     * @pattern ^[0-9]{4}[A-Z](-[12])?$
+     */
   cadUnit: string;
   /** @pattern ^[A-Z]$ */
   company: string;

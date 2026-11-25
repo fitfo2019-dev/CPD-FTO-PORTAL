@@ -144,7 +144,9 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
         await assertRejectedSave(assignmentToken, 8);
       }
     });
-
+    await migrate("operational-profile-clear");
+    assert.equal((await row(legacy)).cad_unit, "9150E");
+    assert.equal((await row(legacy)).version, 9);
     await t.test("column INSERT grants missing district_token reject creation without inserting a row", async () => {
       // Table-wide INSERT covers future columns; narrow it before proving the
       // missing INSERT-column grant, separately from the missing UPDATE grant.
@@ -205,7 +207,7 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
         assert.deepEqual(saved.identity, parseOperationalIdentity(assignmentToken));
         assert.deepEqual((await store.read(identity)).identity, saved.identity);
         const raw = await row(identity);
-        assert.equal(raw.cad_unit, assignmentToken);
+        assert.equal(raw.cad_unit, assignmentToken.slice(0, 5));
         assert.equal(raw.district_token, saved.identity?.districtToken);
         assert.equal(raw.company, saved.identity?.company);
         assert.equal(raw.side, saved.identity?.side ?? null);
@@ -252,12 +254,36 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
       const before = await row(legacy);
       await assert.rejects(store.save(legacy, { assignmentToken: "1234A", expectedVersion: 7 }), versionConflict);
       assert.deepEqual(await row(legacy), before);
-      for (const [assignmentToken, expectedVersion] of [["1234A", 8], ["9151E-2", 9]] as const) {
+      for (const [assignmentToken, expectedVersion] of [["1234A", 9], ["9151E-2", 10]] as const) {
         const saved = await store.save(legacy, { assignmentToken, expectedVersion });
         assert.deepEqual(saved.identity, parseOperationalIdentity(assignmentToken));
         assert.equal((await row(legacy)).cruiser_number, "9150");
       }
-      assert.equal((await row(legacy)).version, 10);
+      assert.equal((await row(legacy)).version, 11);
+    });
+
+    await t.test("clear and save race under narrow runtime grants without losing the version or changing another account", async () => {
+      const beforePo = await row(po);
+      const current = await store.read(fto);
+      const writes = await Promise.allSettled([
+        store.clear(fto, { expectedVersion: current.version, confirmedNoVehicle: true }),
+        store.save(fto, { expectedVersion: current.version, assignmentToken: "1234A-2" }),
+      ]);
+      assert.equal(writes.filter(write => write.status === "fulfilled").length, 1);
+      const rejected = writes.find(write => write.status === "rejected");
+      assert.ok(rejected?.status === "rejected");
+      assert.equal(rejected.reason.status, 409);
+      const winner = await store.read(fto);
+      assert.equal(winner.version, current.version + 1);
+      const empty = await store.clear(fto, { expectedVersion: winner.version, confirmedNoVehicle: true });
+      assert.equal(empty.identity, null);
+      assert.equal((await store.read(fto)).version, empty.version);
+      assert.equal((await row(fto)).assignment_token, null);
+      await assert.rejects(store.save(fto, { assignmentToken: "9150E-1", expectedVersion: 0 }), versionConflict);
+      const restored = await store.save(fto, { assignmentToken: "9150E-2", expectedVersion: empty.version });
+      assert.equal(restored.identity?.cadUnit, "9150E");
+      assert.equal(restored.identity?.side, "2");
+      assert.deepEqual(await row(po), beforePo);
     });
 
     await t.test("lost HTTP save responses preserve committed creation and optional-side edits until explicit reload", async () => {
@@ -357,10 +383,12 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
       const historyBefore = await store.history(fto);
       await db.query("REVOKE INSERT ON agency_training.operational_profile_history FROM profile_runtime");
       await assert.rejects(store.save(fto, { assignmentToken: "9999Z", expectedVersion: before.version }), permissionDenied);
+      await assert.rejects(store.clear(fto, { expectedVersion: before.version, confirmedNoVehicle: true }), permissionDenied);
       assert.deepEqual(await row(fto), before);
       assert.deepEqual(await store.history(fto), historyBefore);
       const absent = { ...fto, id: "FICTIONAL-HISTORY-FAILURE" };
       await assert.rejects(store.save(absent, { assignmentToken: "9999Z", expectedVersion: 0 }), permissionDenied);
+      await assert.rejects(store.clear(absent, { expectedVersion: 0, confirmedNoVehicle: true }), permissionDenied);
       assert.equal(await row(absent), undefined);
       await db.query("GRANT INSERT ON agency_training.operational_profile_history TO profile_runtime");
     });

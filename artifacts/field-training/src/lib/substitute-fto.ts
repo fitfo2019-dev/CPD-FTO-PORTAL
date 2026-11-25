@@ -31,7 +31,7 @@ export function createSubstituteDay(input: SubstituteDayInput, reports: Report[]
   if (substitute.badge.toLowerCase() === regularFto.badge.toLowerCase()) {
     throw new Error('Select a substitute other than the regularly assigned FTO.');
   }
-  if (!shift || !cruiserDistrict || !isValidAssignment(zone, precinct, cruiserDistrict)) {
+  if (!shift || !cruiserDistrict || !isValidAssignment(zone, precinct, cruiserDistrict, shift)) {
     throw new Error('Confirm the coverage shift, zone, precinct, and FTO assignment.');
   }
   if (reports.some(report => report.date === date && report.phase === assignment.phase

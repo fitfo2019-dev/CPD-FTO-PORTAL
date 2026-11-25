@@ -17,6 +17,9 @@ test("vault reopening retains unsided, sided, and historical identities without 
     return report;
   });
   reports.push({...structuredClone(reports[0]),id:"HISTORICAL",operationalIdentity:historical});
+  reports.push({...structuredClone(reports[0]),id:"FORMER-FULL-CAD",operationalIdentity:{
+    assignmentToken:"9150E-2",districtToken:"9150",cadUnit:"9150E-2",company:"E",side:"2",
+  }});
   const original=structuredClone(reports);
   const namespace=`optional-side-${crypto.randomUUID()}`;
   const vault=new OfflineStorage(namespace);
@@ -40,12 +43,12 @@ test("vault reopening retains unsided, sided, and historical identities without 
 
 test("dispatch identities are optional, exact and validated separately from incident geography",()=>{
   const envelope=(data:unknown[])=>({status:"success",metadata:{total_records:data.length},data});
-  const rows=["9150E","9150E-1","9150E-2"].map(unitNumber=>({
+  const rows=["9150E","9151E","9152E"].map(unitNumber=>({
     incidentNumber:"TEST",unitNumber,cadIdentity:parseOperationalIdentity(unitNumber),
     cruiserDistrict:"INCIDENT-DISTRICT",dispatchedAt:"2026-11-24T14:00:00Z",
   }));
   const parsed=mapDispatchIncidentResponse(envelope(rows))!;
-  for(const unit of ["9150E","9150E-1","9150E-2"]) {
+  for(const unit of ["9150E","9151E","9152E"]) {
     const result=selectDispatchIncidentMatch(parsed,"TEST",unit);
     assert.equal(result.status,"matched");
     if(result.status==="matched") {
@@ -55,6 +58,8 @@ test("dispatch identities are optional, exact and validated separately from inci
     assert.equal(selectDispatchIncidentMatch([...parsed,parsed.find(row=>row.unitNumber===unit)!],"TEST",unit).status,"ambiguous");
   }
   assert.equal(mapDispatchIncidentResponse(envelope([{...rows[0],cadIdentity:rows[1].cadIdentity}])),undefined);
+  assert.equal(parseOperationalIdentity("9150E-1").cadUnit,parseOperationalIdentity("9150E-2").cadUnit,
+    "Internal division sides are not CAD unit distinctions");
   for(const cadIdentity of [{...rows[0].cadIdentity,districtToken:"OTHER"},
     {...rows[0].cadIdentity,side:"1"}, {...rows[0].cadIdentity,company:"D"}, null]) {
     assert.equal(mapDispatchPrefillResponse(envelope([{incidentNumber:"TEST",cadIdentity}])),undefined);

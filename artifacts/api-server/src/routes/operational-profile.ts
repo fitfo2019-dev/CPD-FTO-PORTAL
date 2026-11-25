@@ -1,5 +1,5 @@
 import { Router, type RequestHandler } from "express";
-import { GetOperationalProfileHistoryQueryParams, UpdateOperationalProfileBody } from "@workspace/api-zod";
+import { UpdateOperationalProfileBody, ClearOperationalProfileBody, GetOperationalProfileHistoryQueryParams } from "@workspace/api-zod";
 import { requireAgencyIdentity } from "../security/agencyIdentity.js";
 import { getOperationalProfileStore, type OperationalProfileStore } from "../lib/operational-profile-store.js";
 import { PacketError } from "../lib/packet-errors.js";
@@ -41,6 +41,18 @@ export function createOperationalProfileRouter(
     } catch (error) {
       const status = error instanceof PacketError ? error.status : 503;
       res.status(status).json({ error: error instanceof PacketError ? error.code : "AGENCY_STORAGE_UNAVAILABLE" });
+    }
+  });
+  router.post("/v1/account/operational-profile/clear", async (req, res): Promise<void> => {
+    const input = ClearOperationalProfileBody.strict().safeParse(req.body);
+    if (!input.success) { res.status(400).json({ error: "INVALID_OPERATIONAL_PROFILE" }); return; }
+    try {
+      const store = resolveStore();
+      if (!store) throw new PacketError(503, "AGENCY_STORAGE_UNAVAILABLE");
+      res.json(await store.clear(res.locals.agencyIdentity, input.data));
+    } catch (error) {
+      res.status(error instanceof PacketError ? error.status : 503)
+        .json({ error: error instanceof PacketError ? error.code : "AGENCY_STORAGE_UNAVAILABLE" });
     }
   });
   return router;

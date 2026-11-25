@@ -1,6 +1,6 @@
 import type pg from "pg";
 import { parseOperationalIdentity } from "@workspace/api-zod/operational-profile";
-import { GetOperationalProfileHistoryResponse, GetOperationalProfileResponse, UpdateOperationalProfileBody } from "@workspace/api-zod";
+import { GetOperationalProfileResponse, UpdateOperationalProfileBody, ClearOperationalProfileBody, GetOperationalProfileHistoryResponse } from "@workspace/api-zod";
 import type { AgencyIdentity } from "../security/agencyIdentity.js";
 import { hashUserIdentifier } from "../utils/cryptoUtils.js";
 import { getAgencyDatabasePool } from "./agency-database.js";
@@ -40,8 +40,38 @@ export function createOperationalProfileStore(pool: pg.Pool) {
       const row = result.rows[0];
       return GetOperationalProfileResponse.parse({
         subject: identity.id, role: identity.role, badge: identity.badge,
-        identity: row ? parseOperationalIdentity(row.assignment_token) : null,
+        identity: row?.assignment_token ? parseOperationalIdentity(row.assignment_token) : null,
         version: row?.version ?? 0, ...(row ? { updatedAt: new Date(row.updated_at).toISOString() } : {}),
+      });
+    },
+    async clear(identity: AgencyIdentity, input: unknown) {
+      checkRole(identity);
+      const { expectedVersion } = ClearOperationalProfileBody.strict().parse(input);
+      const result = await pool.query(
+        expectedVersion === 0
+          ? `WITH saved AS (INSERT INTO agency_training.operational_profiles (subject_hash)
+            VALUES ($1) ON CONFLICT (subject_hash) DO NOTHING RETURNING version,updated_at),
+            evidence AS (INSERT INTO agency_training.operational_profile_history
+              (subject_hash,version,old_token,new_token,actor_hash,recorded_at,event)
+              SELECT $1,version,NULL,NULL,$1,updated_at,'cleared' FROM saved)
+            SELECT version,updated_at FROM saved`
+          : `WITH prior AS (SELECT assignment_token FROM agency_training.operational_profiles
+              WHERE subject_hash=$1 AND version=$2 FOR UPDATE),
+            saved AS (UPDATE agency_training.operational_profiles AS profile SET assignment_token=NULL,
+            district_token=NULL,cad_unit=NULL,company=NULL,side=NULL,
+            version=version+1,updated_at=clock_timestamp()
+            FROM prior WHERE profile.subject_hash=$1 AND profile.version=$2
+            RETURNING profile.version,profile.updated_at,prior.assignment_token AS old_token),
+            evidence AS (INSERT INTO agency_training.operational_profile_history
+              (subject_hash,version,old_token,new_token,actor_hash,recorded_at,event)
+              SELECT $1,version,old_token,NULL,$1,updated_at,'cleared' FROM saved)
+            SELECT version,updated_at FROM saved`,
+        [hashUserIdentifier(identity.id), ...(expectedVersion ? [expectedVersion] : [])],
+      );
+      if (!result.rows[0]) throw new PacketError(409, "PROFILE_VERSION_CONFLICT");
+      return GetOperationalProfileResponse.parse({
+        subject: identity.id, role: identity.role, badge: identity.badge, identity: null,
+        version: result.rows[0].version, updatedAt: new Date(result.rows[0].updated_at).toISOString(),
       });
     },
     async save(identity: AgencyIdentity, input: unknown) {

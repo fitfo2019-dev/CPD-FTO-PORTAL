@@ -10,8 +10,12 @@ has an unsided form, including `9150E` and universal `80C`; an absent side must
 remain absent. CAD unit digits are district tokens, not physical fleet numbers.
 Validated CAD identities may supply their district token and trailing shift
 letter, but do not establish mapped patrol geography, training company, role,
-badge or record access. Preserve the full source CAD identity and optional side;
-unsided units are not wildcards for sided units.
+badge or record access. Keep the optional side in the division's internal
+assignment only. Remove the side from the CAD identifier: `9150E-1` and
+`9150E-2` both use CAD identifier `9150E`. Do not append a default side for CAD.
+The user clarified: "the CAD doesnt record or read the side. thats internal to
+the division only. the CAD shows cruiser number which are districts which are
+peoples assignments."
 
 Universal `80C` takes precedence over the identically spelled ordinary
 Precinct 8 company choice for new assignments; require an explicit mapped
@@ -21,7 +25,9 @@ remain readable and exportable, including in class workbooks.
 
 **Why:** The user requested a newer vehicle-profile notation while explicitly
 preserving the portal's existing training assignment meanings, then clarified
-that sides are optional and district/shift tokens come from CAD. Conflating
+that sides are optional and district/shift tokens come from CAD. Their later
+clarification explicitly supersedes the former assumption that CAD reads sides.
+Conflating
 these values could silently reinterpret imported rosters, fleet numbers or
 geographic context.
 The universal code spelling overlaps an existing company code, so treating it

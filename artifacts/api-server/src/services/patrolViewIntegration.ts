@@ -1,4 +1,4 @@
-import { OperationalAssignmentToken, operationalIdentityFromCad, type OperationalIdentity } from "@workspace/api-zod/operational-profile";
+import { OperationalCadUnit, operationalIdentityFromCad, type OperationalIdentity } from "@workspace/api-zod/operational-profile";
 
 export type PatrolViewConfig = {
   PATROLVIEW_EVENT_LOOKUP_URL?: string;
@@ -270,7 +270,7 @@ export async function fetchPatrolViewUnitEvent(
   eventId: string, cadUnit: string, config: PatrolViewConfig = process.env,
   fetchImpl: FetchFunction = fetch as FetchFunction,
 ): Promise<DispatchEventPrefill> {
-  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(eventId) || !OperationalAssignmentToken.safeParse(cadUnit).success) {
+  if (!/^[A-Za-z0-9._:-]{1,128}$/.test(eventId) || !OperationalCadUnit.safeParse(cadUnit).success) {
     throw new PatrolViewIntegrationError("PATROLVIEW_INVALID_RESPONSE", 400, "Invalid event or CAD unit.");
   }
   const { endpointTemplate, apiToken } = configuration(config);

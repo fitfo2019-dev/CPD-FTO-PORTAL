@@ -34,11 +34,12 @@ test("history tracks only successful own-account transitions and marks the exist
     assert.equal(baseline.actor, "agency_migration");
     assert.equal(baseline.version, 5);
     assert.ok(baseline.recordedAt.getTime() >= started);
+    await migrate(db, "operational-profile-clear");
     assert.deepEqual(await store.history(po), { subject: po.id, entries: [], nextBeforeVersion: null });
     await store.save(po, { assignmentToken: "1234A", expectedVersion: 0 });
     const prior = await store.read(fto);
     const results = await Promise.allSettled(["9151E-1", "9152E-2"].map(assignmentToken =>
-      store.save(fto, { assignmentToken, expectedVersion: 5 })));
+      store.save(fto, { assignmentToken, expectedVersion: prior.version })));
     assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
     const saved = await store.read(fto);
     const history = await store.history(fto);
@@ -47,7 +48,7 @@ test("history tracks only successful own-account transitions and marks the exist
     assert.equal(history.entries[0].newToken, saved.identity?.assignmentToken);
     assert.equal(history.entries[0].actor, "self");
     assert.equal(history.entries[0].recordedAt.toISOString(), saved.updatedAt?.toISOString());
-    await store.save(fto, { assignmentToken: saved.identity!.assignmentToken, expectedVersion: 6 });
+    const noOp = await store.save(fto, { assignmentToken: saved.identity!.assignmentToken, expectedVersion: saved.version });
     assert.deepEqual(await store.history(fto), history, "No-op saves add no token transition");
     for (const input of [
       { assignmentToken: "9150E-2", expectedVersion: 5 },
@@ -61,7 +62,7 @@ test("history tracks only successful own-account transitions and marks the exist
     assert.doesNotMatch(JSON.stringify(raw.rows), /FICTIONAL|TEST-/);
     assert.deepEqual(await db.query("SELECT report FROM agency_training.packet_test"), packets);
 
-    for (let version = 7; version < 63; version++) {
+    for (let version = noOp.version; version < noOp.version + 56; version++) {
       await store.save(fto, { assignmentToken: version % 2 ? "9150E" : "9150E-2", expectedVersion: version });
     }
     const first = await store.history(fto);

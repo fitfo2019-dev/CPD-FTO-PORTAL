@@ -20,8 +20,8 @@ test("unsided CAD matching does not accept physical cruiser, sided tokens, other
     unit_number:" 9150e ",eventIngressAt:"2026-11-24T12:00:00Z",officerName:"NOT FOR BROWSER",
   }));
   assert.deepEqual(accepted,{eventIngressAt:"2026-11-24T12:00:00.000Z",cadIdentity:parseOperationalIdentity("9150E")});
-  for(const ownUnit of ["9150E","9150E-1","9150E-2"]) {
-    for(const otherUnit of ["9150E","9150E-1","9150E-2"]) {
+  for(const ownUnit of ["9150E","9151E","9152E"]) {
+    for(const otherUnit of ["9150E","9151E","9152E"]) {
       const event=await fetchPatrolViewUnitEvent("TEST",ownUnit,config,response({unitNumber:otherUnit,incidentNumber:"TEST"}));
       assert.deepEqual(event,ownUnit===otherUnit?{incidentNumber:"TEST",cadIdentity:parseOperationalIdentity(ownUnit)}:{});
     }
@@ -43,9 +43,9 @@ test("incident lookup returns only the exact normalized CAD unit's own clocks",a
   assert.equal(rows.length,1);
   assert.equal(rows[0].dispatchedAt,"2026-11-24T13:00:00.000Z");
   assert.equal(rows[0].cadIdentity?.districtToken,"9150");
-  for(const ownUnit of ["9150E","9150E-1","9150E-2"]) {
+  for(const ownUnit of ["9150E","9151E","9152E"]) {
     const result=await fetchPatrolViewIncident("TEST",ownUnit,config,response({
-      incidentNumber:"TEST",units:["9150E","9150E-1","9150E-2"].map(unitNumber=>({unitNumber,dispatchedAt:"2026-11-24T10:00:00Z"})),
+      incidentNumber:"TEST",units:["9150E","9151E","9152E"].map(unitNumber=>({unitNumber,dispatchedAt:"2026-11-24T10:00:00Z"})),
     }));
     assert.equal(result.length,1);
     assert.equal(result[0].cadIdentity?.cadUnit,ownUnit);

@@ -71,6 +71,25 @@ paths:
         "403": { description: Verified FTO or PO required }
         "409": { description: Profile changed; refresh before retry }
         "503": { description: Agency storage unavailable }
+  /v1/account/operational-profile/clear:
+    post:
+      operationId: clearOperationalProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperationalProfileClearInput" }
+      responses:
+        "200":
+          description: Versioned empty own-profile state; account, roster and packets unchanged
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationalProfileContext" }
+        "400": { description: Missing confirmation or invalid request }
+        "401": { description: Sign-in required }
+        "403": { description: Verified FTO or PO required }
+        "409": { description: Profile changed; refresh before retry }
+        "503": { description: Agency storage unavailable }
   /v1/packet-review/context:
     get:
       operationId: getPacketReviewContext
@@ -830,7 +849,7 @@ components:
         assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
         cruiserNumber: { type: string, pattern: "^[0-9]{4}$", deprecated: true, description: "Legacy snapshot only; never infer a physical fleet number from CAD." }
         districtToken: { type: string, pattern: "^[0-9]{4}$" }
-        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
+        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$", description: "Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots." }
         company: { type: string, pattern: "^[A-Z]$" }
         side: { type: string, enum: ["1", "2"] }
     OperationalProfileHistoryEntry:
@@ -843,7 +862,7 @@ components:
         newToken: { type: ["string", "null"] }
         recordedAt: { type: string, format: date-time }
         actor: { type: string, enum: [self, agency_migration] }
-        event: { type: string, enum: [created, changed, baseline] }
+        event: { type: string, enum: [created, changed, baseline, cleared] }
     OperationalProfileHistory:
       type: object
       additionalProperties: false
@@ -854,6 +873,13 @@ components:
           type: array
           items: { $ref: "#/components/schemas/OperationalProfileHistoryEntry" }
         nextBeforeVersion: { type: ["integer", "null"], minimum: 1 }
+    OperationalProfileClearInput:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, confirmedNoVehicle]
+      properties:
+        expectedVersion: { type: integer, minimum: 0, maximum: 2147483646 }
+        confirmedNoVehicle: { type: boolean, enum: [true] }
     OperationalProfileInput:
       type: object
       additionalProperties: false
@@ -1548,7 +1574,7 @@ components:
       additionalProperties: false
       required: [eventId, cadUnit]
       properties:
-        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
+        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z]$" }
         eventId:
           type: string
           minLength: 1

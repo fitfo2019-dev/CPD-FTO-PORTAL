@@ -898,9 +898,14 @@ by default:
    `migrations/agency-training-packet-guards.sql` in that order. These are
    followed by `migrations/operational-profiles.sql` and then
    `migrations/operational-profile-optional-sides.sql` and then
-   `migrations/operational-profile-history.sql` for own-account cruiser
+   `migrations/operational-profile-history.sql` and then
+   `migrations/operational-profile-clear.sql` for own-account cruiser
    profiles; review its narrow column-level runtime grants. Read the bundled
    `OPERATIONAL_PROFILES.md` for profile provisioning and the UI approval boundary.
+   Clearing preserves a versioned empty profile, not a deleted row; accounts,
+   training assignments and saved packet snapshots are unchanged. The final
+   migration strips division-internal sides from current CAD identifiers and
+   invalidates former profile versions without rewriting packet history.
    The ZIP includes compiled `portal/` static assets for agency reverse-proxy
    hosting with SPA fallback; the API does not serve those files itself.
    All of these are

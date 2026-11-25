@@ -46,6 +46,7 @@ export * from './mockLoginEnvelopeStatus';
 export * from './mockLoginInput';
 export * from './operationalIdentity';
 export * from './operationalIdentitySide';
+export * from './operationalProfileClearInput';
 export * from './operationalProfileContext';
 export * from './operationalProfileContextRole';
 export * from './operationalProfileHistory';

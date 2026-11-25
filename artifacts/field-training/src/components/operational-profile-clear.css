@@ -1,0 +1,39 @@
+.op-clear-scope {
+  color-scheme: light;
+}
+.dark .op-clear-scope {
+  color-scheme: dark;
+}
+.op-clear-dialog {
+  background: var(--op-clear-card);
+  color: var(--op-clear-ink);
+  border-color: var(--op-clear-border);
+  border-radius: var(--op-clear-radius);
+  font-family: var(--op-clear-font);
+  padding: calc(var(--op-clear-spacing) * 6);
+  gap: calc(var(--op-clear-spacing) * 4);
+}
+.op-clear-dialog h2 {
+  font-family: var(--op-clear-heading);
+}
+.op-clear-dialog p {
+  color: var(--op-clear-ink);
+}
+.op-clear-button {
+  background: var(--op-clear-danger);
+  color: var(--op-clear-danger-ink);
+  border: 1px solid var(--op-clear-danger);
+  border-radius: calc(var(--op-clear-radius) / 2);
+  min-height: calc(var(--op-clear-spacing) * 10);
+  padding: calc(var(--op-clear-spacing) * 2) calc(var(--op-clear-spacing) * 4);
+  font-family: var(--op-clear-font);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.op-clear-button:disabled {
+  opacity: 0.5;
+}
+.op-clear-button:focus-visible {
+  outline: 2px solid var(--op-clear-ring);
+  outline-offset: 2px;
+}

@@ -6,10 +6,9 @@ import {
 import { OperationalIdentitySnapshot } from "@workspace/api-zod/operational-profile";
 
 type ResponseSchema = { safeParse(value: unknown): { success: boolean } };
-// Legacy derivations are readable only inside historical packets, never as the
-// current live profile (which would incorrectly strip a CAD side).
+// Former full-unit derivations are historical only. CAD does not read sides.
 const liveIdentity = OperationalIdentitySnapshot.refine(identity => identity.districtToken !== undefined
-  && identity.cadUnit === identity.assignmentToken, "The active CAD profile requires its full unit identity.");
+  && identity.cadUnit === identity.assignmentToken.slice(0, 5), "The active CAD profile must omit the internal side.");
 const readProfile = GetOperationalProfileResponse.extend({ identity: liveIdentity.nullable() }).strict();
 const saveProfile = UpdateOperationalProfileResponse.extend({ identity: liveIdentity.nullable() }).strict();
 
@@ -22,6 +21,7 @@ export function objectResponseContract(method: string, pathname: string): Respon
     case "GET /api/v1/account/operational-profile/history": return GetOperationalProfileHistoryResponse.strict();
     case "GET /api/v1/account/operational-profile": return readProfile;
     case "PUT /api/v1/account/operational-profile": return saveProfile;
+    case "POST /api/v1/account/operational-profile/clear": return saveProfile;
     case "GET /api/v1/packet-review/context": return GetPacketReviewContextResponse;
     case "PUT /api/v1/packet-review/coordinator": return UpdatePacketCoordinatorResponse;
     case "GET /api/v1/packet-review/submissions": return ListPacketSubmissionsResponse;

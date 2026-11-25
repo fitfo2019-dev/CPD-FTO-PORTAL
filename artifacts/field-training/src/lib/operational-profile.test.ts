@@ -28,8 +28,14 @@ test("new packets snapshot FTO CAD context without inferring fleet numbers; old 
   assert.deepEqual(prior,original);
   assert.equal(activeFtoIdentity({...profile,role:"PO"},folder),undefined);
   assert.equal(activeFtoIdentity({...profile,badge:"NOT-THE-ASSIGNED-FTO"},folder),undefined);
-  assert.equal(activeFtoIdentity(undefined,folder),undefined);
+  assert.equal(activeFtoIdentity(undefined,folder),null);
   assert.equal(createDailyReportDraft(folder,"2026-11-25",prior).reportingForDuty.cruiserId,"MANUAL");
+  const cleared={...profile,identity:null,version:2};
+  const manual=createDailyReportDraft(folder,"2026-11-26",prior,activeFtoIdentity(cleared,folder));
+  assert.equal(manual.operationalIdentity,undefined);
+  assert.equal(manual.reportingForDuty.cruiserId,undefined,"Cleared assignment does not copy an inactive cruiser into a new packet");
+  assert.deepEqual(prior,original);
+  assert.deepEqual(draft,saved);
 });
 
 test("separate import columns validate operational tokens without changing legacy or universal roster grammar",()=>{

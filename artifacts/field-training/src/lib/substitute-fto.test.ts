@@ -44,6 +44,17 @@ test('a shift-coded FTO assignment is preserved on a substitute-day record',()=>
   assert.equal(report.cruiserDistrict,input.cruiserDistrict);
 });
 
+test('catalog-only substitute districts use the selected watch',()=>{
+  for (const [shift, cruiserDistrict, ftoAssignment] of [
+    ['A-Co','155','155A-1'], ['EMW','9155','9155E-1'], ['DMW','9155','9155D-2'],
+  ] as const) {
+    const report=createSubstituteDay({...input,shift,zone:'3',precinct:'15',cruiserDistrict,ftoAssignment},[],'catalog-coverage','2026-11-16T12:00:00Z');
+    assert.equal(report.cruiserDistrict,cruiserDistrict);
+    assert.equal(report.ftoAssignment,ftoAssignment);
+  }
+  assert.throws(()=>createSubstituteDay({...input,shift:'A-Co',zone:'3',precinct:'15',cruiserDistrict:'9155'},[],'invalid-watch','now'),/coverage shift/);
+});
+
 test('coverage blocks duplicates, wrong FTO, and invalid dates without changing existing work',()=>{
   const report=build();
   const original=structuredClone(report);

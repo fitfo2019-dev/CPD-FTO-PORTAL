@@ -6,6 +6,7 @@
 @import 'tw-animate-css';
 @import './layout-safety.css';
 @import './components/operational-profile-history.css';
+@import './components/operational-profile-clear.css';
 @plugin "@tailwindcss/typography";
 @plugin "daisyui" {
   themes: false;

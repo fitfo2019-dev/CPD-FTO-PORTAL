@@ -31,7 +31,7 @@ export const GetOperationalProfileHistoryResponse = zod.object({
   "newToken": zod.string().nullable(),
   "recordedAt": zod.coerce.date(),
   "actor": zod.enum(['self', 'agency_migration']),
-  "event": zod.enum(['created', 'changed', 'baseline'])
+  "event": zod.enum(['created', 'changed', 'baseline', 'cleared'])
 })),
   "nextBeforeVersion": zod.number().int().min(1).nullable()
 })
@@ -55,7 +55,7 @@ export const GetOperationalProfileResponse = zod.object({
   "assignmentToken": zod.string().regex(getOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(getOperationalProfileResponseIdentityOneCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(getOperationalProfileResponseIdentityOneDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(getOperationalProfileResponseIdentityOneCadUnitRegExp),
+  "cadUnit": zod.string().regex(getOperationalProfileResponseIdentityOneCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(getOperationalProfileResponseIdentityOneCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }),zod.null()]),
@@ -92,8 +92,44 @@ export const UpdateOperationalProfileResponse = zod.object({
   "assignmentToken": zod.string().regex(updateOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(updateOperationalProfileResponseIdentityOneCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(updateOperationalProfileResponseIdentityOneDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(updateOperationalProfileResponseIdentityOneCadUnitRegExp),
+  "cadUnit": zod.string().regex(updateOperationalProfileResponseIdentityOneCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(updateOperationalProfileResponseIdentityOneCompanyRegExp),
+  "side": zod.enum(['1', '2']).optional()
+}),zod.null()]),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+export const clearOperationalProfileBodyExpectedVersionMin = 0;
+export const clearOperationalProfileBodyExpectedVersionMax = 2147483646;
+
+
+
+export const ClearOperationalProfileBody = zod.object({
+  "expectedVersion": zod.number().int().min(clearOperationalProfileBodyExpectedVersionMin).max(clearOperationalProfileBodyExpectedVersionMax),
+  "confirmedNoVehicle": zod.literal(true)
+})
+
+export const clearOperationalProfileResponseVersionMin = 0;
+
+export const clearOperationalProfileResponseIdentityOneAssignmentTokenRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
+export const clearOperationalProfileResponseIdentityOneCruiserNumberRegExp = new RegExp('^[0-9]{4}$');
+export const clearOperationalProfileResponseIdentityOneDistrictTokenRegExp = new RegExp('^[0-9]{4}$');
+export const clearOperationalProfileResponseIdentityOneCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
+export const clearOperationalProfileResponseIdentityOneCompanyRegExp = new RegExp('^[A-Z]$');
+
+
+export const ClearOperationalProfileResponse = zod.object({
+  "subject": zod.string(),
+  "role": zod.enum(['FTO', 'PO']),
+  "badge": zod.string(),
+  "version": zod.number().int().min(clearOperationalProfileResponseVersionMin),
+  "identity": zod.union([zod.object({
+  "assignmentToken": zod.string().regex(clearOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
+  "cruiserNumber": zod.string().regex(clearOperationalProfileResponseIdentityOneCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
+  "districtToken": zod.string().regex(clearOperationalProfileResponseIdentityOneDistrictTokenRegExp).optional(),
+  "cadUnit": zod.string().regex(clearOperationalProfileResponseIdentityOneCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
+  "company": zod.string().regex(clearOperationalProfileResponseIdentityOneCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }),zod.null()]),
   "updatedAt": zod.coerce.date().optional()
@@ -259,7 +295,7 @@ export const GetPacketSubmissionResponse = zod.object({
   "assignmentToken": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(getPacketSubmissionResponseReportOperationalIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),
@@ -716,7 +752,7 @@ export const ListTrainingPacketsResponse = zod.object({
   "assignmentToken": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(listTrainingPacketsResponseDataItemReportOperationalIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),
@@ -831,7 +867,7 @@ export const SyncTrainingPacketsBody = zod.object({
   "assignmentToken": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportOperationalIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),
@@ -975,7 +1011,7 @@ export const FinalizeTrainingPacketResponse = zod.object({
   "assignmentToken": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(finalizeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),
@@ -1105,7 +1141,7 @@ export const ReleaseTrainingPacketResponse = zod.object({
   "assignmentToken": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(releaseTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),
@@ -1238,7 +1274,7 @@ export const AcknowledgeTrainingPacketResponse = zod.object({
   "assignmentToken": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),
@@ -1370,7 +1406,7 @@ export const WithdrawTrainingPacketResponse = zod.object({
   "assignmentToken": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),
@@ -1491,7 +1527,7 @@ export const GetTrainingPacketResponse = zod.object({
   "assignmentToken": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(getTrainingPacketResponseDataItemReportOperationalIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),
@@ -1649,7 +1685,7 @@ export const DispatchIncidentLookupResponse = zod.object({
   "assignmentToken": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(dispatchIncidentLookupResponseDataItemCadIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),
@@ -1676,7 +1712,7 @@ export const DispatchIncidentLookupResponse = zod.object({
  * Looks up one explicit event ID using the protected server-side adapter. This does not discover or poll active units.
  * @summary Look up an approved dispatch event
  */
-export const dispatchEventIngressBodyCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z](-[12])?$');
+export const dispatchEventIngressBodyCadUnitRegExp = new RegExp('^[0-9]{4}[A-Z]$');
 export const dispatchEventIngressBodyEventIdMax = 128;
 
 
@@ -1728,7 +1764,7 @@ export const DispatchEventIngressResponse = zod.object({
   "assignmentToken": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityCruiserNumberRegExp).optional().describe('Legacy snapshot only; never infer a physical fleet number from CAD.'),
   "districtToken": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityDistrictTokenRegExp).optional(),
-  "cadUnit": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityCadUnitRegExp),
+  "cadUnit": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityCadUnitRegExp).describe('Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.'),
   "company": zod.string().regex(dispatchEventIngressResponseDataItemCadIdentityCompanyRegExp),
   "side": zod.enum(['1', '2']).optional()
 }).optional(),

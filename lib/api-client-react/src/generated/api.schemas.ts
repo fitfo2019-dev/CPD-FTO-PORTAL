@@ -24,7 +24,10 @@ export interface OperationalIdentity {
   cruiserNumber?: string;
   /** @pattern ^[0-9]{4}$ */
   districtToken?: string;
-  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
+  /**
+     * Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots.
+     * @pattern ^[0-9]{4}[A-Z](-[12])?$
+     */
   cadUnit: string;
   /** @pattern ^[A-Z]$ */
   company: string;
@@ -46,6 +49,7 @@ export const OperationalProfileHistoryEntryEvent = {
   created: 'created',
   changed: 'changed',
   baseline: 'baseline',
+  cleared: 'cleared',
 } as const;
 
 export interface OperationalProfileHistoryEntry {
@@ -68,6 +72,15 @@ export interface OperationalProfileHistory {
      * @nullable
      */
   nextBeforeVersion: number | null;
+}
+
+export interface OperationalProfileClearInput {
+  /**
+     * @minimum 0
+     * @maximum 2147483646
+     */
+  expectedVersion: number;
+  confirmedNoVehicle: true;
 }
 
 export interface OperationalProfileInput {
@@ -1070,7 +1083,7 @@ export interface DispatchIncidentEnvelope {
 }
 
 export interface DispatchEventIngressInput {
-  /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
+  /** @pattern ^[0-9]{4}[A-Z]$ */
   cadUnit: string;
   /**
      * @minLength 1

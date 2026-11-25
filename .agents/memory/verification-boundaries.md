@@ -59,5 +59,15 @@ Preview generators can rewrite tracked registries during task handoff.
 watcher can dirty its generated component registry between rebase steps and
 interrupt an otherwise clean merge.
 
-**How to apply:** Account for generator writes when checking whether a task's
-working tree is stable enough for handoff.
+**How to apply:** Pause the mockup preview workflow before the handoff rebase,
+leaving the portal and API running. Preserve all registered previews when
+resolving conflicts and finish through the merge-resolution callbacks.
+
+Vite asset imports may include query suffixes such as `?raw`.
+
+**Why:** A Node test loader matching only a filename suffix misses those imports,
+even though Vite handles them in the running app.
+
+**How to apply:** In mounted Node tests, match asset extensions against the
+URL pathname rather than the full module URL. Keep this behavior in test loaders,
+not production components.

@@ -4,6 +4,7 @@ import React, {act} from "react";
 import {JSDOM} from "jsdom";
 import {parseOperationalIdentity} from "@workspace/api-zod/operational-profile";
 import type {DispatchPrefillDraft} from "./dispatch-prefill.js";
+import type { OperationalProfileContext } from "@workspace/api-client-react";
 
 test("event hook aborts former profile/account requests and preserves manual corrections",async t=>{
   const dom=new JSDOM("<div id='root'></div>",{url:"https://localhost/",pretendToBeVisual:true});
@@ -23,7 +24,7 @@ test("event hook aborts former profile/account requests and preserves manual cor
   t.mock.method(globalThis,"fetch",async(_input:unknown,init?:RequestInit)=>new Promise<Response>(resolve=>{
     pending.push({resolve,signal:init!.signal as AbortSignal,body:JSON.parse(String(init?.body))});
   }));
-  let value={profile:{subject:"TEST-A",role:"FTO" as "FTO"|"PO",badge:"TEST",version:1,identity:parseOperationalIdentity("9150E-1")},pending:false,contextKey:"TEST-A:1"};
+  let value:{profile:OperationalProfileContext;pending:boolean;contextKey:string}={profile:{subject:"TEST-A",role:"FTO",badge:"TEST",version:1,identity:parseOperationalIdentity("9150E-1")},pending:false,contextKey:"TEST-A:1"};
   let current:DispatchPrefillDraft={incidentNumber:"",runDateTimeText:"",runTimeText:"",runLocation:"",runLocationCity:"",runLocationState:"",runLocationZip:"",runZone:"",runCruiserDistrict:"",dispatchedCode:"",clearanceCode:""};
   let callbacks=0;
   function Probe(){
@@ -37,7 +38,7 @@ test("event hook aborts former profile/account requests and preserves manual cor
   const reply=(location:string)=>new Response(JSON.stringify({status:"success",metadata:{total_records:1},data:[{location}]}),{status:200,headers:{"Content-Type":"application/json"}});
   try{
     await act(async()=>render());
-    assert.equal(pending[0].body.cadUnit,"9150E-1");
+    assert.equal(pending[0].body.cadUnit,"9150E");
     current={...current,runLocation:"MANUAL CORRECTION"};
     value={...value,profile:{...value.profile,version:2,identity:parseOperationalIdentity("9150E")},contextKey:"TEST-A:2"};
     await act(async()=>render());
@@ -53,7 +54,12 @@ test("event hook aborts former profile/account requests and preserves manual cor
     await act(async()=>{pending[2].resolve(reply("NEW AUTOMATIC LOCATION"));});
     assert.equal(callbacks,1);
     assert.equal(current.runLocation,"MANUAL CORRECTION");
-    value={...value,profile:{...value.profile,role:"PO"},contextKey:"TEST-B:3"};
+    value={...value,profile:{...value.profile,identity:null,version:3},contextKey:"TEST-B:3"};
+    await act(async()=>render());
+    assert.equal(pending[2].signal.aborted,true);
+    assert.equal(pending.length,3,"An empty profile never starts a dispatch lookup");
+    assert.equal(current.runLocation,"MANUAL CORRECTION","Clearing the profile does not erase existing entries");
+    value={...value,profile:{...value.profile,role:"PO"},contextKey:"TEST-B:4"};
     await act(async()=>render());
     assert.equal(pending.length,3,"PO profile does not request the FTO vehicle's dispatch context");
   }finally{

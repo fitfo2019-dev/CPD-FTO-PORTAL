@@ -4,7 +4,8 @@ This feature extends invitation-only, verified agency accounts. It does not add
 registration, roles, badge edits, training assignments, geographic inference or
 access rights. `9150E`, `9150E-1` and `9150E-2` derive district token `9150`,
 raw CAD shift letter `E` (the compatibility field is named `company`), and
-their exact full CAD unit, including side when present. Missing side stays absent.
+CAD identifier `9150E`. The optional side is division-internal and is never
+sent as part of the CAD identifier. Missing internal side stays absent.
 CAD district digits are not a physical vehicle fleet number and never populate
 the editable Cruiser field. The selected training shift/company and patrol
 geography are independent; there is no automatic company-to-shift mapping.
@@ -18,13 +19,15 @@ including in Precinct 8; they never infer district `80`.
 
 The DBA must apply `migrations/operational-profiles.sql`, then
 `migrations/operational-profile-optional-sides.sql`, then
-`migrations/operational-profile-history.sql`, to the same agency
+`migrations/operational-profile-history.sql`, then
+`migrations/operational-profile-clear.sql`, to the same agency
 database as the packet service and review its narrow runtime grants. Existing
-installations apply only the migrations not already installed. Grant INSERT and column-only
+installations apply only migrations not already applied. Grant INSERT and column-only
 UPDATE on `district_token` in addition to the existing profile grants; do not
 widen roster authority. The upgrade preserves legacy `cruiser_number` values
 for audit only, makes missing side NULL, and changes each existing profile's
-version to invalidate in-flight side-stripped lookups. New saves do not write
+version to invalidate in-flight lookups. The final clear migration sets current
+CAD identifiers to the side-free district/shift value. New saves do not write
 that legacy cruiser column. No historical packet JSON is migrated.
 These are single-application migrations; no production migration is run
 by the application or this change. `AGENCY_DATABASE_URL` and
@@ -34,7 +37,7 @@ The separate legacy database schema is not the operational agency database.
 
 ### Least-privilege runtime grants
 
-After all three profile migrations, the DBA applies the following to the existing
+After all profile migrations, the DBA applies the following to the existing
 non-owner runtime role (replace `agency_runtime` with its approved role name).
 The revocations narrow any former table-wide INSERT/UPDATE and legacy
 `cruiser_number` write grants; they do not change stored evidence. Existing
@@ -76,7 +79,8 @@ The test initializes its own temporary cluster and private Unix socket, disables
 TCP listening, and never reads database connection environment settings. It
 applies `agency-training.sql`, `agency-training-packet-review.sql`,
 `agency-training-packet-guards.sql`, `operational-profiles.sql`, and
-`operational-profile-optional-sides.sql`, and `operational-profile-history.sql`
+`operational-profile-optional-sides.sql`, `operational-profile-history.sql`,
+then `operational-profile-clear.sql`
 in that order, with fictional legacy
 profile evidence inserted before the optional-side migration. It uses the exact
 grants above with a non-owner login to check sided/unsided creation, competing
@@ -102,6 +106,26 @@ Authenticated FTOs/POs read and update only
 `expectedVersion` (zero for creation). Conflicts return 409; refresh before
 retrying. Token and derivations commit in one compare-and-swap SQL statement.
 No role, badge, subject, roster or authority columns are writable.
+
+### Clearing an inactive assignment
+
+`POST /api/v1/account/operational-profile/clear` accepts only `expectedVersion`
+and `confirmedNoVehicle: true`. The UI requires an explicit no-vehicle checkbox
+and confirmation; Cancel is focused first. Clearing changes only the signed-in
+FTO/PO's operational fields to NULL and advances the existing version. It never
+deletes a row, account, training assignment or historical packet. Version zero
+is reserved for first creation, including an initial empty profile; it cannot
+recreate a cleared row. Competing clears/saves using the same version have
+exactly one winner. A stale attempt returns 409 and requires an explicit reload.
+
+The clear migration allows only fully empty or valid fully derived profiles.
+It also removes internal sides from current CAD values and increments existing
+profile versions to invalidate former lookups; historical packet JSON and
+legacy cruiser evidence are not rewritten. Existing narrow runtime grants
+suffice; do not grant DELETE or TRUNCATE.
+Clears append a `cleared` own-account history entry in the same SQL statement.
+Missing history storage or INSERT rights roll back the entire clear. Creating
+an initial empty profile also records that explicit no-vehicle decision.
 
 ## Own-account assignment history
 
@@ -157,6 +181,9 @@ offer retry without changing the assignment editor's unsaved input.
 Only a verified FTO whose badge matches the active folder supplies new-packet
 defaults. A prior manually entered physical Cruiser number remains the next
 packet's default; without one the field stays blank, never inferred from CAD.
+An explicitly empty profile (or an unavailable profile during reconnect) uses a
+blank manual Cruiser entry on newly created packets instead of carrying a
+possibly inactive prior value. Existing packets retain every manual correction.
 The physical Cruiser field remains editable. Each newly created packet
 keeps its full derived identity snapshot; saved records, vault restorations and
 manual corrections are never rewritten by profile refresh. A PO profile cannot
@@ -175,6 +202,7 @@ unit aliases never establish a new profile. The existing approved adapter
 derives `cadIdentity` from its returned full unit. Only an exact current
 subject/version/unit match may confirm these tokens in the existing session
 cache. It cannot change the selected assignment, training company or Cruiser.
+The CAD-derived confirmation does not replace the division-internal side.
 Incident geography is stored separately from these operational district tokens.
 The event hook consumes session CAD identity but this
 change does not invent a polling service or claim an adapter is configured.
@@ -195,6 +223,12 @@ Signed role and badge are read-only; only the assignment token is editable.
 The existing vault controls, sign-in, daily forms, headers and presentation
 remain unchanged. Saves use the authenticated compare-and-swap endpoint and
 refresh the subject-scoped cache; other open tabs are notified to refresh.
+The approved clear-assignment control uses the same ownership boundary.
+Writes immediately suspend automatic dispatch context. On success the current
+cache receives the server's new version, including NULL identity. Other tabs
+suspend their old context before refreshing. An unconfirmed write stays
+manual-only until an explicit successful reload; profile writes are never
+queued offline.
 Conflicts and unconfirmed saves require reloading the saved assignment before
 retrying; no offline profile save is claimed. This code integration is not a
 claim that the live agency database or dispatch adapter has been activated.

@@ -6,6 +6,7 @@ import { Panel } from "@/components/bits.js";
 import { useOperationalProfile } from "@/state/operational-profile.js";
 import { operatorErrorMessage } from "@/lib/operator-errors.js";
 import { OperationalProfileHistoryPanel } from "./operational-profile-history.js";
+import { OperationalProfileClearDialog, profileClearTheme } from "./operational-profile-clear-dialog.js";
 
 /** Approved addition only; existing vault controls and form presentation stay intact. */
 export function OperationalProfilePanel() {
@@ -20,7 +21,7 @@ export function OperationalProfilePanel() {
     </div></Panel>;
   }
   return <React.Fragment key={profile.subject}>
-    <ProfileEditor profile={profile} save={state.save} refresh={state.refresh} unavailable={state.error} successfulRead={state.successfulRead}/>
+    <ProfileEditor profile={profile} save={state.save} clear={state.clear} refresh={state.refresh} unavailable={state.error} successfulRead={state.successfulRead}/>
     <OperationalProfileHistoryPanel subject={profile.subject} version={profile.version} unavailable={!!state.error}/>
   </React.Fragment>;
 }
@@ -34,9 +35,10 @@ function RetryProfile({ refresh }: { refresh: () => Promise<OperationalProfileCo
   </button>{error&&<p role="alert">{error}</p>}</>;
 }
 
-function ProfileEditor({ profile, save, refresh, unavailable, successfulRead = 0 }: {
+function ProfileEditor({ profile, save, clear, refresh, unavailable, successfulRead = 0 }: {
   profile: OperationalProfileContext;
   save: (token: string, version: number) => Promise<OperationalProfileContext>;
+  clear?: (version: number) => Promise<OperationalProfileContext>;
   refresh: () => Promise<OperationalProfileContext>;
   unavailable?: string;
   successfulRead?: number;
@@ -49,6 +51,8 @@ function ProfileEditor({ profile, save, refresh, unavailable, successfulRead = 0
   const [refreshError, setRefreshError] = useState<{ message: string; successfulRead: number }>();
   const [message, setMessage] = useState("");
   const [requiresReload, setRequiresReload] = useState(false);
+  const [confirmVersion, setConfirmVersion] = useState<number>();
+  const [confirmed, setConfirmed] = useState(false);
   const mounted = useRef(true);
   const dirty = token !== baseToken;
   const valid = OperationalAssignmentToken.safeParse(token).success;
@@ -74,7 +78,7 @@ function ProfileEditor({ profile, save, refresh, unavailable, successfulRead = 0
   };
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(""); setRefreshError(undefined); setMessage("");
-    if (unavailable || pending || requiresReload || profile.version !== version) return;
+    if (unavailable || pending || requiresReload || confirmVersion !== undefined || profile.version !== version) return;
     if (!valid) { setError("Use four district digits, an uppercase shift letter, and optional side -1 or -2, for example 9150E or 9150E-1."); return; }
     setPending(true);
     try {
@@ -86,6 +90,26 @@ function ProfileEditor({ profile, save, refresh, unavailable, successfulRead = 0
         setError(operatorErrorMessage(cause,"The profile save was not confirmed. Reload the saved assignment before retrying."));
       }
     } finally { if(mounted.current)setPending(false); }
+  }
+  async function clearAssignment() {
+    if (!clear || !confirmed || confirmVersion === undefined || dirty || pending || unavailable || requiresReload) return;
+    if (profile.version !== confirmVersion || version !== confirmVersion) {
+      setConfirmVersion(undefined); setConfirmed(false); setRequiresReload(true);
+      setError("This assignment changed elsewhere. Reload the saved assignment before retrying.");
+      return;
+    }
+    setPending(true); setError(""); setMessage("");
+    try {
+      const saved = await clear(confirmVersion);
+      if (mounted.current) { accept(saved); setMessage("No vehicle assigned. Future packets will use manual vehicle entry."); }
+    } catch (cause) {
+      if (mounted.current) {
+        setRequiresReload(true);
+        setError(operatorErrorMessage(cause, "The profile clear was not confirmed. Reload the saved assignment before retrying."));
+      }
+    } finally {
+      if (mounted.current) { setPending(false); setConfirmVersion(undefined); setConfirmed(false); }
+    }
   }
   return <Panel title="Account Settings · Operational identity" id="operational-profile">
     <form onSubmit={submit} noValidate className="p-4 space-y-4 text-sm" data-testid="form-operational-profile">
@@ -102,13 +126,14 @@ function ProfileEditor({ profile, save, refresh, unavailable, successfulRead = 0
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded border bg-muted/30 p-3"><span className="label-caps">Physical cruiser · read only</span><output className="mono ml-3 font-bold" data-testid="text-profile-cruiser">Not supplied</output></div>
-        <div className="rounded border bg-muted/30 p-3"><span className="label-caps">CAD identifier · read only</span><output className="mono ml-3 font-bold" data-testid="text-profile-cad">{derived?.cadUnit ?? "—"}</output></div>
+        <div className="rounded border bg-muted/30 p-3"><span className="label-caps">CAD identifier · read only</span><output className="mono ml-3 font-bold" data-testid="text-profile-cad">{derived?.cadUnit ?? ""}</output></div>
       </div>
       <p className="border-l-4 border-primary bg-primary/5 p-3"><strong>Future packets only.</strong> Saving changes your account's operational assignment, not your training roster, role, badge or record access. Existing packets and manual Cruiser corrections stay unchanged. A PO profile never replaces the FTO vehicle context.</p>
       {dirty&&profile.version!==version&&<p role="status" className="text-warn">A newer saved assignment is available. Your unsaved entry is retained; reload it before saving.</p>}
       {visibleError&&<p role="alert" className="text-destructive" data-testid="text-profile-error">{visibleError}</p>}
       {unavailable&&<p role="alert" className="text-destructive">{unavailable} Your unsaved entry is retained. Reload to reconnect.</p>}
       {message&&<p role="status" data-testid="text-profile-saved">{message}</p>}
+      {!profile.identity&&!message&&<p role="status" data-testid="text-profile-empty">No vehicle assigned</p>}
       <div className="flex flex-wrap gap-2">
         <button type="submit" disabled={pending||requiresReload||!!unavailable||!dirty||profile.version!==version}
           className="inline-flex h-10 items-center gap-1.5 rounded bg-primary px-4 font-bold text-primary-foreground disabled:opacity-50" data-testid="button-save-operational-profile">
@@ -123,7 +148,15 @@ function ProfileEditor({ profile, save, refresh, unavailable, successfulRead = 0
             });}
             finally{if(mounted.current)setPending(false);}
           }}><RotateCw className="h-4 w-4"/>{dirty?"Discard edits and reload":"Reload saved assignment"}</button>
+        {clear&&<button type="button" className="op-clear-scope op-clear-button" style={profileClearTheme}
+          disabled={pending||requiresReload||!!unavailable||dirty||!profile.identity||profile.version!==version}
+          data-testid="button-clear-operational-profile" onClick={() => {
+            setConfirmed(false); setConfirmVersion(version); setError(""); setMessage("");
+          }}>Clear assignment</button>}
       </div>
     </form>
+    <OperationalProfileClearDialog open={confirmVersion!==undefined} onOpenChange={open => {
+      if (!open) { setConfirmVersion(undefined); setConfirmed(false); }
+    }} confirmed={confirmed} onConfirmedChange={setConfirmed} pending={pending} onConfirm={() => { void clearAssignment(); }}/>
   </Panel>;
 }

@@ -209,11 +209,14 @@ function migrateRatings(value: unknown, previous?: Report['legacyEvaluation']) {
   };
 }
 
-function migrateGeography(value: { zone?: unknown; precinct?: unknown; cruiserDistrict?: unknown; beat?: unknown; legacyGeography?: Report['legacyGeography'] }) {
+function migrateGeography(value: { zone?: unknown; precinct?: unknown; cruiserDistrict?: unknown; shift?: unknown; beat?: unknown; legacyGeography?: Report['legacyGeography'] }) {
   const zone = String(value.zone ?? '');
   const precinct = String(value.precinct ?? '');
   const cruiserDistrict = String(value.cruiserDistrict ?? '');
-  const direct = isValidAssignment(zone, precinct, cruiserDistrict)
+  const shift = typeof value.shift === 'string' ? value.shift : undefined;
+  // Catalog districts need their saved watch; preserve the historical GIS
+  // acceptance path for records created before watch-aware validation.
+  const direct = (isValidAssignment(zone, precinct, cruiserDistrict, shift) || isValidAssignment(zone, precinct, cruiserDistrict))
     ? { zone, precinct, cruiserDistrict }
     : assignmentFromPrecinctAndDistrict(precinct, cruiserDistrict || String(value.beat ?? ''));
   const previousPrecinctText = direct ? undefined : (precinct || undefined);

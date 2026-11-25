@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  getOperationalProfile, updateOperationalProfile, getOperationalProfileHistory, getPacketReviewContext,
+  getOperationalProfile, updateOperationalProfile, clearOperationalProfile, getOperationalProfileHistory, getPacketReviewContext,
   customFetch,
 } from "@workspace/api-client-react";
 import { parseOperationalIdentity } from "@workspace/api-zod/operational-profile";
@@ -68,6 +68,21 @@ test("refreshed unsided profile stays unsided through the actual generated GET a
     assert.deepEqual(result,unsided);
     assert.equal("side" in result.identity!,false);
     assert.equal("cruiserNumber" in result.identity!,false);
+  }
+});
+test("clear client sends explicit confirmation and accepts a persisted empty version, but rejects invalid replies",async t=>{
+  const empty={...profile,identity:null,version:2};
+  let result:unknown=empty;
+  t.mock.method(globalThis,"fetch",async(input:unknown,init?:RequestInit)=>{
+    assert.equal(String(input),"/api/v1/account/operational-profile/clear");
+    assert.equal(init?.method,"POST");
+    assert.deepEqual(JSON.parse(String(init?.body)),{expectedVersion:1,confirmedNoVehicle:true});
+    return json(result);
+  });
+  const clear=()=>clearOperationalProfile({expectedVersion:1,confirmedNoVehicle:true});
+  assert.deepEqual(await clear(),empty);
+  for (const invalid of [{}, {...empty,version:-1}, {...profile,identity:{...profile.identity,cadUnit:"9150E-1"}}]) {
+    result=invalid;await assert.rejects(clear(),/documented contract/);
   }
 });
 

@@ -12,9 +12,9 @@ import { CompletePacketInput } from "../src/lib/packet-contract.js";
 
 const fto: AgencyIdentity={id:"FICTIONAL-FTO",badge:"TEST-1",role:"FTO"};
 const po: AgencyIdentity={id:"FICTIONAL-PO",badge:"TEST-2",role:"PO"};
-test("CAD examples retain full unit and optional side, never an inferred fleet number",()=>{
+test("CAD examples strip internal sides without inferring a physical fleet number",()=>{
   for(const side of ["1","2"]) assert.deepEqual(parseOperationalIdentity(`9150E-${side}`),{
-    assignmentToken:`9150E-${side}`,districtToken:"9150",cadUnit:`9150E-${side}`,company:"E",side,
+    assignmentToken:`9150E-${side}`,districtToken:"9150",cadUnit:"9150E",company:"E",side,
   });
   assert.deepEqual(parseOperationalIdentity("9150E"),{assignmentToken:"9150E",districtToken:"9150",cadUnit:"9150E",company:"E"});
   for(const value of ["9150E1","9150e-1"," 9150E-1","9150E-1 ","9150E-3","80C-1","9150EE-1","915E-1",null,9150])
@@ -28,6 +28,7 @@ test("agency SQL atomically saves own profile, rejects stale concurrent saves an
     await db.exec(await readFile(new URL("../migrations/operational-profiles.sql",import.meta.url),"utf8"));
     await db.exec(await readFile(new URL("../migrations/operational-profile-optional-sides.sql",import.meta.url),"utf8"));
     await db.exec(await readFile(new URL("../migrations/operational-profile-history.sql",import.meta.url),"utf8"));
+    await db.exec(await readFile(new URL("../migrations/operational-profile-clear.sql",import.meta.url),"utf8"));
     const store=createOperationalProfileStore({query:(sql:string,args:unknown[])=>db.query(sql,args)} as unknown as pg.Pool);
     assert.equal((await store.read(fto)).identity,null);
     const creations=await Promise.allSettled(["9150E-1","9150E-2"].map(assignmentToken=>store.save(fto,{assignmentToken,expectedVersion:0})));
@@ -57,7 +58,7 @@ test("agency SQL atomically saves own profile, rejects stale concurrent saves an
     await assert.rejects(db.query("UPDATE agency_training.operational_profiles SET side='1' WHERE assignment_token='9150E'"));
     const sided=await store.save(fto,{assignmentToken:"9150E-2",expectedVersion:3});
     assert.equal(sided.identity?.side,"2");
-    assert.equal((await store.read(fto)).identity?.cadUnit,"9150E-2");
+    assert.equal((await store.read(fto)).identity?.cadUnit,"9150E");
   }finally{await db.close();}
 });
 
@@ -73,6 +74,7 @@ test("authenticated profile routes never accept another subject, roles, badges o
     history:async who=>({subject:who.id,entries:[],nextBeforeVersion:null}),
     read:async who=>({...profile,subject:who.id}),
     save:async(who,_input)=>{assert.equal(who.id,fto.id);writes++;return profile;},
+    clear:async(who,_input)=>{assert.equal(who.id,fto.id);writes++;return {...profile,identity:null,version:2};},
   }));
   const app=express();app.use(express.json());app.use(router);
   const server=app.listen(0,"127.0.0.1");await new Promise<void>(resolve=>server.once("listening",resolve));
@@ -106,6 +108,8 @@ test("complete packet contract keeps identity snapshots optional but rejects for
   assert.equal(CompletePacketInput.safeParse(input({...base,operationalIdentity:{...operationalIdentity,cadUnit:"OTHER"}})).success,false);
   const historical={assignmentToken:"9150E-1",cruiserNumber:"9150",cadUnit:"9150E",company:"E",side:"1"};
   assert.deepEqual(CompletePacketInput.parse(input({...base,operationalIdentity:historical})).packets[0].report.operationalIdentity,historical);
+  const formerFull={assignmentToken:"9150E-2",districtToken:"9150",cadUnit:"9150E-2",company:"E",side:"2"};
+  assert.deepEqual(CompletePacketInput.parse(input({...base,operationalIdentity:formerFull})).packets[0].report.operationalIdentity,formerFull);
   const unsided=parseOperationalIdentity("9150E");
   assert.deepEqual(CompletePacketInput.parse(input({...base,operationalIdentity:unsided})).packets[0].report.operationalIdentity,unsided);
 });
@@ -121,6 +125,10 @@ test("migration preserves former profile evidence and packet JSON while invalida
     await db.exec(await readFile(new URL("../migrations/operational-profile-optional-sides.sql",import.meta.url),"utf8"));
     const raw=await db.query("SELECT version,cad_unit,cruiser_number,district_token FROM agency_training.operational_profiles");
     assert.deepEqual(raw.rows,[{version:2,cad_unit:"9150E-1",cruiser_number:"9150",district_token:"9150"}]);
+    await db.exec(await readFile(new URL("../migrations/operational-profile-history.sql",import.meta.url),"utf8"));
+    await db.exec(await readFile(new URL("../migrations/operational-profile-clear.sql",import.meta.url),"utf8"));
+    const clearedUpgrade=await db.query("SELECT version,cad_unit,cruiser_number,district_token FROM agency_training.operational_profiles");
+    assert.deepEqual(clearedUpgrade.rows,[{version:3,cad_unit:"9150E",cruiser_number:"9150",district_token:"9150"}]);
     assert.deepEqual(await db.query("SELECT report FROM agency_training.historical_test"),before);
   }finally{await db.close();}
 });
