@@ -5,8 +5,10 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import type { Server } from "node:http";
 import pg from "pg";
 import express from "express";
+import { GetOperationalProfileResponse } from "@workspace/api-zod";
 import { parseOperationalIdentity } from "@workspace/api-zod/operational-profile";
 import { createOperationalProfileStore } from "../src/lib/operational-profile-store.js";
 import { createOperationalProfileRouter } from "../src/routes/operational-profile.js";
@@ -28,6 +30,7 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
   let started = false;
   let owner: pg.Pool | undefined;
   let runtime: pg.Pool | undefined;
+  let server: Server | undefined;
   try {
     execFileSync("initdb", ["-D", dataDir, "-U", "profile_owner", "-A", "trust", "--no-locale"], { stdio: "pipe" });
     execFileSync("pg_ctl", ["-D", dataDir, "-l", join(dir, "postgres.log"), "-o",
@@ -50,6 +53,44 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
         ON agency_training.operational_profiles TO profile_runtime;`);
     const limited = runtime = new pg.Pool({ ...connection, user: "profile_runtime" });
     const store = createOperationalProfileStore(limited);
+    let requestIdentity = legacy;
+    const app = express();
+    app.use(express.json());
+    app.use(createOperationalProfileRouter((_req, res, next) => {
+      res.locals.agencyIdentity = requestIdentity;
+      next();
+    }, () => store));
+    const httpServer = server = app.listen(0, "127.0.0.1");
+    await new Promise<void>((resolve, reject) => {
+      httpServer.once("listening", resolve);
+      httpServer.once("error", reject);
+    });
+    const address = httpServer.address();
+    assert.ok(address && typeof address === "object");
+    const url = `http://127.0.0.1:${address.port}/v1/account/operational-profile`;
+    const put = (assignmentToken: string, expectedVersion: number) => fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignmentToken, expectedVersion }),
+    });
+    const profileRows = async () => (await db.query(
+      "SELECT * FROM agency_training.operational_profiles ORDER BY subject_hash",
+    )).rows;
+    const assertRejectedSave = async (assignmentToken: string, expectedVersion: number) => {
+      const before = await profileRows();
+      const readableBefore = await store.read(requestIdentity);
+      const response = await put(assignmentToken, expectedVersion);
+      assert.equal(response.ok, false);
+      assert.equal(response.status, 503);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      const body: unknown = await response.json();
+      assert.deepEqual(body, { error: "AGENCY_STORAGE_UNAVAILABLE" });
+      assert.equal(GetOperationalProfileResponse.safeParse(body).success, false);
+      assert.deepEqual(await profileRows(), before);
+      const readResponse = await fetch(url);
+      assert.equal(readResponse.status, 200);
+      assert.deepEqual(GetOperationalProfileResponse.parse(await readResponse.json()), readableBefore);
+    };
     await db.query(`INSERT INTO agency_training.operational_profiles
       (subject_hash,assignment_token,cruiser_number,cad_unit,company,side,version)
       VALUES ($1,'9150E-1','9150','9150E','E','1',7)`, [hashUserIdentifier(legacy.id)]);
@@ -92,6 +133,17 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
       assert.deepEqual(await row(legacy), before);
     });
 
+    await t.test("HTTP saves denied district_token UPDATE never return a saved profile or change any stored column", async () => {
+      const rights = (await limited.query(`SELECT
+        has_column_privilege(current_user,'agency_training.operational_profiles','district_token','UPDATE') AS district,
+        has_column_privilege(current_user,'agency_training.operational_profiles','assignment_token','UPDATE') AS assignment`)).rows[0];
+      assert.deepEqual(rights, { district: false, assignment: true });
+      requestIdentity = legacy;
+      for (const assignmentToken of ["1234A", "9151E-2"]) {
+        await assertRejectedSave(assignmentToken, 8);
+      }
+    });
+
     await t.test("column INSERT grants missing district_token reject creation without inserting a row", async () => {
       // Table-wide INSERT covers future columns; narrow it before proving the
       // missing INSERT-column grant, separately from the missing UPDATE grant.
@@ -104,12 +156,45 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
       }
     });
 
+    await t.test("HTTP saves denied district_token INSERT never return a saved profile or create a row", async () => {
+      const rights = (await limited.query(`SELECT
+        has_column_privilege(current_user,'agency_training.operational_profiles','district_token','INSERT') AS district,
+        has_column_privilege(current_user,'agency_training.operational_profiles','assignment_token','INSERT') AS assignment`)).rows[0];
+      assert.deepEqual(rights, { district: false, assignment: true });
+      for (const identity of [fto, po]) {
+        requestIdentity = identity;
+        for (const assignmentToken of ["9150E", "9150E-2"]) {
+          await assertRejectedSave(assignmentToken, 0);
+          assert.equal(await row(identity), undefined);
+        }
+      }
+    });
+
     // Execute the exact documented grants so documentation and the permission
     // fixture cannot quietly diverge. Replace only the example role identifier.
     const documentation = readFileSync(new URL("../../../docs/OPERATIONAL_PROFILES.md", import.meta.url), "utf8");
     const grants = documentation.match(/<!-- profile-runtime-grants -->\s*```sql\n([\s\S]*?)```/);
     assert.ok(grants, "documented profile runtime grants must exist");
     await db.query(grants[1].replaceAll("agency_runtime", "profile_runtime"));
+
+    await t.test("the same HTTP route and real store save successfully after restoring documented grants", async () => {
+      requestIdentity = { ...fto, id: "FICTIONAL-HTTP-FTO" };
+      for (const [assignmentToken, expectedVersion] of [["9150E", 0], ["1234A-2", 1]] as const) {
+        const response = await put(assignmentToken, expectedVersion);
+        assert.equal(response.status, 200);
+        const saved = GetOperationalProfileResponse.parse(await response.json());
+        assert.deepEqual(saved, await store.read(requestIdentity));
+        assert.equal(saved.version, expectedVersion + 1);
+        assert.deepEqual(saved.identity, parseOperationalIdentity(assignmentToken));
+        const raw = await row(requestIdentity);
+        assert.equal(raw.assignment_token, assignmentToken);
+        assert.equal(raw.version, saved.version);
+        assert.equal(raw.district_token, saved.identity?.districtToken);
+        assert.equal(raw.cad_unit, saved.identity?.cadUnit);
+        assert.equal(raw.company, saved.identity?.company);
+        assert.equal(raw.side, saved.identity?.side ?? null);
+      }
+    });
 
     await t.test("documented column grants allow sided and unsided creation and exact derivations", async () => {
       assert.equal((await store.read(fto)).version, 0);
@@ -287,6 +372,8 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
       assert.deepEqual((await db.query("SELECT * FROM agency_training.coordinator_directory")).rows, directoryBefore);
     });
   } finally {
+    if (server) await new Promise<void>((resolve, reject) =>
+      server!.close(error => error ? reject(error) : resolve()));
     await runtime?.end();
     await owner?.end();
     if (started) execFileSync("pg_ctl", ["-D", dataDir, "-m", "immediate", "-w", "stop"], { stdio: "pipe" });

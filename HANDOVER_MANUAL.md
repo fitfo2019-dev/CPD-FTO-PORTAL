@@ -913,3 +913,107 @@ and an in-memory PostgreSQL test engine, but no city database, actual city netwo
 production accounts, end-to-end browser account pair or production deployment
 has been verified by this work. These require Columbus IT's approved environment
 and users.
+
+## Operational profile permission-exception validation record — 2026-11-25
+
+Task #180 passed the following combined regression command with **15 tests
+passed, zero failures, zero skips**:
+
+```sh
+pnpm --filter @workspace/scripts exec tsx --test \
+  ../artifacts/api-server/tests/operational-profile-postgres.test.ts \
+  ../artifacts/api-server/tests/operational-profile.test.ts
+```
+
+The total includes the disposable real-PostgreSQL parent and subtests together
+with in-memory store, contract and stub-based route tests; it must not be
+reported as 15 individual real-PostgreSQL HTTP permission-injection cases.
+The real-database HTTP checks exercise `createOperationalProfileRouter` with
+`createOperationalProfileStore` backed by the restricted PostgreSQL pool.
+Only the authenticated identity middleware is supplied by the fictional test
+harness; database permission failures are genuine, not fabricated exceptions.
+
+Verified outcomes:
+
+- A non-owner, non-elevated runtime role lacking `district_token` UPDATE,
+  while retaining assignment-token UPDATE, cannot change an existing profile.
+- Column-level INSERT without `district_token` INSERT rejects new FTO and PO
+  profiles. Sided and unsided valid inputs both exercise the denial path.
+- Every denied HTTP PUT returns **503**, with exactly
+  `{"error":"AGENCY_STORAGE_UNAVAILABLE"}` and `Cache-Control: no-store`.
+  The response fails the saved-profile response schema and contains no
+  saved-profile data or underlying database permission details.
+- Owner-side comparisons of **all columns of all stored profile rows** prove
+  no partial changes to tokens, derived fields, legacy fleet evidence, version
+  or timestamp. Rejected creation leaves no new row. Subsequent HTTP GET
+  returns the unchanged prior profile (or the legitimate empty profile for an
+  account that has never saved one).
+- Applying the exact documented column grants restores successful HTTP
+  creation and updating through the same router, store and connection pool,
+  without a server restart. The returned identity/version matches persistence.
+  This establishes successful subsequent requests, not a claim that restoring
+  database grants automatically uploads drafts or starts background sync.
+
+Isolation: all identities, badges and roster rows are fictional. PostgreSQL is
+freshly initialized in a disposable directory, connects only through its
+private Unix socket and disables TCP database listening. The HTTP harness
+listens on temporary loopback; it does not use the deployed application.
+Connection settings are supplied explicitly, not read from a project/agency
+database URL. The cluster is stopped and removed after testing. No production
+database, city network, real account or live dispatch service was exercised.
+
+### Geography, session reuse and raw-text preservation
+
+An additional **55 alias-resolved tests passed** across
+`assignment-import.test.ts`, `field-workflow.test.ts`,
+`ui-copy-boundaries.test.ts`, `mounted-ui-copy.test.ts`, and
+`optional-side-persistence.test.ts`. Run them with
+`TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json` and the
+workspace scripts' `tsx --test` runner.
+
+The shared registration/phase/import geography catalog retains six zones,
+20 precincts and five supported shifts: A-Co, B-Co, C-Co, DMW and EMW.
+Midwatch districts retain four numeric digits beginning with 9 and the padding
+for single-digit precincts. PTV numbers append 8 to the precinct number and
+are excluded from midwatch; the numeric part can be two or three digits
+depending on precinct length.
+
+**Compatibility distinction:** existing training assignment choices include
+`9011D1`, `9081E2` and `158A1`, with unsided equivalents. They are not silently
+renamed to the illustrative `9011D-1` or `158A-1` spellings. Separate operational
+CAD profiles use four district digits, an uppercase letter and optional
+`-1`/`-2`, such as `9150E-1`. The catalog generates assignment choices from
+fixed geography and shift mappings; not every full assignment string is a
+literal hardcoded catalog entry.
+
+Phase setup uses the shared geography catalog. New report headers inherit the
+active phase folder's geography; the active FTO's validated session profile is
+copied as a separate operational identity snapshot when a report is created.
+Existing reports retain their saved snapshots, and manually entered Cruiser
+values remain editable and are not replaced with inferred fleet numbers.
+This is not proof that every geography field is stored permanently on an
+account at initial registration; roster geography and account CAD identity
+remain separate boundaries.
+
+The capitalization regression check confirms CSS-only uppercase on fixed
+navigation links and no uppercase/capitalize selectors targeting inputs,
+textareas or editable content. Existing controls and fixed-label styles were
+left intact. No layout, checklist alignment, header, typography, color,
+presentation component, narrative, charge field or raw punctuation was changed
+by this documentation pass.
+
+### Source backup, compiler and handover packaging
+
+`pnpm run snapshot:context` completed before these document writes. Its dated
+`local-history-snapshots/` directory includes `.replit-context.md`,
+`HANDOVER_MANUAL.md` and `src/config/phaseConfiguration.ts` with a checksum
+manifest. These are source snapshots only, not database backups.
+
+`pnpm typecheck` followed by
+`pnpm --filter @workspace/field-training run build` completed successfully.
+The handover archive is regenerated with `pnpm run bundle:production`; its
+packager checks ZIP integrity and hard-fails if `dist-production.zip` exceeds
+**26,214,400 bytes (25 MiB)**. The refreshed archive includes this handover
+manual. Local validation logs under `generated-artifacts/task-180/` and source
+snapshots are excluded from Git and deployment. This process does not publish
+or deploy the portal.
