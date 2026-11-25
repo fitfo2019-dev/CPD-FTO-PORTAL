@@ -9,6 +9,7 @@ import type { OperationalProfileHistoryEntry } from './operationalProfileHistory
 
 export interface OperationalProfileHistory {
   subject: string;
+  /** @maxItems 50 */
   entries: OperationalProfileHistoryEntry[];
   /**
      * @minimum 1

@@ -13,7 +13,7 @@
 - [Traffic-stop entry](traffic-stop-entry.md) — enter 10-6 first, then ask high risk in a separate popup; load only the selected primary form.
 - [Academy workflow boundaries](academy-workflow-boundaries.md) — extensions are not academy workflow; substitute-coverage requests and decisions should sync and notify.
 - [Manual contract exports](manual-contract-exports.md) — generated API barrels are replaced by code generation; expose hand-written shared validators through a separate package subpath.
-- [Packet review workflow](packet-review-workflow.md) — assigned Coordinator routing, mandatory red acknowledgment, and separate acknowledgment/approval statuses.
+- [Packet review workflow](packet-review-workflow.md) — PO reads are own-UA-and-totals only; trusted class readers stay read-only, and each handoff action remains distinct.
 - [Verification boundaries](verification-boundaries.md) — Vite/Node JSX, React input focus in JSDOM, and emulated/real PostgreSQL differ; test each at the right boundary.
 - [Operational vehicle identity](operational-vehicle-identity.md) — cruiser profiles are not training roster codes; never infer geography or signed account authority from them.
 - [Resource session continuity](resource-session-continuity.md) — uploaded-file listing and downloads must reuse the portal’s existing signed-in session.

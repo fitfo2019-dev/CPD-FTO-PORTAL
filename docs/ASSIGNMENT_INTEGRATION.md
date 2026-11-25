@@ -35,6 +35,11 @@ integrated with an explicit confirmation. It does not replace local draft save
 or draft sync. Submission seals the local packet only after a server receipt.
 The `/packet-submissions` page uses verified server roles, never the local role
 selector, for the shared inbox, status, assignment and review controls.
+Read-only packet access is class-scoped: FTOs and Coordinators use their active
+server roster assignments; FTO COC, POLICENET and POLICENET Admin — SGT require
+an active trusted staff-class grant. The latter roles receive no workflow
+actions. PO packet views remain restricted to their own UA details and period
+counts.
 
 ## Receipt, review, corrections and reassignment
 
@@ -44,28 +49,64 @@ Invitation-only registration remains intact: a verified PO chooses a Coordinator
 during first-use account setup. A Coordinator can create or edit the assignment
 for a PO already within their trusted roster scope.
 
-Finalization atomically creates one immutable submitted-version snapshot and an
-unacknowledged inbox item for that assigned Coordinator. A red, nondismissible
-popup blocks the Coordinator's workspace until **ACKNOWLEDGE PACKET** succeeds
-on the server; sign-out remains possible. Context polls every five seconds and
-on focus. Server checks also block direct API bypasses while receipts remain.
-If storage is unavailable, the verified Coordinator sees an unavailable gate,
-not a false empty inbox.
+Finalization atomically creates one immutable submitted-version snapshot and
+routes it to the assigned PO for review of their own UA details plus daily,
+weekly, and monthly counts. The Coordinator inbox
+does not receive the snapshot until that review is recorded. Afterward, a red,
+nondismissible popup blocks the Coordinator's workspace until
+**ACKNOWLEDGE PACKET** succeeds on the server; sign-out remains possible.
+Context polls every five seconds and on focus. Server checks also block direct
+API bypasses while receipts remain. If storage is unavailable, the verified
+Coordinator sees an unavailable gate, not a false empty inbox.
 
 Receipt and approval are distinct. The FTO sees **SUBMITTED**, then the exact
-label **PACKET ACKNOWLEDGE**, and **COMPLETE** only after review and approval.
-Approval requires opening that submitted version for review and acknowledging
-all pending receipts. Correction requests require a written reason, preserve
+label **PACKET ACKNOWLEDGE** after the PO review, and **COMPLETE** only after
+Coordinator review and approval. The PO can see only their own unacceptable
+rating details plus daily, weekly, and monthly activity, rating-count, and
+reviewed-run-checklist totals before routing and after release. The PO never
+receives full narrative, run details, other category justifications, or another
+PO's records. Coordinator approval requires opening that submitted version and
+acknowledging all pending receipts. Correction requests require a written reason, preserve
 the earlier snapshot/history, and reopen only that packet as a versioned draft.
 The FTO explicitly opens the correction; an unrelated or newer local draft is
 never silently overwritten. Resubmission requires a new draft version and fresh
 acknowledgment.
+
+**The PO review must happen before Coordinator routing.** It is a review gate,
+not PO approval. **COMPLETE means Coordinator review is complete; it does
+not replace the separate release action.** After approval, a Coordinator
+explicitly releases the snapshot; the PO then sees their UA details and period
+counts and may acknowledge receipt. The sequence is:
+
+1. `awaiting_po_totals_review` — the assigned PO reviews their UA details and
+   daily, weekly, and monthly counts; the Coordinator cannot see the packet yet.
+2. `awaiting_coordinator_receipt` — the PO review is recorded and the packet
+   enters the assigned Coordinator's inbox.
+3. `coordinator_review` — Coordinator receipt is acknowledged; review follows.
+4. `awaiting_po_release` — Coordinator approval is complete, but the released
+   PO view is not yet available.
+5. `awaiting_po_acknowledgment` — the Coordinator released the exact approved
+   snapshot; the PO can see their own UA details and period counts.
+6. `po_acknowledged` — the PO acknowledged receipt of this own-record view.
+   This is not agreement or an electronic signature.
+
+Corrections use `correction_requested`, return to a new submitted version, and
+require fresh PO UA/period review, Coordinator receipt acknowledgment, and
+approval. A permanently
+withdrawn packet uses `withdrawn`. Drafts use `draft`. Both packet-review
+responses and agency packet-read responses expose this server-derived
+`handoff_status`, so the portal can distinguish an approved-but-unreleased
+packet from one visible to the PO. Review, release, and PO acknowledgment
+remain separate authenticated actions.
 
 Coordinator reassignment uses revision checks and explicit UI confirmation.
 Pending work transfers and requires fresh acknowledgment; earlier approved
 snapshots remain unchanged. The former Coordinator loses scope immediately.
 Review actions and finalization use operation IDs to reject conflicting retries.
 Query caches are scoped to the signed-in account.
+
+PO receipt acknowledgment remains separate from the weekly signature workflow.
+It records receipt of the reviewed packet snapshot only.
 
 **Activation is not complete:** no live agency migration, identity provisioning,
 or production deployment was performed. Real shared delivery requires the
@@ -78,19 +119,22 @@ operational access, and the UI does not claim notifications were checked.
 - New installation: use `migrations/agency-training.sql`.
 - Existing installation: use `migrations/agency-training-draft-finalization.sql`
   once, as the agency database owner/admin, before starting this server version.
-- Both installations: then apply `migrations/agency-training-packet-review.sql`
-  once, as the agency database owner/admin. Back up the existing agency database
-  according to agency policy first; no migration runs automatically at startup.
+- Both installations: apply `migrations/agency-training-packet-review.sql`, then
+  `migrations/agency-training-po-totals-review-upgrade.sql`, then
+  `migrations/agency-training-staff-class-access.sql`, once each as the agency
+  database owner/admin. Back up the existing agency database according to
+  agency policy first; no migration runs automatically at startup.
 - The upgrade preserves previously sealed packets as submitted; new uploads
   default to editable drafts. It permits increasing draft versions.
 - Keep a separate non-owner runtime role. It needs packet SELECT/INSERT/UPDATE,
-  assignment/directory SELECT, packet-event INSERT and sequence USAGE. For the
-  new tables grant:
+  assignment/directory SELECT, `staff_class_read_grants` SELECT, packet-event
+  INSERT and sequence USAGE. For the new tables grant:
   - `po_coordinators`: SELECT/INSERT and column-only
     UPDATE(`coordinator_id`,`revision`,`updated_at`);
   - `packet_submissions`: SELECT/INSERT and column-only UPDATE(`coordinator_id`,
-    `state`,`acknowledged_at`,`reviewed_at`,`review_note`);
+    `state`,`po_reviewed_at`,`acknowledged_at`,`reviewed_at`,`review_note`);
   - `packet_review_events`, `packet_review_operations`: SELECT/INSERT only.
+  Trusted provisioning, not the runtime API, creates staff class read grants.
   - EXECUTE on `agency_training.lock_packet_assignment(text,text,text)` and
     `agency_training.lock_active_packet_coordinator(text)`.
 - Keep those two narrow locking functions owned by the agency migration owner,

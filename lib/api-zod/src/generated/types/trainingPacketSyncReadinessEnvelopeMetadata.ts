@@ -7,5 +7,5 @@
  */
 
 export type TrainingPacketSyncReadinessEnvelopeMetadata = {
-  service_available: boolean;
+  can_sync: boolean;
 };

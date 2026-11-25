@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PacketHandoffStatus } from './packetHandoffStatus';
 import type { PacketSubmissionState } from './packetSubmissionState';
 
 export interface PacketSubmission {
@@ -15,13 +16,21 @@ export interface PacketSubmission {
   coordinator_id: string;
   coordinator_name: string;
   state: PacketSubmissionState;
+  handoff_status: PacketHandoffStatus;
   record_date: string;
   po_name: string;
   fto_name: string;
+  can_correct: boolean;
   submitted_at: string;
+  /** @nullable */
+  po_reviewed_at: string | null;
   /** @nullable */
   acknowledged_at: string | null;
   /** @nullable */
   reviewed_at: string | null;
   review_note: string;
+  /** @nullable */
+  released_at: string | null;
+  /** @nullable */
+  po_acknowledged_at: string | null;
 }

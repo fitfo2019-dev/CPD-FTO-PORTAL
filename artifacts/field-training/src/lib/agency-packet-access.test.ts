@@ -14,7 +14,8 @@ function packetResponse() {
   return new Response(JSON.stringify({
     status: "success", metadata: { total_records: 1, role: "FTO" },
     data: [{ id: report.id, assignment_id: crypto.randomUUID(), record_date: report.date, phase: report.phase,
-      server_version: 1, sync_status: "local_draft_pending", report, content_hash: "a".repeat(64),
+       server_version: 1, sync_status: "local_draft_pending", handoff_status: "draft", po_totals: null,
+       report, content_hash: "a".repeat(64),
       released_to_po: false, released_at: null, withdrawn_at: null, withdrawal_reason: null,
       amendment_of: null, amendment_reason: null, acknowledgment: null }],
   }), { headers: { "content-type": "application/json" } });

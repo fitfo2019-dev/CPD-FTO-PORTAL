@@ -11,7 +11,7 @@ export interface OperationalIdentity {
   /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   assignmentToken: string;
   /**
-     * Legacy snapshot only; never infer a physical fleet number from CAD.
+     * Legacy snapshot only; not a physical fleet number.
      * @deprecated
      * @pattern ^[0-9]{4}$
      */

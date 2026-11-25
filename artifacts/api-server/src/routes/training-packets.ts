@@ -1,6 +1,7 @@
 import { Router, json, type RequestHandler } from "express";
 import { randomUUID } from "node:crypto";
 import { SyncTrainingPacketsResponse, GetTrainingPacketParams, ListTrainingPacketsQueryParams, ReleaseTrainingPacketBody,
+  FinalizeTrainingPacketResponse,
   AcknowledgeTrainingPacketBody, WithdrawTrainingPacketBody, FinalizeTrainingPacketBody } from "@workspace/api-zod";
 import { PatrolAssignmentMetadataSchema } from "@workspace/api-zod/patrol-assignment";
 import { CompletePacketInput, CompletePacketsEnvelope } from "../lib/packet-contract.js";
@@ -37,8 +38,8 @@ export function createTrainingPacketsRouter(
     // A browser's online flag does not prove a trusted city-network boundary.
     // Draft synchronization may follow a save/reconnect. Final submission always
     // requires the separate explicit authenticated finalization action.
-    res.json({ status: "success", metadata: { can_sync: Boolean(resolveStore()),service_available:Boolean(resolveStore()) },
-      data: [{ automatic_sync_allowed: false,draft_sync_available:Boolean(resolveStore()),finalization_requires_explicit_action:true }] });
+    res.json({ status: "success", metadata: { can_sync: Boolean(resolveStore()) },
+      data: [{ automatic_sync_allowed: false }] });
   });
   for (const action of ["release", "withdraw", "acknowledge"] as const satisfies readonly PacketReviewAction[]) {
     const schema = action === "release" ? ReleaseTrainingPacketBody.strict() :
@@ -190,8 +191,12 @@ export function createTrainingPacketsRouter(
           requestId:typeof req.id==="string"?req.id:randomUUID(),
           clientIp:req.ip||req.socket.remoteAddress||"unknown",
         },params.data.id,parsed.data);
-      res.json(CompletePacketsEnvelope.parse({status:"success",
-        metadata:{total_records:data.length,role:res.locals.agencyIdentity.role},data}));
+      const packet=data.find(item=>item.id===params.data.id);
+      if(!packet) throw new PacketError(503,"PACKET_FINALIZATION_RECEIPT_MISSING");
+      res.json(FinalizeTrainingPacketResponse.parse({
+        id:packet.id,operation_id:parsed.data.operation_id,server_version:packet.server_version,
+        sync_status:packet.sync_status,content_hash:packet.content_hash,
+      }));
     } catch(error) {sendPacketError(res,error);}
   });
   return router;

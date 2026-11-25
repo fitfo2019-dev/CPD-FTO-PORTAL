@@ -24,6 +24,9 @@ test("signed agency claims require explicit verification and valid badge; browse
     assert.deepEqual(agencyIdentityFromClaims(fto.id, {
       agency: { role: "FTO", badge: "1234", verified: true }, assignments: ["spoofed"],
     }), fto);
+    assert.deepEqual(agencyIdentityFromClaims("trusted-coc", {
+      agency: { role: "FTO_COC", badge: "1234", verified: true }, assignments: ["spoofed"],
+    }), { id: "trusted-coc", badge: "1234", role: "FTO_COC" });
   } finally {
     for (const [key, value] of Object.entries({
       AGENCY_ROLE_CLAIM_PATH: before.role, AGENCY_BADGE_CLAIM_PATH: before.badge,
@@ -339,7 +342,7 @@ test("PO packet history pagination excludes drafts, unreleased and withdrawn pac
         calls.push({ sql, parameters });
         assert.match(sql, /a\.po_id_hash = \$2 AND a\.po_badge_hash = \$3/);
         assert.match(sql, /p\.released_to_po = true AND p\.withdrawn_at IS NULL/);
-        assert.match(sql, /p\.submission_status = 'submitted' OR \$1 = 'FTO'/);
+        assert.match(sql, /p\.submission_status = 'submitted' OR\s*\(\$1 = 'FTO' AND a\.fto_id_hash=\$2 AND a\.fto_badge_hash=\$3\)/);
         assert.match(sql, /\(\$4::text IS NULL OR/);
         assert.match(sql, /\$6::date IS NULL OR p\.record_date >= \$6::date/);
         assert.match(sql, /\$7::date IS NULL OR p\.record_date <= \$7::date/);
@@ -435,7 +438,7 @@ test("PO packet history pagination excludes drafts, unreleased and withdrawn pac
   assert.equal(secondFilteredPage.data.length, 1);
   assert.equal(secondFilteredPage.hasMore, false);
   assert.ok([...firstFilteredPage.data, ...secondFilteredPage.data].every(packet =>
-    String(packet.report.recruitName) === filters.recruit &&
+    packet.report === null &&
     String(packet.assignment_id) === "assigned-po-assignment",
   ));
   assert.ok(calls.every(call => call.parameters[0] === "PO"));

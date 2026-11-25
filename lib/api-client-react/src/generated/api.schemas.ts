@@ -17,7 +17,7 @@ export interface OperationalIdentity {
   /** @pattern ^[0-9]{4}[A-Z](-[12])?$ */
   assignmentToken: string;
   /**
-     * Legacy snapshot only; never infer a physical fleet number from CAD.
+     * Legacy snapshot only; not a physical fleet number.
      * @deprecated
      * @pattern ^[0-9]{4}$
      */
@@ -66,6 +66,7 @@ export interface OperationalProfileHistoryEntry {
 
 export interface OperationalProfileHistory {
   subject: string;
+  /** @maxItems 50 */
   entries: OperationalProfileHistoryEntry[];
   /**
      * @minimum 1
@@ -139,6 +140,21 @@ export interface PacketCoordinatorInput {
   expected_revision: number;
 }
 
+export type PacketHandoffStatus = typeof PacketHandoffStatus[keyof typeof PacketHandoffStatus];
+
+
+export const PacketHandoffStatus = {
+  draft: 'draft',
+  awaiting_po_totals_review: 'awaiting_po_totals_review',
+  awaiting_coordinator_receipt: 'awaiting_coordinator_receipt',
+  coordinator_review: 'coordinator_review',
+  correction_requested: 'correction_requested',
+  awaiting_po_release: 'awaiting_po_release',
+  awaiting_po_acknowledgment: 'awaiting_po_acknowledgment',
+  po_acknowledged: 'po_acknowledged',
+  withdrawn: 'withdrawn',
+} as const;
+
 export type PacketReviewContextRole = typeof PacketReviewContextRole[keyof typeof PacketReviewContextRole];
 
 
@@ -146,6 +162,9 @@ export const PacketReviewContextRole = {
   PO: 'PO',
   FTO: 'FTO',
   FTO_COORDINATOR: 'FTO_COORDINATOR',
+  FTO_COC: 'FTO_COC',
+  POLICENET: 'POLICENET',
+  POLICENET_ADMIN_SGT: 'POLICENET_ADMIN_SGT',
 } as const;
 
 export type PacketSubmissionState = typeof PacketSubmissionState[keyof typeof PacketSubmissionState];
@@ -167,15 +186,23 @@ export interface PacketSubmission {
   coordinator_id: string;
   coordinator_name: string;
   state: PacketSubmissionState;
+  handoff_status: PacketHandoffStatus;
   record_date: string;
   po_name: string;
   fto_name: string;
+  can_correct: boolean;
   submitted_at: string;
+  /** @nullable */
+  po_reviewed_at: string | null;
   /** @nullable */
   acknowledged_at: string | null;
   /** @nullable */
   reviewed_at: string | null;
   review_note: string;
+  /** @nullable */
+  released_at: string | null;
+  /** @nullable */
+  po_acknowledged_at: string | null;
 }
 
 export interface PacketReviewContext {
@@ -221,7 +248,6 @@ export type TrainingPacketReportReportingForDuty = { [key: string]: unknown };
 export type TrainingPacketReportRatings = { [key: string]: unknown };
 
 export interface TrainingPacketReport {
-  operationalIdentity?: OperationalIdentity;
   /**
      * @minLength 1
      * @maxLength 128
@@ -269,12 +295,75 @@ export interface TrainingPacketReport {
   remedial: string;
   /** @maxLength 100000 */
   recruitComments: string;
+  operationalIdentity?: OperationalIdentity;
   [key: string]: unknown;
  }
 
+export type PacketPoPeriodTotalsActivity = {[key: string]: number};
+
+export type PacketPoPeriodTotalsRatingCounts = {
+  /** @minimum 0 */
+  NO: number;
+  /** @minimum 0 */
+  A: number;
+  /** @minimum 0 */
+  RT: number;
+  /** @minimum 0 */
+  UA: number;
+  /** @minimum 0 */
+  NRT: number;
+};
+
+export interface PacketPoPeriodTotals {
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  start_date: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  end_date: string;
+  /** @minimum 0 */
+  log_count: number;
+  /** @minimum 0 */
+  reviewed_log_count: number;
+  activity: PacketPoPeriodTotalsActivity;
+  rating_counts: PacketPoPeriodTotalsRatingCounts;
+  /** @minimum 0 */
+  reviewed_run_checklists: number;
+  /** @minimum 0 */
+  total_runs: number;
+}
+
+export type PacketPoUaDetailRating = typeof PacketPoUaDetailRating[keyof typeof PacketPoUaDetailRating];
+
+
+export const PacketPoUaDetailRating = {
+  UA: 'UA',
+} as const;
+
+export interface PacketPoUaDetail {
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  record_date: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     * @pattern ^[A-Za-z][A-Za-z0-9]*$
+     */
+  category_key: string;
+  rating: PacketPoUaDetailRating;
+  /** @maxLength 100000 */
+  justification: string;
+}
+
+export interface PacketPoTotals {
+  daily: PacketPoPeriodTotals;
+  weekly: PacketPoPeriodTotals;
+  monthly: PacketPoPeriodTotals;
+  /** @maxItems 1000 */
+  unacceptable_details: PacketPoUaDetail[];
+}
+
 export interface PacketSubmissionDetail {
   submission: PacketSubmission;
-  report: TrainingPacketReport;
+  report: TrainingPacketReport | null;
+  po_totals: PacketPoTotals | null;
   history: PacketSubmissionHistory[];
 }
 
@@ -282,6 +371,7 @@ export type PacketReviewActionInputAction = typeof PacketReviewActionInputAction
 
 
 export const PacketReviewActionInputAction = {
+  review_totals: 'review_totals',
   acknowledge: 'acknowledge',
   approve: 'approve',
   return: 'return',
@@ -528,6 +618,35 @@ export interface TrainingPacketSyncItem {
   report: TrainingPacketReport;
 }
 
+export interface TrainingPacketFinalizationInput {
+  operation_id: string;
+  /** @minimum 1 */
+  base_version: number;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
+}
+
+export type TrainingPacketFinalizationReceiptSyncStatus = typeof TrainingPacketFinalizationReceiptSyncStatus[keyof typeof TrainingPacketFinalizationReceiptSyncStatus];
+
+
+export const TrainingPacketFinalizationReceiptSyncStatus = {
+  submitted_complete: 'submitted_complete',
+} as const;
+
+export interface TrainingPacketFinalizationReceipt {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  id: string;
+  operation_id: string;
+  /** @minimum 1 */
+  server_version: number;
+  sync_status: TrainingPacketFinalizationReceiptSyncStatus;
+  /** @pattern ^[a-f0-9]{64}$ */
+  content_hash: string;
+}
+
 export interface TrainingPacketSyncInput {
   /**
      * @minItems 1
@@ -585,12 +704,6 @@ export interface TrainingPacketSyncEnvelope {
   metadata: TrainingPacketSyncEnvelopeMetadata;
   /** @maxItems 100 */
   data: TrainingPacketSyncRecord[];
-}
-
-export interface TrainingPacketFinalizeInput {
-  operation_id: string;
-  /** @pattern ^[a-f0-9]{64}$ */
-  content_hash: string;
 }
 
 export interface TrainingPacketReviewInput {
@@ -653,7 +766,9 @@ export interface TrainingPacketRecord {
   /** @minimum 1 */
   server_version: number;
   sync_status: TrainingPacketRecordSyncStatus;
-  report: TrainingPacketReport;
+  handoff_status: PacketHandoffStatus;
+  report: TrainingPacketReport | null;
+  po_totals: PacketPoTotals | null;
   /** @pattern ^[a-f0-9]{64}$ */
   content_hash: string;
   released_to_po: boolean;
@@ -684,6 +799,9 @@ export const TrainingPacketsEnvelopeMetadataRole = {
   PO: 'PO',
   FTO: 'FTO',
   FTO_COORDINATOR: 'FTO_COORDINATOR',
+  FTO_COC: 'FTO_COC',
+  POLICENET: 'POLICENET',
+  POLICENET_ADMIN_SGT: 'POLICENET_ADMIN_SGT',
 } as const;
 
 export type TrainingPacketsEnvelopeMetadata = {
@@ -716,11 +834,11 @@ export const TrainingPacketSyncReadinessEnvelopeStatus = {
 } as const;
 
 export type TrainingPacketSyncReadinessEnvelopeMetadata = {
-  service_available: boolean;
+  can_sync: boolean;
 };
 
 export type TrainingPacketSyncReadinessEnvelopeDataItem = {
-  draft_sync_available: boolean;
+  automatic_sync_allowed: boolean;
 };
 
 export interface TrainingPacketSyncReadinessEnvelope {
@@ -1026,7 +1144,6 @@ export const DispatchIncidentPrefillClearanceCode = {
 } as const;
 
 export interface DispatchIncidentPrefill {
-  cadIdentity?: OperationalIdentity;
   /**
      * @minLength 1
      * @maxLength 120
@@ -1083,7 +1200,11 @@ export interface DispatchIncidentEnvelope {
 }
 
 export interface DispatchEventIngressInput {
-  /** @pattern ^[0-9]{4}[A-Z]$ */
+  /**
+     * @minLength 1
+     * @maxLength 40
+     * @pattern ^[0-9]{4}[A-Z]$
+     */
   cadUnit: string;
   /**
      * @minLength 1
@@ -1105,7 +1226,6 @@ export const DispatchEventPrefillClearanceCode = {
 } as const;
 
 export interface DispatchEventPrefill {
-  cadIdentity?: OperationalIdentity;
   eventDate?: string;
   eventIngressAt?: string;
   /** @maxLength 120 */

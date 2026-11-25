@@ -6,10 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DispatchIncidentPrefillClearanceCode } from './dispatchIncidentPrefillClearanceCode';
-import type { OperationalIdentity } from './operationalIdentity';
 
 export interface DispatchIncidentPrefill {
-  cadIdentity?: OperationalIdentity;
   /**
      * @minLength 1
      * @maxLength 120

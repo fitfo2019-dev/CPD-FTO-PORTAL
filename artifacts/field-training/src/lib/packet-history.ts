@@ -1,14 +1,17 @@
 import { customFetch, apiEndpoint } from "@workspace/api-client-react";
 import { ListTrainingPacketsResponse } from "@workspace/api-zod";
-import { z } from "zod";
+import { z } from "zod/v4";
 
+const packetRecordSchema = ListTrainingPacketsResponse.shape.data.element;
+const fullReportSchema = z.union([
+  packetRecordSchema.shape.report.options[0].passthrough(),
+  z.null(),
+]);
 const schema = ListTrainingPacketsResponse.extend({
   metadata: ListTrainingPacketsResponse.shape.metadata.extend({
     has_more: z.boolean(), next_cursor: z.string().max(256).nullable(),
   }),
-  data: ListTrainingPacketsResponse.shape.data.element.extend({
-    report: ListTrainingPacketsResponse.shape.data.element.shape.report.passthrough(),
-  }).array().max(100),
+  data: packetRecordSchema.extend({ report: fullReportSchema }).array().max(100),
 });
 export type SharedPacket = ReturnType<typeof schema.parse>["data"][number];
 export type PacketHistoryFilters = { recruit?: string; dateFrom?: string; dateTo?: string };

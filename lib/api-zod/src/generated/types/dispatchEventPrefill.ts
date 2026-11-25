@@ -6,10 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DispatchEventPrefillClearanceCode } from './dispatchEventPrefillClearanceCode';
-import type { OperationalIdentity } from './operationalIdentity';
 
 export interface DispatchEventPrefill {
-  cadIdentity?: OperationalIdentity;
   eventDate?: Date;
   eventIngressAt?: Date;
   /** @maxLength 120 */

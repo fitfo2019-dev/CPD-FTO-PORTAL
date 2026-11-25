@@ -848,7 +848,8 @@ export function WorkspaceProvider({
     wsRef.current=guarded;setWs(guarded);
     try {
       const next=await storage.current.finalizePacket<Workspace>(id,
-        (packetId,operationId,contentHash)=>finalizePacketRequest(packetId,operationId,contentHash,controller.signal));
+        (packetId,operationId,contentHash)=>finalizePacketRequest(
+          packetId,operationId,contentHash,report.serverVersion ?? 0,controller.signal));
       if(controller.signal.aborted) throw new Error('Submission response interrupted. Check shared packet status before retrying.');
       if(next){wsRef.current=next;setWs(next);}
       await refreshPending();

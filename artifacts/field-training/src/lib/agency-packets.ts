@@ -2,13 +2,16 @@ import { listTrainingPackets, releaseTrainingPacket,
   acknowledgeTrainingPacket, withdrawTrainingPacket } from "@workspace/api-client-react";
 import { ListTrainingPacketsResponse, ReleaseTrainingPacketBody,
   AcknowledgeTrainingPacketBody, WithdrawTrainingPacketBody } from "@workspace/api-zod";
-import type { z } from "zod/v4";
+import { z } from "zod/v4";
 
 // Preserve complete uploaded snapshots, not just the generated summary fields.
+const packetRecordSchema = ListTrainingPacketsResponse.shape.data.element;
+const fullReportSchema = z.union([
+  packetRecordSchema.shape.report.options[0].passthrough(),
+  z.null(),
+]);
 export const agencyPacketsEnvelope = ListTrainingPacketsResponse.extend({
-  data: ListTrainingPacketsResponse.shape.data.element.extend({
-    report: ListTrainingPacketsResponse.shape.data.element.shape.report.passthrough(),
-  }).array().max(100),
+  data: packetRecordSchema.extend({ report: fullReportSchema }).array().max(100),
 });
 export type AgencyPacketsEnvelope = z.infer<typeof agencyPacketsEnvelope>;
 export type AgencyPacket = AgencyPacketsEnvelope["data"][number];

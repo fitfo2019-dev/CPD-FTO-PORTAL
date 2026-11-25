@@ -36,19 +36,28 @@ upload protections when extending review states. Mutable current drafts and
 immutable submitted history are different records; a correction must never
 rewrite the prior submitted snapshot.
 
-All PO content-read paths must enforce the same explicit release, non-withdrawal
-and exact-version boundary, including submission detail and its history—not just
-the canonical packet reader. Internal correction history remains staff-only.
+Before Coordinator routing, PO reads expose only `report: null`, their own
+reviewed unacceptable-rating details, and daily, Sunday–Saturday weekly, and
+calendar-month activity, rating, and run-checklist counts. Coordinator visibility
+starts only after the PO records that review. After explicit release, the PO keeps
+the same own-record summary boundary; never expose full reports, narratives, run
+details, non-UA justifications, other POs, or internal correction history to PO
+routes.
 
-**Why:** A second read surface can bypass an otherwise correct release boundary;
-sharing a packet ID does not authorize every historical snapshot.
+Other non-PO packet reads require a trusted active class assignment or class-read
+grant and remain read-only unless that role has a specific workflow action.
+Coordinator receipt, approval, release, and PO receipt acknowledgment remain
+distinct. Weekly signatures are a separate workflow.
 
 **Why:** The approved workflow must preserve real authored records while
-distinguishing receipt, correction and approval.
+distinguishing receipt, correction, approval, and release. A second read surface
+can bypass a correct boundary if it trusts a packet ID or client-selected class.
 
 **How to apply:** Never silently overwrite a newer local correction or route to
-a typed recipient. Do not seed fictional staff/packets to make an unconfigured
-agency service look operational.
+a typed recipient. Use server-derived scope and totals for every packet view;
+do not infer PO authority from a client role or expose a full report as a
+convenience fallback. Do not seed fictional staff/packets to make an
+unconfigured agency service look operational.
 
 Coordinator handoffs and phase-extension decisions must serialize on the same
 per-PO transaction advisory lock. A review must acquire that lock in one

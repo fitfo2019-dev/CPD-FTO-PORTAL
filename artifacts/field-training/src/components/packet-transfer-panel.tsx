@@ -11,6 +11,8 @@ import { formatDateDMY } from '@/lib/training-calendar.js';
 import type { Report } from '@/lib/model.js';
 import './packet-transfer.css';
 
+import { PoPacketSummary } from '@/components/packet-review/po-summary.js';
+
 /** Keyed by role/vault in Reports; session data is never stored in a shared cache. */
 export function PacketTransferPanel() {
   const w = useWorkspace();
@@ -315,11 +317,15 @@ export function PacketTransferPanel() {
         {shared === null ? refreshing ? <p>Loading Authorized Records…</p> : <p>Not Loaded. Choose Refresh Shared Records to Request Authorized Copies.</p>
           : !shared.length && refreshing ? <p>Loading Authorized Records…</p>
           : !shared.length ? <p>No Shared Packets Were Returned for This Account’s Authorized Scope. Local Drafts Are Unchanged.</p>
-          : <><ul>{shared.map(packet => <li key={packet.id} data-testid={`row-shared-packet-${packet.id}`}><CheckCircle2 size={16} /><strong>{formatDateDMY(packet.record_date)} · {packet.report.recruitName}</strong>
-             <span>{packet.sync_status === 'submitted_complete'
-               ? `Submitted · Sealed · Version ${packet.server_version}`
-               : `Server Draft · Not Submitted · Version ${packet.server_version}`}</span>
-              <details className="w-full"><summary data-testid={`button-view-shared-packet-${packet.id}`}>View Saved Packet Data</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words p-2 text-xs">{JSON.stringify(packet.report, null, 2)}</pre></details></li>)}</ul>
+          : <><ul>{shared.map(packet => <li key={packet.id} data-testid={`row-shared-packet-${packet.id}`}><CheckCircle2 size={16} /><strong>{formatDateDMY(packet.record_date)} · {w.ws.role === 'po' ? 'Your Daily Packet' : packet.report?.recruitName ?? 'Packet snapshot unavailable'}</strong>
+             <span>Read-Only · Version {packet.server_version} · Sealed</span>
+             {w.ws.role === 'po'
+               ? packet.po_totals
+                 ? <PoPacketSummary totals={packet.po_totals} testId={`po-shared-summary-${packet.id}`} />
+                 : <p role="alert" className="pp-warning">Your UA details and period counts are unavailable. No full packet details were shown.</p>
+               : packet.report
+                 ? <details className="w-full"><summary data-testid={`button-view-shared-packet-${packet.id}`}>View Saved Packet Data</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words p-2 text-xs">{JSON.stringify(packet.report, null, 2)}</pre></details>
+                 : <p role="alert" className="pp-warning">The assigned packet snapshot could not be loaded. No packet details were shown.</p>}</li>)}</ul>
             {refreshing && <p role="status" className="pp-history-loading">Loading the next page. Previously loaded records remain visible.</p>}</>}
       </div>
       {historyHasMore && !readError && <div className="pp-history-more">

@@ -142,10 +142,10 @@ function SignInPage() {
             Open fictional approval-form preview
           </a>
           <a
-            href="/api/preview?component=PacketReviewPreview"
+            href="/__mockup/preview/PacketHandoffFlowPreview"
             className="inline-flex min-h-10 items-center rounded border border-primary/30 px-4 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
-            Open fictional packet-review preview
+            Open packet handoff preview · fictional data only
           </a>
         </div>
       )}

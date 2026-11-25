@@ -124,6 +124,8 @@ test('the draft upgrade preserves released history and audit types without submi
     }
     await db.exec(await migration('agency-training-draft-finalization.sql'));
     await db.exec(await migration('agency-training-packet-review.sql'));
+    await db.exec(await migration('agency-training-po-totals-review-upgrade.sql'));
+    await db.exec(await migration('agency-training-staff-class-access.sql'));
     await db.exec(await migration('agency-training-packet-guards.sql'));
     const rows=await db.query<{id:string;submission_status:string;report:{narrative:string}}>(
       'SELECT id,submission_status,report FROM agency_training.packets ORDER BY id');
@@ -132,6 +134,7 @@ test('the draft upgrade preserves released history and audit types without submi
     ]);
     assert.ok(rows.rows.every(row=>row.report.narrative==='Keep Mixed CASE'));
     assert.equal((await db.query('SELECT * FROM agency_training.packet_submissions')).rows.length,0);
+    assert.equal((await db.query('SELECT * FROM agency_training.staff_class_read_grants')).rows.length,0);
     assert.equal((await db.query('SELECT * FROM agency_training.packet_events')).rows.length,4);
     assert.equal((await db.query<{comments:string}>('SELECT comments FROM agency_training.packet_acknowledgments')).rows[0].comments,'Original acknowledgment');
     assert.equal((await db.query<{po_id:string|null}>('SELECT po_id FROM agency_training.assignments')).rows[0].po_id,null);

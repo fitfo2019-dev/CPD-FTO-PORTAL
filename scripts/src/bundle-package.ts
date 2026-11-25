@@ -30,6 +30,7 @@ const apiRoot = join(workspaceRoot, "artifacts/api-server");
 const apiDist = join(apiRoot, "dist");
 const outputDir = join(workspaceRoot, "dist-production");
 const archivePath = join(workspaceRoot, "dist-production.zip");
+const maxArchiveBytes = 26_214_400;
 const excludedBuildHelpers = new Set(["pino-file.mjs", "pino-pretty.mjs"]);
 const approvedArchiveMaxBytes = 26_214_400;
 
@@ -278,6 +279,11 @@ async function bundlePackage(): Promise<void> {
   }
 
   const archiveStats = await stat(archivePath);
+  if (archiveStats.size > maxArchiveBytes) {
+    throw new Error(
+      `Production archive exceeds the 25 MB limit (${archiveStats.size} > ${maxArchiveBytes} bytes).`,
+    );
+  }
   console.log(
     `Combined API + portal archive: ${archiveStats.size} bytes (approved maximum: ${approvedArchiveMaxBytes} bytes).`,
   );
