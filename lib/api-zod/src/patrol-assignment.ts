@@ -44,6 +44,19 @@ export const UNIVERSAL_FTO_ASSIGNMENTS = TACTICAL_CALL_SIGNS;
 export const isUniversalFtoAssignment = (value: string | undefined): value is typeof UNIVERSAL_FTO_ASSIGNMENTS[number] =>
   isTacticalCallSign(value);
 
+/** User-confirmed training-roster card catalog. This is not a CAD profile. */
+export const FTO_ASSIGNMENT_DISTRICT_CARDS = [0, 1, 2, 3, 4, 5] as const;
+export const FTO_ASSIGNMENT_SIDES = ["-1", "-2"] as const;
+export const FTO_ASSIGNMENT_COMPANIES = [
+  { shift: "A-Co", code: "A" },
+  { shift: "B-Co", code: "B" },
+  { shift: "C-Co", code: "C" },
+] as const;
+export const FTO_ASSIGNMENT_MIDWATCHES = [
+  { shift: "DMW", code: "D" },
+  { shift: "EMW", code: "E" },
+] as const;
+
 type PrecinctEntry = { readonly precinct: string; readonly cruiserDistricts: readonly string[] };
 export const cpdPrecinctsForZone = (zone: string): readonly PrecinctEntry[] =>
   CPD_GEOGRAPHY.find(item => item.zone === zone)?.precincts ?? [];
@@ -54,6 +67,65 @@ const isCompany = (shift: string) => ["A-Co","B-Co","C-Co"].includes(shift);
 const isMidwatchDistrict = (district: string) => /^9\d{3}$/.test(district);
 const precinctWagonNumber = (zone: string, precinct: string) =>
   cpdPrecinctsForZone(zone).some(item => item.precinct === precinct) ? `${precinct}8` : undefined;
+const cardDistrict = (precinct: string, card: number) => `${precinct}${card}`;
+const midwatchCardDistrict = (precinct: string, card: number) => `9${cardDistrict(precinct, card).padStart(3, "0")}`;
+
+/** All new roster choices for one precinct and watch, including universal options. */
+export function canonicalFtoAssignmentsForPrecinct(zone: string, precinct: string, shift: string): string[] {
+  if (!cpdPrecinctsForZone(zone).some(item => item.precinct === precinct)) return [];
+  const sides: readonly string[] = FTO_ASSIGNMENT_SIDES;
+  const company = FTO_ASSIGNMENT_COMPANIES.find(item => item.shift === shift);
+  if (company) {
+    const districts = FTO_ASSIGNMENT_DISTRICT_CARDS.flatMap(card =>
+      sides.map(side => `${cardDistrict(precinct, card)}${company.code}${side}`));
+    const wagon = sides.map(side => `${precinct}8${company.code}${side}`);
+    return [...new Set([...districts, ...wagon, ...UNIVERSAL_FTO_ASSIGNMENTS])];
+  }
+  const midwatch = FTO_ASSIGNMENT_MIDWATCHES.find(item => item.shift === shift);
+  if (!midwatch) return [];
+  const districts = FTO_ASSIGNMENT_DISTRICT_CARDS.flatMap(card =>
+    sides.map(side => `${midwatchCardDistrict(precinct, card)}${midwatch.code}${side}`));
+  return [...new Set([...districts, ...UNIVERSAL_FTO_ASSIGNMENTS])];
+}
+
+/** New roster district values follow the catalog, not the 2021 GIS snapshot. */
+function canonicalRosterDistrictsForShift(zone: string, precinct: string, shift: string): string[] {
+  if (!cpdPrecinctsForZone(zone).some(item => item.precinct === precinct)) return [];
+  const company = FTO_ASSIGNMENT_COMPANIES.find(item => item.shift === shift);
+  if (company) return [
+    ...FTO_ASSIGNMENT_DISTRICT_CARDS.map(card => cardDistrict(precinct, card)),
+    `${precinct}8`,
+  ];
+  if (FTO_ASSIGNMENT_MIDWATCHES.some(item => item.shift === shift)) {
+    return FTO_ASSIGNMENT_DISTRICT_CARDS.map(card => midwatchCardDistrict(precinct, card));
+  }
+  return [];
+}
+
+function canonicalRosterAssignmentDistrict(zone: string, precinct: string, assignment: string, shift: string) {
+  if (!canonicalFtoAssignmentsForPrecinct(zone, precinct, shift).includes(assignment)
+    || isUniversalFtoAssignment(assignment)) return undefined;
+  return assignment.match(/^(\d{2,4})[A-Z]-[12]$/)?.[1];
+}
+
+/**
+ * Contextual Zod contract for a catalog-backed roster choice. Universal 80C
+ * options remain valid, but historical spellings are intentionally excluded.
+ */
+export const CatalogFtoAssignmentSelectionSchema = z.object({
+  zone: z.string().min(1),
+  precinct: z.string().min(1),
+  shift: z.enum(["A-Co", "B-Co", "C-Co", "DMW", "EMW"]),
+  ftoAssignment: z.string().min(1),
+}).superRefine((value, context) => {
+  if (!canonicalFtoAssignmentsForPrecinct(value.zone, value.precinct, value.shift).includes(value.ftoAssignment)) {
+    context.addIssue({
+      code: "custom",
+      path: ["ftoAssignment"],
+      message: "Choose an assignment from the selected precinct and watch catalog.",
+    });
+  }
+});
 
 export const ftoAssignmentSuffixesForShift = (shift: string): string[] =>
   ({ DMW:["D1","D2","D"], EMW:["E1","E2","E"], "A-Co":["A"], "B-Co":["B"], "C-Co":["C"] }[shift] ?? []);
@@ -67,6 +139,7 @@ export function isValidAssignment(zone: string, precinct: string, district: stri
     if (shift && (isMidwatch(shift) || isCompany(shift))) return isMidwatchDistrict(district) === isMidwatch(shift);
     return true; // Historical records without a mapped modern shift remain readable.
   }
+  if (shift && canonicalRosterDistrictsForShift(zone, precinct, shift).includes(district)) return true;
   return (!shift || isCompany(shift)) && precinctWagonNumber(zone, precinct) === district;
 }
 
@@ -79,6 +152,8 @@ export function cruiserDistrictForFtoAssignment(
       ? explicitDistrict
       : undefined;
   }
+  const catalogDistrict = canonicalRosterAssignmentDistrict(zone, precinct, assignment, shift);
+  if (catalogDistrict) return !explicitDistrict || explicitDistrict === catalogDistrict ? catalogDistrict : undefined;
   const district = districtsForShift(zone, precinct, shift).find(value =>
     ftoAssignmentSuffixesForShift(shift).some(suffix => (isMidwatch(shift)
       ? [`${value}${suffix}`]
@@ -111,6 +186,8 @@ export function isValidFtoAssignment(
   if (isTacticalCallSign(assignment)) {
     return !!cruiserDistrict && districtsForShift(zone, precinct, shift).includes(cruiserDistrict);
   }
+  const catalogDistrict = canonicalRosterAssignmentDistrict(zone, precinct, assignment, shift);
+  if (catalogDistrict) return !cruiserDistrict || catalogDistrict === cruiserDistrict;
   const inferredDistrict = cruiserDistrictForFtoAssignment(zone, precinct, assignment, shift);
   return !!inferredDistrict && (!cruiserDistrict || inferredDistrict === cruiserDistrict);
 }

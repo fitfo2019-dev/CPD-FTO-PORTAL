@@ -1,9 +1,12 @@
 // Shared validation is used by onboarding, imports, local records and the API.
 export {
   CPD_GEOGRAPHY, TACTICAL_CALL_SIGNS, isTacticalCallSign,
+  FTO_ASSIGNMENT_DISTRICT_CARDS, FTO_ASSIGNMENT_SIDES,
+  FTO_ASSIGNMENT_COMPANIES, FTO_ASSIGNMENT_MIDWATCHES,
   UNIVERSAL_FTO_ASSIGNMENTS, isUniversalFtoAssignment,
   cpdPrecinctsForZone, cpdDistrictsForPrecinct, ftoAssignmentSuffixesForShift,
-  ftoAssignmentsForPrecinct, ftoCruiserDistrictsForShift,
+  ftoAssignmentsForPrecinct, canonicalFtoAssignmentsForPrecinct, CatalogFtoAssignmentSelectionSchema,
+  ftoCruiserDistrictsForShift,
   cruiserDistrictForFtoAssignment, isValidFtoAssignment, isValidAssignment,
   assignmentFromPrecinctAndDistrict, PatrolAssignmentMetadataSchema,
   type PatrolAssignmentMetadata,

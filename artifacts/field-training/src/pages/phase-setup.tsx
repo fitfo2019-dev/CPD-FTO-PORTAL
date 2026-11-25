@@ -8,7 +8,7 @@ import { PageHead, Panel } from '@/components/bits.js';
 import { Form } from '@/components/ui/form.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
 import { useWorkspace } from '@/state/workspace.js';
-import { CPD_GEOGRAPHY, cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, ftoCruiserDistrictsForShift, cpdPrecinctsForZone, isUniversalFtoAssignment, isValidFtoAssignment } from '@/lib/cpd-geography.js';
+import { CPD_GEOGRAPHY, cruiserDistrictForFtoAssignment, canonicalFtoAssignmentsForPrecinct, ftoCruiserDistrictsForShift, cpdPrecinctsForZone, isUniversalFtoAssignment, isValidFtoAssignment } from '@/lib/cpd-geography.js';
 import { assignmentToCaseFolder, TrainingAssignmentsPanel } from '@/components/training-assignments-panel.js';
 import { PHASES, PHASE_LENGTH_WEEKS, SHIFTS, SHIFT_LABEL, WEEKDAYS, phaseLabel, type Phase, type PhaseCaseFolder, type Shift, type TrainingAssignment, type Weekday } from '@/lib/model.js';
 import { createPhaseWeekRanges, formatDateDMY, formatDateEntryMDY, formatDateTimeMDY, getCaseFolderWeekRanges, getSundaySaturdayWeek, parseDateDMY, requiredDaysOff } from '@/lib/training-calendar.js';
@@ -274,7 +274,7 @@ export default function PhaseSetupPage() {
               <legend className="text-sm font-semibold">FTO assignment</legend>
               {fieldError('ftoAssignment')&&<p className="text-xs font-normal text-destructive" role="alert">{fieldError('ftoAssignment')}</p>}
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="FTO assignment choices" data-testid="group-fto-assignments">
-                {ftoAssignmentsForPrecinct(zone,precinct,shift).map(value=>{
+                {canonicalFtoAssignmentsForPrecinct(zone,precinct,shift).map(value=>{
                   const universal=isUniversalFtoAssignment(value);
                   const mappedDistrict=universal?undefined:cruiserDistrictForFtoAssignment(zone,precinct,value,shift);
                   const isWagon=!!mappedDistrict&&mappedDistrict===`${precinct}8`;
