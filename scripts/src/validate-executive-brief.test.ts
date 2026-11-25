@@ -4,7 +4,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-const title = "City of Columbus Executive Brief";
+const title = "Field Training Officer Portal";
+const outputStem = "City-of-Columbus-Chain-of-Command-Brief";
 const outputDirectory = fileURLToPath(
   new URL("../../generated-artifacts/website-records/", import.meta.url),
 );
@@ -14,25 +15,25 @@ const canonicalPath = fileURLToPath(
 const outputPaths = {
   markdown: fileURLToPath(
     new URL(
-      "../../generated-artifacts/website-records/City-of-Columbus-Executive-Brief.md",
+      `../../generated-artifacts/website-records/${outputStem}.md`,
       import.meta.url,
     ),
   ),
   html: fileURLToPath(
     new URL(
-      "../../generated-artifacts/website-records/City-of-Columbus-Executive-Brief.html",
+      `../../generated-artifacts/website-records/${outputStem}.html`,
       import.meta.url,
     ),
   ),
   text: fileURLToPath(
     new URL(
-      "../../generated-artifacts/website-records/City-of-Columbus-Executive-Brief.txt",
+      `../../generated-artifacts/website-records/${outputStem}.txt`,
       import.meta.url,
     ),
   ),
   pdf: fileURLToPath(
     new URL(
-      "../../generated-artifacts/website-records/City-of-Columbus-Executive-Brief.pdf",
+      `../../generated-artifacts/website-records/${outputStem}.pdf`,
       import.meta.url,
     ),
   ),
@@ -74,7 +75,7 @@ test("all executive brief exports use the canonical title", () => {
   );
 
   assert.equal(markdown.match(/^# (.+)$/m)?.[1], title);
-  assert.equal(text.match(/^# (.+)$/m)?.[1], title);
+  assert.equal(text.split(/\r?\n/)[0], title);
   assert.equal(html.match(/<title>(.*?)<\/title>/i)?.[1], title);
   assert.equal(html.match(/<h1(?:\s[^>]*)?>(.*?)<\/h1>/i)?.[1], title);
   assert.equal(pdfInfo.match(/^Title:\s*(.+)$/m)?.[1].trim(), title);
@@ -87,19 +88,55 @@ test("all executive brief exports use the canonical title", () => {
   );
 });
 
-test("exports use the executive-brief filenames, not stale website-overview names", () => {
+test("exports use the current chain-of-command brief filenames", () => {
   const filenames = readdirSync(outputDirectory);
   for (const extension of ["md", "html", "txt", "pdf"]) {
     assert.ok(
-      filenames.includes(`City-of-Columbus-Executive-Brief.${extension}`),
-      `Missing executive brief .${extension} export`,
+      filenames.includes(`${outputStem}.${extension}`),
+      `Missing chain-of-command brief .${extension} export`,
     );
   }
-  assert.deepEqual(
-    filenames.filter((name) => /^Columbus-FTO-Website-Overview\./i.test(name)),
-    [],
-    "Stale website-overview exports should be renamed",
+});
+
+test("contents links resolve in HTML and remain clickable in the PDF", () => {
+  const canonical = readFileSync(canonicalPath, "utf8");
+  const html = readFileSync(outputPaths.html, "utf8");
+  const contentsStart = canonical.indexOf("## Contents");
+  const nextSection = canonical.indexOf("\n## ", contentsStart + "## Contents".length);
+  const contents =
+    contentsStart >= 0
+      ? canonical.slice(contentsStart, nextSection >= 0 ? nextSection : undefined)
+      : "";
+  const destinations = [...contents.matchAll(/\[[^\]]+\]\(#([a-z0-9-]+)\)/g)].map(
+    (match) => match[1],
   );
+
+  assert.ok(destinations.length >= 8, "The canonical contents list should cover major sections");
+  for (const destination of destinations) {
+    assert.ok(
+      html.includes(`href="#${destination}"`),
+      `HTML contents link is missing: ${destination}`,
+    );
+    assert.ok(
+      html.includes(`id="${destination}"`),
+      `HTML section destination is missing: ${destination}`,
+    );
+  }
+
+  const pdfObjects = execFileSync("mutool", ["show", outputPaths.pdf, "grep"], {
+    encoding: "utf8",
+  });
+  assert.match(pdfObjects, /\/Subtype\/Link/, "PDF should contain clickable link annotations");
+  for (const destination of destinations) {
+    assert.ok(
+      pdfObjects.includes(`/Dest/${destination}/F`),
+      `PDF contents link is missing: ${destination}`,
+    );
+    assert.ok(
+      pdfObjects.includes(`/${destination}[`),
+      `PDF destination is missing: ${destination}`,
+    );
+  }
 });
 
 test("all formats retain essential readiness and pilot content", () => {

@@ -5,6 +5,21 @@
 **Evidence cutoff:** Source and handover material reviewed through November 24, 2026
 **Purpose:** Explain the current portal, its workflows, integration readiness, and a practical way to measure a City-approved pilot.
 
+## Contents
+
+- [Executive overview](#executive-overview)
+- [How to read readiness labels](#how-to-read-readiness-labels)
+- [Roles and boundaries](#roles-and-boundaries)
+- [Feature inventory](#feature-inventory)
+- [Walkthrough: typical work from shift to oversight](#walkthrough-typical-work-from-shift-to-oversight)
+- [Integration-readiness inventory](#integration-readiness-inventory)
+- [Where current source and older documents disagree](#where-current-source-and-older-documents-disagree)
+- [Efficiency mechanisms and limits](#efficiency-mechanisms-and-limits)
+- [City-approved pilot measurement framework](#city-approved-pilot-measurement-framework)
+- [City decisions and acceptance checks before operational use](#city-decisions-and-acceptance-checks-before-operational-use)
+- [Evidence index](#evidence-index)
+- [Bottom line](#bottom-line)
+
 > **Readiness notice.** This is a source-based product briefing, not City approval, a security or compliance certification, a production-readiness decision, or evidence of realized time savings. No live Columbus identity provider, dispatch feed, records service, agency database, or production host was verified for this briefing. No operational connection is claimed.
 
 ## Executive overview

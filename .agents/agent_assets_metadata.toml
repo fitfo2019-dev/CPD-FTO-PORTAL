@@ -635,28 +635,28 @@ content_type = "text/html"
 id = "IuIWgvi0YvitMNbbIeYwB"
 uri = "file://generated-artifacts/website-records/City-of-Columbus-Chain-of-Command-Brief.pdf"
 type = "pdf"
-title = "Columbus FTO Portal Brief"
-description = "Regenerated PDF with a clickable contents page linking to the brief’s canonical sections."
+title = "Columbus stakeholder briefing PDF"
+description = "The refreshed print-ready brief includes a linked contents page and verified internal PDF section links."
 logical_id = "31489a28-9b72-49ee-b7f1-30b829ba6fb9"
-content_hash = "sha256:cc88d144846c9e9d72d58f99f8f11962c9c347ad2c5f501e9586afdc2d8ac7db"
-size = 287389
-mtime_ms = 1795647729923
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/31489a28-9b72-49ee-b7f1-30b829ba6fb9/fbd73083-b3bd-47fe-9b41-25ac49e9acc3"
-storage_version_token = "1795647811022720"
+content_hash = "sha256:c980022383a0219c94e5cdac4831e12dbded9beedb550c921becf4ae762d51b1"
+size = 286512
+mtime_ms = 1795647748886
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/31489a28-9b72-49ee-b7f1-30b829ba6fb9/b3f6a6e0-e39a-4a27-b76c-693862ea7ff1"
+storage_version_token = "1795647890476629"
 content_type = "application/pdf"
 
 [[outputs]]
 id = "6Vxac52GzF-37SbJhlnKK"
 uri = "file://generated-artifacts/website-records/City-of-Columbus-Chain-of-Command-Brief.html"
 type = "html"
-title = "City of Columbus Chain of Command Brief (HTML)"
-description = "Renamed HTML export with matching page title and content."
+title = "Columbus stakeholder briefing HTML"
+description = "The refreshed HTML brief includes working links from Contents to major sections."
 logical_id = "bd7218c7-0d93-425c-98cd-3e3bc46faa34"
-content_hash = "sha256:86086d7894f6159cc7b2faeac493b06bf9b5be70e3c08c07ffb31dab99d45cca"
-size = 51435
-mtime_ms = 1795585457573
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/bd7218c7-0d93-425c-98cd-3e3bc46faa34/8a8410a9-10a4-4c74-90e3-d081fe12383a"
-storage_version_token = "1795585471240211"
+content_hash = "sha256:393b3da14df804a3023e50dd221766f8e5f7f7530568996e04585454074ebd0e"
+size = 53518
+mtime_ms = 1795647747610
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/bd7218c7-0d93-425c-98cd-3e3bc46faa34/5707f16d-643b-4ab6-9514-79b5730eab57"
+storage_version_token = "1795647891127792"
 content_type = "text/html"
 
 [[outputs]]

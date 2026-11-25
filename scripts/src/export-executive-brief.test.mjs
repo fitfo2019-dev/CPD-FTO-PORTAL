@@ -10,6 +10,9 @@ import {
 test("renders headings, inline formatting, lists, quotes, and tables as HTML", () => {
   const source = [
     "# Executive Brief",
+    "## City decisions & acceptance",
+    "",
+    "[City decisions](#city-decisions-acceptance)",
     "",
     "A **bold** point with `code`.",
     "",
@@ -25,12 +28,21 @@ test("renders headings, inline formatting, lists, quotes, and tables as HTML", (
   const html = markdownToHtml(source);
 
   assert.match(html, /<h1>Executive Brief<\/h1>/);
+  assert.match(html, /<h2 id="city-decisions-acceptance">City decisions &amp; acceptance<\/h2>/);
+  assert.match(html, /<a href="#city-decisions-acceptance">City decisions<\/a>/);
   assert.match(html, /<strong>bold<\/strong>/);
   assert.match(html, /<code>code<\/code>/);
   assert.match(html, /<blockquote><p>A quoted notice\.<\/p><\/blockquote>/);
   assert.match(html, /<ol>[\s\S]*<li>First step<\/li>[\s\S]*<li>Second step<\/li>/);
   assert.match(html, /<th>Label<\/th>/);
   assert.match(html, /<td><strong>Yes<\/strong><\/td>/);
+});
+
+test("gives duplicate headings unique in-page destinations", () => {
+  const html = markdownToHtml("## Readiness\n\n## Readiness");
+
+  assert.match(html, /<h2 id="readiness">Readiness<\/h2>/);
+  assert.match(html, /<h2 id="readiness-2">Readiness<\/h2>/);
 });
 
 test("plain text keeps content while removing Markdown syntax", () => {
@@ -60,6 +72,7 @@ test("executive brief contents links match every canonical level-two section", a
   const html = createHtmlDocument(source);
   const canonicalHeadings = [...source.matchAll(/^##\s+(.+?)\s*#*\s*$/gm)]
     .slice(1)
+    .filter((match) => match[1].toLowerCase() !== "contents")
     .map((match) => match[1]);
   const contentsLinks = [...html.matchAll(/<li><a href="#([^"]+)">([^<]*)<\/a><\/li>/g)];
 

@@ -18,6 +18,7 @@ h1 { font-size: 24pt; line-height: 1.1; border-bottom: 3px solid #17304b; paddin
 h2 { font-size: 15pt; margin: 22px 0 8px; }
 h3 { font-size: 12pt; margin: 16px 0 6px; }
 h1, h2, h3, h4 { break-after: avoid; }
+h2#contents + ul { break-inside: avoid; break-after: page; page-break-after: always; }
 p, li { overflow-wrap: anywhere; }
 blockquote { margin: 12px 0; padding: 8px 12px; border-left: 3px solid #a9771b; background: #fbf5e8; }
 table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 8pt; table-layout: auto; }
@@ -60,6 +61,7 @@ function renderInline(markdown) {
     .replace(/__(.+?)__/g, "<strong>$1</strong>")
     .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>")
     .replace(/(?<!_)_([^_\n]+)_(?!_)/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(#([a-z0-9-]+)\)/g, '<a href="#$2">$1</a>')
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>');
 
   return text.replace(/\u0000(\d+)\u0000/g, (_match, index) => tokens[Number(index)]);
@@ -89,6 +91,7 @@ export function markdownToHtml(markdown) {
   const levelTwoHeadings = extractLevelTwoHeadings(markdown);
   const headingByLine = new Map(levelTwoHeadings.map((heading) => [heading.lineIndex, heading]));
   const sections = levelTwoHeadings.filter((heading) => heading.isSection);
+  const hasCanonicalContents = sections.some(({ label }) => label.toLowerCase() === "contents");
   const blocks = [];
   let index = 0;
   let contentsInserted = false;
@@ -104,7 +107,33 @@ export function markdownToHtml(markdown) {
     if (heading) {
       const level = heading[1].length;
       const section = level === 2 ? headingByLine.get(index) : undefined;
-      if (section && section.isSection && !contentsInserted && sections.length > 0) {
+      if (
+        section?.isSection &&
+        section.label.toLowerCase() === "contents"
+      ) {
+        const items = [];
+        let cursor = index + 1;
+        while (cursor < lines.length) {
+          if (!lines[cursor].trim()) {
+            cursor += 1;
+            continue;
+          }
+          const item = lines[cursor].match(/^\s*[-*+]\s+(.+)$/);
+          if (!item) break;
+          items.push(`<li>${renderInline(item[1])}</li>`);
+          cursor += 1;
+        }
+        if (items.length > 0) {
+          blocks.push(
+            `<nav class="contents" aria-label="Contents">\n<h2 id="${section.id}">${renderInline(heading[2])}</h2>\n<ul>\n${items.join("\n")}\n</ul>\n</nav>`,
+          );
+        } else {
+          blocks.push(`<h${level} id="${section.id}">${renderInline(heading[2])}</h${level}>`);
+        }
+        index = cursor;
+        continue;
+      }
+      if (!hasCanonicalContents && section?.isSection && !contentsInserted && sections.length > 0) {
         blocks.push(renderContents(sections));
         contentsInserted = true;
       }
@@ -239,6 +268,7 @@ function inlineToPlainText(markdown) {
     .replace(/__(.+?)__/g, "$1")
     .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
     .replace(/(?<!_)_([^_\n]+)_(?!_)/g, "$1")
+    .replace(/\[([^\]]+)\]\(#[^)]+\)/g, "$1")
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "$1 ($2)");
 }
 
