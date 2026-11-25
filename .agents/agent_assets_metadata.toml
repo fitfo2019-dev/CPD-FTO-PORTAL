@@ -594,13 +594,13 @@ id = "gtcFznYtWaeq3QUdYQTl1"
 uri = "file://generated-artifacts/website-records/City-of-Columbus-Executive-Brief.pdf"
 type = "pdf"
 title = "City of Columbus Executive Brief (PDF)"
-description = "Updated PDF export with the requested visible title and matching PDF metadata."
+description = "Generated from the canonical briefing with the existing print styling."
 logical_id = "50c00b0d-1724-4d6f-9900-2158fc075212"
-content_hash = "sha256:aee19f3a3a6437447ce9894e38e7cca7017ba4c80a8fabb629d8c44e4eb49bde"
+content_hash = "sha256:96fd1a42bf7794a448e93e8e418ef8301ceadb1bab0aa0b918f5b6e216d1af4f"
 size = 269007
-mtime_ms = 1795538358279
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/50c00b0d-1724-4d6f-9900-2158fc075212/13151d4c-0490-42ad-af49-5a8724822e3e"
-storage_version_token = "1795538521771588"
+mtime_ms = 1795584577645
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/50c00b0d-1724-4d6f-9900-2158fc075212/5b940a4d-eba8-4478-ad64-e0d27ccd8d3a"
+storage_version_token = "1795584620652877"
 content_type = "application/pdf"
 
 [[outputs]]
@@ -608,13 +608,41 @@ id = "G_M8LNY0e8lXuzGYRqNME"
 uri = "file://generated-artifacts/website-records/City-of-Columbus-Executive-Brief.html"
 type = "html"
 title = "City of Columbus Executive Brief (HTML)"
-description = "Updated HTML export with the requested document title and matching visible heading."
+description = "Self-contained HTML export generated from the canonical briefing."
 logical_id = "f0c33c35-1ad0-4496-afa6-c014bafe27c7"
-content_hash = "sha256:cd18338fd2fadaeddbcb4531ef1e0ed72e11bf718782c98a6d82fbe22113c8ad"
-size = 51514
-mtime_ms = 1795538356105
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/f0c33c35-1ad0-4496-afa6-c014bafe27c7/1e5e16fc-bbef-4958-aec9-2b7b90b72d59"
-storage_version_token = "1795538522380044"
+content_hash = "sha256:cf1d36cf2a2554630679c03a8d2731ce13d491621a5d221e1213f9dcdf029be0"
+size = 51421
+mtime_ms = 1795584576561
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/f0c33c35-1ad0-4496-afa6-c014bafe27c7/b61ba4b0-d704-46ed-b899-3d5c7fd442d5"
+storage_version_token = "1795584621232814"
+content_type = "text/html"
+
+[[outputs]]
+id = "IuIWgvi0YvitMNbbIeYwB"
+uri = "file://generated-artifacts/website-records/City-of-Columbus-Chain-of-Command-Brief.pdf"
+type = "pdf"
+title = "City of Columbus Chain of Command Brief (PDF)"
+description = "Renamed and regenerated from the canonical briefing; retains the established print styling."
+logical_id = "31489a28-9b72-49ee-b7f1-30b829ba6fb9"
+content_hash = "sha256:b64a01917a5ccbd8de06550d499eb8541f3ae72bba56a0f8318ff41ff9265195"
+size = 269028
+mtime_ms = 1795585458809
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/31489a28-9b72-49ee-b7f1-30b829ba6fb9/c0096cbd-061f-4267-9e73-b9dde9eea0d1"
+storage_version_token = "1795585470677509"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "6Vxac52GzF-37SbJhlnKK"
+uri = "file://generated-artifacts/website-records/City-of-Columbus-Chain-of-Command-Brief.html"
+type = "html"
+title = "City of Columbus Chain of Command Brief (HTML)"
+description = "Renamed HTML export with matching page title and content."
+logical_id = "bd7218c7-0d93-425c-98cd-3e3bc46faa34"
+content_hash = "sha256:86086d7894f6159cc7b2faeac493b06bf9b5be70e3c08c07ffb31dab99d45cca"
+size = 51435
+mtime_ms = 1795585457573
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/bd7218c7-0d93-425c-98cd-3e3bc46faa34/8a8410a9-10a4-4c74-90e3-d081fe12383a"
+storage_version_token = "1795585471240211"
 content_type = "text/html"
 
 [[outputs]]

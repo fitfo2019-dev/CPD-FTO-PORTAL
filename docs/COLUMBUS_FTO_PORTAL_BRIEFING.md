@@ -1,4 +1,4 @@
-# City of Columbus Executive Brief
+# City of Columbus Chain of Command Brief
 ## City of Columbus stakeholder briefing
 
 **Prepared:** November 24, 2026
