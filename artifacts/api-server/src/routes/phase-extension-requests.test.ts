@@ -289,6 +289,61 @@ test("agency migration installs phase-extension requests and roster-scoped revie
       });
     });
 
+    await t.test("legacy assignments route pending requests by the trusted Coordinator hash", async () => {
+      const legacyAssignment = {
+        ftoId: ftoA.userId,
+        ftoBadge: "TEST-FTO-LEGACY",
+        ftoName: "Trusted Legacy FTO",
+        poId: "test-phase-po-legacy",
+        poBadge: "TEST-PO-LEGACY",
+        poName: "Trusted Legacy Recruit",
+        coordinatorId: coordinatorA.userId,
+        className: "Legacy Class",
+      };
+      await seedAssignment(db, legacyAssignment);
+      const mapping = await db.query(
+        "SELECT 1 FROM agency_training.po_coordinators WHERE po_id_hash=$1",
+        [hash(legacyAssignment.poId)],
+      );
+      assert.equal(mapping.rows.length, 0, "Legacy assignment must have no canonical PO mapping");
+
+      const legacyRequest = {
+        ...request,
+        id: "phase-extension-request-legacy",
+        className: legacyAssignment.className,
+        recruitName: "Client supplied legacy name",
+        recruitBadge: legacyAssignment.poBadge,
+      };
+      await withApi(ftoA, store, async baseUrl => {
+        const submitted = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(legacyRequest),
+        });
+        assert.equal(submitted.status, 201, await submitted.clone().text());
+      });
+
+      const listFor = async (coordinator: typeof coordinatorA) => {
+        let result: SharedPhaseExtensionRequest[] = [];
+        await withApi(coordinator, store, async baseUrl => {
+          const response = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+          assert.equal(response.status, 200);
+          result = (await response.json() as { data: SharedPhaseExtensionRequest[] }).data;
+        });
+        return result;
+      };
+      assert.ok((await listFor(coordinatorA)).some(item => item.id === legacyRequest.id));
+      assert.ok(!(await listFor(coordinatorB)).some(item => item.id === legacyRequest.id));
+
+      await db.query(
+        "UPDATE agency_training.assignments SET coordinator_id_hash=$1 WHERE class_name=$2",
+        [hash(coordinatorB.userId), legacyAssignment.className],
+      );
+
+      assert.ok(!(await listFor(coordinatorA)).some(item => item.id === legacyRequest.id));
+      assert.ok((await listFor(coordinatorB)).some(item => item.id === legacyRequest.id));
+    });
+
     await t.test("inactive assignments and disabled Coordinator roster entries stop access", async () => {
       await db.query("UPDATE agency_training.assignments SET active=false WHERE class_name='Class A'");
       await withApi(ftoA, store, async baseUrl => {
