@@ -13,6 +13,11 @@ import { hashUserIdentifier as hash } from "../src/utils/cryptoUtils.js";
 import type { AgencyIdentity } from "../src/security/agencyIdentity.js";
 import { CompletePacketsEnvelope } from "../src/lib/packet-contract.js";
 import {createPacketReviewStore} from "../src/lib/packet-review-store.js";
+import {
+  AcknowledgeTrainingPacketBody,
+  ReleaseTrainingPacketBody,
+  WithdrawTrainingPacketBody,
+} from "@workspace/api-zod";
 
 const coordinator: AgencyIdentity = { id: "coordinator", badge: "10", role: "FTO_COORDINATOR" };
 const po: AgencyIdentity = { id: "po", badge: "20", role: "PO" };
@@ -21,6 +26,158 @@ const audit = () => ({ requestId: randomUUID(), clientIp: "192.0.2.1" });
 const contentHash = (report: unknown) => createHash("sha256").update(JSON.stringify(report)).digest("hex");
 const change = (report: unknown) => ({ operation_id: randomUUID(), content_hash: contentHash(report), review_confirmed: true });
 const denied = (code: string) => (error: unknown) => error instanceof PacketError && error.code === code;
+
+const packetReviewValidators = [
+  {
+    action: "release",
+    schemaName: "TrainingPacketReviewInput",
+    validator: ReleaseTrainingPacketBody,
+  },
+  {
+    action: "acknowledge",
+    schemaName: "TrainingPacketAcknowledgmentInput",
+    validator: AcknowledgeTrainingPacketBody,
+  },
+  {
+    action: "withdraw",
+    schemaName: "TrainingPacketWithdrawalInput",
+    validator: WithdrawTrainingPacketBody,
+  },
+] as const;
+
+type OpenApiProperty = {
+  type?: string;
+  format?: string;
+  pattern?: string;
+  minLength?: number;
+  maxLength?: number;
+  enum?: (string | number | boolean)[];
+};
+
+function readOpenApiPacketReviewBodySchema(action: string, schemaName: string) {
+  const openApi = readFileSync(new URL("../../../lib/api-spec/openapi.yaml", import.meta.url), "utf8");
+  const lines = openApi.split(/\r?\n/);
+  const path = `/v1/training-packets/{id}/${action}`;
+  const pathIndex = lines.findIndex(line => line === `  ${path}:`);
+  assert.ok(pathIndex >= 0, `Packet ${action} action (${schemaName}): OpenAPI path ${path} is missing.`);
+  const nextPathIndex = lines.findIndex((line, index) => index > pathIndex && /^  \//.test(line));
+  const pathLines = lines.slice(pathIndex + 1, nextPathIndex < 0 ? lines.length : nextPathIndex);
+  const requestBodyType = pathLines
+    .map(line => line.match(/^\s*schema:\s*\{\s*\$ref:\s*["']#\/components\/schemas\/([^"']+)["']\s*\}/)?.[1])
+    .find(Boolean);
+  assert.equal(requestBodyType, schemaName,
+    `Packet ${action} action (${schemaName}): OpenAPI request body references ${requestBodyType ?? "no schema"}.`);
+
+  const schemaIndex = lines.findIndex(line => line === `    ${schemaName}:`);
+  assert.ok(schemaIndex >= 0, `Packet ${action} action (${schemaName}): OpenAPI component is missing.`);
+  const nextSchemaIndex = lines.findIndex((line, index) =>
+    index > schemaIndex && /^    [A-Z][A-Za-z0-9]+:\s*$/.test(line));
+  const schemaLines = lines.slice(schemaIndex + 1, nextSchemaIndex < 0 ? lines.length : nextSchemaIndex);
+  const requiredLine = schemaLines.find(line => /^      required:\s*\[/.test(line));
+  assert.ok(requiredLine, `Packet ${action} action (${schemaName}): OpenAPI required list is missing.`);
+  const required = requiredLine.match(/\[([^\]]*)\]/)?.[1]
+    .split(",").map(field => field.trim()).filter(Boolean) ?? [];
+  const propertiesIndex = schemaLines.findIndex(line => line === "      properties:");
+  assert.ok(propertiesIndex >= 0, `Packet ${action} action (${schemaName}): OpenAPI properties are missing.`);
+  const properties: Record<string, OpenApiProperty> = {};
+  for (const line of schemaLines.slice(propertiesIndex + 1)) {
+    const propertyMatch = line.match(/^        ([A-Za-z0-9_]+): \{ (.*) \}$/);
+    if (!propertyMatch) continue;
+    const [, name, definition] = propertyMatch;
+    const property: OpenApiProperty = {};
+    const type = definition.match(/\btype:\s*(string|boolean|integer|number)\b/)?.[1];
+    const format = definition.match(/\bformat:\s*([A-Za-z0-9_-]+)\b/)?.[1];
+    const pattern = definition.match(/\bpattern:\s*"([^"]*)"/)?.[1];
+    const minLength = definition.match(/\bminLength:\s*(\d+)/)?.[1];
+    const maxLength = definition.match(/\bmaxLength:\s*(\d+)/)?.[1];
+    const enumText = definition.match(/\benum:\s*\[([^\]]*)\]/)?.[1];
+    if (type) property.type = type;
+    if (format) property.format = format;
+    if (pattern) property.pattern = pattern;
+    if (minLength) property.minLength = Number(minLength);
+    if (maxLength) property.maxLength = Number(maxLength);
+    if (enumText !== undefined) {
+      property.enum = enumText.split(",").map(value => {
+        const trimmed = value.trim();
+        if (trimmed === "true") return true;
+        if (trimmed === "false") return false;
+        if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
+        return trimmed.replace(/^['"]|['"]$/g, "");
+      });
+    }
+    properties[name] = property;
+  }
+  const additionalProperties = schemaLines.find(line => /^      additionalProperties:/.test(line));
+  return { required, properties, additionalProperties };
+}
+
+function validReviewPropertyValue(property: OpenApiProperty): string | number | boolean {
+  if (property.type === "boolean") return property.enum?.[0] === true ? true : false;
+  if (property.type === "string") {
+    if (property.format === "uuid") return randomUUID();
+    if (property.pattern === "^[a-f0-9]{64}$") return "a".repeat(64);
+    assert.equal(property.pattern, undefined, `No valid sample is defined for OpenAPI pattern ${property.pattern}.`);
+    assert.equal(property.format, undefined, `No valid sample is defined for OpenAPI format ${property.format}.`);
+    return "x".repeat(Math.max(1, property.minLength ?? 1));
+  }
+  assert.fail(`No valid sample is defined for OpenAPI type ${property.type ?? "missing"}.`);
+}
+
+test("packet-review server validators match OpenAPI request schemas", async t => {
+  for (const { action, schemaName, validator } of packetReviewValidators) {
+    await t.test(`${action} (${schemaName})`, () => {
+      const openApi = readOpenApiPacketReviewBodySchema(action, schemaName);
+      const label = `Packet ${action} action (${schemaName})`;
+      const validatorFields = Object.keys(validator.shape).sort();
+      const openApiFields = Object.keys(openApi.properties).sort();
+      assert.deepEqual(validatorFields, openApiFields, `${label}: generated validator properties differ from OpenAPI.`);
+      assert.deepEqual(openApi.required.filter(field => !openApiFields.includes(field)), [],
+        `${label}: OpenAPI requires a property that is not declared.`);
+      assert.equal(openApi.additionalProperties?.trim(), "additionalProperties: false",
+        `${label}: OpenAPI must reject undeclared body properties.`);
+
+      const validBody = Object.fromEntries(openApiFields.map(field =>
+        [field, validReviewPropertyValue(openApi.properties[field])]));
+      assert.equal(validator.safeParse(validBody).success, true,
+        `${label}: generated validator rejected a body allowed by OpenAPI.`);
+
+      for (const field of openApiFields) {
+        const property = openApi.properties[field];
+        const missingFieldBody = { ...validBody };
+        delete missingFieldBody[field];
+        assert.equal(validator.safeParse(missingFieldBody).success, !openApi.required.includes(field),
+          `${label}: required-field behavior differs for "${field}".`);
+
+        const invalidValue = property.type === "string" ? 42 : "not-a-boolean";
+        assert.equal(validator.safeParse({ ...validBody, [field]: invalidValue }).success, false,
+          `${label}: generated validator accepts the wrong type for "${field}".`);
+        if (property.format === "uuid") {
+          assert.equal(validator.safeParse({ ...validBody, [field]: "not-a-uuid" }).success, false,
+            `${label}: generated validator does not enforce UUID format for "${field}".`);
+        }
+        if (property.pattern) {
+          assert.equal(validator.safeParse({ ...validBody, [field]: `${validBody[field]}!` }).success, false,
+            `${label}: generated validator does not enforce the OpenAPI pattern for "${field}".`);
+        }
+        if (property.enum) {
+          assert.equal(validator.safeParse({ ...validBody, [field]: property.enum[0] === true ? false : "not-allowed" }).success,
+            false, `${label}: generated validator does not enforce the OpenAPI enum for "${field}".`);
+        }
+        if (property.minLength) {
+          assert.equal(validator.safeParse({ ...validBody, [field]: "" }).success, false,
+            `${label}: generated validator does not enforce minLength for "${field}".`);
+        }
+        if (property.maxLength) {
+          assert.equal(validator.safeParse({ ...validBody, [field]: "x".repeat(property.maxLength + 1) }).success, false,
+            `${label}: generated validator does not enforce maxLength for "${field}".`);
+        }
+      }
+
+      assert.equal(validator.strict().safeParse({ ...validBody, forged_review_state: true }).success, false,
+        `${label}: generated validator must reject unknown properties.`);
+    });
+  }
+});
 
 // Isolated, disposable PostgreSQL exercises actual constraints, SQL scopes,
 // transactions and concurrent requests, without touching either project DB.
@@ -247,6 +404,8 @@ test("review routes reject forged workflow fields, missing review, wrong roles, 
     assert.equal((await post("release", valid, "bad%20id")).status, 400);
     assert.equal((await post("release", valid)).status, 503);
     assert.equal((await post("withdraw", { operation_id: randomUUID(), content_hash: valid.content_hash, reason: " " })).status, 400);
+    assert.equal((await post("withdraw", { operation_id: randomUUID(), content_hash: valid.content_hash,
+      reason: "Correction", released_to_po: true })).status, 400);
     current = po;
     assert.equal((await post("release", valid)).status, 403);
     assert.equal((await post("withdraw", valid)).status, 403);
