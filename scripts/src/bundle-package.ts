@@ -11,6 +11,10 @@ import {
 import { dirname, extname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import {
+  assertReleaseArchiveContents,
+  getResourceCatalogFileNames,
+} from "./bundle-package-contents.js";
 
 type PackageManifest = {
   name?: string;
@@ -173,15 +177,25 @@ async function bundlePackage(): Promise<void> {
     "utf8",
   );
   await writeFile(join(outputDir, "HANDOVER_MANUAL.md"), handoverManual, "utf8");
-  await cp(join(apiRoot, "migrations"), join(outputDir, "migrations"), { recursive: true });
-  const migrationFiles = await listFilesRecursively(join(outputDir, "migrations"));
+  const migrationSourceDir = join(apiRoot, "migrations");
+  const migrationFiles = (await listFilesRecursively(migrationSourceDir)).sort();
+  await cp(migrationSourceDir, join(outputDir, "migrations"), { recursive: true });
   await cp(join(workspaceRoot,"docs/ASSIGNMENT_INTEGRATION.md"),join(outputDir,"ASSIGNMENT_INTEGRATION.md"));
   await cp(join(workspaceRoot,"docs/OPERATIONAL_PROFILES.md"),join(outputDir,"OPERATIONAL_PROFILES.md"));
 
   const resourceSourceDir = join(apiRoot, "resources");
   const resourceOutputDir = join(outputDir, "resources");
-  await cp(resourceSourceDir, resourceOutputDir, { recursive: true });
-  const resourceFiles = await listFilesRecursively(resourceOutputDir);
+  const resourceCatalog = await readFile(
+    join(apiRoot, "src/lib/resource-catalog.ts"),
+    "utf8",
+  );
+  const resourceFiles = getResourceCatalogFileNames(resourceCatalog).sort();
+  await mkdir(resourceOutputDir, { recursive: true });
+  await Promise.all(
+    resourceFiles.map((fileName) =>
+      cp(join(resourceSourceDir, fileName), join(resourceOutputDir, fileName)),
+    ),
+  );
   // The agency reverse proxy, not the API, serves portal assets with SPA fallback.
   const portalSourceDir = join(workspaceRoot, "artifacts/field-training/dist/public");
   const portalHtml = await readFile(join(portalSourceDir, "index.html"), "utf8");
@@ -192,7 +206,9 @@ async function bundlePackage(): Promise<void> {
     );
   }
   await cp(portalSourceDir, join(outputDir, "portal"), { recursive: true });
-  const portalFiles = await listFilesRecursively(join(outputDir, "portal"));
+  const portalFiles = (await listFilesRecursively(join(outputDir, "portal")))
+    .filter((path) => !path.endsWith(".map"))
+    .sort();
   const archiveEntries = [
     "package.json",
     "HANDOVER_MANUAL.md",
@@ -211,6 +227,13 @@ async function bundlePackage(): Promise<void> {
     { cwd: outputDir },
   );
   await execFileAsync("zip", ["-T", archivePath]);
+  const archiveListing = await execFileAsync("unzip", ["-Z1", archivePath]);
+  assertReleaseArchiveContents({
+    resourceFileNames: resourceFiles,
+    migrationFileNames: migrationFiles,
+    expectedArchiveEntries: archiveEntries,
+    actualArchiveEntries: archiveListing.stdout.trim().split("\n").filter(Boolean),
+  });
 
   const archiveStats = await stat(archivePath);
   console.log(
