@@ -18,3 +18,12 @@ undefined when executed under Node/tsx.
 
 **How to apply:** Preserve the tested default-import interop and exercise a real
 workbook-generation test whenever spreadsheet imports or build transforms change.
+
+DOCX import through Mammoth has separate browser and Node input adapters: the
+browser adapter reads `arrayBuffer`, while Node reads `buffer`.
+
+**Why:** A browser-targeted input can pass Vite builds yet fail when the same file
+import is exercised in Node-based tests.
+
+**How to apply:** Keep both inputs available when Node's `Buffer` exists, guarded
+with `typeof Buffer` so browser execution does not require a Buffer polyfill.

@@ -1,8 +1,88 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRosterRows } from './assignment-import.js';
+import { JSDOM } from 'jsdom';
+import { parseRosterFile, parseRosterRows } from './assignment-import.js';
 import { CPD_GEOGRAPHY, cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, ftoCruiserDistrictsForShift, isValidFtoAssignment } from './cpd-geography.js';
 import { formatDateMDY, parseDateMDY } from './training-calendar.js';
+
+function crc32(bytes: Buffer) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function makeDocx(entries: Record<string, string>) {
+  const localParts: Buffer[] = [];
+  const centralParts: Buffer[] = [];
+  let localOffset = 0;
+  for (const [name, content] of Object.entries(entries)) {
+    const fileName = Buffer.from(name);
+    const data = Buffer.from(content);
+    const checksum = crc32(data);
+    const localHeader = Buffer.alloc(30);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt32LE(checksum, 14);
+    localHeader.writeUInt32LE(data.length, 18);
+    localHeader.writeUInt32LE(data.length, 22);
+    localHeader.writeUInt16LE(fileName.length, 26);
+    localParts.push(localHeader, fileName, data);
+
+    const centralHeader = Buffer.alloc(46);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt32LE(checksum, 16);
+    centralHeader.writeUInt32LE(data.length, 20);
+    centralHeader.writeUInt32LE(data.length, 24);
+    centralHeader.writeUInt16LE(fileName.length, 28);
+    centralHeader.writeUInt32LE(localOffset, 42);
+    centralParts.push(centralHeader, fileName);
+    localOffset += localHeader.length + fileName.length + data.length;
+  }
+
+  const centralDirectory = Buffer.concat(centralParts);
+  const endRecord = Buffer.alloc(22);
+  endRecord.writeUInt32LE(0x06054b50, 0);
+  endRecord.writeUInt16LE(Object.keys(entries).length, 8);
+  endRecord.writeUInt16LE(Object.keys(entries).length, 10);
+  endRecord.writeUInt32LE(centralDirectory.length, 12);
+  endRecord.writeUInt32LE(localOffset, 16);
+  return Buffer.concat([...localParts, centralDirectory, endRecord]);
+}
+
+function makeRosterDocx() {
+  const headers = ['Class', 'PO Name', 'PO Badge', 'FTO Name', 'FTO Badge', 'Start Date', 'Shift', 'Days Off', 'Zone', 'Precinct', 'Cruiser District', 'FTO Assignment'];
+  const rosterRows = [
+    ['Class 27-A', 'Officer Example', '0071', 'Trainer Example', '0020', '03/09/2027', 'EMW', 'Sunday;Monday;Tuesday', '2', '20', '9205', '9205E-2'],
+    ['Class 27-A', 'Wrong Precinct', '0072', 'Trainer Example', '0020', '03/09/2027', 'EMW', 'Sunday;Monday;Tuesday', '2', '20', '9155', '9155E-2'],
+    ['Class 27-A', 'Wrong Watch', '0073', 'Trainer Example', '0020', '03/09/2027', 'EMW', 'Sunday;Monday;Tuesday', '2', '20', '9205', '9205D-2'],
+    ['Class 27-A', 'Malformed Code', '0074', 'Trainer Example', '0020', '03/09/2027', 'EMW', 'Sunday;Monday;Tuesday', '2', '20', '9205', '9205E-3'],
+  ];
+  const tableRows = [headers, ...rosterRows].map(row =>
+    `<w:tr>${row.map(value => `<w:tc><w:p><w:r><w:t>${value}</w:t></w:r></w:p></w:tc>`).join('')}</w:tr>`,
+  ).join('');
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+      <w:body><w:tbl>${tableRows}</w:tbl><w:unknownFixtureTag/><w:sectPr/></w:body>
+    </w:document>`;
+  return makeDocx({
+    '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+      </Types>`,
+    '_rels/.rels': `<?xml version="1.0" encoding="UTF-8"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+      </Relationships>`,
+    'word/document.xml': documentXml,
+  });
+}
 
 test('roster import aggregates FTOs and validates assignment rows',()=>{
   const parsed=parseRosterRows([
@@ -18,6 +98,46 @@ test('roster import aggregates FTOs and validates assignment rows',()=>{
   assert.equal(parsed.assignments[0].ftoAssignment,'9010D1');
   assert.equal(parsed.assignments[0].cruiserDistrict,'9010');
   assert.deepEqual(parsed.assignments[0].daysOff,[0,1,2]);
+});
+
+test('Word roster import validates catalog assignments, preserves accepted data, and reports format warnings', async () => {
+  const dom = new JSDOM('');
+  const previousParser = Object.getOwnPropertyDescriptor(globalThis, 'DOMParser');
+  Object.defineProperty(globalThis, 'DOMParser', {
+    configurable: true,
+    writable: true,
+    value: dom.window.DOMParser,
+  });
+
+  try {
+    const parsed = await parseRosterFile(new File([makeRosterDocx()], 'roster.docx'));
+    assert.equal(parsed.assignments.length, 1);
+    assert.equal(parsed.assignments[0]?.ftoAssignment, '9205E-2');
+    assert.deepEqual(parsed.assignments[0], {
+      className: 'Class 27-A',
+      recruitName: 'Officer Example',
+      recruitBadge: '0071',
+      recruitEmail: undefined,
+      ftoBadge: '0020',
+      phase: 1,
+      phaseStartDate: '2027-03-09',
+      shift: 'EMW',
+      daysOff: [0, 1, 2],
+      zone: '2',
+      precinct: '20',
+      cruiserDistrict: '9205',
+      ftoAssignment: '9205E-2',
+    });
+    assert.equal(parsed.errors.length, 3);
+    assert.ok(parsed.errors.some(error => error.startsWith('Row 3:') && error.includes('FTO assignment must match')));
+    assert.ok(parsed.errors.some(error => error.startsWith('Row 4:') && error.includes('FTO assignment must match')));
+    assert.ok(parsed.errors.some(error => error.startsWith('Row 5:') && error.includes('FTO assignment must match')));
+    assert.ok(parsed.warnings.some(warning => warning.includes('Word formatting warning(s)')));
+  } finally {
+    if (previousParser) Object.defineProperty(globalThis, 'DOMParser', previousParser);
+    else Reflect.deleteProperty(globalThis, 'DOMParser');
+    dom.window.close();
+  }
 });
 
 test('roster import keeps FTO-only rows but rejects invalid phases, shifts, and off-day counts',()=>{
