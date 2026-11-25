@@ -11,7 +11,7 @@
 - [Shared type freshness](shared-type-freshness.md) — missing API exports in the portal checker can mean stale declaration output, not absent source functions.
 - [Date and time entry](date-time-entry.md) — verify real keystrokes, not just filled values; use explicit 24-hour entry instead of locale-dependent AM/PM controls.
 - [Traffic-stop entry](traffic-stop-entry.md) — enter 10-6 first, then ask high risk in a separate popup; load only the selected primary form.
-- [Academy workflow boundaries](academy-workflow-boundaries.md) — extensions are not academy workflow; substitute-coverage requests and decisions should sync and notify.
+- [Academy workflow boundaries](academy-workflow-boundaries.md) — distinguish actual academy practice from portal behavior; extension requests and decisions belong to FTO Coordinators.
 - [Manual contract exports](manual-contract-exports.md) — generated API barrels are replaced by code generation; expose hand-written shared validators through a separate package subpath.
 - [Packet review workflow](packet-review-workflow.md) — PO reads are own-UA-and-totals only; trusted class readers stay read-only, and each handoff action remains distinct.
 - [Verification boundaries](verification-boundaries.md) — Vite/Node JSX, React input focus in JSDOM, and emulated/real PostgreSQL differ; test each at the right boundary.
