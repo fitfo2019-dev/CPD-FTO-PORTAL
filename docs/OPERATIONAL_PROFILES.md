@@ -31,6 +31,61 @@ by the application or this change. `AGENCY_DATABASE_URL` and
 Without that configuration profile requests return 503, not synthetic data.
 The separate legacy database schema is not the operational agency database.
 
+### Least-privilege runtime grants
+
+After both profile migrations, the DBA applies the following to the existing
+non-owner runtime role (replace `agency_runtime` with its approved role name).
+The revocations narrow any former table-wide INSERT/UPDATE and legacy
+`cruiser_number` write grants; they do not change stored evidence. Existing
+packet-service grants on other tables remain separate. The runtime must not
+inherit broader privileges or own this schema, its tables, or its owner role.
+
+<!-- profile-runtime-grants -->
+```sql
+GRANT USAGE ON SCHEMA agency_training TO agency_runtime;
+GRANT SELECT ON agency_training.operational_profiles TO agency_runtime;
+REVOKE INSERT, UPDATE ON agency_training.operational_profiles FROM agency_runtime;
+REVOKE UPDATE (assignment_token,cruiser_number,cad_unit,company,side,version,updated_at)
+  ON agency_training.operational_profiles FROM agency_runtime;
+GRANT INSERT (subject_hash,assignment_token,district_token,cad_unit,company,side)
+  ON agency_training.operational_profiles TO agency_runtime;
+GRANT UPDATE (assignment_token,district_token,cad_unit,company,side,version,updated_at)
+  ON agency_training.operational_profiles TO agency_runtime;
+```
+
+Do not grant profile DELETE/TRUNCATE, subject-hash UPDATE, or writes to trusted
+`assignments` or `coordinator_directory` authority. The old table-wide INSERT
+grant automatically includes future columns, but old column-only UPDATE grants
+do not. Missing UPDATE on `district_token` makes an existing-profile save fail
+with PostgreSQL `42501` (insufficient privilege), leaving all columns unchanged.
+With column-only INSERT, omitting `district_token` also rejects creation without
+leaving a row. Never treat either failure as a successful or partial save.
+
+### Disposable PostgreSQL verification
+
+From the workspace root, with PostgreSQL `initdb` and `pg_ctl` on PATH, run:
+
+```sh
+pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/tests/operational-profile-postgres.test.ts
+```
+
+The test initializes its own temporary cluster and private Unix socket, disables
+TCP listening, and never reads database connection environment settings. It
+applies `agency-training.sql`, `agency-training-packet-review.sql`,
+`agency-training-packet-guards.sql`, `operational-profiles.sql`, and
+`operational-profile-optional-sides.sql` in that order, with fictional legacy
+profile evidence inserted before the optional-side migration. It uses the exact
+grants above with a non-owner login to check sided/unsided creation, competing
+creation and compare-and-swap updates, stale versions, preserved legacy cruiser
+evidence, denied authority changes, and explicit atomic failure when a new
+column grant is missing. It verifies effective permissions after a denied
+self-grant attempt, including PostgreSQL's warning-only behavior.
+
+Missing PostgreSQL binaries fail the test rather than silently skipping it.
+Pools are closed and the temporary server is stopped and removed on completion.
+This proves the disposable PostgreSQL boundary only; it does not certify agency
+hosting, production grants, roster provisioning, network access or live records.
+
 Trusted invitation provisioning may seed a profile after the Clerk subject is
 known, using `parseOperationalIdentity` from the shared operational-profile
 contract and the existing HMAC subject hash. Never seed from unsigned claims,

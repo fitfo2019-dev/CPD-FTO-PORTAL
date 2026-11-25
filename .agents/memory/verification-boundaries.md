@@ -27,6 +27,17 @@ Do not equate a successful PostgreSQL `GRANT` statement with a successful privil
 
 **How to apply:** Verify effective permissions, not just whether the database accepted a permission-related statement.
 
+Distinguish table-wide INSERT from column-only UPDATE when verifying additive
+PostgreSQL migrations.
+
+**Why:** Table-wide INSERT automatically covers newly added columns, while
+column-only UPDATE does not. Testing only creation can therefore miss an upgrade
+that breaks all subsequent saves.
+
+**How to apply:** Verify both creation and existing-row updates under the
+pre-upgrade grants. For column-only INSERT, test missing-column denial separately.
+Compare entire stored rows after denied writes to prove atomic failure.
+
 API success fixtures must reproduce each operation's actual response shape,
 including the distinction between a raw object and a legacy success envelope.
 
