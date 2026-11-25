@@ -247,6 +247,209 @@ def run(context, base_url, subject):
                     page.evaluate("window.__fallbackHarness?.dispose()")
                     page.close()
 
+    # Real browser connectivity and fixture-held responses are intentionally
+    # separate: CDP changes navigator.onLine, while routes only delay responses.
+    page = context.new_page()
+    saved = profile(subject, "9150E-1", 1)
+    latest_profile = profile(subject, "9150E", 2)
+    held_profiles, held_dispatches, requests, dispatches, fixture_errors = [], [], [], [], []
+    hold_profile_gets = False
+
+    def route_rapid_transitions(route):
+        nonlocal hold_profile_gets
+        request = route.request
+        path = urlparse(request.url).path
+        if path == "/api/v1/account/operational-profile":
+            if request.method == "GET":
+                requests.append({"method": "GET", "version": saved["version"],
+                                 "held": hold_profile_gets})
+                if hold_profile_gets:
+                    held_profiles.append(route)
+                    return
+                route.fulfill(json=saved)
+            else:
+                fixture_errors.append(f"Unexpected profile write: {request.method}")
+                route.fulfill(status=405, json={"error": "Unexpected profile write"})
+        elif path == "/api/v1/account/operational-profile/history":
+            route.fulfill(json={"subject": subject, "entries": [], "nextBeforeVersion": None})
+        elif path == "/api/v1/dispatch/event-ingress":
+            body = request.post_data_json
+            expected = saved["identity"]["cadUnit"]
+            assert body == {"eventId": "FICTIONAL-FALLBACK-EVENT", "cadUnit": expected}
+            dispatches.append(body)
+            if body["cadUnit"] == "9150E-1":
+                held_dispatches.append(route)
+                return
+            route.fulfill(json={"status": "success", "metadata": {"total_records": 1},
+                                "data": [{"location": "Latest current location",
+                                          "cadIdentity": saved["identity"]}]})
+        else:
+            fixture_errors.append(f"Unconfigured API route: {path}")
+            route.fulfill(status=503, json={"error": "Unconfigured test API"})
+
+    cdp = None
+    try:
+        page.route("**/api/**", route_rapid_transitions)
+        page.route("**/__assignment-fallback-test", lambda route: route.fulfill(
+            content_type="text/html", body=DOCUMENT))
+        page.add_init_script("(" + CONTROLS + ")('silent')")
+        page.goto(base_url.rstrip("/") + "/__assignment-fallback-test")
+        page.wait_for_function("window.__harnessModule")
+        page.evaluate("window.__fallbackHarness = window.__harnessModule.mount()")
+        field = page.get_by_test_id("input-operational-assignment")
+        expect(field).to_have_value("9150E-1")
+        page.wait_for_function("""() => {
+            const s = window.__fallbackHarness.snapshot();
+            return s?.profile?.version === 1 && s?.ingress === 'loading';
+        }""")
+        assert len(held_dispatches) == 1
+        account = page.evaluate("""() => ({
+            id: window.Clerk.user.id,
+            email: window.Clerk.user.primaryEmailAddress.emailAddress,
+            verified: window.Clerk.user.primaryEmailAddress.verification.status
+        })""")
+        assert account["id"] == subject
+        assert account["email"].endswith("@example.com")
+        assert account["verified"] == "verified"
+        field.fill("9150E-2")
+
+        def visibility(state):
+            page.evaluate("""state => {
+                Object.defineProperty(document, 'visibilityState', {
+                  configurable: true, get: () => state
+                });
+                document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
+                window.dispatchEvent(new Event(state === 'visible' ? 'focus' : 'blur'));
+            }""", state)
+            assert page.evaluate("window.__fallbackHarness.managers().focused") == (state == "visible")
+
+        async_cdp = page.context.new_cdp_session(page)
+        cdp = async_cdp
+        cdp.send("Network.enable")
+
+        def emulate_offline(offline):
+            cdp.send("Network.emulateNetworkConditions", {
+                "offline": offline, "latency": 0,
+                "downloadThroughput": 0 if offline else -1,
+                "uploadThroughput": 0 if offline else -1,
+                "connectionType": "none" if offline else "wifi",
+            })
+            page.wait_for_function(
+                "window.__fallbackHarness.managers().online === " + ("false" if offline else "true"))
+            assert page.evaluate("navigator.onLine") is (not offline)
+
+        # Reconnect initiates a refresh that remains pending while the actual
+        # browser network is rapidly toggled alongside focus/visibility events.
+        saved = latest_profile
+        hold_profile_gets = True
+        emulate_offline(True)
+        visibility("hidden")
+        emulate_offline(False)
+        page.wait_for_function("window.__fallbackControls.blockedPolls > 0")
+        page.wait_for_function("window.__fallbackHarness.snapshot()?.profile?.version === 1")
+        page.wait_for_function("window.__fallbackControls && navigator.onLine")
+        deadline = time.monotonic() + 4
+        while not held_profiles and time.monotonic() < deadline:
+            page.wait_for_timeout(20)
+        assert held_profiles, "Reconnect did not request the operational profile"
+
+        # Overlap repeated hidden/visible and offline/online changes before any
+        # held response is released. In-flight responses all use the final server shape.
+        for offline in (True, False, True, False):
+            visibility("hidden" if offline else "visible")
+            emulate_offline(offline)
+        visibility("hidden")
+        visibility("visible")
+        page.wait_for_timeout(250)
+        assert page.evaluate("window.__fallbackHarness.snapshot().profile.version") == 1
+        query_state = page.evaluate(
+            "subject => window.__fallbackHarness.profileQueryState(subject)", subject)
+        assert query_state == {"status": "success", "fetchStatus": "fetching"}, query_state
+        expect(field).to_have_value("9150E-2")
+        assert len(held_profiles) >= 1
+        assert all(request["held"] for request in requests[1:]), requests
+
+        for pending_route in held_profiles:
+            try:
+                pending_route.fulfill(json=latest_profile)
+            except Exception as error:
+                if "closed" not in str(error).lower() and "invalid" not in str(error).lower():
+                    raise
+        page.wait_for_function("""subject => {
+            const s = window.__fallbackHarness.snapshot();
+            const cached = window.__fallbackHarness.cachedProfile(subject);
+            return s?.profile?.version === 2 && cached?.version === 2 &&
+              s?.profile?.identity?.cadUnit === '9150E' &&
+              cached?.identity?.cadUnit === '9150E' && !s.error;
+        }""", subject, timeout=5000)
+        page.wait_for_function("window.__fallbackHarness.snapshot()?.prefills.length === 1")
+        assert page.evaluate(
+            "subject => window.__fallbackHarness.cachedProfile(subject)", subject) == latest_profile
+        snapshot = page.evaluate("window.__fallbackHarness.snapshot()")
+        assert snapshot["profile"] == latest_profile
+        assert snapshot["successfulRead"] >= 2
+        assert snapshot["pending"] is False
+        assert snapshot["error"] is None
+        query_state = page.evaluate(
+            "subject => window.__fallbackHarness.profileQueryState(subject)", subject)
+        assert query_state == {"status": "success", "fetchStatus": "idle"}, query_state
+        assert page.evaluate("window.__fallbackHarness.managers()") == {
+            "focused": True, "online": True}
+        expect(field).to_have_value("9150E-2")
+        expect(page.get_by_test_id("text-profile-cad")).to_have_text("9150E")
+        expect(page.get_by_text("A newer saved assignment is available.", exact=False)).to_be_visible()
+        expect(page.get_by_test_id("button-reload-operational-profile")).to_be_enabled()
+        assert page.locator('[data-testid="text-profile-error"]').count() == 0
+
+        # Resolve the formerly active unit only after the new unit has loaded;
+        # cancellation is acceptable, application of its payload is not.
+        for stale in held_dispatches:
+            try:
+                stale.fulfill(json={"status": "success", "metadata": {"total_records": 1},
+                                    "data": [{"location": "STALE FORMER UNIT",
+                                              "cadIdentity": profile(
+                                                  subject, "9150E-1", 1)["identity"]}]})
+            except Exception as error:
+                if "closed" not in str(error).lower() and "invalid" not in str(error).lower():
+                    raise
+        page.wait_for_timeout(250)
+        snapshot = page.evaluate("window.__fallbackHarness.snapshot()")
+        assert snapshot["draft"]["runLocation"] == "Latest current location"
+        assert field.input_value() == "9150E-2"
+        assert len(snapshot["prefills"]) == 1
+        assert "STALE FORMER UNIT" not in json.dumps(snapshot)
+        assert [entry["cadUnit"] for entry in dispatches] == ["9150E-1", "9150E"]
+        controls = page.evaluate("window.__fallbackControls")
+        assert controls["blockedPolls"] > 0
+        assert controls["deliveries"] == 0
+        assert controls["posts"] == 0
+        assert controls["channels"] >= 1
+        assert not fixture_errors, fixture_errors
+        results.append({
+            "case": "overlapping-focus-reconnect-during-held-refresh",
+            "profileRequests": requests,
+            "dispatchUnits": [entry["cadUnit"] for entry in dispatches],
+            "profileAndCacheMatchedServer": True,
+            "dirtyEditorPreserved": field.input_value() == "9150E-2",
+            "connectivityRecovered": page.evaluate(
+                "window.__fallbackHarness.managers().online"),
+            "controls": controls,
+            "passed": True,
+        })
+    finally:
+        if cdp is not None:
+            try:
+                cdp.send("Network.emulateNetworkConditions", {
+                    "offline": False, "latency": 0, "downloadThroughput": -1,
+                    "uploadThroughput": -1, "connectionType": "wifi",
+                })
+                cdp.detach()
+            except Exception:
+                pass
+        if not page.is_closed():
+            page.evaluate("window.__fallbackHarness?.dispose()")
+            page.close()
+
     # Same-account save race: an older refetch must not replace a confirmed PUT.
     page = context.new_page()
     saved = profile(subject, "9150E-1", 1)

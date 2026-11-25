@@ -82,6 +82,23 @@ Each case asserts:
   without polling or a reload. Only the final explicit discard replaces the
   dirty input and editor CAD preview with saved `9150E`.
 
+## Rapid overlapping transitions
+
+The runner also mounts one extra page with the same real provider, QueryClient,
+editor, and ingress hook. It holds profile GET responses at the route fixture,
+then toggles Chromium's actual `navigator.onLine` state through CDP while
+repeatedly changing hidden/visible state. Every transition-triggered GET remains
+held until the fixture releases the final raw profile object. The physical
+connectivity signals and fixture response delays are separate controls; this
+case does not abort profile requests to simulate an outage.
+
+The overlap case asserts that the provider and subject-scoped query cache both
+equal the exact latest server response, the dirty assignment remains in the
+editor, recovery is not left unavailable or pending after the browser is online
+and visible, and no late response for the former CAD unit can apply a prefill.
+The polling interval and BroadcastChannel delivery remain suppressed only by
+the same test controls as the four independent cases.
+
 ## What the test does not prove
 
 These are deliberately controlled **browser event/listener tests**. In
@@ -90,7 +107,9 @@ the `window.focus` event alone. The runner changes the document's reported
 visibility and dispatches the corresponding event, then checks the real
 manager's observed state. For reconnect it dispatches offline/online events
 and likewise checks the real online manager. It does not replace either
-manager's event listener or set its state directly.
+manager's event listener or set its state directly. The overlap case additionally
+uses CDP to toggle Chromium's online signal, but its API responses are still
+controlled by Playwright routes; this is not a real network outage.
 
 Consequently a pass does not certify native operating-system focus, physical
 network loss, workstation sleep, browser lifecycle freezing, or tab eviction.
