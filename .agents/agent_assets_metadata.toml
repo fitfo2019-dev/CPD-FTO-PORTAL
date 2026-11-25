@@ -938,3 +938,31 @@ mtime_ms = 1795587941558
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/85c481c3-53ce-4934-bb9a-eb20dd2a685b/60f76ffb-baa1-4e9b-9786-6ae6a24b61c3"
 storage_version_token = "1795587954375843"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "YEpG2ESI5Ol5zAaYUDxXj"
+uri = "file://generated-artifacts/website-records/Field-Training-Portal-Completed-Build-Dossier.pdf"
+type = "pdf"
+title = "Field Training Portal Completed Build Dossier"
+description = "Personal reference PDF with 108 individually indexed merged-task records, grouped by area. Snapshot cutoff: 2026-11-25 15:22 UTC."
+logical_id = "a89c6283-921e-4ac4-8b70-b1fb5d0c2516"
+content_hash = "sha256:a1daf1a32fb90cc7ad8941cedba2a83b385c9cc289b16303867e2b6cc393586c"
+size = 321664
+mtime_ms = 1795620175587
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/a89c6283-921e-4ac4-8b70-b1fb5d0c2516/ae59c957-af3a-4bf6-b49c-17a2583c57ff"
+storage_version_token = "1795620247039912"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "p6-DdqWg64cZSCk8BbstZ"
+uri = "file://generated-artifacts/website-records/Field-Training-Portal-Source-Code.zip"
+type = "unspecified"
+title = "Field Training Portal Source Code"
+description = "Separate personal source archive with 824 current workspace source files plus an archive note; excludes secrets, dependencies, build output, uploaded reference materials, generated dossier files, and Replit-only context."
+logical_id = "54618bcb-b7df-457a-94c5-fb1abbb1f122"
+content_hash = "sha256:080b89d6ef47e3ca244251423bf324a377f70ba167e3be250bee006b1d036749"
+size = 14060024
+mtime_ms = 1795619933052
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/54618bcb-b7df-457a-94c5-fb1abbb1f122/29f7ba75-e9ab-46a2-b153-3e5afa2f3c35"
+storage_version_token = "1795620247818590"
+content_type = "application/octet-stream"
