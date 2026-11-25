@@ -1,0 +1,109 @@
+import {fetchPatrolViewJson,mapPatrolViewEvent,PatrolViewIntegrationError,type PatrolViewConfig,type DispatchEventPrefill} from './patrolViewIntegration.js';
+import { operationalIdentityFromCad } from '@workspace/api-zod/operational-profile';
+
+export type DispatchIncidentPrefill=DispatchEventPrefill & {
+  incidentNumber:string;
+  unitNumber?:string;
+  dispatchedAt?:string;
+  clearedAt?:string;
+};
+function object(value:unknown):Record<string,unknown>|undefined {
+  return value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:undefined;
+}
+function invalid():never {
+  throw new PatrolViewIntegrationError('PATROLVIEW_INVALID_RESPONSE',502,'The approved incident adapter returned invalid data.');
+}
+function optionalUnit(source:Record<string,unknown>):string|undefined {
+  const aliases=[source.unitNumber,source.unit_number,source.cadUnit].filter(value=>value!=null);
+  const value=aliases[0];
+  if(value==null)return;
+  if(typeof value!=='string'||!/^[A-Za-z0-9 ._:/-]{1,40}$/.test(value.trim()))return invalid();
+  if(aliases.some(alias=>typeof alias!=='string'||alias.trim().toUpperCase()!==value.trim().toUpperCase()))return invalid();
+  return value.trim();
+}
+function optionalTime(source:Record<string,unknown>,camel:string,snake:string):string|undefined {
+  const value=source[camel]??source[snake];
+  if(value==null)return;
+  if(typeof value!=='string'||!/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)||!Number.isFinite(Date.parse(value)))return invalid();
+  return new Date(value).toISOString();
+}
+function incidentTime(source:Record<string,unknown>,keys:string[]):string|undefined {
+  const value=keys.map(key=>source[key]).find(item=>item!==undefined&&item!==null);
+  if(value===undefined)return;
+  if(typeof value!=='string'||!/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)||!Number.isFinite(Date.parse(value)))return invalid();
+  return new Date(value).toISOString();
+}
+/** Canonical approved adapter rows; unit times are never taken from another unit. */
+export function mapPatrolViewIncident(payload:unknown,incidentNumber:string):DispatchIncidentPrefill[] {
+  const root=object(payload);
+  if(root?.status!==undefined&&root.status!=='success')return invalid();
+  const candidate=root?.data??root?.incident??payload;
+  const single=object(candidate);
+  const incidentDispatchedAt=single?incidentTime(single,['dispatchedAt','dispatched_at','dispatchTime','dispatch_time']):undefined;
+  const incidentClearedAt=single?incidentTime(single,['clearedAt','cleared_at','clearTime','clear_time']):undefined;
+  if(incidentDispatchedAt&&incidentClearedAt&&Date.parse(incidentClearedAt)<Date.parse(incidentDispatchedAt))return invalid();
+  let rows:unknown[];
+  if(single&&Array.isArray(single.units)){
+    const common=mapPatrolViewEvent(single);
+    rows=single.units.map(unit=>{
+      const detail=object(unit);
+      if(!detail)return invalid();
+      const unitDispatchedAt=optionalTime(detail,'dispatchedAt','dispatched_at');
+      const unitClearedAt=optionalTime(detail,'clearedAt','cleared_at');
+      return {
+        ...common,
+        ...(incidentDispatchedAt?{dispatchedAt:incidentDispatchedAt}:{}),
+        ...(incidentClearedAt?{clearedAt:incidentClearedAt}:{}),
+        ...detail,
+        ...(unitDispatchedAt?{dispatchedAt:unitDispatchedAt}:{}),
+        ...(unitClearedAt?{clearedAt:unitClearedAt}:{}),
+      };
+    });
+  }else rows=Array.isArray(candidate)?candidate:single?[{
+    ...single,...(incidentDispatchedAt?{dispatchedAt:incidentDispatchedAt}:{}),...(incidentClearedAt?{clearedAt:incidentClearedAt}:{}),
+  }]:invalid();
+  if(rows.length>100)return invalid();
+  return rows.map(row=>{
+    const source=object(row);
+    if(!source)return invalid();
+    const common=mapPatrolViewEvent(source);
+    if(!common.incidentNumber||common.incidentNumber.trim().toUpperCase()!==incidentNumber.trim().toUpperCase())return invalid();
+    const unitNumber=optionalUnit(source);
+    const cadIdentity=operationalIdentityFromCad(source);
+    const dispatchedAt=optionalTime(source,'dispatchedAt','dispatched_at');
+    const clearedAt=optionalTime(source,'clearedAt','cleared_at');
+    if(dispatchedAt&&clearedAt&&Date.parse(clearedAt)<Date.parse(dispatchedAt))return invalid();
+    // Whitelist only the approved run metrics. Never pass caller, officer, phone,
+    // narrative, notes, or any other upstream payload fields to the browser.
+    return {...common,incidentNumber:common.incidentNumber,...(unitNumber?{unitNumber}:{}),...(cadIdentity?{cadIdentity}:{}),
+      ...(unitNumber&&dispatchedAt?{dispatchedAt}:{}),...(unitNumber&&clearedAt?{clearedAt}:{})};
+  });
+}
+
+export async function fetchPatrolViewIncident(
+  incidentNumber:string,
+  unitNumber:string,
+  config:PatrolViewConfig=process.env,
+  fetchImpl:Parameters<typeof fetchPatrolViewJson>[2]=fetch,
+):Promise<DispatchIncidentPrefill[]> {
+  if(!/^[A-Za-z0-9._:-]{1,120}$/.test(incidentNumber)||!/^[A-Za-z0-9 ._:/-]{1,40}$/.test(unitNumber.trim())) {
+    throw new PatrolViewIntegrationError('PATROLVIEW_INVALID_RESPONSE',400,'The incident number and assigned unit are required.');
+  }
+  const template=config.PATROLVIEW_INCIDENT_LOOKUP_URL?.trim();
+  const token=config.PATROLVIEW_API_TOKEN?.trim();
+  if(!template||!token||(template.match(/\{incidentNumber\}/g)??[]).length!==1){
+    throw new PatrolViewIntegrationError('PATROLVIEW_NOT_CONFIGURED',503,'The approved incident lookup is not configured.');
+  }
+  let endpoint:URL;
+  try{endpoint=new URL(template.replace('{incidentNumber}',encodeURIComponent(incidentNumber)));}
+  catch{throw new PatrolViewIntegrationError('PATROLVIEW_NOT_CONFIGURED',503,'The incident lookup endpoint is invalid.');}
+  if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password||endpoint.search||endpoint.hash||
+    !new URL(template.replace('{incidentNumber}','INCIDENT_IDENTIFIER')).pathname.includes('INCIDENT_IDENTIFIER')){
+    throw new PatrolViewIntegrationError('PATROLVIEW_NOT_CONFIGURED',503,'The incident lookup requires an approved HTTPS path.');
+  }
+  const records=mapPatrolViewIncident(await fetchPatrolViewJson(endpoint,token,fetchImpl),incidentNumber);
+  const normalize=(value:string)=>value.trim().toUpperCase().replace(/\s+/g,' ');
+  // Shared incident fields are repeated into each matching unit's row. Keep
+  // unit-specific times scoped to the assigned unit; never return officer data.
+  return records.filter(record=>record.unitNumber&&normalize(record.unitNumber)===normalize(unitNumber));
+}

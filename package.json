@@ -1,0 +1,38 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "start": "node artifacts/api-server/dist/index.mjs",
+    "prebuild:api": "pnpm run snapshot:context",
+    "build:api": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server run typecheck && pnpm --filter @workspace/api-server run build:release",
+    "snapshot:context": "pnpm --filter @workspace/scripts exec tsx src/snapshot-context.ts",
+    "context:write": "pnpm --filter @workspace/scripts exec tsx src/write-context.ts",
+    "export:executive-brief": "node scripts/src/export-executive-brief.mjs",
+    "test:executive-brief-export": "node --test scripts/src/export-executive-brief.test.mjs",
+    "smoke:production-package": "node scripts/src/smoke-production-package.mjs",
+    "test:staging": "pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/src/developer-staging/staging.test.ts",
+    "bundle:production": "pnpm run build:api && pnpm --filter @workspace/scripts run bundle-package",
+    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "test:field-training:checker": "pnpm --filter @workspace/field-training run test:checker",
+    "test:field-training:time": "pnpm run typecheck:field-training:tests && TZ=America/New_York TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/date-time-entry.test.ts ../artifacts/field-training/src/lib/date-time-shortcut.test.ts ../artifacts/field-training/src/lib/date-time-shortcut.test.tsx ../artifacts/field-training/src/lib/field-workflow.test.ts ../artifacts/field-training/src/lib/training-calendar.test.ts",
+    "typecheck:field-training:tests": "pnpm --filter @workspace/field-training run typecheck:tests",
+    "test:field-training:phase": "pnpm run typecheck:field-training:tests && TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/phase-configuration.test.ts ../artifacts/field-training/src/lib/phase-extension.test.ts ../artifacts/field-training/src/lib/training-calendar.test.ts",
+    "test:field-training:regressions": "pnpm run test:field-training:phase && TZ=America/New_York TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/offlineStorage.test.ts ../artifacts/field-training/src/lib/dispatch-prefill.test.ts",
+    "test:training-packets": "pnpm run typecheck:field-training:tests && TZ=America/New_York TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/training-packet-sync.test.ts ../artifacts/field-training/src/lib/packet-history.test.ts ../artifacts/field-training/src/lib/workspace-draft-sync.test.ts ../artifacts/field-training/src/lib/workspace-sync-editor.test.ts ../artifacts/field-training/src/lib/protected-packets.test.ts ../artifacts/field-training/src/lib/packet-upload-controls.test.ts ../artifacts/field-training/src/lib/launch-readiness.test.ts && pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/tests/launch-readiness.test.ts && pnpm --filter @workspace/scripts exec tsx --test ../artifacts/mockup-sandbox/src/components/mockups/packet-upload/DraftFinalizationPreview.test.ts",
+    "test:maintenance-guardrails": "pnpm run typecheck:field-training:tests && pnpm --filter @workspace/scripts exec tsx --test src/snapshot-context.test.ts src/write-context.test.ts && TSX_TSCONFIG_PATH=$PWD/artifacts/field-training/tsconfig.test.json pnpm --filter @workspace/scripts exec tsx --test ../artifacts/field-training/src/lib/packet-upload-controls.test.ts ../artifacts/field-training/src/lib/weekly-log-print.test.ts ../artifacts/field-training/src/lib/print-export-guardrails.test.ts",
+    "validate:executive-brief": "pnpm --filter @workspace/scripts exec tsx --test src/validate-executive-brief.test.ts"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0 <25"
+  },
+  "private": true,
+  "devDependencies": {
+    "prettier": "^3.9.10",
+    "typescript": "~5.9.3"
+  }
+}

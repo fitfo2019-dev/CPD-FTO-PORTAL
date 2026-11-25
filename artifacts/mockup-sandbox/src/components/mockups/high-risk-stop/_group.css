@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap');
+.high-risk-preview {
+  --background:210 9% 95%;
+  --foreground:214 52% 18%;
+  --border:210 10% 81%;
+  --card:0 0% 100%;
+  --primary:210 100% 30%;
+  --muted-foreground:214 15% 37%;
+  font-family:Arial,sans-serif;
+  color:hsl(var(--foreground));
+  background:hsl(var(--background));
+  min-height:100vh;
+  padding:24px;
+}
+.high-risk-preview .label-caps {
+  font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:700;color:hsl(var(--muted-foreground));
+}
+.high-risk-preview .risk-heading {
+  font-family:Oswald,Arial,sans-serif;
+  font-size:26px;
+}
+.high-risk-preview .risk-note {color:hsl(var(--muted-foreground));font-size:13px;line-height:1.6;}

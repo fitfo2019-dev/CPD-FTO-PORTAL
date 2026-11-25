@@ -1,0 +1,1091 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import express from "express";
+import { PGlite } from "@electric-sql/pglite";
+import pg from "pg";
+import type { Pool } from "pg";
+import test from "node:test";
+import type { PhaseExtensionRequestInput } from "@workspace/api-zod";
+import {
+  createPhaseExtensionRequestStore,
+  type PhaseExtensionRequestStore,
+  type SharedPhaseExtensionRequest,
+} from "../lib/phase-extension-store.js";
+import { createPacketReviewStore } from "../lib/packet-review-store.js";
+import { hashUserIdentifier as hash } from "../utils/cryptoUtils.js";
+import {
+  createPhaseExtensionRequestsRouter,
+  getPhaseExtensionRoleFromPublicMetadata,
+} from "./phase-extension-requests.js";
+
+const ftoA = { userId: "test-phase-fto-a", role: "FTO" as const };
+const ftoB = { userId: "test-phase-fto-b", role: "FTO" as const };
+const coordinatorA = { userId: "test-phase-coordinator-a", role: "FTO_COORDINATOR" as const };
+const coordinatorB = { userId: "test-phase-coordinator-b", role: "FTO_COORDINATOR" as const };
+
+const request: PhaseExtensionRequestInput = {
+  id: "phase-extension-request-a1",
+  className: "Class A",
+  recruitName: "Client supplied name",
+  recruitBadge: "TEST-PO-A",
+  phase: 1,
+  phaseStartDate: "2026-11-01",
+  requestingFtoName: "Client supplied FTO",
+  requestingFtoBadge: "TEST-CLIENT",
+  extensionType: "training_weeks",
+  requestedWeeks: 1,
+  justification: "Additional coaching is needed.",
+};
+
+async function withApi(
+  caller: { userId: string; role: "FTO" | "FTO_COORDINATOR" } | null,
+  store: PhaseExtensionRequestStore,
+  run: (baseUrl: string) => Promise<void>,
+) {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    Object.assign(req, {
+      log: { error: (..._values: unknown[]) => undefined },
+    });
+    next();
+  });
+  app.use(createPhaseExtensionRequestsRouter({
+    resolveCaller: async () => caller
+      ? { caller }
+      : { error: { status: 401, code: "AUTHENTICATION_REQUIRED", message: "Sign in." } },
+    getStore: () => store,
+  }));
+  const server: Server = createServer(app);
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Test server failed to start.");
+  try {
+    await run(`http://127.0.0.1:${address.port}`);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close(error => error ? reject(error) : resolve()),
+    );
+  }
+}
+
+async function seedAssignment(
+  db: PGlite,
+  values: {
+    ftoId: string;
+    ftoBadge: string;
+    ftoName: string;
+    poId: string;
+    poBadge: string;
+    poName: string;
+    coordinatorId: string;
+    className: string;
+  },
+) {
+  await db.query(
+    `INSERT INTO agency_training.assignments (
+      id, class_name, phase, fto_id_hash, fto_badge_hash, fto_name, po_id_hash,
+      po_badge_hash, po_name, coordinator_id_hash, starts_on, ends_on,
+      fto_id, fto_badge, po_id, po_badge, coordinator_id
+    ) VALUES ($1,$2,1,$3,$4,$5,$6,$7,$8,$9,'2026-11-01','2027-12-31',$10,$11,$12,$13,$14)`,
+    [
+      randomUUID(),
+      values.className,
+      hash(values.ftoId),
+      hash(values.ftoBadge),
+      values.ftoName,
+      hash(values.poId),
+      hash(values.poBadge),
+      values.poName,
+      hash(values.coordinatorId),
+      values.ftoId,
+      values.ftoBadge,
+      values.poId,
+      values.poBadge,
+      values.coordinatorId,
+    ],
+  );
+}
+
+test("agency migration installs phase-extension requests and roster-scoped review works through the API", async t => {
+  const db = new PGlite();
+  const migration = (name: string) =>
+    readFile(new URL(`../../migrations/${name}`, import.meta.url), "utf8");
+  try {
+    await db.exec(await migration("agency-training.sql"));
+    await db.exec(await migration("agency-training-packet-review.sql"));
+    await db.exec(await migration("agency-training-phase-extensions.sql"));
+    await db.exec(await migration("agency-training-legacy-coordinator-reconciliation.sql"));
+    const schema = await db.query<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.tables
+       WHERE table_schema='agency_training' AND table_name='phase_extension_requests'`,
+    );
+    assert.equal(schema.rows.length, 1);
+
+    await db.query(
+      `INSERT INTO agency_training.coordinator_directory(id,name) VALUES
+       ($1,'Test Coordinator A'),($2,'Test Coordinator B')`,
+      [coordinatorA.userId, coordinatorB.userId],
+    );
+    await seedAssignment(db, {
+      ftoId: ftoA.userId,
+      ftoBadge: "TEST-FTO-A",
+      ftoName: "Trusted FTO A",
+      poId: "test-phase-po-a",
+      poBadge: "TEST-PO-A",
+      poName: "Trusted Recruit A",
+      coordinatorId: coordinatorA.userId,
+      className: "Class A",
+    });
+    await seedAssignment(db, {
+      ftoId: ftoB.userId,
+      ftoBadge: "TEST-FTO-B",
+      ftoName: "Trusted FTO B",
+      poId: "test-phase-po-b",
+      poBadge: "TEST-PO-B",
+      poName: "Trusted Recruit B",
+      coordinatorId: coordinatorB.userId,
+      className: "Class B",
+    });
+    await db.query(
+      `INSERT INTO agency_training.po_coordinators
+       (po_id,po_id_hash,po_badge,coordinator_id) VALUES
+       ($1,$2,$3,$4),($5,$6,$7,$8)`,
+      [
+        "test-phase-po-a",
+        hash("test-phase-po-a"),
+        "TEST-PO-A",
+        coordinatorA.userId,
+        "test-phase-po-b",
+        hash("test-phase-po-b"),
+        "TEST-PO-B",
+        coordinatorB.userId,
+      ],
+    );
+
+    const query = (sql: string, params?: unknown[]) => {
+      if (["BEGIN", "COMMIT", "ROLLBACK"].includes(sql)) {
+        return db.exec(sql).then(() => ({ rows: [] }));
+      }
+      if (sql.includes("pg_advisory_xact_lock")) {
+        return Promise.resolve({ rows: [] });
+      }
+      return db.query(sql, params);
+    };
+    const pool = {
+      query,
+      connect: async () => ({ query, release() {} }),
+    } as unknown as Pick<Pool, "query" | "connect">;
+    const store = createPhaseExtensionRequestStore(pool);
+
+    await t.test("only a matching active FTO assignment can submit, and roster details override client claims", async () => {
+      await withApi(ftoA, store, async baseUrl => {
+        const submitted = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(request),
+        });
+        assert.equal(submitted.status, 201, await submitted.clone().text());
+        const payload = await submitted.json() as { data: SharedPhaseExtensionRequest[] };
+        assert.equal(payload.data[0].recruitName, "Trusted Recruit A");
+        assert.equal(payload.data[0].requestingFtoName, "Trusted FTO A");
+        assert.equal(payload.data[0].requestingFtoBadge, "TEST-FTO-A");
+
+        const retried = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(request),
+        });
+        assert.equal(retried.status, 200);
+        assert.equal((await db.query("SELECT id FROM agency_training.phase_extension_requests")).rows.length, 1);
+
+        const changedRetry = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...request, requestedWeeks: 2 }),
+        });
+        assert.equal(changedRetry.status, 409);
+
+        const crossClass = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ...request,
+            id: "phase-extension-cross-class",
+            className: "Class B",
+            recruitBadge: "TEST-PO-B",
+          }),
+        });
+        assert.equal(crossClass.status, 403);
+      });
+    });
+
+    await t.test("pending requests follow the current Coordinator assignment", async () => {
+      await withApi(coordinatorB, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const payload = await list.json() as { data: SharedPhaseExtensionRequest[] };
+        assert.equal(payload.data.length, 0);
+        const denied = await fetch(`${baseUrl}/v1/phase-extension-requests/${request.id}/review`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ decision: "approve" }),
+        });
+        assert.equal(denied.status, 404);
+      });
+
+      await withApi(coordinatorA, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const payload = await list.json() as { data: SharedPhaseExtensionRequest[] };
+        assert.equal(payload.data.length, 1);
+      });
+
+      await db.query(
+        `UPDATE agency_training.po_coordinators SET coordinator_id=$1
+         WHERE po_id=$2`,
+        [coordinatorB.userId, "test-phase-po-a"],
+      );
+
+      await withApi(coordinatorA, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const payload = await list.json() as { data: SharedPhaseExtensionRequest[] };
+        assert.equal(payload.data.length, 0);
+        const denied = await fetch(`${baseUrl}/v1/phase-extension-requests/${request.id}/review`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ decision: "approve" }),
+        });
+        assert.equal(denied.status, 404);
+      });
+
+      await withApi(coordinatorB, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const payload = await list.json() as { data: SharedPhaseExtensionRequest[] };
+        assert.equal(payload.data.length, 1);
+        assert.equal(payload.data[0].id, request.id);
+        assert.equal(payload.data[0].status, "pending");
+
+        const competingDecisions = await Promise.all(["approve", "deny"].map(decision =>
+          fetch(`${baseUrl}/v1/phase-extension-requests/${request.id}/review`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ decision }),
+          }),
+        ));
+        assert.deepEqual(
+          competingDecisions.map(result => result.status).sort(),
+          [200, 409],
+        );
+      });
+
+      const decision = await db.query<{
+        status: string;
+        reviewed_by_user_id: string;
+        reviewed_at: Date | null;
+      }>(
+        `SELECT status, reviewed_by_user_id, reviewed_at
+         FROM agency_training.phase_extension_requests WHERE id=$1`,
+        [request.id],
+      );
+      assert.ok(["approved", "denied"].includes(decision.rows[0].status));
+      assert.equal(decision.rows[0].reviewed_by_user_id, coordinatorB.userId);
+      assert.ok(decision.rows[0].reviewed_at instanceof Date);
+
+      await withApi(ftoA, store, async baseUrl => {
+        const list = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+        const payload = await list.json() as { data: SharedPhaseExtensionRequest[] };
+        assert.equal(payload.data[0].status, decision.rows[0].status);
+      });
+    });
+
+    await t.test("legacy assignments route pending requests by the trusted Coordinator hash", async () => {
+      const legacyAssignment = {
+        ftoId: ftoA.userId,
+        ftoBadge: "TEST-FTO-LEGACY",
+        ftoName: "Trusted Legacy FTO",
+        poId: "test-phase-po-legacy",
+        poBadge: "TEST-PO-LEGACY",
+        poName: "Trusted Legacy Recruit",
+        coordinatorId: coordinatorA.userId,
+        className: "Legacy Class",
+      };
+      await seedAssignment(db, legacyAssignment);
+      const candidate = await db.query<{
+        eligible_for_reconciliation: boolean;
+        pending_phase_extension_request_count: number;
+      }>(
+        `SELECT eligible_for_reconciliation,pending_phase_extension_request_count
+         FROM agency_training.legacy_coordinator_reconciliation_candidates
+         WHERE po_id=$1`,
+        [legacyAssignment.poId],
+      );
+      assert.equal(candidate.rows[0].eligible_for_reconciliation, true);
+      assert.equal(candidate.rows[0].pending_phase_extension_request_count, 0);
+      const mapping = await db.query(
+        "SELECT 1 FROM agency_training.po_coordinators WHERE po_id_hash=$1",
+        [hash(legacyAssignment.poId)],
+      );
+      assert.equal(mapping.rows.length, 0, "Legacy assignment must have no canonical PO mapping");
+
+      const legacyRequest = {
+        ...request,
+        id: "phase-extension-request-legacy",
+        className: legacyAssignment.className,
+        recruitName: "Client supplied legacy name",
+        recruitBadge: legacyAssignment.poBadge,
+      };
+      await withApi(ftoA, store, async baseUrl => {
+        const submitted = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(legacyRequest),
+        });
+        assert.equal(submitted.status, 201, await submitted.clone().text());
+      });
+
+      const listFor = async (coordinator: typeof coordinatorA) => {
+        let result: SharedPhaseExtensionRequest[] = [];
+        await withApi(coordinator, store, async baseUrl => {
+          const response = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+          assert.equal(response.status, 200);
+          result = (await response.json() as { data: SharedPhaseExtensionRequest[] }).data;
+        });
+        return result;
+      };
+      assert.ok((await listFor(coordinatorA)).some(item => item.id === legacyRequest.id));
+      assert.ok(!(await listFor(coordinatorB)).some(item => item.id === legacyRequest.id));
+
+      await db.query(
+        "UPDATE agency_training.assignments SET coordinator_id_hash=$1 WHERE class_name=$2",
+        [hash(coordinatorB.userId), legacyAssignment.className],
+      );
+
+      assert.ok(!(await listFor(coordinatorA)).some(item => item.id === legacyRequest.id));
+      assert.ok((await listFor(coordinatorB)).some(item => item.id === legacyRequest.id));
+    });
+
+    await t.test("inactive assignments and disabled Coordinator roster entries stop access", async () => {
+      await db.query("UPDATE agency_training.assignments SET active=false WHERE class_name='Class A'");
+      await withApi(ftoA, store, async baseUrl => {
+        const denied = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...request, id: "phase-extension-inactive-assignment" }),
+        });
+        assert.equal(denied.status, 403);
+      });
+      assert.equal((await store.listPending(coordinatorA.userId)).length, 0);
+      await db.query("UPDATE agency_training.assignments SET active=true WHERE class_name='Class A'");
+      await db.query(
+        "UPDATE agency_training.coordinator_directory SET active=false WHERE id=$1",
+        [coordinatorA.userId],
+      );
+      assert.equal((await store.listPending(coordinatorA.userId)).length, 0);
+      const result = await store.review(request.id, coordinatorA.userId, "deny");
+      assert.equal(result.request, null);
+    });
+  } finally {
+    await db.close();
+  }
+});
+
+test("phase-extension reviews serialize with Coordinator handoffs under runtime grants", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "phase-extension-"));
+  const dataDir = join(dir, "data");
+  const portProbe = createServer();
+  await new Promise<void>(resolve => portProbe.listen(0, "127.0.0.1", resolve));
+  const address = portProbe.address();
+  if (!address || typeof address === "string") throw new Error("Could not reserve a PostgreSQL port.");
+  const port = address.port;
+  await new Promise<void>((resolve, reject) =>
+    portProbe.close(error => error ? reject(error) : resolve()),
+  );
+
+  let started = false;
+  let ownerPool: pg.Pool | undefined;
+  let runtimePool: pg.Pool | undefined;
+  try {
+    execFileSync("initdb", ["-D", dataDir, "-U", "phase_extension_owner", "-A", "trust", "--no-locale"], {
+      stdio: "pipe",
+    });
+    execFileSync("pg_ctl", ["-D", dataDir, "-l", join(dir, "postgres.log"), "-o",
+      `-k ${dir} -h '' -p ${port} -F`, "-w", "start"], { stdio: "pipe" });
+    started = true;
+    ownerPool = new pg.Pool({ host: dir, port, user: "phase_extension_owner", database: "postgres", max: 3 });
+
+    const migration = (name: string) =>
+      readFile(new URL(`../../migrations/${name}`, import.meta.url), "utf8");
+    await ownerPool.query(await migration("agency-training.sql"));
+    await ownerPool.query(await migration("agency-training-packet-review.sql"));
+    await ownerPool.query(await migration("agency-training-phase-extensions.sql"));
+    await ownerPool.query(await migration("agency-training-legacy-coordinator-reconciliation.sql"));
+
+    const assignmentId = randomUUID();
+    await ownerPool.query(
+      `INSERT INTO agency_training.coordinator_directory(id,name) VALUES
+       ($1,'Test Coordinator A'),($2,'Test Coordinator B')`,
+      [coordinatorA.userId, coordinatorB.userId],
+    );
+    await ownerPool.query(
+      `INSERT INTO agency_training.assignments (
+        id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,po_id_hash,
+        po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        fto_id,fto_badge,po_id,po_badge,coordinator_id
+      ) VALUES ($1,'Class A',1,$2,$3,'Trusted FTO',$4,$5,'Trusted Recruit',$6,
+        '2026-11-01','2027-12-31',$7,'TEST-FTO-A',$8,'TEST-PO-A',$9)`,
+      [
+        assignmentId,
+        hash(ftoA.userId),
+        hash("TEST-FTO-A"),
+        hash("test-phase-po-a"),
+        hash("TEST-PO-A"),
+        hash(coordinatorA.userId),
+        ftoA.userId,
+        "test-phase-po-a",
+        coordinatorA.userId,
+      ],
+    );
+    await ownerPool.query(
+      `INSERT INTO agency_training.po_coordinators
+       (po_id,po_id_hash,po_badge,coordinator_id) VALUES ($1,$2,'TEST-PO-A',$3)`,
+      ["test-phase-po-a", hash("test-phase-po-a"), coordinatorA.userId],
+    );
+
+    await ownerPool.query(`CREATE ROLE phase_extension_runtime LOGIN;
+      CREATE ROLE phase_extension_unprivileged NOLOGIN;
+      GRANT USAGE ON SCHEMA agency_training TO phase_extension_runtime;
+      GRANT SELECT (id,class_name,phase,fto_id_hash,fto_name,po_id_hash,
+        po_badge_hash,po_name,coordinator_id_hash,starts_on,active,po_id,
+        po_badge,fto_id,fto_badge) ON agency_training.assignments TO phase_extension_runtime;
+      GRANT SELECT (id,active) ON agency_training.coordinator_directory TO phase_extension_runtime;
+      GRANT SELECT (po_id,po_id_hash,coordinator_id)
+        ON agency_training.po_coordinators TO phase_extension_runtime;
+      GRANT SELECT ON agency_training.phase_extension_requests TO phase_extension_runtime;
+      GRANT INSERT (id,assignment_id,requester_user_id,class_name,recruit_name,
+        recruit_badge,phase,phase_start_date,requesting_fto_name,
+        requesting_fto_badge,extension_type,requested_weeks,justification,
+        status,created_at) ON agency_training.phase_extension_requests TO phase_extension_runtime;
+      GRANT UPDATE (status,reviewed_at,reviewed_by_user_id)
+        ON agency_training.phase_extension_requests TO phase_extension_runtime;`);
+
+    runtimePool = new pg.Pool({ host: dir, port, user: "phase_extension_runtime", database: "postgres", max: 3 });
+    // Keep these expectations independent of the grants above: broadening a
+    // grant must not silently broaden the request service's roster access.
+    for (const { table, readableColumns, privateColumns } of [
+      {
+        table: "assignments",
+        readableColumns: [
+          "id", "class_name", "phase", "fto_id_hash", "fto_name", "po_id_hash",
+          "po_badge_hash", "po_name", "coordinator_id_hash", "starts_on", "active",
+          "po_id", "po_badge", "fto_id", "fto_badge",
+        ],
+        privateColumns: ["fto_badge_hash", "coordinator_id"],
+      },
+      {
+        table: "coordinator_directory",
+        readableColumns: ["id", "active"],
+        privateColumns: ["name"],
+      },
+      {
+        table: "po_coordinators",
+        readableColumns: ["po_id", "po_id_hash", "coordinator_id"],
+        privateColumns: ["po_badge"],
+      },
+    ]) {
+      const allowed: pg.QueryResult = await runtimePool.query(
+        `SELECT ${readableColumns.join(",")} FROM agency_training.${table}`,
+      );
+      assert.deepEqual(allowed.fields.map(field => field.name), readableColumns);
+      assert.equal(
+        allowed.rows.length,
+        table === "coordinator_directory" ? 2 : 1,
+        `Runtime must read the seeded ${table} rows`,
+      );
+
+      // Check each private identity field separately so one denied field
+      // cannot mask an accidental grant on another. Wildcards must fail too.
+      for (const column of [...privateColumns, "*"]) {
+        await assert.rejects(
+          runtimePool.query(`SELECT ${column} FROM agency_training.${table}`),
+          { code: "42501" },
+          `Runtime must not read ${table}.${column}`,
+        );
+      }
+    }
+
+    for (const sql of [
+      "SELECT * FROM agency_training.legacy_coordinator_reconciliation_candidates",
+      "SELECT * FROM agency_training.po_coordinator_reconciliation_audit",
+      `SELECT agency_training.reconcile_legacy_po_coordinator(
+        'test-phase-po-a','test-phase-coordinator-a','runtime','must be denied')`,
+    ]) {
+      await assert.rejects(runtimePool.query(sql), { code: "42501" }, sql);
+    }
+
+    // Use real PostgreSQL: permission failures (42501), not syntax or missing
+    // object errors, must be what prevents runtime DDL.
+    for (const sql of [
+      "CREATE SCHEMA runtime_schema",
+      "CREATE TABLE agency_training.runtime_table (id text)",
+      ...["assignments", "coordinator_directory", "po_coordinators", "phase_extension_requests"]
+        .flatMap(table => [
+          `ALTER TABLE agency_training.${table} ADD COLUMN runtime_column text`,
+          `ALTER TABLE agency_training.${table} OWNER TO phase_extension_runtime`,
+        ]),
+      "ALTER TABLE agency_training.phase_extension_requests DISABLE TRIGGER phase_extension_decision_once",
+      "GRANT phase_extension_owner TO phase_extension_runtime",
+      "GRANT phase_extension_owner TO phase_extension_unprivileged",
+    ]) {
+      await assert.rejects(runtimePool.query(sql), { code: "42501" }, sql);
+    }
+
+    // GRANT without grant authority can succeed with only a warning. Require
+    // either insufficient_privilege or warning_no_privileges_granted, and check
+    // the actual ACLs and effective rights rather than trusting query rejection.
+    const readAcls = () => ownerPool!.query(`
+      SELECT 'schema' AS kind, nspname AS name, nspacl::text AS acl
+      FROM pg_namespace WHERE nspname='agency_training'
+      UNION ALL
+      SELECT 'relation', relname, relacl::text
+      FROM pg_class WHERE relnamespace='agency_training'::regnamespace
+      UNION ALL
+      SELECT 'column', c.relname || '.' || a.attname, a.attacl::text
+      FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid
+      WHERE c.relnamespace='agency_training'::regnamespace AND a.attnum > 0
+      ORDER BY kind, name
+    `);
+    const initialAcls = (await readAcls()).rows;
+    const grantClient = await runtimePool.connect();
+    try {
+      for (const recipient of ["phase_extension_runtime", "phase_extension_unprivileged"]) {
+        for (const privilege of [
+          "CREATE ON SCHEMA agency_training",
+          "DELETE ON agency_training.phase_extension_requests",
+          "SELECT ON agency_training.phase_extension_requests",
+          "UPDATE (status) ON agency_training.phase_extension_requests",
+          "SELECT (id) ON agency_training.assignments",
+        ]) {
+          const sql = `GRANT ${privilege} TO ${recipient} WITH GRANT OPTION`;
+          const notices: string[] = [];
+          const onNotice = (notice: { code?: string }) => {
+            if (notice.code) notices.push(notice.code);
+          };
+          grantClient.on("notice", onNotice);
+          try {
+            await grantClient.query(sql);
+            assert.ok(notices.includes("01007"), `Expected denied grant warning: ${sql}`);
+          } catch (error) {
+            assert.equal((error as { code?: string }).code, "42501", sql);
+          } finally {
+            grantClient.off("notice", onNotice);
+          }
+        }
+      }
+    } finally {
+      grantClient.release();
+    }
+    assert.deepEqual((await readAcls()).rows, initialAcls, "Denied grants must not change any agency ACL");
+    for (const role of ["phase_extension_runtime", "phase_extension_unprivileged"]) {
+      const rights = await ownerPool.query(`
+        SELECT
+          has_database_privilege($1, current_database(), 'CREATE') AS create_schema,
+          has_schema_privilege($1, 'agency_training', 'CREATE') AS create_table,
+          has_table_privilege($1, 'agency_training.phase_extension_requests', 'DELETE') AS delete_requests,
+          has_table_privilege($1, 'agency_training.phase_extension_requests', 'SELECT WITH GRANT OPTION') AS grant_select,
+          has_column_privilege($1, 'agency_training.phase_extension_requests', 'status', 'UPDATE WITH GRANT OPTION') AS grant_review,
+          has_column_privilege($1, 'agency_training.assignments', 'id', 'SELECT WITH GRANT OPTION') AS grant_assignment
+      `, [role]);
+      assert.ok(Object.values(rights.rows[0]).every(value => value === false), role);
+    }
+    const otherRoleRights = await ownerPool.query(`
+      SELECT
+        has_table_privilege('phase_extension_unprivileged', 'agency_training.phase_extension_requests', 'SELECT') AS read_requests,
+        has_column_privilege('phase_extension_unprivileged', 'agency_training.phase_extension_requests', 'status', 'UPDATE') AS review_requests,
+        has_column_privilege('phase_extension_unprivileged', 'agency_training.assignments', 'id', 'SELECT') AS read_assignment
+    `);
+    assert.ok(Object.values(otherRoleRights.rows[0]).every(value => value === false));
+
+    // Review columns are UPDATE-only: a fabricated decision must fail on
+    // INSERT privileges, not merely on a constraint or the UPDATE trigger.
+    for (const status of ["approved", "denied"]) {
+      const fabricatedId = `fabricated-${status}-${randomUUID()}`;
+      await assert.rejects(
+        runtimePool.query(
+          `INSERT INTO agency_training.phase_extension_requests (
+            id,assignment_id,requester_user_id,class_name,recruit_name,
+            recruit_badge,phase,phase_start_date,requesting_fto_name,
+            requesting_fto_badge,extension_type,requested_weeks,justification,
+            status,reviewed_at,reviewed_by_user_id
+          ) VALUES ($1,$2,$3,'Class A','Trusted Recruit','TEST-PO-A',1,
+            '2026-11-01','Trusted FTO','TEST-FTO-A','training_weeks',1,$4,
+            $5,$6,$7)`,
+          [
+            fabricatedId,
+            assignmentId,
+            ftoA.userId,
+            request.justification,
+            status,
+            "2026-11-02T12:00:00.000Z",
+            coordinatorA.userId,
+          ],
+        ),
+        { code: "42501" },
+        `Runtime must not insert a fabricated ${status} decision`,
+      );
+      const inserted: pg.QueryResult = await ownerPool.query(
+        "SELECT * FROM agency_training.phase_extension_requests WHERE id=$1",
+        [fabricatedId],
+      );
+      assert.equal(
+        inserted.rowCount,
+        0,
+        `Denied ${status} insertion must not leave a stored request`,
+      );
+    }
+
+    // Denied writes and grants must leave legitimate submit/list/review intact.
+    const store = createPhaseExtensionRequestStore(runtimePool);
+    const requestId = `limited-${randomUUID()}`;
+    const submittedRequest = { ...request, id: requestId };
+
+    await withApi(ftoA, store, async baseUrl => {
+      const submitted = await fetch(`${baseUrl}/v1/phase-extension-requests`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(submittedRequest),
+      });
+      assert.equal(submitted.status, 201, await submitted.clone().text());
+      const ftoList = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+      const ftoPayload = await ftoList.json() as { data: SharedPhaseExtensionRequest[] };
+      assert.equal(ftoPayload.data[0].id, requestId);
+      assert.equal(ftoPayload.data[0].status, "pending");
+    });
+
+    const expectedAttribution = {
+      assignment_id: assignmentId,
+      requester_user_id: ftoA.userId,
+      recruit_name: "Trusted Recruit",
+      recruit_badge: "TEST-PO-A",
+      requesting_fto_name: "Trusted FTO",
+      requesting_fto_badge: "TEST-FTO-A",
+    };
+    const readAttribution = async () => {
+      const result = await ownerPool!.query(
+        `SELECT assignment_id,requester_user_id,recruit_name,recruit_badge,
+          requesting_fto_name,requesting_fto_badge
+         FROM agency_training.phase_extension_requests WHERE id=$1`,
+        [requestId],
+      );
+      return result.rows[0];
+    };
+    assert.deepEqual(await readAttribution(), expectedAttribution);
+
+    const readRequestRow = async () => {
+      const result = await ownerPool!.query(
+        "SELECT * FROM agency_training.phase_extension_requests WHERE id=$1",
+        [requestId],
+      );
+      assert.equal(result.rowCount, 1);
+      return result.rows[0];
+    };
+    const pendingRow = await readRequestRow();
+    assert.equal(pendingRow.status, "pending");
+    assert.equal(pendingRow.reviewed_at, null);
+    assert.equal(pendingRow.reviewed_by_user_id, null);
+
+    // Exercise each column independently while pending so neither another
+    // denied column nor the terminal-decision guard can hide a broadened grant.
+    for (const [column, replacement] of [
+      ["assignment_id", randomUUID()],
+      ["requester_user_id", ftoB.userId],
+      ["recruit_name", "Rewritten Recruit"],
+      ["recruit_badge", "TEST-PO-REWRITTEN"],
+      ["requesting_fto_name", "Rewritten FTO"],
+      ["requesting_fto_badge", "TEST-FTO-REWRITTEN"],
+    ]) {
+      await assert.rejects(
+        runtimePool.query(
+          `UPDATE agency_training.phase_extension_requests SET ${column}=$2 WHERE id=$1`,
+          [requestId, replacement],
+        ),
+        { code: "42501" },
+        `Runtime must not rewrite request attribution: ${column}`,
+      );
+      assert.deepEqual(
+        await readAttribution(),
+        expectedAttribution,
+        `Denied ${column} update must preserve stored attribution`,
+      );
+
+      // Supply a valid review alongside exactly one forbidden column so the
+      // transition guard cannot mask a broadened identity-column grant.
+      for (const status of ["approved", "denied"]) {
+        await assert.rejects(
+          runtimePool.query(
+            `UPDATE agency_training.phase_extension_requests
+             SET status=$3, reviewed_at=NOW(), reviewed_by_user_id=$4,
+               ${column}=$2 WHERE id=$1`,
+            [requestId, replacement, status, coordinatorA.userId],
+          ),
+          { code: "42501" },
+          `Runtime must not combine ${status} review with rewriting ${column}`,
+        );
+        assert.deepEqual(
+          await readRequestRow(),
+          pendingRow,
+          `Denied ${column} update with ${status} review must leave the entire pending row unchanged`,
+        );
+      }
+    }
+
+    await withApi(coordinatorA, store, async baseUrl => {
+      const coordinatorList = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+      const coordinatorPayload = await coordinatorList.json() as { data: SharedPhaseExtensionRequest[] };
+      assert.equal(coordinatorPayload.data.length, 1);
+      assert.equal(coordinatorPayload.data[0].id, requestId);
+      const reviewed = await fetch(`${baseUrl}/v1/phase-extension-requests/${requestId}/review`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision: "approve" }),
+      });
+      assert.equal(reviewed.status, 200, await reviewed.clone().text());
+      const reviewedPayload = await reviewed.json() as { data: SharedPhaseExtensionRequest[] };
+      assert.equal(reviewedPayload.data[0].status, "approved");
+    });
+
+    await assert.rejects(runtimePool.query(
+      "UPDATE agency_training.assignments SET active=false WHERE id=$1",
+      [assignmentId],
+    ));
+    await assert.rejects(runtimePool.query(
+      "UPDATE agency_training.phase_extension_requests SET justification='rewritten' WHERE id=$1",
+      [requestId],
+    ), { code: "42501" });
+    await assert.rejects(runtimePool.query(
+      `UPDATE agency_training.phase_extension_requests
+       SET status='denied', reviewed_at=NOW(), reviewed_by_user_id=$2 WHERE id=$1`,
+      [requestId, coordinatorA.userId],
+    ), /can only be decided once/);
+    await assert.rejects(runtimePool.query(
+      "DELETE FROM agency_training.phase_extension_requests WHERE id=$1",
+      [requestId],
+    ));
+
+    const persisted = await ownerPool.query(
+      `SELECT status,justification FROM agency_training.phase_extension_requests WHERE id=$1`,
+      [requestId],
+    );
+    assert.deepEqual(persisted.rows[0], {
+      status: "approved",
+      justification: request.justification,
+    });
+    assert.deepEqual(await readAttribution(), expectedAttribution);
+    const assignment = await ownerPool.query(
+      "SELECT active FROM agency_training.assignments WHERE id=$1",
+      [assignmentId],
+    );
+    assert.equal(assignment.rows[0].active, true);
+
+    // Seed a second recruit so an unrelated review can run while the first
+    // recruit's Coordinator handoff holds its advisory lock.
+    await ownerPool.query(
+      "UPDATE agency_training.po_coordinators SET coordinator_id=$1 WHERE po_id=$2",
+      [coordinatorA.userId, "test-phase-po-b"],
+    );
+    const otherAssignmentId = randomUUID();
+    await ownerPool.query(
+      `INSERT INTO agency_training.assignments (
+        id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,po_id_hash,
+        po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        fto_id,fto_badge,po_id,po_badge,coordinator_id
+      ) VALUES ($1,'Class B',1,$2,$3,'Trusted FTO B',$4,$5,'Trusted Recruit B',$6,
+        '2026-11-01','2027-12-31',$7,'TEST-FTO-B',$8,'TEST-PO-B',$9)`,
+      [
+        otherAssignmentId,
+        hash(ftoB.userId),
+        hash("TEST-FTO-B"),
+        hash("test-phase-po-b"),
+        hash("TEST-PO-B"),
+        hash(coordinatorA.userId),
+        ftoB.userId,
+        "test-phase-po-b",
+        coordinatorA.userId,
+      ],
+    );
+    const unrelatedRequestId = `unrelated-handoff-${randomUUID()}`;
+    await store.create(ftoB.userId, {
+      ...request,
+      id: unrelatedRequestId,
+      className: "Class B",
+      recruitBadge: "TEST-PO-B",
+    });
+    // A legacy request remains with the same Coordinator as its canonical
+    // mapping is created; the compatibility hash route is no longer needed.
+    const legacyPoId = "test-phase-po-reconciliation";
+    const legacyAssignmentId = randomUUID();
+    await ownerPool.query(
+      `INSERT INTO agency_training.assignments (
+        id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,po_id_hash,
+        po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        fto_id,fto_badge,po_id,po_badge,coordinator_id
+      ) VALUES ($1,'Legacy Class',1,$2,$3,'Trusted Legacy FTO',$4,$5,
+        'Trusted Legacy Recruit',$6,'2026-11-01','2027-12-31',
+        $7,'TEST-FTO-LEGACY',$8,'TEST-PO-LEGACY',$9)`,
+      [
+        legacyAssignmentId,
+        hash(ftoA.userId),
+        hash("TEST-FTO-LEGACY"),
+        hash(legacyPoId),
+        hash("TEST-PO-LEGACY"),
+        hash(coordinatorA.userId),
+        ftoA.userId,
+        legacyPoId,
+        coordinatorA.userId,
+      ],
+    );
+    const legacyRequestId = `legacy-reconciliation-${randomUUID()}`;
+    await store.create(ftoA.userId, {
+      ...request,
+      id: legacyRequestId,
+      className: "Legacy Class",
+      recruitName: "Client supplied legacy name",
+      recruitBadge: "TEST-PO-LEGACY",
+    });
+    const legacyCandidate = await ownerPool.query<{
+      eligible_for_reconciliation: boolean;
+      pending_phase_extension_request_count: number;
+    }>(
+      `SELECT eligible_for_reconciliation,pending_phase_extension_request_count
+       FROM agency_training.legacy_coordinator_reconciliation_candidates
+       WHERE po_id=$1`,
+      [legacyPoId],
+    );
+    assert.deepEqual(legacyCandidate.rows[0], {
+      eligible_for_reconciliation: true,
+      pending_phase_extension_request_count: 1,
+    });
+    assert.equal((await store.listPending(coordinatorA.userId)).some(row => row.id === legacyRequestId), true);
+    assert.equal((await store.listPending(coordinatorB.userId)).some(row => row.id === legacyRequestId), false);
+
+    await assert.rejects(
+      ownerPool.query(
+        `SELECT agency_training.reconcile_legacy_po_coordinator($1,$2,$3,$4)`,
+        [legacyPoId, coordinatorB.userId, "verified-test-operator", "Intentionally mismatched test selection."],
+      ),
+      /Selected Coordinator does not match/,
+    );
+    const rejectedMapping = await ownerPool.query(
+      "SELECT 1 FROM agency_training.po_coordinators WHERE po_id=$1",
+      [legacyPoId],
+    );
+    assert.equal(rejectedMapping.rows.length, 0, "Rejected reconciliation must not create a mapping");
+    assert.equal((await store.listPending(coordinatorA.userId)).some(row => row.id === legacyRequestId), true);
+
+    await ownerPool.query(
+      `SELECT agency_training.reconcile_legacy_po_coordinator($1,$2,$3,$4)`,
+      [legacyPoId, coordinatorA.userId, "verified-test-operator", "Matched official roster entry."],
+    );
+    assert.equal((await store.listPending(coordinatorA.userId)).some(row => row.id === legacyRequestId), true);
+    assert.equal((await store.listPending(coordinatorB.userId)).some(row => row.id === legacyRequestId), false);
+    const reconciliation = await ownerPool.query<{
+      coordinator_id: string;
+      active_assignment_count: number;
+      pending_phase_extension_request_count: number;
+      reconciled_by: string;
+      reason: string;
+    }>(
+      `SELECT coordinator_id,active_assignment_count,pending_phase_extension_request_count,
+        reconciled_by,reason
+       FROM agency_training.po_coordinator_reconciliation_audit WHERE po_id=$1`,
+      [legacyPoId],
+    );
+    assert.deepEqual(reconciliation.rows[0], {
+      coordinator_id: coordinatorA.userId,
+      active_assignment_count: 1,
+      pending_phase_extension_request_count: 1,
+      reconciled_by: "verified-test-operator",
+      reason: "Matched official roster entry.",
+    });
+    await assert.rejects(
+      ownerPool.query("UPDATE agency_training.po_coordinator_reconciliation_audit SET reason='rewritten' WHERE po_id=$1", [legacyPoId]),
+      /immutable/,
+    );
+    await assert.rejects(
+      ownerPool.query(
+        `SELECT agency_training.reconcile_legacy_po_coordinator($1,$2,$3,$4)`,
+        [legacyPoId, coordinatorA.userId, "verified-test-operator", "Duplicate attempt."],
+      ),
+      /No unmapped active assignments/,
+    );
+    // Start a trusted Coordinator handoff and pause it immediately after it
+    // acquires PO A's lock. A former Coordinator review for PO A must wait,
+    // while PO B's independent review completes before the handoff is released.
+    const raceRequestId = `handoff-race-${randomUUID()}`;
+    await store.create(ftoA.userId, { ...request, id: raceRequestId });
+    const poId = "test-phase-po-a";
+    const lockKey = `po:${poId}`;
+    const otherLockKey = "po:test-phase-po-b";
+    let finishHandoff!: () => void;
+    let signalHandoffLock!: () => void;
+    let signalUnrelatedReviewLockAttempt!: () => void;
+    let signalFormerReviewLockAttempt!: () => void;
+    const handoffGate = new Promise<void>(resolve => { finishHandoff = resolve; });
+    const handoffLockAcquired = new Promise<void>(resolve => { signalHandoffLock = resolve; });
+    const unrelatedReviewLockAttempted = new Promise<void>(resolve => {
+      signalUnrelatedReviewLockAttempt = resolve;
+    });
+    const formerReviewLockAttempted = new Promise<void>(resolve => {
+      signalFormerReviewLockAttempt = resolve;
+    });
+    let handoffSettled = false;
+
+    const instrumentPool = (
+      source: pg.Pool,
+      onLock: (afterAcquire: boolean, key: unknown) => void | Promise<void>,
+    ) => new Proxy(source, {
+      get(target, property, receiver) {
+        if (property === "query") return target.query.bind(target);
+        if (property === "connect") {
+          return async () => {
+            const client = await target.connect();
+            const queryClient = client.query.bind(client);
+            return {
+              query: async (sql: string, values?: unknown[]) => {
+                const lockQuery = sql.includes("pg_advisory_xact_lock");
+                if (lockQuery) onLock(false, values?.[0]);
+                const result = await queryClient(sql, values);
+                if (lockQuery) await onLock(true, values?.[0]);
+                return result;
+              },
+              release: client.release.bind(client),
+            } as unknown as pg.PoolClient;
+          };
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    }) as pg.Pool;
+
+    const handoffPool = instrumentPool(ownerPool, async (acquired, key) => {
+      if (!acquired || key !== lockKey) return;
+      signalHandoffLock();
+      await handoffGate;
+    });
+    const handoff = createPacketReviewStore(handoffPool).assign(
+      { id: coordinatorA.userId, badge: "TEST-COORD-A", role: "FTO_COORDINATOR" },
+      { po_id: poId, coordinator_id: coordinatorB.userId, expected_revision: 1 },
+    ).finally(() => { handoffSettled = true; });
+
+    const waitWithTimeout = async <T,>(promise: Promise<T>, message: string): Promise<T> => {
+      let timer: NodeJS.Timeout | undefined;
+      try {
+        return await Promise.race([
+          promise,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(message)), 5_000);
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
+    try {
+      await waitWithTimeout(handoffLockAcquired, "Coordinator handoff did not acquire its PO lock.");
+
+      const unrelatedReview = createPhaseExtensionRequestStore(
+        instrumentPool(runtimePool, (acquired, key) => {
+          if (!acquired && key === otherLockKey) signalUnrelatedReviewLockAttempt();
+        }),
+      ).review(unrelatedRequestId, coordinatorA.userId, "approve");
+      await waitWithTimeout(
+        unrelatedReviewLockAttempted,
+        "Unrelated Coordinator review did not request its own PO lock.",
+      );
+      const unrelatedResult = await waitWithTimeout(
+        unrelatedReview,
+        "Unrelated Coordinator review was blocked by another recruit's handoff.",
+      );
+      assert.equal(unrelatedResult.request?.status, "approved");
+      assert.equal(unrelatedResult.alreadyResolved, false);
+      assert.equal(handoffSettled, false, "unrelated review must complete before handoff release");
+
+      const reviewedByFormer = createPhaseExtensionRequestStore(
+        instrumentPool(runtimePool, (acquired, key) => {
+          if (!acquired && key === lockKey) signalFormerReviewLockAttempt();
+        }),
+      );
+      let formerReviewSettled = false;
+      const formerReview = reviewedByFormer
+        .review(raceRequestId, coordinatorA.userId, "approve")
+        .then(result => {
+          formerReviewSettled = true;
+          return result;
+        });
+      await waitWithTimeout(formerReviewLockAttempted, "Former Coordinator review did not request the PO lock.");
+      await new Promise(resolve => setTimeout(resolve, 30));
+      assert.equal(formerReviewSettled, false, "review must wait for the in-flight handoff");
+
+      finishHandoff();
+      await handoff;
+      const formerResult = await formerReview;
+      assert.equal(formerResult.request, null);
+      assert.equal(formerResult.alreadyResolved, false);
+
+      const newResult = await store.review(raceRequestId, coordinatorB.userId, "approve");
+      assert.equal(newResult.request?.status, "approved");
+      assert.equal(newResult.alreadyResolved, false);
+    } finally {
+      finishHandoff();
+    }
+  } finally {
+    await runtimePool?.end();
+    await ownerPool?.end();
+    if (started) {
+      execFileSync("pg_ctl", ["-D", dataDir, "-m", "immediate", "-w", "stop"], { stdio: "pipe" });
+    }
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("client role preview data cannot authorize Coordinator review", async () => {
+  const store: PhaseExtensionRequestStore = {
+    async listForFto() { return []; },
+    async listPending() { return []; },
+    async create() { throw new Error("Not used."); },
+    async review() { throw new Error("Not used."); },
+  };
+  await withApi(ftoA, store, async baseUrl => {
+    const denied = await fetch(`${baseUrl}/v1/phase-extension-requests/forged/review`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision: "approve", role: "FTO_COORDINATOR" }),
+    });
+    assert.equal(denied.status, 403);
+  });
+});
+
+test("unauthenticated clients cannot list shared requests", async () => {
+  const store: PhaseExtensionRequestStore = {
+    async listForFto() { return []; },
+    async listPending() { return []; },
+    async create() { throw new Error("Not used."); },
+    async review() { throw new Error("Not used."); },
+  };
+  await withApi(null, store, async baseUrl => {
+    const response = await fetch(`${baseUrl}/v1/phase-extension-requests`);
+    assert.equal(response.status, 401);
+  });
+});
+
+test("only server-managed FieldReady role metadata grants request access", () => {
+  assert.equal(getPhaseExtensionRoleFromPublicMetadata({ fieldreadyRole: "FTO" }), "FTO");
+  assert.equal(getPhaseExtensionRoleFromPublicMetadata({ fieldreadyRole: "FTO_COORDINATOR" }), "FTO_COORDINATOR");
+  assert.equal(getPhaseExtensionRoleFromPublicMetadata({ fieldreadyRole: "FTO_COORDINATOR", role: "FTO" }), "FTO_COORDINATOR");
+  assert.equal(getPhaseExtensionRoleFromPublicMetadata({ fieldreadyRole: "FTO", clientPreview: "FTO_COORDINATOR" }), "FTO");
+  assert.equal(getPhaseExtensionRoleFromPublicMetadata({ fieldreadyRole: "fto_coordinator" }), null);
+  assert.equal(getPhaseExtensionRoleFromPublicMetadata(null), null);
+});

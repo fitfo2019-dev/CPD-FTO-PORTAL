@@ -1,0 +1,1653 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: secure-records
+    description: Secure records operations
+  - name: audit-logs
+    description: Development-only audit log samples
+  - name: dispatch
+    description: Protected dispatch event prefill
+  - name: resources
+    description: Clerk-authenticated reference document catalog and downloads
+  - name: training-packets
+    description: Agency-roster-authorized training packet sync and reads
+  - name: packet-review
+    description: Server-scoped Coordinator packet review and PO acknowledgment
+paths:
+  /v1/account/operational-profile/history:
+    get:
+      operationId: getOperationalProfileHistory
+      description: Own-account history only. Identity and actor come from the verified server session. No account selector is accepted.
+      parameters:
+        - name: beforeVersion
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 2147483647 }
+      responses:
+        "200":
+          description: Up to 50 entries in descending profile-version order
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationalProfileHistory" }
+        "400": { description: Invalid cursor or unsupported account selector }
+        "401": { description: Sign-in required }
+        "403": { description: Verified FTO or PO required }
+        "503": { description: Agency storage unavailable }
+  /v1/account/operational-profile:
+    get:
+      operationId: getOperationalProfile
+      responses:
+        "200":
+          description: Own verified operational account context
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationalProfileContext" }
+        "401": { description: Sign-in required }
+        "403": { description: Verified FTO or PO required }
+        "503": { description: Agency storage unavailable }
+    put:
+      operationId: updateOperationalProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperationalProfileInput" }
+      responses:
+        "200":
+          description: Atomic own-profile save
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationalProfileContext" }
+        "400": { description: Invalid token or request }
+        "401": { description: Sign-in required }
+        "403": { description: Verified FTO or PO required }
+        "409": { description: Profile changed; refresh before retry }
+        "503": { description: Agency storage unavailable }
+  /v1/account/operational-profile/clear:
+    post:
+      operationId: clearOperationalProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OperationalProfileClearInput" }
+      responses:
+        "200":
+          description: Versioned empty own-profile state; account, roster and packets unchanged
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationalProfileContext" }
+        "400": { description: Missing confirmation or invalid request }
+        "401": { description: Sign-in required }
+        "403": { description: Verified FTO or PO required }
+        "409": { description: Profile changed; refresh before retry }
+        "503": { description: Agency storage unavailable }
+  /v1/packet-review/context:
+    get:
+      operationId: getPacketReviewContext
+      tags: [packet-review]
+      responses:
+        "200":
+          description: Verified account context and mandatory receipt gate
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketReviewContext" }
+  /v1/packet-review/coordinator:
+    put:
+      operationId: updatePacketCoordinator
+      tags: [packet-review]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PacketCoordinatorInput" }
+      responses:
+        "200":
+          description: Server-confirmed Coordinator assignment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketCoordinatorAssignment" }
+  /v1/packet-review/submissions:
+    get:
+      operationId: listPacketSubmissions
+      tags: [packet-review]
+      parameters:
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: Scoped, paginated submission inbox and FTO status list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketSubmissionPage" }
+  /v1/packet-review/submissions/{id}:
+    get:
+      operationId: getPacketSubmission
+      tags: [packet-review]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Immutable submitted packet and its review history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketSubmissionDetail" }
+    post:
+      operationId: actOnPacketSubmission
+      tags: [packet-review]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PacketReviewActionInput" }
+      responses:
+        "200":
+          description: Server-confirmed review action
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PacketSubmission" }
+  /v1/staging/training-records:
+    get:
+      operationId: listStagingTrainingRecords
+      summary: List authorized synthetic training records
+      description: Development-only isolated staging. Never uploads device drafts or serves operational records.
+      responses:
+        "200":
+          description: Scoped synthetic records
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+    post:
+      operationId: createStagingTrainingRecord
+      summary: Create a synthetic record within an active FTO assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StagingTrainingInput" }
+      responses:
+        "201":
+          description: Synthetic record committed with audit event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/training-records/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getStagingTrainingRecord
+      summary: Read one authorized synthetic record
+      responses:
+        "200":
+          description: Scoped synthetic record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+    put:
+      operationId: updateStagingTrainingRecord
+      summary: Version-checked FTO synthetic record update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StagingTrainingUpdate" }
+      responses:
+        "200":
+          description: Record and audit committed atomically
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/training-records/{id}/acknowledgement:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: acknowledgeStagingTrainingRecord
+      summary: PO acknowledges their own submitted synthetic record version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StagingAcknowledgementInput" }
+      responses:
+        "200":
+          description: Acknowledgement and audit committed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StagingTrainingEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthEnvelope"
+  /auth/mock-login:
+    post:
+      operationId: mockLogin
+      tags: [auth]
+      summary: Development-only mock login
+      description: Returns a non-JWT demonstration token in non-production environments only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MockLoginInput"
+      responses:
+        "200":
+          description: Mock login accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MockLoginEnvelope"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/secure-records:
+    get:
+      operationId: listSecureRecords
+      tags: [secure-records]
+      summary: List secure records
+      description: Returns mock records by default or normalized upstream records when the live integration is enabled. Live requests require a Clerk-authenticated session and a server-side authorization grant; the upstream uses only the server-level REAL_API_KEY.
+      responses:
+        "200":
+          description: Secure records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecureRecordsEnvelope"
+        "401":
+          description: Sign-in is required for the live integration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: The upstream service failed or returned invalid data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: The live integration is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "504":
+          description: The upstream request timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/training-packets:
+    get:
+      operationId: listTrainingPackets
+      tags: [training-packets]
+      summary: List packets assigned to the signed-in agency identity
+      description: The server scopes results by verified agency claims and its own assignment roster. Browser role or assignment data is never used for authorization.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque continuation cursor returned by the previous page.
+          schema: { type: string, maxLength: 256 }
+        - name: recruit
+          in: query
+          required: false
+          description: Case-insensitive partial match within the authorized roster.
+          schema: { type: string, minLength: 1, maxLength: 120 }
+        - name: date_from
+          in: query
+          required: false
+          schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        - name: date_to
+          in: query
+          required: false
+          schema: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+      responses:
+        "200":
+          description: Authorized packet snapshots
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        "401":
+          description: Verified agency sign-in required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: No matching agency assignment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: Agency records service is not configured
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/sync-readiness:
+    get:
+      operationId: getTrainingPacketSyncReadiness
+      tags: [training-packets]
+      summary: Check whether the agency draft-sync service is configured
+      description: This reports service availability only. It does not validate a roster assignment or authorize finalization; each packet operation independently verifies the signed identity and server-held assignment.
+      responses:
+        "200":
+          description: Sync readiness
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketSyncReadinessEnvelope" }
+        default:
+          description: Authentication or service configuration error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/sync:
+    post:
+      operationId: syncTrainingPackets
+      tags: [training-packets]
+      summary: Synchronize editable packet drafts as the assigned FTO
+      description: The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. Drafts remain editable and are excluded from Coordinator and PO reads until explicit finalization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketSyncInput" }
+      responses:
+        "200":
+          description: All editable drafts synchronized atomically
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketSyncEnvelope" }
+        "400":
+          description: Invalid packet payload
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "401":
+          description: Verified FTO sign-in required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: FTO identity and badge do not match the server roster
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "409":
+          description: A draft version conflicts with the server or the packet is already finalized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: Agency records service is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/finalize:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" } }
+    post:
+      operationId: finalizeTrainingPacket
+      tags: [training-packets]
+      summary: Explicitly submit an exact packet snapshot to its assigned Coordinator
+      description: An authenticated FTO explicitly finalizes the current synchronized draft. The server atomically rechecks the signed identity, badge, active roster assignment, and exact content hash, seals the packet as submitted_complete, and exposes it only to the Coordinator assigned by the server roster. Idempotent retries are safe. This is not a signature, PO release, or acknowledgment.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketFinalizeInput" }
+      responses:
+        "200":
+          description: Finalized packet in its server-owned Coordinator scope
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        "400":
+          description: Invalid finalization request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: FTO identity, badge, or active assignment does not match
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "404":
+          description: Draft is not visible to this FTO
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "409":
+          description: Snapshot changed, was withdrawn, or cannot be finalized
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: Agency records service is unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/release:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" } }
+    post:
+      operationId: releaseTrainingPacket
+      tags: [training-packets]
+      summary: Release an explicitly reviewed committed snapshot as a class coordinator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketReviewInput" }
+      responses:
+        "200":
+          description: Server-owned packet workflow state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        default:
+          description: Authentication, scope, conflict, validation or storage error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/acknowledge:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" } }
+    post:
+      operationId: acknowledgeTrainingPacket
+      tags: [training-packets]
+      summary: Record assigned PO review of the exact released snapshot, not an electronic signature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketAcknowledgmentInput" }
+      responses:
+        "200":
+          description: Server-owned packet workflow state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        default:
+          description: Authentication, scope, conflict, validation or storage error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/withdraw:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" } }
+    post:
+      operationId: withdrawTrainingPacket
+      tags: [training-packets]
+      summary: Permanently withdraw a packet for correction without erasing its history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketWithdrawalInput" }
+      responses:
+        "200":
+          description: Server-owned packet workflow state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        default:
+          description: Authentication, scope, conflict, validation or storage error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+    get:
+      operationId: getTrainingPacket
+      tags: [training-packets]
+      summary: Read one packet within the caller's agency assignment scope
+      responses:
+        "200":
+          description: Authorized packet snapshot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
+        "401":
+          description: Verified agency sign-in required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "403":
+          description: No matching agency assignment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "404":
+          description: Packet not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "503":
+          description: Agency records service is not configured
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [audit-logs]
+      summary: List development audit log samples
+      description: Returns deterministic, pseudonymized sample audit events in development only.
+      responses:
+        "200":
+          description: Development audit log samples
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogsEnvelope"
+        "404":
+          description: This endpoint is disabled in production environments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/dispatch/incident-lookup:
+    post:
+      operationId: dispatchIncidentLookup
+      tags: [dispatch]
+      summary: Look up an incident explicitly entered by the FTO
+      description: Returns allowlisted shared incident metrics only after the entered incident and assigned unit match. Unit-specific times are retained; officer details are excluded.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DispatchIncidentLookupInput"
+      responses:
+        "200":
+          description: Editable incident and unit candidates for FTO review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DispatchIncidentEnvelope"
+        default:
+          description: Invalid input, unauthorized access, or unavailable approved adapter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/dispatch/event-ingress:
+    post:
+      operationId: dispatchEventIngress
+      tags: [dispatch]
+      summary: Look up an approved dispatch event
+      description: Looks up one explicit event ID using the protected server-side adapter. This does not discover or poll active units.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DispatchEventIngressInput"
+      responses:
+        "200":
+          description: Normalized editable run-detail prefill
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DispatchEventIngressEnvelope"
+        "400":
+          description: Invalid event identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Dispatch access is not authorized for the signed-in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Unexpected dispatch lookup failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: The approved dispatch adapter failed or returned invalid data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Dispatch access or adapter configuration is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "504":
+          description: The approved dispatch adapter timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/resources:
+    get:
+      operationId: listResources
+      tags: [resources]
+      summary: List reference documents
+      description: Returns the resource documents available to signed-in users. Every item maps to a server-side allowlisted file.
+      responses:
+        "200":
+          description: Available reference documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceCatalogEnvelope"
+        "401":
+          description: A valid Clerk session is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/resources/{resourceId}/download:
+    get:
+      operationId: downloadResourceFile
+      tags: [resources]
+      summary: Download a reference document
+      description: Streams an allowlisted file as an attachment after Clerk session authentication. Files are not exposed through public static URLs.
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - amys-law-factors
+              - bmv-2255-urine-0-bac
+              - bmv2255-example
+              - domestic-violence-protocol
+              - drug-possession-weights
+              - dv-3-3-domestic-violence
+              - dv-cpo-vs-tpo
+              - dv-family-household-member-relationships
+              - dv-feti-model
+              - i-40-115-domestic-violence-lethality-screen
+              - dv-power-and-control-wheel
+              - dv-safety-plan-victims-page-1
+              - dv-safety-plan-victims-page-2
+              - dv-strangulation-assessment-card-v4
+              - dv-strangulation-checklist
+              - dv-strangulation-physiological-consequences
+              - dv-types-of-abuse-worksheet-1
+              - dv-strangulation-diagram
+              - key-criminal-law-issues-2024
+              - ohio-constitutional-opinions
+              - ohio-supreme-court-felony-quick-reference
+              - police-phone-directory
+              - prior-offenses-constituting-wud
+      responses:
+        "200":
+          description: The requested document, delivered as an attachment
+          headers:
+            Content-Disposition:
+              description: Safe attachment filename
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: A valid Clerk session is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: The resource identifier is not in the allowlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: The allowlisted resource file is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/phase-extension-requests:
+    get:
+      operationId: listPhaseExtensionRequests
+      tags: [phase-extensions]
+      summary: List phase extension requests available to the signed-in staff member
+      description: FTOs receive their own request statuses; FTO Coordinators receive pending requests. The server verifies the Clerk session and role metadata.
+      responses:
+        "200":
+          description: Authorized phase extension requests
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PhaseExtensionRequestsEnvelope" }
+        default:
+          description: Authentication, role, or storage service error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+    post:
+      operationId: submitPhaseExtensionRequest
+      tags: [phase-extensions]
+      summary: Submit a phase extension request as an FTO
+      description: The authenticated FTO identity and request timestamp are assigned by the server. Role preview values are ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PhaseExtensionRequestInput" }
+      responses:
+        "201":
+          description: Request stored for Coordinator review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PhaseExtensionRequestsEnvelope" }
+        default:
+          description: Authentication, role, validation, or storage service error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/phase-extension-requests/{id}/review:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 64, pattern: "^[A-Za-z0-9._:-]+$" }
+    post:
+      operationId: reviewPhaseExtensionRequest
+      tags: [phase-extensions]
+      summary: Approve or deny a pending request as an FTO Coordinator
+      description: The server verifies the signed-in Coordinator role and records the decision without trusting client role preview.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PhaseExtensionReviewInput" }
+      responses:
+        "200":
+          description: Request decision recorded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PhaseExtensionRequestsEnvelope" }
+        default:
+          description: Authentication, role, conflict, or storage service error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+components:
+  schemas:
+    OperationalIdentity:
+      type: object
+      additionalProperties: false
+      required: [assignmentToken, cadUnit, company]
+      properties:
+        assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
+        cruiserNumber: { type: string, pattern: "^[0-9]{4}$", deprecated: true, description: "Legacy snapshot only; never infer a physical fleet number from CAD." }
+        districtToken: { type: string, pattern: "^[0-9]{4}$" }
+        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$", description: "Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots." }
+        company: { type: string, pattern: "^[A-Z]$" }
+        side: { type: string, enum: ["1", "2"] }
+    OperationalProfileHistoryEntry:
+      type: object
+      additionalProperties: false
+      required: [version, oldToken, newToken, recordedAt, actor, event]
+      properties:
+        version: { type: integer, minimum: 1 }
+        oldToken: { type: ["string", "null"] }
+        newToken: { type: ["string", "null"] }
+        recordedAt: { type: string, format: date-time }
+        actor: { type: string, enum: [self, agency_migration] }
+        event: { type: string, enum: [created, changed, baseline, cleared] }
+    OperationalProfileHistory:
+      type: object
+      additionalProperties: false
+      required: [subject, entries, nextBeforeVersion]
+      properties:
+        subject: { type: string }
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/OperationalProfileHistoryEntry" }
+        nextBeforeVersion: { type: ["integer", "null"], minimum: 1 }
+    OperationalProfileClearInput:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, confirmedNoVehicle]
+      properties:
+        expectedVersion: { type: integer, minimum: 0, maximum: 2147483646 }
+        confirmedNoVehicle: { type: boolean, enum: [true] }
+    OperationalProfileInput:
+      type: object
+      additionalProperties: false
+      required: [assignmentToken, expectedVersion]
+      properties:
+        assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
+        expectedVersion: { type: integer, minimum: 0, maximum: 2147483646 }
+    OperationalProfileContext:
+      type: object
+      additionalProperties: false
+      required: [subject, role, badge, version, identity]
+      properties:
+        subject: { type: string }
+        role: { type: string, enum: [FTO, PO] }
+        badge: { type: string }
+        version: { type: integer, minimum: 0 }
+        identity:
+          anyOf:
+            - { $ref: "#/components/schemas/OperationalIdentity" }
+            - { type: "null" }
+        updatedAt: { type: string, format: date-time }
+    PacketCoordinator:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+    PacketCoordinatorAssignment:
+      type: object
+      required: [po_id, po_badge, coordinator_id, revision]
+      properties:
+        po_id: { type: string }
+        po_badge: { type: string }
+        coordinator_id: { type: string }
+        revision: { type: integer, minimum: 1 }
+    PacketCoordinatorInput:
+      type: object
+      additionalProperties: false
+      required: [po_id, coordinator_id, expected_revision]
+      properties:
+        po_id: { type: string, minLength: 1, maxLength: 256 }
+        coordinator_id: { type: string, minLength: 1, maxLength: 256 }
+        expected_revision: { type: integer, minimum: 0 }
+    PacketReviewContext:
+      type: object
+      required: [available, account_id, role, coordinators, assignments, pending_count, pending]
+      properties:
+        available: { type: boolean }
+        account_id: { type: string }
+        role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+        coordinators:
+          type: array
+          items: { $ref: "#/components/schemas/PacketCoordinator" }
+        assignments:
+          type: array
+          items: { $ref: "#/components/schemas/PacketCoordinatorAssignment" }
+        pending_count: { type: integer, minimum: 0 }
+        pending:
+          anyOf:
+            - { $ref: "#/components/schemas/PacketSubmission" }
+            - { type: "null" }
+    PacketSubmission:
+      type: object
+      required: [id, packet_id, packet_version, coordinator_id, coordinator_name, state, record_date, po_name, fto_name, submitted_at, acknowledged_at, reviewed_at, review_note]
+      properties:
+        id: { type: string, format: uuid }
+        packet_id: { type: string }
+        packet_version: { type: integer, minimum: 1 }
+        coordinator_id: { type: string }
+        coordinator_name: { type: string }
+        state: { type: string, enum: [submitted, acknowledged, approved, correction_requested, withdrawn] }
+        record_date: { type: string }
+        po_name: { type: string }
+        fto_name: { type: string }
+        submitted_at: { type: string }
+        acknowledged_at: { type: ["string", "null"] }
+        reviewed_at: { type: ["string", "null"] }
+        review_note: { type: string }
+    PacketSubmissionPage:
+      type: object
+      required: [items, has_more, next_offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PacketSubmission" }
+        has_more: { type: boolean }
+        next_offset: { type: integer, minimum: 0 }
+    PacketSubmissionHistory:
+      type: object
+      required: [action, occurred_at, note]
+      properties:
+        action: { type: string }
+        occurred_at: { type: string }
+        note: { type: string }
+    PacketSubmissionDetail:
+      type: object
+      required: [submission, report, history]
+      properties:
+        submission: { $ref: "#/components/schemas/PacketSubmission" }
+        report: { $ref: "#/components/schemas/TrainingPacketReport" }
+        history:
+          type: array
+          items: { $ref: "#/components/schemas/PacketSubmissionHistory" }
+    PacketReviewActionInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, action, note]
+      properties:
+        operation_id: { type: string, format: uuid }
+        action: { type: string, enum: [acknowledge, approve, return] }
+        note: { type: string, maxLength: 5000 }
+    PhaseExtensionRequestInput:
+      type: object
+      additionalProperties: false
+      required: [id, className, recruitName, recruitBadge, phase, phaseStartDate, requestingFtoName, requestingFtoBadge, extensionType, requestedWeeks, justification]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 64, pattern: "^[A-Za-z0-9._:-]+$" }
+        className: { type: string, maxLength: 120 }
+        recruitName: { type: string, minLength: 1, maxLength: 120 }
+        recruitBadge: { type: string, minLength: 1, maxLength: 40 }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        phaseStartDate: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        requestingFtoName: { type: string, minLength: 1, maxLength: 120 }
+        requestingFtoBadge: { type: string, minLength: 1, maxLength: 40 }
+        extensionType: { type: string, enum: [training_weeks, limbo_period] }
+        requestedWeeks: { type: integer, minimum: 1, maximum: 52 }
+        justification: { type: string, minLength: 1, maxLength: 4000 }
+    PhaseExtensionRequest:
+      allOf:
+        - $ref: "#/components/schemas/PhaseExtensionRequestInput"
+        - type: object
+          required: [status, createdAt, reviewedAt]
+          properties:
+            status: { type: string, enum: [pending, approved, denied] }
+            createdAt: { type: string, format: date-time }
+            reviewedAt: { type: ["string", "null"], format: date-time }
+    PhaseExtensionReviewInput:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, deny] }
+    PhaseExtensionRequestsMetadata:
+      type: object
+      additionalProperties: false
+      required: [total_records, role]
+      properties:
+        total_records: { type: integer, minimum: 0 }
+        role: { type: string, enum: [FTO, FTO_COORDINATOR] }
+    PhaseExtensionRequestsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata: { $ref: "#/components/schemas/PhaseExtensionRequestsMetadata" }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/PhaseExtensionRequest" }
+    StagingTrainingInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, assignment_id, record_date, narrative, status, synthetic]
+      properties:
+        operation_id: { type: string, format: uuid }
+        assignment_id: { type: string, format: uuid }
+        record_date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        narrative: { type: string, maxLength: 4000 }
+        status: { type: string, enum: [draft, submitted] }
+        synthetic: { type: boolean, enum: [true] }
+    StagingTrainingUpdate:
+      type: object
+      additionalProperties: false
+      required: [operation_id, base_version, narrative, status, synthetic]
+      properties:
+        operation_id: { type: string, format: uuid }
+        base_version: { type: integer, minimum: 1 }
+        narrative: { type: string, maxLength: 4000 }
+        status: { type: string, enum: [draft, submitted] }
+        synthetic: { type: boolean, enum: [true] }
+    StagingAcknowledgementInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, base_version, acknowledged]
+      properties:
+        operation_id: { type: string, format: uuid }
+        base_version: { type: integer, minimum: 1 }
+        acknowledged: { type: boolean, enum: [true] }
+    StagingTrainingRecord:
+      type: object
+      additionalProperties: false
+      required: [id, assignment_id, record_date, phase, narrative, status, version, acknowledged_version, synthetic]
+      properties:
+        id: { type: string, format: uuid }
+        assignment_id: { type: string, format: uuid }
+        record_date: { type: string }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        narrative: { type: string, maxLength: 4000 }
+        status: { type: string, enum: [draft, submitted] }
+        version: { type: integer, minimum: 1 }
+        acknowledged_version: { type: [integer, "null"], minimum: 1 }
+        synthetic: { type: boolean, enum: [true] }
+    StagingTrainingEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records, environment]
+          properties:
+            total_records: { type: integer, minimum: 0, maximum: 100 }
+            environment: { type: string, enum: [SYNTHETIC_STAGING] }
+        data:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/StagingTrainingRecord" }
+    TrainingPacketReport:
+      type: object
+      additionalProperties: true
+      required: [id, date, phase, className, recruitName, recruitBadge, ftoName, ftoBadge, runs, status, activity, reportingForDuty, ratings, narrative, remedial, recruitComments]
+      properties:
+        operationalIdentity: { $ref: "#/components/schemas/OperationalIdentity" }
+        id: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+        date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        className: { type: string, maxLength: 120 }
+        recruitName: { type: string, minLength: 1, maxLength: 120 }
+        recruitBadge: { type: string, minLength: 1, maxLength: 40 }
+        ftoName: { type: string, minLength: 1, maxLength: 120 }
+        ftoBadge: { type: string, minLength: 1, maxLength: 40 }
+        runs:
+          type: array
+          maxItems: 200
+          items: { type: object, additionalProperties: true, maxProperties: 100 }
+        activity: { type: object, additionalProperties: { type: integer, minimum: 0 }, maxProperties: 100 }
+        reportingForDuty: { type: object, additionalProperties: true, maxProperties: 100 }
+        ratings: { type: object, additionalProperties: true, maxProperties: 100 }
+        status: { type: string, enum: [draft, fto_signed, recruit_signed, locked] }
+        narrative: { type: string, maxLength: 100000 }
+        remedial: { type: string, maxLength: 100000 }
+        recruitComments: { type: string, maxLength: 100000 }
+    TrainingPacketSyncItem:
+      type: object
+      additionalProperties: false
+      required: [operation_id, base_version, report]
+      properties:
+        operation_id: { type: string, format: uuid }
+        base_version: { type: integer, minimum: 0 }
+        amendment_of: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+        amendment_reason: { type: string, minLength: 1, maxLength: 4000 }
+        report: { $ref: "#/components/schemas/TrainingPacketReport" }
+    TrainingPacketSyncInput:
+      type: object
+      additionalProperties: false
+      required: [packets]
+      properties:
+        packets:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: "#/components/schemas/TrainingPacketSyncItem" }
+    TrainingPacketSyncRecord:
+      type: object
+      additionalProperties: false
+      required: [id, operation_id, server_version, sync_status, content_hash]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128 }
+        operation_id: { type: string, format: uuid }
+        server_version: { type: integer, minimum: 1 }
+        sync_status: { type: string, enum: [local_draft_pending] }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+    TrainingPacketSyncEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records, role]
+          properties:
+            total_records: { type: integer, minimum: 0, maximum: 100 }
+            role: { type: string, enum: [FTO] }
+        data:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/TrainingPacketSyncRecord" }
+    TrainingPacketFinalizeInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, content_hash]
+      properties:
+        operation_id: { type: string, format: uuid }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+    TrainingPacketReviewInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, content_hash, review_confirmed]
+      properties:
+        operation_id: { type: string, format: uuid }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        review_confirmed: { type: boolean, enum: [true] }
+    TrainingPacketAcknowledgmentInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, content_hash, review_confirmed]
+      properties:
+        operation_id: { type: string, format: uuid }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        review_confirmed: { type: boolean, enum: [true] }
+        comments: { type: string, maxLength: 4000 }
+    TrainingPacketWithdrawalInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, content_hash, reason]
+      properties:
+        operation_id: { type: string, format: uuid }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        reason: { type: string, minLength: 1, maxLength: 4000 }
+    TrainingPacketAcknowledgment:
+      type: object
+      additionalProperties: false
+      required: [acknowledged_at, content_hash, comments]
+      properties:
+        acknowledged_at: { type: string, format: date-time }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        comments: { type: string, maxLength: 4000 }
+    TrainingPacketRecord:
+      type: object
+      additionalProperties: false
+      required: [id, assignment_id, record_date, phase, server_version, sync_status, report, content_hash, released_to_po, released_at, withdrawn_at, withdrawal_reason, acknowledgment, amendment_of, amendment_reason]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128 }
+        assignment_id: { type: string, format: uuid }
+        record_date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        server_version: { type: integer, minimum: 1 }
+        sync_status: { type: string, enum: [local_draft_pending, submitted_complete] }
+        report: { $ref: "#/components/schemas/TrainingPacketReport" }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        released_to_po: { type: boolean }
+        released_at: { type: ["string", "null"], format: date-time }
+        withdrawn_at: { type: ["string", "null"], format: date-time }
+        withdrawal_reason: { type: ["string", "null"] }
+        amendment_of: { type: ["string", "null"] }
+        amendment_reason: { type: ["string", "null"] }
+        acknowledgment:
+          oneOf:
+            - { $ref: "#/components/schemas/TrainingPacketAcknowledgment" }
+            - { type: "null" }
+    TrainingPacketsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records, role]
+          properties:
+            total_records: { type: integer, minimum: 0, maximum: 100 }
+            role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+            has_more: { type: boolean }
+            next_cursor: { type: ["string", "null"], maxLength: 256 }
+        data:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/TrainingPacketRecord" }
+    TrainingPacketSyncReadinessEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [service_available]
+          properties:
+            service_available: { type: boolean }
+        data:
+          type: array
+          maxItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [draft_sync_available]
+            properties:
+              draft_sync_available: { type: boolean }
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    HealthEnvelope:
+      type: object
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata: { type: object, additionalProperties: true }
+        data:
+          type: array
+          maxItems: 1
+          items: { $ref: "#/components/schemas/HealthStatus" }
+    MockLoginInput:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 64 }
+        password: { type: string, minLength: 8, maxLength: 256 }
+    MockLoginEnvelope:
+      type: object
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata: { type: object, additionalProperties: true }
+        data:
+          type: array
+          maxItems: 1
+          items:
+            type: object
+            required: [token]
+            properties:
+              token: { type: string }
+    SecureRecord:
+      type: object
+      additionalProperties: false
+      required: [id, status, updated_at]
+      properties:
+        id:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 64,
+            pattern: "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          }
+        status: { type: string, minLength: 1, maxLength: 64 }
+        updated_at: { type: string, format: date }
+    SecureRecordsMetadata:
+      type: object
+      additionalProperties: false
+      required: [total_records]
+      properties:
+        total_records: { type: integer, minimum: 0 }
+    SecureRecordsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata: { $ref: "#/components/schemas/SecureRecordsMetadata" }
+        data:
+          type: array
+          maxItems: 1000
+          items: { $ref: "#/components/schemas/SecureRecord" }
+    AuditLogActor:
+      type: object
+      additionalProperties: false
+      required: [user_id_hash, assigned_role]
+      properties:
+        user_id_hash:
+          type: string
+          minLength: 64
+          maxLength: 64
+          pattern: "^[a-f0-9]{64}$"
+        assigned_role:
+          type: string
+          enum: [RECRUIT, FTO, SERGEANT, ADMIN]
+    AuditLogActorValue:
+      oneOf:
+        - type: string
+          enum: [ANONYMOUS, UNAUTHENTICATED]
+        - $ref: "#/components/schemas/AuditLogActor"
+    AuditLogNetwork:
+      type: object
+      additionalProperties: false
+      required: [client_ip_hash, user_agent]
+      properties:
+        client_ip_hash:
+          type: string
+          minLength: 64
+          maxLength: 64
+          pattern: "^[a-f0-9]{64}$"
+        user_agent:
+          type: string
+          maxLength: 80
+    AuditLogEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - http_method
+        - endpoint
+        - payload_bytes
+        - status_code
+        - success
+        - disposition
+      properties:
+        http_method:
+          type: string
+          enum: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+        endpoint:
+          type: string
+          minLength: 1
+          maxLength: 200
+        payload_bytes:
+          type: integer
+          minimum: 0
+        status_code:
+          type: integer
+          minimum: 100
+          maximum: 599
+        success:
+          type: boolean
+        disposition:
+          type: string
+          enum: [SUCCESS, FAILURE]
+        error_message:
+          type: string
+          maxLength: 200
+    AuditLogRecord:
+      type: object
+      additionalProperties: false
+      required: [timestamp, request_id, actor, network, event]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        actor:
+          $ref: "#/components/schemas/AuditLogActorValue"
+        network:
+          $ref: "#/components/schemas/AuditLogNetwork"
+        event:
+          $ref: "#/components/schemas/AuditLogEvent"
+    AuditLogsMetadata:
+      type: object
+      additionalProperties: false
+      required: [total_records, environment]
+      properties:
+        total_records:
+          type: integer
+          minimum: 0
+        environment:
+          type: string
+          enum: [MOCK_DEVELOPMENT]
+    AuditLogsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status:
+          type: string
+          enum: [success]
+        metadata:
+          $ref: "#/components/schemas/AuditLogsMetadata"
+        data:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AuditLogRecord"
+    ResourceCatalogItem:
+      type: object
+      additionalProperties: false
+      required: [id, title, file_type, description, handling_note]
+      properties:
+        id:
+          type: string
+          enum:
+            - amys-law-factors
+            - bmv-2255-urine-0-bac
+            - bmv2255-example
+            - domestic-violence-protocol
+            - drug-possession-weights
+            - dv-3-3-domestic-violence
+            - dv-cpo-vs-tpo
+            - dv-family-household-member-relationships
+            - dv-feti-model
+            - i-40-115-domestic-violence-lethality-screen
+            - dv-power-and-control-wheel
+            - dv-safety-plan-victims-page-1
+            - dv-safety-plan-victims-page-2
+            - dv-strangulation-assessment-card-v4
+            - dv-strangulation-checklist
+            - dv-strangulation-physiological-consequences
+            - dv-types-of-abuse-worksheet-1
+            - dv-strangulation-diagram
+            - key-criminal-law-issues-2024
+            - ohio-constitutional-opinions
+            - ohio-supreme-court-felony-quick-reference
+            - police-phone-directory
+            - prior-offenses-constituting-wud
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        file_type:
+          type: string
+          enum: [DOC, DOCX, PDF]
+        description:
+          type: string
+          maxLength: 240
+        handling_note:
+          type: string
+          maxLength: 240
+    ResourceCatalogMetadata:
+      type: object
+      additionalProperties: false
+      required: [total_records]
+      properties:
+        total_records:
+          type: integer
+          minimum: 0
+    ResourceCatalogEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          $ref: "#/components/schemas/ResourceCatalogMetadata"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceCatalogItem"
+    DispatchIncidentLookupInput:
+      type: object
+      additionalProperties: false
+      required: [incidentNumber, unitNumber]
+      properties:
+        incidentNumber:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: "^[A-Za-z0-9._:-]+$"
+        unitNumber:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: "^[A-Za-z0-9 ._:/-]+$"
+    DispatchIncidentPrefill:
+      type: object
+      additionalProperties: false
+      required: [incidentNumber]
+      properties:
+        cadIdentity: { $ref: "#/components/schemas/OperationalIdentity" }
+        incidentNumber: { type: string, minLength: 1, maxLength: 120 }
+        unitNumber: { type: string, minLength: 1, maxLength: 40 }
+        eventDate: { type: string, format: date }
+        eventIngressAt: { type: string, format: date-time }
+        dispatchedAt: { type: string, format: date-time }
+        clearedAt: { type: string, format: date-time }
+        location: { type: string, maxLength: 200 }
+        locationAddress: { type: string, maxLength: 200 }
+        locationCity: { type: string, maxLength: 80 }
+        locationState: { type: string, pattern: "^[A-Z]{2}$" }
+        locationZip: { type: string, pattern: "^\\d{5}(?:-\\d{4})?$" }
+        zone: { type: string, maxLength: 40 }
+        cruiserDistrict: { type: string, maxLength: 40 }
+        dispatchedCode: { type: string, pattern: "^\\d{1,3}[A-Z]{0,2}$" }
+        clearanceCode:
+          type: string
+          enum: ["", "1V", "2V", "3V", "4V"]
+    DispatchIncidentEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records]
+          properties:
+            total_records: { type: integer, minimum: 0, maximum: 100 }
+        data:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/DispatchIncidentPrefill" }
+    DispatchEventIngressInput:
+      type: object
+      additionalProperties: false
+      required: [eventId, cadUnit]
+      properties:
+        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z]$" }
+        eventId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^[A-Za-z0-9._:-]+$"
+    DispatchEventPrefill:
+      type: object
+      additionalProperties: false
+      properties:
+        cadIdentity: { $ref: "#/components/schemas/OperationalIdentity" }
+        eventDate:
+          type: string
+          format: date
+        eventIngressAt:
+          type: string
+          format: date-time
+        incidentNumber:
+          type: string
+          maxLength: 120
+        location:
+          type: string
+          maxLength: 200
+        locationAddress:
+          type: string
+          maxLength: 200
+        locationCity:
+          type: string
+          maxLength: 80
+        locationState:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        locationZip:
+          type: string
+          pattern: "^\\d{5}(?:-\\d{4})?$"
+        zone:
+          type: string
+          maxLength: 40
+        cruiserDistrict:
+          type: string
+          maxLength: 40
+        dispatchedCode:
+          type: string
+          maxLength: 8
+          pattern: "^\\d{1,3}[A-Z]{0,2}$"
+        clearanceCode:
+          type: string
+          enum: ["", "1V", "2V", "3V", "4V"]
+    DispatchEventIngressMetadata:
+      type: object
+      additionalProperties: false
+      required: [total_records]
+      properties:
+        total_records:
+          type: integer
+          minimum: 0
+          maximum: 1
+    DispatchEventIngressEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          $ref: "#/components/schemas/DispatchEventIngressMetadata"
+        data:
+          type: array
+          maxItems: 1
+          items:
+            $ref: "#/components/schemas/DispatchEventPrefill"
+    ApiError:
+      type: object
+      required: [status, error_code, message]
+      properties:
+        status: { type: string, enum: [error] }
+        error_code: { type: string }
+        message: { type: string }

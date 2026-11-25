@@ -1,0 +1,15 @@
+{
+  "name": "@workspace/api-zod",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./patrol-assignment": "./src/patrol-assignment.ts",
+    "./packet-readiness": "./src/packet-readiness.ts",
+    "./operational-profile": "./src/operational-profile.ts"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  }
+}

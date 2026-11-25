@@ -1,0 +1,19 @@
+kind = "design-system"
+previewPath = "/fto-law-library-schema/"
+title = "FTO LAW LIBRARY SCHEMA"
+description = "Source-derived design system extracted from the approved Law Library Resource Preview: indigo, pale paper surfaces, compact resource discovery and a safe detail drawer. Existing screens remain unchanged pending approval."
+version = "1.0.0"
+id = "artifacts/fto-law-library-schema"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/fto-law-library-schema/" ]
+localPort = 19391
+
+[services.development]
+run = "pnpm --filter @workspace/fto-law-library-schema run dev"
+
+[services.env]
+PORT = "19391"
+BASE_PATH = "/fto-law-library-schema/"

@@ -1,0 +1,39 @@
+/* Allow content to grow rather than clipping field labels or button text. */
+main, main :is(section, fieldset, label, .grid > *, .flex > *) { min-width: 0; }
+:is(h1, h2, h3, h4, p, label, legend, dt, dd, th, td) { overflow-wrap: anywhere; }
+button, a { max-width: 100%; }
+button { white-space: normal; overflow-wrap: anywhere; }
+button:not([role="checkbox"]):not([role="switch"]):not([role="radio"]) {
+  height: auto;
+  min-height: 2.75rem;
+}
+main button { padding: .55rem .8rem; }
+a:is(.h-8, .h-9, .h-10) { height: auto; min-height: 2.75rem; padding-block: .55rem; }
+input:not([type="checkbox"]):not([type="radio"]), textarea, select {
+  min-width: 0;
+  max-width: 100%;
+}
+main input:not([type="checkbox"]):not([type="radio"]), main select, main textarea { width: 100%; }
+textarea { resize: vertical; }
+header :is(a, button) { flex-shrink: 0; }
+header nav a { min-height: 2.75rem; padding-block: .55rem; }
+.city-wordmark svg { display: block; width: 100%; height: auto; }
+main .overflow-x-auto { max-width: 100%; }
+main :is(.text-xs, .text-sm) { line-height: 1.5; }
+main :is(input, select, textarea) { font-size: 1rem; }
+main :is(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+main button:disabled,
+main [aria-disabled="true"] { cursor: not-allowed; }
+@media (max-width: 479px) {
+  main fieldset.grid.grid-cols-2 { grid-template-columns: minmax(0,1fr); }
+  main { padding-inline: 1rem; }
+  header > div { padding-inline: 1rem; }
+  [data-testid="banner-operational-status"] { padding-inline: 1rem; line-height: 1.5; }
+}
+@media (max-width: 359px) {
+  main { padding-inline: .75rem; }
+  .weekly-rating-mobile-count { font-size: .7rem; }
+}

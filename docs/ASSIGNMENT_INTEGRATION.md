@@ -1,0 +1,127 @@
+# Assignment integration and draft-submission handover
+
+## Assignment data
+
+Zone, precinct, shift/company, cruiser district, and FTO call-sign remain separate
+fields. The existing Columbus geography is retained, including Zone 3 / Precinct
+15 / C-Co / Cruiser District 153. The exact tactical call-signs `80C-1` and `80C-2`
+are accepted for C-Company only when the official cruiser district is recorded
+separately. The call-sign does not imply Precinct 8 and cannot override geography.
+This adds support for the requested identifiers, not independent certification
+of the underlying official source documents.
+
+CSV, Excel `.xlsx`, and Word `.docx` table imports share validation. Tactical rows
+must explicitly supply Cruiser District; ordinary assignment codes can still
+resolve their mapped district. Incomplete identity-only roster rows remain
+supported. Invalid tactical metadata stops restore before the saved workspace
+is replaced. Existing print layouts and workbook column structures are unchanged.
+
+## Draft sync and final submission
+
+`POST /api/v1/training-packets/sync` now saves an editable `local_draft_pending`
+copy. Draft uploads never enter PO or Coordinator packet reads. An unchanged
+acknowledged draft is not requeued merely because another local record is saved;
+editing the draft creates a new operation based on its acknowledged version.
+
+`POST /api/v1/training-packets/{id}/finalize` is a separate authenticated FTO
+operation with an operation UUID and acknowledged base version. It requires a
+saved, explicitly reviewed duty sheet, daily evaluation (except Limbo days),
+and completed/reviewed run forms. It rechecks the active server-managed
+FTO/badge, PO, date, class and phase, then resolves the PO's current shared,
+active Coordinator assignment. Draft synchronization never calls it.
+
+The approved, separate **FINALIZE AND SUBMIT TO COORDINATOR** control is now
+integrated with an explicit confirmation. It does not replace local draft save
+or draft sync. Submission seals the local packet only after a server receipt.
+The `/packet-submissions` page uses verified server roles, never the local role
+selector, for the shared inbox, status, assignment and review controls.
+
+## Receipt, review, corrections and reassignment
+
+The real Coordinator directory is provisioned by the agency using verified
+account IDs. No staff records or sample packets are seeded by these migrations.
+Invitation-only registration remains intact: a verified PO chooses a Coordinator
+during first-use account setup. A Coordinator can create or edit the assignment
+for a PO already within their trusted roster scope.
+
+Finalization atomically creates one immutable submitted-version snapshot and an
+unacknowledged inbox item for that assigned Coordinator. A red, nondismissible
+popup blocks the Coordinator's workspace until **ACKNOWLEDGE PACKET** succeeds
+on the server; sign-out remains possible. Context polls every five seconds and
+on focus. Server checks also block direct API bypasses while receipts remain.
+If storage is unavailable, the verified Coordinator sees an unavailable gate,
+not a false empty inbox.
+
+Receipt and approval are distinct. The FTO sees **SUBMITTED**, then the exact
+label **PACKET ACKNOWLEDGE**, and **COMPLETE** only after review and approval.
+Approval requires opening that submitted version for review and acknowledging
+all pending receipts. Correction requests require a written reason, preserve
+the earlier snapshot/history, and reopen only that packet as a versioned draft.
+The FTO explicitly opens the correction; an unrelated or newer local draft is
+never silently overwritten. Resubmission requires a new draft version and fresh
+acknowledgment.
+
+Coordinator reassignment uses revision checks and explicit UI confirmation.
+Pending work transfers and requires fresh acknowledgment; earlier approved
+snapshots remain unchanged. The former Coordinator loses scope immediately.
+Review actions and finalization use operation IDs to reject conflicting retries.
+Query caches are scoped to the signed-in account.
+
+**Activation is not complete:** no live agency migration, identity provisioning,
+or production deployment was performed. Real shared delivery requires the
+agency-controlled configuration and roster data below. A fresh session without
+network access cannot establish an agency role; the server still denies
+operational access, and the UI does not claim notifications were checked.
+
+## Agency database installation
+
+- New installation: use `migrations/agency-training.sql`.
+- Existing installation: use `migrations/agency-training-draft-finalization.sql`
+  once, as the agency database owner/admin, before starting this server version.
+- Both installations: then apply `migrations/agency-training-packet-review.sql`
+  once, as the agency database owner/admin. Back up the existing agency database
+  according to agency policy first; no migration runs automatically at startup.
+- The upgrade preserves previously sealed packets as submitted; new uploads
+  default to editable drafts. It permits increasing draft versions.
+- Keep a separate non-owner runtime role. It needs packet SELECT/INSERT/UPDATE,
+  assignment/directory SELECT, packet-event INSERT and sequence USAGE. For the
+  new tables grant:
+  - `po_coordinators`: SELECT/INSERT and column-only
+    UPDATE(`coordinator_id`,`revision`,`updated_at`);
+  - `packet_submissions`: SELECT/INSERT and column-only UPDATE(`coordinator_id`,
+    `state`,`acknowledged_at`,`reviewed_at`,`review_note`);
+  - `packet_review_events`, `packet_review_operations`: SELECT/INSERT only.
+  - EXECUTE on `agency_training.lock_packet_assignment(text,text,text)` and
+    `agency_training.lock_active_packet_coordinator(text)`.
+- Keep those two narrow locking functions owned by the agency migration owner,
+  not the runtime. They have a fixed search path and no dynamic SQL. PostgreSQL
+  requires UPDATE privilege even for row-locking SELECT; these functions avoid
+  broadening the runtime's roster/directory privileges just to acquire locks.
+  Never grant runtime assignment/directory UPDATE, submitted-report UPDATE,
+  event/operation UPDATE, schema CREATE, table ownership, deletes or truncation.
+- Agency identity mapping, server-managed rosters, agency storage, and the
+  existing explicit sync gate must be configured. Preview data remains local.
+- Secure settings required: `AGENCY_DATABASE_URL`, `AGENCY_PACKET_SYNC_ENABLED`,
+  `AGENCY_VERIFIED_CLAIM_PATH`, `AGENCY_ROLE_CLAIM_PATH`,
+  `AGENCY_BADGE_CLAIM_PATH`, and the existing audit identifier HMAC secret.
+  Claim paths must match agency-managed, signed Clerk claims. Never use a
+  user-editable/local preview role as proof of agency authorization.
+- Provision actual active Coordinator accounts into `coordinator_directory`;
+  maintain the existing per-packet trusted `packet_assignments` roster. Those
+  authorizations are not created from client-supplied packet identities.
+- SQL lifecycle tests use a real PostgreSQL engine in isolated, in-memory
+  PGlite, including restricted runtime grants, while earlier branch tests use
+  a scripted pool. No fixture data is added to the application or agency DB.
+  These checks are not a live agency database or multi-account browser test.
+
+## Recovery copies and packaging
+
+`pnpm run build:api` automatically runs the source-configuration snapshot hook
+before building backend output, including when invoked by `bundle:production`.
+The snapshot test checks the required files and SHA-256 manifest. Source
+snapshots are not database or full-site backups and contain no secret files.
+
+`pnpm run bundle:production` produces the existing standalone API distribution,
+including its migrations and this note. It is not a full website/source archive.
+The portal is built separately with
+`pnpm --filter @workspace/field-training run build`. Neither command deploys.

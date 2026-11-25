@@ -1,0 +1,38 @@
+/* Report editor: staged daily workflow and one-sheet-at-a-time run packet. Screen only. */
+@media screen {
+.editor-stage-nav { display: flex; gap: .25rem; overflow-x: auto; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); padding: .25rem; border-top: 3px solid hsl(var(--primary)); }
+.editor-stage { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .45rem; border: 1px solid transparent; border-radius: .25rem; padding: .45rem .8rem; font-size: .8rem; font-weight: 700; color: hsl(var(--foreground)); background: transparent; }
+.editor-stage:hover { background: hsl(var(--muted)); }
+.editor-stage.is-active { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.editor-stage-count { min-width: 1.25rem; border-radius: 999px; padding: 0 .35rem; background: hsl(var(--destructive)); color: hsl(var(--destructive-foreground)); font-size: .65rem; line-height: 1.25rem; text-align: center; }
+.editor-stage-index { font-family: var(--app-font-mono); font-size: .7rem; opacity: .7; }
+.editor-savebar { position: sticky; bottom: 0; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-top: 1rem; border: 1px solid hsl(var(--border)); border-top: 2px solid hsl(var(--primary)); background: hsl(var(--card) / .97); padding: .5rem .75rem; backdrop-filter: blur(6px); }
+.editor-savebar-state { font-size: .75rem; color: hsl(var(--muted-foreground)); }
+.editor-savebar-state b { color: hsl(var(--foreground)); }
+
+.run-step-rail { display: flex; gap: .35rem; overflow-x: auto; list-style: none; margin: 0 0 .75rem; padding: 0 0 .25rem; }
+.run-step { display: flex; min-width: 9.5rem; align-items: center; gap: .5rem; border: 1px solid hsl(var(--border)); border-radius: .25rem; background: hsl(var(--card)); padding: .4rem .6rem; text-align: left; }
+.run-step:hover { border-color: hsl(var(--primary) / .6); }
+.run-step.is-active { border-color: hsl(var(--primary)); box-shadow: inset 0 -3px 0 hsl(var(--primary)); }
+.run-step-index { display: grid; width: 1.5rem; height: 1.5rem; flex: 0 0 auto; place-items: center; border-radius: 999px; background: hsl(var(--muted)); font-size: .72rem; font-weight: 700; }
+.run-step.is-reviewed .run-step-index { background: hsl(var(--ok)); color: hsl(var(--primary-foreground)); }
+.run-step.is-pending .run-step-index { background: hsl(var(--warn) / .18); color: hsl(var(--warn)); }
+.run-step-text { display: flex; min-width: 0; flex-direction: column; line-height: 1.2; }
+.run-step-title { font-size: .78rem; font-weight: 700; color: hsl(var(--foreground)); white-space: nowrap; }
+.run-step-sub { font-size: .66rem; color: hsl(var(--muted-foreground)); }
+.run-step.is-pending .run-step-sub { color: hsl(var(--warn)); font-weight: 700; }
+
+.run-sheet-pill { display: inline-flex; align-items: center; gap: .25rem; border-radius: .2rem; padding: .1rem .45rem; font-size: .68rem; font-weight: 700; border: 1px solid; }
+.run-sheet-pill.is-reviewed { border-color: hsl(var(--ok) / .5); background: hsl(var(--ok) / .1); color: hsl(var(--ok)); }
+.run-sheet-pill.is-pending { border-color: hsl(var(--warn) / .5); background: hsl(var(--warn) / .1); color: hsl(var(--warn)); }
+.run-sheet-pill.is-unsaved { border-color: hsl(var(--accent) / .5); background: hsl(var(--accent) / .08); color: hsl(var(--accent)); }
+
+.run-quick-add { display: grid; gap: .4rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+.run-quick-add label { display: flex; min-height: 2.75rem; align-items: flex-start; gap: .5rem; border: 1px solid hsl(var(--border)); border-radius: .25rem; background: hsl(var(--card)); padding: .55rem .65rem; font-size: .82rem; font-weight: 700; }
+.run-quick-add label.is-on { border-color: hsl(var(--primary)); background: hsl(var(--primary) / .06); }
+.run-quick-add small { display: block; font-size: .68rem; font-weight: 400; color: hsl(var(--muted-foreground)); }
+
+.run-sheet-review { margin-top: .75rem; border: 2px solid hsl(var(--warn) / .55); border-radius: .25rem; background: hsl(var(--warn) / .06); padding: .75rem; }
+.run-sheet-review.is-reviewed { border-color: hsl(var(--ok) / .55); background: hsl(var(--ok) / .06); }
+.run-stepbar { position: sticky; bottom: 3.75rem; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .75rem; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); padding: .5rem; }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@workspace/api-client-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api-config": "./src/api-config.ts",
+    "./auth": "./src/auth.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "catalog:",
+    "@workspace/api-zod": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  }
+}

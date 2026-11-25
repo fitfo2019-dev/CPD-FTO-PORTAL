@@ -1,0 +1,161 @@
+import type { PrimaryRunForm } from './model.js';
+
+// Labels transcribed from the user-provided Columbus Division of Police Patrol SOP 2.02,
+// revised 04/15/2026. This is a reference list, not a live dispatch integration.
+export const RADIO_CODE_SOURCE_LABEL = 'Columbus Division of Police Patrol SOP 2.02 · revised 04/15/2026';
+export const RADIO_CODES: Record<string, string> = Object.fromEntries([
+  ['3','Officer in Trouble'],
+  ['4','Auto Crash - Property Damage Only'],
+  ['4A','Hit-Skip Auto Crashes'],
+  ['5','Injury Auto Crash'],
+  ['5A','Hit-Skip Crashes with Injury'],
+  ['6','Traffic Violator/Complaint'],
+  ['6A','Vehicle Obstructing'],
+  ['6B','Parking Complaint'],
+  ['6S','Selective Traffic Enforcement'],
+  ['7','Burglary Report'],
+  ['7A','Open Door/Window'],
+  ['8','Burglary in Progress'],
+  ['8A','Burglary Alarm'],
+  ['8B','Burglary - Vacant Structure'],
+  ['9','Fraudulent Documents (In Progress)'],
+  ['10','Bomb Threat'],
+  ['10A','Bomb Threat'],
+  ['12','Check Registration/Operator’s License/Stolen'],
+  ['13','Check for Tickets'],
+  ['14','Cutting or Stabbing'],
+  ['15','Call Home'],
+  ['16','Disturbance'],
+  ['16A','Information/Assistance'],
+  ['16B','Disturbance/Mental'],
+  ['16C','Loud Noise'],
+  ['16F','Fireworks Complaint'],
+  ['16T','Trespassing'],
+  ['17','Domestic Violence'],
+  ['17A','Domestic Dispute'],
+  ['17B','Domestic/Standby for Clothing'],
+  ['18','DOA'],
+  ['19','Intoxicated Person'],
+  ['20','Drowning'],
+  ['22','Animal Complaint'],
+  ['23','Errand'],
+  ['23A','Escort'],
+  ['23B','Emergency Entry into Motor Vehicle'],
+  ['23T','Technology Repair'],
+  ['24','Emergency Squad'],
+  ['24A','Infectious/Contagious Disease'],
+  ['25','Fire'],
+  ['25A','Trash Fire'],
+  ['26','Fight'],
+  ['27','Assault or Hospital Report'],
+  ['27A','Telephone Harassment'],
+  ['28','Homicide'],
+  ['29','Juvenile Complaint'],
+  ['30','Theft in Progress'],
+  ['30A','Theft Report'],
+  ['30B','Shoplifting'],
+  ['31','Missing Person / High-Risk Missing Person'],
+  ['31A','Missing Person Returned'],
+  ['32','Message'],
+  ['33','Person with a Gun'],
+  ['33A','Person with a Knife'],
+  ['34','Unknown Complaint'],
+  ['34A','Unknown Call (Panic Alarm)'],
+  ['34B','9-1-1 Hangup Call'],
+  ['34C','Check on the Well Being'],
+  ['34O','Overdose'],
+  ['35','OVI Complaint'],
+  ['36','Obstruction in the Street'],
+  ['37','Official or Visitor'],
+  ['37C','Cadet/Public Safety Corps (PSC) Ride-Along'],
+  ['38','Property Destruction in Progress'],
+  ['38A','Property Destruction Report'],
+  ['39','Prowlers'],
+  ['40','Recovered Property'],
+  ['40E','Recovered Property - Evidence Technician'],
+  ['41','Robbery - Just Occurred'],
+  ['41A','Robbery Report'],
+  ['42','Robbery in Progress'],
+  ['42A','Robbery Alarm'],
+  ['42E','Electronic Satellite Robbery Alert'],
+  ['43','Shooting'],
+  ['43A','Shots Fired'],
+  ['43B','Shots Fired/Hunters'],
+  ['43S','Shots Fired/ShotSpotter®'],
+  ['44','Sex Crime in Progress'],
+  ['44A','Sex Crime Report'],
+  ['44B','Indecent Exposure'],
+  ['45','Stolen Vehicle, Suspected Stolen / Lost or Stolen License Plate'],
+  ['45A','Stolen Vehicle Recovered/Apprehensions'],
+  ['46','Stranded Motorist'],
+  ['47A','Suicide Attempt'],
+  ['48','Suspicious Vehicle'],
+  ['48A','Suspicious Person'],
+  ['48G','Suspected Threat Group Member/Activity'],
+  ['49','Vice Complaint'],
+  ['49A','Narcotics Complaint'],
+  ['50','Wanted Person'],
+  ['50A','Wanted Felon'],
+  ['50B','Felon Registrant (Not Wanted)'],
+  ['51','Prisoner Transport'],
+  ['52','Wrecker Run'],
+  ['54','Work Traffic'],
+  ['55','House Watch'],
+  ['55A','Park, Walk, and Talk'],
+  ['56','Request for Lunch Break'],
+  ['57','Request for Assistance (Back-up)'],
+  ['58','Guard Duty'],
+  ['60','Emergency Vehicle Operations (EVO)'],
+]);
+export const CLEARANCE_CODES = [
+  { code:'1V', label:'Report and/or Citation · video recording' },
+  { code:'2V', label:'Party Advised or No Report Needed · video recording' },
+  { code:'3V', label:'Arrest Made · video recording' },
+  { code:'4V', label:'Non-Arrest Situation / Errand Completed · video recording' },
+] as const;
+
+// Defaults are used only where a primary form has a clear matching radio code.
+// Generic call/self-initiated forms and Building Search have no single default.
+export const DEFAULT_RUN_TYPE_CODES: Record<PrimaryRunForm, string | undefined> = {
+  call_for_service: undefined,
+  self_initiated: undefined,
+  domestic_incident: '17',
+  traffic_crash: '4',
+  traffic_stop: '6',
+  high_risk_stop: '6',
+  building_search: undefined,
+};
+export const BUILDING_SEARCH_DISPATCH_CODES = ['7A','7','8A','8','8B'] as const;
+export const SITUATION_FOUND_NA = 'N/A';
+
+export function isEligibleCitationSummons(run:{runKind:string;clearanceCode?:string}):boolean {
+  return run.runKind==='traffic_stop' && (run.clearanceCode==='1V'||run.clearanceCode==='3V');
+}
+export const normalizeRadioCode = (value: string) => value.toUpperCase().replace(/^10[\s-]+/, '').replace(/[^0-9A-Z]/g, '').slice(0, 5);
+export const isValidRadioCode = (value: string) => value === '' || /^\d{1,3}[A-Z]{0,2}$/.test(value);
+export const normalizeSituationFoundCode = (value:string) => value.trim().toUpperCase()==='N/A' ? SITUATION_FOUND_NA : normalizeRadioCode(value);
+export const isValidSituationFoundCode = (value:string) => value===''||value===SITUATION_FOUND_NA||isValidRadioCode(value);
+
+/**
+ * Suggest a primary form only when the registered code mapping is unique.
+ * Code 6 intentionally remains ambiguous between the two traffic-stop forms.
+ * All other dispatched codes use the general Call for Service form unless the
+ * FTO chooses a dedicated form.
+ */
+export function suggestRunTypeFromDispatchedCode(value:string):
+  |{status:'mapped';runKind:PrimaryRunForm}
+  |{status:'ambiguous';runKinds:PrimaryRunForm[]}
+  |{status:'default';runKind:'call_for_service'} {
+  const code=normalizeRadioCode(value);
+  const runKinds=Object.entries(DEFAULT_RUN_TYPE_CODES)
+    .filter(([,mappedCode])=>mappedCode===code)
+    .map(([runKind])=>runKind as PrimaryRunForm);
+  const uniqueRunKinds=Array.from(new Set(runKinds));
+  if(uniqueRunKinds.length===1)return {status:'mapped',runKind:uniqueRunKinds[0]};
+  if(uniqueRunKinds.length>1)return {status:'ambiguous',runKinds:uniqueRunKinds};
+  return {status:'default',runKind:'call_for_service'};
+}
+export const formatRadioCode = (value?:string, emptyValue='—') => {
+  if(!value)return emptyValue;
+  return value===SITUATION_FOUND_NA ? SITUATION_FOUND_NA : `10-${value}`;
+};
