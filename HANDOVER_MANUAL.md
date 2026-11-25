@@ -123,10 +123,10 @@ exercise authorization and transaction behavior with an injected store/client
 and encrypted vault behavior with IndexedDB emulation; they do not certify a
 live agency database. Validate the migration, runtime grants, concurrency and
 identity mappings on agency staging before enabling operational uploads.
-The production ZIP contains the API runtime and separately hosted compiled
-portal assets. It is not a complete portal deployment: the API does not serve
-the frontend, and agency hosting, identity, database and adapter configuration
-remain external setup steps.
+The production ZIP contains the API runtime and compiled portal assets in a
+separate `portal/` directory. This is not a complete deployment: the API does
+not serve the frontend, and agency hosting, identity, database and adapter
+configuration remain separate setup steps.
 
 ## Verified synthetic staging and source-recovery boundary
 
@@ -316,14 +316,14 @@ The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v
 - `pnpm run build` — type checks and builds all workspace artifacts using their local default ports and paths.
 - `pnpm run test:field-training:phase` — runs the Node test suite for the phase registry, phase extensions, and training calendar using the Field Training test config and path aliases.
 - `pnpm run bundle:production` — builds the API, freshly rebuilds the production
-  portal, and creates a clean `dist-production.zip` containing both. Portal
-  hosting defaults to `/`, ignoring any development `BASE_PATH`. Set
-  `PORTAL_BASE_PATH=/field-training/` only when the agency will host that exact
-  slash-terminated prefix; the same-origin `/api` proxy remains separate.
+  portal, and creates a clean combined `dist-production.zip`. Portal hosting
+  defaults to `/`; set `PORTAL_BASE_PATH` only when the agency will serve the
+  portal from a specific slash-terminated prefix. Same-origin `/api` forwarding
+  must be configured separately.
   Configure the portal's production Clerk publishable key and approved origin
   before building; never put a secret key in a `VITE_` variable.
-- Record the combined archive's measured size; do not impose an arbitrary
-  size target without an approved artifact definition and budget.
+- The approved combined-archive ceiling is 26,214,400 bytes. The packager
+  reports the measured ZIP size and fails if it exceeds that byte limit.
 - `pnpm --filter @workspace/api-server run dev` — starts the API Server workflow.
 - `pnpm --filter @workspace/mockup-sandbox run dev` — starts the Component Preview Server workflow.
 - `pnpm --filter @workspace/field-training run dev` — starts the Field Training Officer Portal workflow.
@@ -369,7 +369,7 @@ The requested feature registry below is retained verbatim. Its labels are descri
 - **Workbook and file input:** The portal generates XLSX workbooks. Formula-safe text conversion is used on user-provided text in the export paths; this is not an XLSX upload/parser feature. The roster import accepts CSV and DOCX, not XLSX. DOCX is parsed locally with Mammoth and extracted as text from a detached document; the 2 MB compressed-file limit reduces input size but is not a guarantee against every parser or decompression denial-of-service case.
 - **Monthly workbook week policy:** Excel exports contain four distinct weekly tabs. If a month or approved phase timeline requires more than four weekly ranges, or any selected source record falls outside those ranges, export stops with a clear message. Weeks are never merged or silently omitted.
 - **Authentication and isolation:** Clerk sign-in is required before portal views mount. Workspace state is cleared and remounted on account changes, and the React Query cache is cleared. Clerk session presence alone does not establish agency employment, department role, record scope, or server authorization.
-- **Packaging note:** `pnpm run bundle:production` creates an API runtime plus compiled portal archive and automatically includes the current `HANDOVER_MANUAL.md`. It freshly rebuilds the portal, recreates the output folder and archive, and verifies the ZIP, so no manual build-prerequisite or second ZIP command is needed.
+- **Packaging note:** `pnpm run bundle:production` creates the combined API and portal archive and includes the current `HANDOVER_MANUAL.md`. It rebuilds the portal, recreates the output folder and archive, and verifies the ZIP and approved size limit.
 
 The following Section 6 registry describes intended capabilities, not a compliance certification; the verified status notes directly below it define current behavior where the wording is broader.
 
@@ -411,8 +411,10 @@ The following Section 6 registry describes intended capabilities, not a complian
 ## 2. VERIFIED ARCHIVE FOOTPRINT
 
 * TARGET DELIVERY FILENAME: `dist-production.zip`.
-* COMPRESSED ARCHIVE FOOTPRINT: Measure the current archive with `stat -c '%s' dist-production.zip`; the size changes when the compiled API or this manual changes.
-* COMPILATION STATUS: Typecheck, regression suites, portal build and combined API/portal production packaging have passed in development. These checks do not certify a configured live agency service.
+* AGREED CONTENTS: The combined handoff contains compiled API runtime modules, a production `package.json` with API dependency declarations, all API migrations and reference resources, this complete `HANDOVER_MANUAL.md`, `ASSIGNMENT_INTEGRATION.md`, `OPERATIONAL_PROFILES.md`, and freshly built portal files under `portal/`. The portal remains separately hosted; the API does not serve its files. The ZIP excludes `node_modules`, source maps, and build tooling. Install API runtime dependencies separately as described below.
+* MEASUREMENT: After ZIP integrity verification, the package build measures the final `dist-production.zip` file size in bytes with the filesystem's `stat` result and prints the measured size. The measurement includes ZIP compression and archive overhead.
+* APPROVED SIZE BUDGET: The combined ZIP must not exceed 26,214,400 bytes (25 MiB). The build fails only when the measured size is greater than this approved maximum.
+* COMPILATION STATUS: Workspace typecheck, Field Training production build, packet-sync tests, UI-copy checks, print-export guardrails, and combined API/portal packaging passed in development. These checks do not certify a configured live agency service.
 * CLEANROOM STATE: The bundler recreates only `dist-production/` and `dist-production.zip`; TypeScript caches and platform toolchain metadata are not part of the archive and are not removed by this packaging command.
 
 ## 3. STANDARD HANDOVER SHELL SCRIPT FOR THE IT OPERATOR
@@ -420,10 +422,10 @@ The following Section 6 registry describes intended capabilities, not a complian
 The standalone package contains an ESM API service plus the Field Training
 Officer Portal's compiled frontend in `portal/`. The API does not serve these
 files. Configure the agency reverse proxy/static host to serve `portal/` at
-the release's selected prefix, provide SPA fallback to its `index.html`, and
-proxy same-origin `/api` requests to the API. Install API runtime dependencies
-from the agency-approved package mirror or a pre-populated npm cache when the
-server has no internet access.
+the selected prefix with SPA fallback to its `index.html`, and proxy same-origin
+`/api` requests to the API. Install API runtime dependencies from the
+agency-approved package mirror or a pre-populated npm cache when the server has
+no internet access.
 
 ```bash
 # 1. Unpack the delivery package
@@ -610,10 +612,10 @@ numbering; the application does not silently rewrite those citations.
 
 Run `pnpm typecheck`, then
 `pnpm --filter @workspace/field-training run build`, followed by
-`pnpm run bundle:production`. The bundler freshly rebuilds the production portal
-and packages `portal/` alongside the API and this manual in `dist-production.zip`.
-Its default production prefix is `/`; use `PORTAL_BASE_PATH` for an explicitly
-chosen slash-terminated agency prefix, not the workspace preview path. Serve
+`pnpm run bundle:production`. The bundler freshly builds the production portal
+and packages `portal/` alongside the API and this manual in
+`dist-production.zip`. Its default production prefix is `/`; set
+`PORTAL_BASE_PATH` only for the explicitly approved hosting prefix. Serve
 `portal/` through the agency static web server with SPA history fallback,
 preserving same-origin `/api/*` forwarding to Express. `npm start` in the API
 distribution does not host the portal.
@@ -721,8 +723,9 @@ agency-managed workspace with the project's pnpm lockfile.
    do not fit. Keep spreadsheet formula escaping in `lib/spreadsheet-text.ts`.
 6. Run the focused Field Training tests, `pnpm typecheck`, and the Field
    Training build. Only then use `pnpm run bundle:production` for the combined
-   API/runtime and freshly rebuilt portal archive. Hosting and trusted agency
-   configuration remain separate; the archive is not a full deployment.
+   API and freshly built portal archive. Agency hosting and trusted
+   configuration remain separate from the ZIP itself; this is not a full
+   deployment.
 
 An Officer Safety deficiency also latches UA for its named daily category even
 if its checklist item is rechecked later in the same report. This applies to

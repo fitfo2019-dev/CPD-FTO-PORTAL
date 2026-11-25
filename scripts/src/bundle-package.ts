@@ -26,6 +26,7 @@ const apiDist = join(apiRoot, "dist");
 const outputDir = join(workspaceRoot, "dist-production");
 const archivePath = join(workspaceRoot, "dist-production.zip");
 const excludedBuildHelpers = new Set(["pino-file.mjs", "pino-pretty.mjs"]);
+const approvedArchiveMaxBytes = 26_214_400;
 
 async function readManifest(path: string): Promise<PackageManifest> {
   return JSON.parse(await readFile(path, "utf8")) as PackageManifest;
@@ -60,14 +61,20 @@ async function bundlePackage(): Promise<void> {
   // a production prefix, e.g. PORTAL_BASE_PATH=/field-training/.
   const portalBasePath = process.env.PORTAL_BASE_PATH ?? "/";
   if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(portalBasePath)) {
-    throw new Error("PORTAL_BASE_PATH must be / or a slash-terminated path such as /field-training/.");
+    throw new Error(
+      "PORTAL_BASE_PATH must be / or a slash-terminated path such as /field-training/.",
+    );
   }
   console.log(`Building fresh production portal assets for ${portalBasePath}`);
-  const portalBuild = await execFileAsync("pnpm", ["--filter", "@workspace/field-training", "run", "build"], {
-    cwd: workspaceRoot,
-    env: { ...process.env, NODE_ENV: "production", BASE_PATH: portalBasePath },
-    maxBuffer: 16 * 1024 * 1024,
-  });
+  const portalBuild = await execFileAsync(
+    "pnpm",
+    ["--filter", "@workspace/field-training", "run", "build"],
+    {
+      cwd: workspaceRoot,
+      env: { ...process.env, NODE_ENV: "production", BASE_PATH: portalBasePath },
+      maxBuffer: 16 * 1024 * 1024,
+    },
+  );
   process.stdout.write(portalBuild.stdout);
   process.stderr.write(portalBuild.stderr);
   const [rootManifest, apiManifest] = await Promise.all([
@@ -175,13 +182,14 @@ async function bundlePackage(): Promise<void> {
   const resourceOutputDir = join(outputDir, "resources");
   await cp(resourceSourceDir, resourceOutputDir, { recursive: true });
   const resourceFiles = await listFilesRecursively(resourceOutputDir);
-  // Static portal assets are handed over separately from the API runtime.
-  // The agency reverse proxy, not this API, must serve them with SPA fallback.
+  // The agency reverse proxy, not the API, serves portal assets with SPA fallback.
   const portalSourceDir = join(workspaceRoot, "artifacts/field-training/dist/public");
   const portalHtml = await readFile(join(portalSourceDir, "index.html"), "utf8");
   const portalEntry = /<script\b[^>]*\bsrc="([^"]+)"/.exec(portalHtml)?.[1];
   if (!portalEntry?.startsWith(`${portalBasePath}assets/`)) {
-    throw new Error("The freshly built portal entry does not use the configured production base path.");
+    throw new Error(
+      "The freshly built portal entry does not use the configured production base path.",
+    );
   }
   await cp(portalSourceDir, join(outputDir, "portal"), { recursive: true });
   const portalFiles = await listFilesRecursively(join(outputDir, "portal"));
@@ -190,8 +198,8 @@ async function bundlePackage(): Promise<void> {
     "HANDOVER_MANUAL.md",
     "ASSIGNMENT_INTEGRATION.md",
     "OPERATIONAL_PROFILES.md",
-    ...portalFiles.map(path=>join("portal",path)),
-    ...migrationFiles.map(path=>join("migrations",path)),
+    ...portalFiles.map((path) => join("portal", path)),
+    ...migrationFiles.map((path) => join("migrations", path)),
     ...resourceFiles.map((path) => join("resources", path)),
     ...runtimeFiles.map((entry) =>
       entry.name === "index.mjs" ? "index.js" : entry.name,
@@ -206,7 +214,15 @@ async function bundlePackage(): Promise<void> {
 
   const archiveStats = await stat(archivePath);
   console.log(
-    `Created dist-production/ with ${runtimeFiles.length} runtime modules, ${resourceFiles.length} protected resources and ${Object.keys(dependencies).length} production dependencies; verified dist-production.zip (${archiveStats.size} bytes).`,
+    `Combined API + portal archive: ${archiveStats.size} bytes (approved maximum: ${approvedArchiveMaxBytes} bytes).`,
+  );
+  if (archiveStats.size > approvedArchiveMaxBytes) {
+    throw new Error(
+      `dist-production.zip exceeds the approved ${approvedArchiveMaxBytes}-byte size budget.`,
+    );
+  }
+  console.log(
+    `Created dist-production/ with ${runtimeFiles.length} API runtime modules, ${portalFiles.length} portal files, ${resourceFiles.length} protected resources and ${Object.keys(dependencies).length} production dependencies; verified combined dist-production.zip (${archiveStats.size} bytes).`,
   );
 }
 
