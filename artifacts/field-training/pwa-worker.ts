@@ -15,8 +15,13 @@ const URLS = ${JSON.stringify(urls)};
 const PORTAL_ROOTS = new Set(${JSON.stringify(portalRoots)});
 const SCOPE = new URL(self.registration.scope);
 const ALLOWED = new Set(URLS.map(path => new URL(path, SCOPE.origin).href));
+// Only clean, final responses are stored or served. A redirected or failed response
+// (for example a host security check) must never become the offline app shell.
+const usable = res => !!res && res.ok && !res.redirected && res.type !== 'opaqueredirect';
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(URLS)));
+  event.waitUntil(caches.open(CACHE).then(cache => Promise.all(URLS.map(path =>
+    fetch(path, { cache: 'reload' }).then(res => usable(res) ? cache.put(path, res) : undefined).catch(() => undefined)
+  ))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(
@@ -35,9 +40,11 @@ self.addEventListener('fetch', event => {
     // Unknown paths, development previews and sibling artifacts always use
     // the network. They must NEVER receive the portal's cached login shell.
     if (local !== '' && !PORTAL_ROOTS.has(root)) return;
-    event.respondWith(caches.match(SCOPE.href).then(hit => hit || fetch(req)));
+    // Network first so every visit loads the newest publish; the saved shell is
+    // used only when the network is unavailable.
+    event.respondWith(fetch(req).catch(() => caches.match(SCOPE.href).then(hit => usable(hit) ? hit : Response.error())));
   } else if (ALLOWED.has(url.href)) {
-    event.respondWith(caches.match(req).then(hit => hit || fetch(req)));
+    event.respondWith(caches.match(req).then(hit => usable(hit) ? hit : fetch(req)).catch(() => fetch(req)));
   }
 });
 `;

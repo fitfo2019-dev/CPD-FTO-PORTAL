@@ -78,3 +78,42 @@ test("development retires an old shell without deleting other caches or touching
   assert.equal(instance.handlers.has("fetch"), false);
   assert.doesNotMatch(retirePortalWorker, /indexedDB|localStorage|sessionStorage|clients\.navigate/);
 });
+
+function responder(cached: unknown, network: () => Promise<unknown>) {
+  const handlers = new Map<string, (event: unknown) => void>();
+  const context = {
+    URL, Set, Promise,
+    Response: { error: () => ({ error: true }) },
+    self: {
+      registration: { scope: "https://portal.test/" },
+      clients: { claim: async () => {} },
+      skipWaiting: async () => {},
+      addEventListener: (name: string, handler: (event: unknown) => void) => handlers.set(name, handler),
+    },
+    caches: { keys: async () => [], delete: async () => {}, match: async () => cached },
+    fetch: network,
+  };
+  vm.runInNewContext(createPortalWorker("/", ["/", "/assets/app.js"], "test"), context);
+  return (path: string, mode: string) => {
+    let out: Promise<unknown> | undefined;
+    handlers.get("fetch")?.({ request: { url: `https://portal.test${path}`, method: "GET", mode }, respondWith: (p: Promise<unknown>) => { out = p; } });
+    return out;
+  };
+}
+
+test("navigation loads the newest publish from the network and uses the saved shell only offline", async () => {
+  const shell = { ok: true, redirected: false, type: "basic", shell: true };
+  assert.deepEqual(await responder(shell, async () => ({ network: true }))("/sign-in", "navigate"), { network: true });
+  assert.equal(await responder(shell, async () => { throw new Error("offline"); })("/sign-in", "navigate"), shell);
+  const redirected = { ok: true, redirected: true, type: "basic" };
+  assert.deepEqual(await responder(redirected, async () => { throw new Error("offline"); })("/sign-in", "navigate"), { error: true });
+});
+
+test("a redirected or failed saved asset is never served; the network copy is used instead", async () => {
+  const net = async () => ({ network: true });
+  for (const bad of [undefined, { ok: false, redirected: false, type: "basic" }, { ok: true, redirected: true, type: "basic" }, { ok: false, redirected: false, type: "opaqueredirect" }]) {
+    assert.deepEqual(await responder(bad, net)("/assets/app.js", "cors"), { network: true });
+  }
+  const good = { ok: true, redirected: false, type: "basic" };
+  assert.equal(await responder(good, net)("/assets/app.js", "cors"), good);
+});
