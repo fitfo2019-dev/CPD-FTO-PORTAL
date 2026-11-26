@@ -1038,12 +1038,22 @@ paths:
               - ohio-supreme-court-felony-quick-reference
               - police-phone-directory
               - prior-offenses-constituting-wud
+              - columbus-criminal-complaint-manual
+              - columbus-street-card-2026-08
+              - columbus-street-card-2026-08-spanish
+              - felony-traffic-processing-guidelines-2023
+              - felony-packet-order
+              - substation-addresses
+              - fto-unit-contact-information
+              - verizon-search-warrant-example
+              - cell-phone-nexus-sheet
+              - mobile-device-collection-guidelines
       responses:
         "200":
-          description: The requested document, delivered as an attachment
+          description: The requested document, delivered as an attachment or, for the complaint manual, inline
           headers:
             Content-Disposition:
-              description: Safe attachment filename
+              description: Safe attachment or inline filename
               schema:
                 type: string
           content:
@@ -1985,6 +1995,16 @@ components:
             - ohio-supreme-court-felony-quick-reference
             - police-phone-directory
             - prior-offenses-constituting-wud
+            - columbus-criminal-complaint-manual
+            - columbus-street-card-2026-08
+            - columbus-street-card-2026-08-spanish
+            - felony-traffic-processing-guidelines-2023
+            - felony-packet-order
+            - substation-addresses
+            - fto-unit-contact-information
+            - verizon-search-warrant-example
+            - cell-phone-nexus-sheet
+            - mobile-device-collection-guidelines
         title:
           type: string
           minLength: 1

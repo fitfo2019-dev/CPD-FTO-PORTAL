@@ -7,6 +7,7 @@ import { useWorkspace } from '@/state/workspace.js';
 import ResourcesLibraryPage from '@/pages/resources-library-preview.js';
 import { GeographyMapPanel } from '@/components/geography-map-panel.js';
 import { LawHandbookPanel } from '@/components/law-handbook-panel.js';
+import { ChargingLookup } from '@/components/charging-lookup.js';
 
 export default function HelpPage() {
   const { ws } = useWorkspace();
@@ -25,6 +26,7 @@ export default function HelpPage() {
         </a>
       </PageHead>
 
+      <ChargingLookup />
       <div id="resources-preview-map" tabIndex={-1} data-testid="section-map-embed">
         <GeographyMapPanel />
       </div>

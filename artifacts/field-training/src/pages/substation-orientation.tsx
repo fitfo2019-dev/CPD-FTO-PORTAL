@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast.js';
 import { uid, type SubstationOrientationRecord } from '@/lib/model.js';
 import { SUBSTATION_ORIENTATION_CATEGORIES, SUBSTATION_ORIENTATION_KEYS, defaultSubstationOrientationChecklist, orientationGroupState, setOrientationGroup, type SubstationOrientationKey } from '@/lib/substation-orientation.js';
 import { orientationPrintLayout } from '@/lib/orientation-print-layout.js';
-import { CPD_SUBSTATION_DIRECTORY_URL, getSubstation } from '@/lib/substations.js';
+import { CPD_SUBSTATION_DIRECTORY_URL, defaultSubstationForAssignment, getSubstation, substationName } from '@/lib/substations.js';
 import { applyCurrentDateTimeShortcut } from '@/lib/date-time-shortcut.js';
 import { formatDateDMY, formatDateTimeMDY, formatDateTimeEntryMDY, formatTrainingFolderPageReference, getNextReportDate, getTrainingFolderDayReference, parseDateDMY, splitDateTimeEntryMDY } from '@/lib/training-calendar.js';
 import { parseRunDateTime } from '@/lib/run-details.js';
@@ -41,7 +41,7 @@ export default function SubstationOrientationPage() {
     ?{...existing,phase:existing.phase??folder.phase}
     :{
       id:uid(),className:folder.className??'',recruitName:folder.recruitName,recruitBadge:folder.recruitBadge,
-      ftoName:folder.ftoName,ftoBadge:folder.ftoBadge,phase:folder.phase,phaseStartDate:firstDay,dateTime:'',substation:'',
+      ftoName:folder.ftoName,ftoBadge:folder.ftoBadge,phase:folder.phase,phaseStartDate:firstDay,dateTime:'',substation:defaultSubstationForAssignment(folder),
       checklist:defaultSubstationOrientationChecklist(),checklistReviewedAt:undefined,directivesReview:'',narrative:'',updatedAt:new Date().toISOString(),
     }:null,[folder,existing,firstDay]);
   const [record,setRecord]=useState<SubstationOrientationRecord|null>(initial);
@@ -78,7 +78,7 @@ export default function SubstationOrientationPage() {
   const commitSubstation=()=>{
     if(!canEdit) return record.substation;
     const station=getSubstation(substationText);
-    if(substationText.trim()&&!station){setSubstationError('Enter a valid substation number from 1 to 20.');return undefined;}
+    if(substationText.trim()&&!station){setSubstationError('Enter a substation number from 1 to 20, or Z4MW.');return undefined;}
     const value=station?.id??'';
     setSubstationText(value);
     setSubstationError('');
@@ -117,13 +117,13 @@ export default function SubstationOrientationPage() {
         <label className="grid gap-1 text-sm font-semibold">Probationary Officer<input value={`${record.recruitName} · ${record.recruitBadge}`} readOnly className="h-11 rounded border bg-muted px-3 font-normal"/></label>
         <label className="grid gap-1 text-sm font-semibold">Field Training Officer<input value={`${record.ftoName} · ${record.ftoBadge}`} readOnly className="h-11 rounded border bg-muted px-3 font-normal"/></label>
         <label className="grid gap-1 text-sm font-semibold">Substation
-          <input disabled={!canEdit} value={substationText} inputMode="numeric" onChange={event=>{setSubstationText(event.target.value);setSubstationError('');if(record.substation)update('substation','');}} onBlur={commitSubstation} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitSubstation();}}} aria-invalid={!!substationError} aria-describedby={substationError?"orientation-substation-help":undefined} className="h-11 w-full rounded border bg-card px-3 font-normal" data-testid="input-orientation-substation"/>
+          <input disabled={!canEdit} value={substationText} onChange={event=>{setSubstationText(event.target.value);setSubstationError('');if(record.substation)update('substation','');}} onBlur={commitSubstation} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitSubstation();}}} aria-invalid={!!substationError} aria-describedby={substationError?"orientation-substation-help":undefined} className="h-11 w-full rounded border bg-card px-3 font-normal" data-testid="input-orientation-substation"/>
           {substationError&&<span id="orientation-substation-help" className="text-xs font-normal text-destructive">{substationError}</span>}
         </label>
         <label className="orientation-field grid gap-1 text-sm font-semibold">Date and time · MM/DD/YYYY HH:MM<input disabled={!canEdit} value={dateTimeText} onChange={event=>setDateTimeText(formatDateTimeEntryMDY(event.target.value))} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'datetime',setDateTimeText,formatDateDMY(firstDay))} maxLength={16} placeholder="MM/DD/YYYY HH:MM" className="h-11 rounded border bg-card px-3 font-normal" data-testid="input-orientation-datetime"/><span className="text-xs font-normal text-muted-foreground">Enter ? then press Tab for the current date and time. Saving still requires the first scheduled training day.</span></label>
         {selectedSubstation&&<div className="orientation-location rounded border bg-muted/30 p-3 text-sm sm:col-span-2" data-testid="substation-location-details">
-          <p className="font-semibold">Substation {selectedSubstation.id}</p>
-          <p>{selectedSubstation.address}, {selectedSubstation.city} {selectedSubstation.zip} · {selectedSubstation.phone}</p>
+          <p className="font-semibold">{substationName(selectedSubstation)}</p>
+          <p>{[`${selectedSubstation.address}, ${selectedSubstation.city} ${selectedSubstation.zip}`,selectedSubstation.phone].filter(Boolean).join(' · ')}</p>
           <div className="mt-1 flex flex-wrap gap-x-4">
             <a className="inline-flex min-h-8 items-center font-semibold underline" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedSubstation.address}, ${selectedSubstation.city} ${selectedSubstation.zip}`)}`} target="_blank" rel="noreferrer">Open location map</a>
             <a className="inline-flex min-h-8 items-center font-semibold underline" href={CPD_SUBSTATION_DIRECTORY_URL} target="_blank" rel="noreferrer">City substation directory</a>

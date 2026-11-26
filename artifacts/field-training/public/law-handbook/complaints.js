@@ -1,6 +1,7 @@
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const formatKey = key => key.replace(":"," ");
-const source = (page,label) => `<span class="manual-ref">${esc(label)}${page ? ` (manual page ${page})` : ""}</span>`;
+const MANUAL = "/api/v1/resources/columbus-criminal-complaint-manual/download";
+const source = (page,label) => `<a class="manual-ref" href="${MANUAL}${page ? `#page=${page}` : ""}" target="_blank" rel="noopener">${esc(label)}${page ? ` (manual page ${page})` : ""}</a>`;
 let loaded, reader, activeReader, priorFocus;
 
 export function complaintData() {

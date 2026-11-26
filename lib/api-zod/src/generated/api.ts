@@ -928,24 +928,24 @@ export const GetTestAdminScenarioResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(getTestAdminScenarioResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(getTestAdminScenarioResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(getTestAdminScenarioResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(getTestAdminScenarioResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -967,14 +967,14 @@ export const ListTestAdminAuditEventsResponse = zod.object({
   "environment": zod.enum(['SYNTHETIC_STAGING'])
 }),
   "data": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "timestamp": zod.string(),
   "role": zod.string(),
   "action": zod.string(),
   "target_type": zod.union([zod.literal('PARTICIPANT'),zod.literal('CLASS'),zod.literal('ASSIGNMENT'),zod.literal(null)]).nullable(),
   "target_id": zod.string().nullable(),
   "record_id": zod.string().nullable(),
-  "version": zod.number().int().nullable()
+  "version": zod.int().nullable()
 })).max(listTestAdminAuditEventsResponseDataMax)
 })
 
@@ -983,7 +983,7 @@ export const ListTestAdminAuditEventsResponse = zod.object({
  * @summary Read fictional training record versions (test administrator only)
  */
 export const ListTestAdminTrainingRecordVersionsParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 
@@ -997,7 +997,7 @@ export const ListTestAdminTrainingRecordVersionsResponse = zod.object({
   "environment": zod.enum(['SYNTHETIC_STAGING'])
 }),
   "data": zod.array(zod.object({
-  "version": zod.number().int().min(1),
+  "version": zod.int().min(1),
   "narrative": zod.string().max(listTestAdminTrainingRecordVersionsResponseDataItemNarrativeMax),
   "status": zod.enum(['draft', 'submitted'])
 }))
@@ -1036,24 +1036,24 @@ export const CreateTestAdminParticipantResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(createTestAdminParticipantResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(createTestAdminParticipantResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(createTestAdminParticipantResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(createTestAdminParticipantResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -1066,7 +1066,7 @@ export const CreateTestAdminParticipantResponse = zod.object({
  * @summary Update a fictional participant
  */
 export const UpdateTestAdminParticipantParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 export const updateTestAdminParticipantBodyDisplayLabelMax = 80;
@@ -1098,24 +1098,24 @@ export const UpdateTestAdminParticipantResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(updateTestAdminParticipantResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(updateTestAdminParticipantResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(updateTestAdminParticipantResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(updateTestAdminParticipantResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -1128,7 +1128,7 @@ export const UpdateTestAdminParticipantResponse = zod.object({
  * @summary Deactivate a fictional participant (audited; never deleted)
  */
 export const DeactivateTestAdminParticipantParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 export const deactivateTestAdminParticipantResponseDataParticipantsMax = 500;
@@ -1148,24 +1148,24 @@ export const DeactivateTestAdminParticipantResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(deactivateTestAdminParticipantResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(deactivateTestAdminParticipantResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(deactivateTestAdminParticipantResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(deactivateTestAdminParticipantResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -1183,7 +1183,7 @@ export const createTestAdminClassBodyLabelMax = 80;
 
 export const CreateTestAdminClassBody = zod.object({
   "label": zod.string().min(1).max(createTestAdminClassBodyLabelMax),
-  "coordinator_id": zod.string().uuid()
+  "coordinator_id": zod.uuid()
 })
 
 export const createTestAdminClassResponseDataParticipantsMax = 500;
@@ -1203,24 +1203,24 @@ export const CreateTestAdminClassResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(createTestAdminClassResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(createTestAdminClassResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(createTestAdminClassResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(createTestAdminClassResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -1233,7 +1233,7 @@ export const CreateTestAdminClassResponse = zod.object({
  * @summary Update a fictional class
  */
 export const UpdateTestAdminClassParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 export const updateTestAdminClassBodyLabelMax = 80;
@@ -1242,7 +1242,7 @@ export const updateTestAdminClassBodyLabelMax = 80;
 
 export const UpdateTestAdminClassBody = zod.object({
   "label": zod.string().min(1).max(updateTestAdminClassBodyLabelMax),
-  "coordinator_id": zod.string().uuid()
+  "coordinator_id": zod.uuid()
 })
 
 export const updateTestAdminClassResponseDataParticipantsMax = 500;
@@ -1262,24 +1262,24 @@ export const UpdateTestAdminClassResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(updateTestAdminClassResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(updateTestAdminClassResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(updateTestAdminClassResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(updateTestAdminClassResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -1292,7 +1292,7 @@ export const UpdateTestAdminClassResponse = zod.object({
  * @summary Deactivate a fictional class (audited; never deleted)
  */
 export const DeactivateTestAdminClassParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 export const deactivateTestAdminClassResponseDataParticipantsMax = 500;
@@ -1312,24 +1312,24 @@ export const DeactivateTestAdminClassResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(deactivateTestAdminClassResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(deactivateTestAdminClassResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(deactivateTestAdminClassResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(deactivateTestAdminClassResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -1348,10 +1348,10 @@ export const createTestAdminAssignmentBodyEndsOnRegExp = new RegExp('^\\d{4}-\\d
 
 
 export const CreateTestAdminAssignmentBody = zod.object({
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(createTestAdminAssignmentBodyPhaseMax),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(createTestAdminAssignmentBodyPhaseMax),
   "starts_on": zod.string().regex(createTestAdminAssignmentBodyStartsOnRegExp),
   "ends_on": zod.string().regex(createTestAdminAssignmentBodyEndsOnRegExp)
 })
@@ -1373,24 +1373,24 @@ export const CreateTestAdminAssignmentResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(createTestAdminAssignmentResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(createTestAdminAssignmentResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(createTestAdminAssignmentResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(createTestAdminAssignmentResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -1403,7 +1403,7 @@ export const CreateTestAdminAssignmentResponse = zod.object({
  * @summary Update a fictional assignment
  */
 export const UpdateTestAdminAssignmentParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 export const updateTestAdminAssignmentBodyPhaseMax = 4;
@@ -1413,10 +1413,10 @@ export const updateTestAdminAssignmentBodyEndsOnRegExp = new RegExp('^\\d{4}-\\d
 
 
 export const UpdateTestAdminAssignmentBody = zod.object({
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(updateTestAdminAssignmentBodyPhaseMax),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(updateTestAdminAssignmentBodyPhaseMax),
   "starts_on": zod.string().regex(updateTestAdminAssignmentBodyStartsOnRegExp),
   "ends_on": zod.string().regex(updateTestAdminAssignmentBodyEndsOnRegExp)
 })
@@ -1438,24 +1438,24 @@ export const UpdateTestAdminAssignmentResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(updateTestAdminAssignmentResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(updateTestAdminAssignmentResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(updateTestAdminAssignmentResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(updateTestAdminAssignmentResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -1468,7 +1468,7 @@ export const UpdateTestAdminAssignmentResponse = zod.object({
  * @summary Deactivate a fictional assignment (audited; never deleted)
  */
 export const DeactivateTestAdminAssignmentParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 export const deactivateTestAdminAssignmentResponseDataParticipantsMax = 500;
@@ -1488,24 +1488,24 @@ export const DeactivateTestAdminAssignmentResponse = zod.object({
 }),
   "data": zod.object({
   "participants": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "display_label": zod.string(),
   "badge_label": zod.string(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "active": zod.boolean()
 })).max(deactivateTestAdminAssignmentResponseDataParticipantsMax),
   "classes": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "label": zod.string(),
-  "coordinator_id": zod.string().uuid(),
+  "coordinator_id": zod.uuid(),
   "active": zod.boolean()
 })).max(deactivateTestAdminAssignmentResponseDataClassesMax),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "class_id": zod.string().uuid(),
-  "po_id": zod.string().uuid(),
-  "fto_id": zod.string().uuid(),
-  "phase": zod.number().int().min(1).max(deactivateTestAdminAssignmentResponseDataAssignmentsItemPhaseMax),
+  "id": zod.uuid(),
+  "class_id": zod.uuid(),
+  "po_id": zod.uuid(),
+  "fto_id": zod.uuid(),
+  "phase": zod.int().min(1).max(deactivateTestAdminAssignmentResponseDataAssignmentsItemPhaseMax),
   "starts_on": zod.string(),
   "ends_on": zod.string(),
   "active": zod.boolean()
@@ -3277,7 +3277,7 @@ export const ListResourcesResponse = zod.object({
   "total_records": zod.int().min(listResourcesResponseMetadataTotalRecordsMin)
 }),
   "data": zod.array(zod.object({
-  "id": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-3-3-domestic-violence', 'dv-cpo-vs-tpo', 'dv-family-household-member-relationships', 'dv-feti-model', 'i-40-115-domestic-violence-lethality-screen', 'dv-power-and-control-wheel', 'dv-safety-plan-victims-page-1', 'dv-safety-plan-victims-page-2', 'dv-strangulation-assessment-card-v4', 'dv-strangulation-checklist', 'dv-strangulation-physiological-consequences', 'dv-types-of-abuse-worksheet-1', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud']),
+  "id": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-3-3-domestic-violence', 'dv-cpo-vs-tpo', 'dv-family-household-member-relationships', 'dv-feti-model', 'i-40-115-domestic-violence-lethality-screen', 'dv-power-and-control-wheel', 'dv-safety-plan-victims-page-1', 'dv-safety-plan-victims-page-2', 'dv-strangulation-assessment-card-v4', 'dv-strangulation-checklist', 'dv-strangulation-physiological-consequences', 'dv-types-of-abuse-worksheet-1', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud', 'columbus-criminal-complaint-manual', 'columbus-street-card-2026-08', 'columbus-street-card-2026-08-spanish', 'felony-traffic-processing-guidelines-2023', 'felony-packet-order', 'substation-addresses', 'fto-unit-contact-information', 'verizon-search-warrant-example', 'cell-phone-nexus-sheet', 'mobile-device-collection-guidelines']),
   "title": zod.string().min(1).max(listResourcesResponseDataItemTitleMax),
   "file_type": zod.enum(['DOC', 'DOCX', 'PDF']),
   "description": zod.string().max(listResourcesResponseDataItemDescriptionMax),
@@ -3291,7 +3291,7 @@ export const ListResourcesResponse = zod.object({
  * @summary Download a reference document
  */
 export const DownloadResourceFileParams = zod.object({
-  "resourceId": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-3-3-domestic-violence', 'dv-cpo-vs-tpo', 'dv-family-household-member-relationships', 'dv-feti-model', 'i-40-115-domestic-violence-lethality-screen', 'dv-power-and-control-wheel', 'dv-safety-plan-victims-page-1', 'dv-safety-plan-victims-page-2', 'dv-strangulation-assessment-card-v4', 'dv-strangulation-checklist', 'dv-strangulation-physiological-consequences', 'dv-types-of-abuse-worksheet-1', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud'])
+  "resourceId": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-3-3-domestic-violence', 'dv-cpo-vs-tpo', 'dv-family-household-member-relationships', 'dv-feti-model', 'i-40-115-domestic-violence-lethality-screen', 'dv-power-and-control-wheel', 'dv-safety-plan-victims-page-1', 'dv-safety-plan-victims-page-2', 'dv-strangulation-assessment-card-v4', 'dv-strangulation-checklist', 'dv-strangulation-physiological-consequences', 'dv-types-of-abuse-worksheet-1', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud', 'columbus-criminal-complaint-manual', 'columbus-street-card-2026-08', 'columbus-street-card-2026-08-spanish', 'felony-traffic-processing-guidelines-2023', 'felony-packet-order', 'substation-addresses', 'fto-unit-contact-information', 'verizon-search-warrant-example', 'cell-phone-nexus-sheet', 'mobile-device-collection-guidelines'])
 })
 
 export const DownloadResourceFileResponse = zod.unknown()

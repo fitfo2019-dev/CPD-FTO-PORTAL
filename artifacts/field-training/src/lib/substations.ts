@@ -8,8 +8,7 @@ export interface CpdSubstation {
   midwatchZones: number[];
 }
 
-// Midwatch defaults include zones matched to a numbered station in the City directory;
-// the City's separate Zone 4 MW GIS point has no matching numbered directory entry.
+// Midwatch zones follow the Field Training Office substation address sheet.
 export const CPD_SUBSTATIONS: CpdSubstation[] = [
   { id:'1', address:'8118 Sancus Blvd.', city:'Westerville, OH', zip:'43081', phone:'(614) 645-4317', precincts:[1], midwatchZones:[1] },
   { id:'2', address:'2077 Parkwood Ave.', city:'Columbus, OH', zip:'43219', phone:'(614) 724-0927', precincts:[2], midwatchZones:[] },
@@ -31,6 +30,7 @@ export const CPD_SUBSTATIONS: CpdSubstation[] = [
   { id:'18', address:'1120 Morse Rd.', city:'Columbus, OH', zip:'43229', phone:'(614) 645-4510', precincts:[18], midwatchZones:[] },
   { id:'19', address:'2070 Sullivant Ave.', city:'Columbus, OH', zip:'43223', phone:'(614) 645-4597', precincts:[19], midwatchZones:[] },
   { id:'20', address:'2500 Park Crescent Dr.', city:'Columbus, OH', zip:'43232', phone:'(614) 645-0914', precincts:[14,20], midwatchZones:[] },
+  { id:'Z4MW', address:'743 W. 3rd Ave.', city:'Columbus, OH', zip:'43212', phone:'', precincts:[], midwatchZones:[4] },
 ];
 
 export const CPD_SUBSTATION_DIRECTORY_URL = 'https://www.columbus.gov/Services/Public-Safety/Police/Find-a-Police-Substation-Location';
@@ -46,13 +46,19 @@ export function defaultSubstationForAssignment(input: { shift?: string; zone?: s
 }
 
 export function getSubstation(id: string) {
-  const normalized = String(id).trim().match(/^(?:substation\s*)?(\d{1,2})$/i)?.[1];
+  const text = String(id).trim();
+  if (/^(?:z(?:one)?\s*4\s*(?:mw|midwatch))$/i.test(text)) return CPD_SUBSTATIONS.find(station => station.id === 'Z4MW');
+  const normalized = text.match(/^(?:substation\s*)?(\d{1,2})$/i)?.[1];
   return normalized ? CPD_SUBSTATIONS.find(station => station.id === normalized) : undefined;
 }
 
-export function substationDisplay(id: string) {
+export function substationName(station: CpdSubstation) {
+  return station.id === 'Z4MW' ? 'Zone 4 Midwatch' : `Substation ${station.id}`;
+}
+
+export function substationDisplay(id: string, options: { phone?: boolean } = {}) {
   const station = getSubstation(id);
   return station
-    ? `Substation ${station.id} · ${station.address}, ${station.city} ${station.zip} · ${station.phone}`
+    ? [substationName(station), `${station.address}, ${station.city} ${station.zip}`, options.phone === false ? '' : station.phone].filter(Boolean).join(' · ')
     : id || 'Not recorded';
 }

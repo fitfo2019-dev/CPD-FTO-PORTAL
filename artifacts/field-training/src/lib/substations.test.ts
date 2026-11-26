@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { CPD_SUBSTATIONS, defaultSubstationForAssignment, getSubstation, substationDisplay } from './substations.js';
 
 test('official directory data includes twenty numbered substations with addresses and phone numbers', () => {
-  assert.equal(CPD_SUBSTATIONS.length, 20);
-  assert.deepEqual(CPD_SUBSTATIONS.map(station => station.id), Array.from({ length: 20 }, (_, index) => String(index + 1)));
-  assert.ok(CPD_SUBSTATIONS.every(station => station.address && station.city && station.zip && station.phone));
+  assert.equal(CPD_SUBSTATIONS.length, 21);
+  assert.deepEqual(CPD_SUBSTATIONS.map(station => station.id), [...Array.from({ length: 20 }, (_, index) => String(index + 1)), 'Z4MW']);
+  assert.ok(CPD_SUBSTATIONS.filter(station => station.id !== 'Z4MW').every(station => station.address && station.city && station.zip && station.phone));
 });
 
 test('company assignments default to their matching precinct station and remain editable', () => {
@@ -20,7 +20,10 @@ test('midwatch assignments use verified zone station matches and leave unmatched
   assert.equal(defaultSubstationForAssignment({ shift: 'DMW', zone: '2', precinct: '9' }), '9');
   assert.equal(defaultSubstationForAssignment({ shift: 'EMW', zone: '1', precinct: '1' }), '1');
   assert.equal(defaultSubstationForAssignment({ shift: 'DMW', zone: '5', precinct: '13' }), '13');
-  assert.equal(defaultSubstationForAssignment({ shift: 'DMW', zone: '4', precinct: '4' }), '');
+  assert.equal(defaultSubstationForAssignment({ shift: 'DMW', zone: '4', precinct: '4' }), 'Z4MW');
+  assert.equal(getSubstation('Z4MW')?.address, '743 W. 3rd Ave.');
+  assert.equal(getSubstation('zone 4 midwatch')?.zip, '43212');
+  assert.equal(substationDisplay('Z4MW'), 'Zone 4 Midwatch · 743 W. 3rd Ave., Columbus, OH 43212');
 });
 
 test('substation selections display the official location and phone in print and workbook output', () => {

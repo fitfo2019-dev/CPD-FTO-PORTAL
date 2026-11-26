@@ -35,6 +35,8 @@ import { isDispatchedRunMissingIncidentNumber, restoreDispatchPrefillFields, ser
 import { isArrestSeverity, isArrestType } from '@/lib/arrest-classification.js';
 import { ArrestClassificationFields } from '@/components/arrest-classification-fields.js';
 import { RunStepRail, SheetStatus, sheetHasEdits } from '@/components/run-sheet-workflow.js';
+import { ChargingLookupSheet } from '@/components/charging-lookup-sheet.js';
+import { defaultSubstationForAssignment, substationDisplay } from '@/lib/substations.js';
 import { NewRunDialog, type NewRunSeed } from '@/components/new-run-dialog.js';
 import { TrafficStopRiskPrompt } from '@/components/traffic-stop-risk-choice.js';
 import { RunChecklistFailureDialog } from '@/components/run-checklist-failure-dialog.js';
@@ -945,6 +947,7 @@ export default function ReportEditor() {
            <F l="Assigned FTO badge"><input className={inp+' mono'} value={r.ftoBadge} readOnly data-testid="input-fto-badge" /></F>
           <F l="Patrol zone"><input className={inp} value={r.zone ? `Zone ${r.zone}` : 'Not assigned'} disabled data-testid="input-zone" /></F>
           <F l="Precinct"><input className={inp} value={r.precinct ? `Precinct ${r.precinct}` : 'Not assigned'} disabled data-testid="input-precinct" /></F>
+          <label className="block space-y-1 col-span-2"><span className="label-caps">Substation</span><input className={inp} value={substationDisplay(defaultSubstationForAssignment({ shift: r.shift, zone: r.zone, precinct: r.precinct }), { phone: false })} disabled data-testid="input-substation" /></label>
           <F l="FTO Assignment"><input className={inp} value={phaseAssignmentLabel(r.ftoAssignment,r.shift,r.cruiserDistrict)} disabled data-testid="input-fto-assignment" /></F>
         </fieldset>
         {week && <div className="border-t px-4 py-3 text-sm" data-testid="text-report-week">
@@ -1137,6 +1140,7 @@ export default function ReportEditor() {
                  const groups=REVISED_SUPPLEMENT_CHECKLISTS[supplement];
                  return <div key={supplement} className="mt-3 rounded border border-accent/40 bg-accent/5 p-3" data-testid={`section-supplement-${supplement}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2"><div className="font-semibold text-sm" title={SUPPLEMENTAL_FORM_GUIDANCE[supplement]}>{form.label}</div>
+                      {ws.role==='fto'&&(supplement==='arrest_process'||supplement==='ovi_process')&&<ChargingLookupSheet testId={`button-charging-lookup-${supplement}`}/>}
                       {supplementItems.length>0&&<div className="flex flex-wrap gap-2">
                         <label className="flex min-h-11 items-center gap-2 rounded border px-3 text-sm font-semibold"><input type="checkbox" disabled={!editable} checked={!!runChecklist[`na-supp-${supplement}`]} onChange={event=>{const notApplicable=event.target.checked;setRunChecklist(current=>({...current,[`na-supp-${supplement}`]:notApplicable,...(notApplicable?Object.fromEntries(supplementItems.map((_,index)=>[`supp-${supplement}-${index}`,false])):{})}));if(notApplicable){setRunChecklistFailures(current=>{const next={...current};supplementItems.forEach((_,index)=>{delete next[`supp-${supplement}-${index}`];});return next;});}if(notApplicable&&supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);setRunError('');}} data-testid={`checkbox-supplement-na-${supplement}`}/>Not applicable</label>
                          <button type="button" disabled={!editable} onClick={()=>{const targets=supplementItems.map((label,index)=>({form:supplement,key:`supp-${supplement}-${index}`,label}));if(supplementAllChecked)clearChecklistItems(targets,`na-supp-${supplement}`);else selectChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,!supplementAllChecked);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-toggle-supplement-${supplement}`}>{supplementAllChecked?'Deselect all':'Select all'}</button>

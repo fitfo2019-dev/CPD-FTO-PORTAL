@@ -30,7 +30,7 @@ test("resource catalog is valid, unique, and does not expose server paths", () =
   ];
 
   assert.equal(catalog.status, "success");
-  assert.equal(catalog.metadata.total_records, 23);
+  assert.equal(catalog.metadata.total_records, 33);
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(newTrainingResourceIds.every((id) => ids.includes(id)));
   assert.ok(
@@ -51,7 +51,7 @@ test("resource identifiers use a closed allowlist", () => {
 
 test("all allowlisted resource files exist in the API resource directory", async () => {
   const fileNames = getResourceFileNames();
-  assert.equal(fileNames.length, 23);
+  assert.equal(fileNames.length, 33);
 
   for (const fileName of fileNames) {
     assert.equal(fileName, fileName.split(/[\\/]/).at(-1));
@@ -59,4 +59,16 @@ test("all allowlisted resource files exist in the API resource directory", async
     await access(filePath);
     assert.ok((await stat(filePath)).isFile());
   }
+});
+
+test("only the complaint manual opens inline so page links work", () => {
+  const manual = getResourceById("columbus-criminal-complaint-manual");
+  assert.ok(manual && "disposition" in manual && manual.disposition === "inline");
+  const inline = getResourceFileNames().filter((fileName) => {
+    const resource = createResourceCatalogEnvelope().data
+      .map((item) => getResourceById(item.id))
+      .find((item) => item?.file_name === fileName);
+    return resource && "disposition" in resource && resource.disposition === "inline";
+  });
+  assert.deepEqual(inline, ["Columbus_Criminal_Complaint_Manual.pdf"]);
 });

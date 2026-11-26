@@ -1,0 +1,116 @@
+.charging-lookup.is-compact { margin: 0; border: 0; box-shadow: none; }
+.charging-body { padding: 18px 24px 22px; }
+.charging-lookup.is-compact .charging-body { padding: 0; }
+.charging-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid #9eb8cc;
+  border-radius: 6px;
+  background: var(--geo-surface);
+  color: var(--geo-muted);
+}
+.charging-search:focus-within { outline: 3px solid var(--geo-blue); outline-offset: 2px; }
+.charging-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--geo-ink);
+  font: inherit;
+  outline: none;
+}
+.charging-results { margin: 12px 0 0; padding: 0; list-style: none; max-height: 420px; overflow-y: auto; border: 1px solid var(--geo-line); border-radius: 6px; }
+.charging-results li + li { border-top: 1px solid var(--geo-line); }
+.charging-results button {
+  display: grid;
+  grid-template-columns: 128px 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--geo-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.charging-results button:hover, .charging-results button:focus-visible { background: #edf4f9; outline: none; }
+.charging-code { color: var(--geo-blue); font-weight: 700; font-variant-numeric: tabular-nums; }
+.charging-offense { font-weight: 600; }
+.charging-count { min-width: 26px; padding: 1px 8px; border-radius: 10px; background: #e8f1f8; color: var(--geo-navy); font-size: 12px; text-align: center; }
+.charging-empty { margin: 12px 0 0; color: var(--geo-muted); font-size: 14px; }
+.charging-detail { display: grid; gap: 14px; margin-top: 14px; }
+.charging-back {
+  justify-self: start;
+  padding: 6px 12px;
+  border: 1px solid var(--geo-line);
+  border-radius: 6px;
+  background: var(--geo-surface);
+  color: var(--geo-navy);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.charging-step { padding: 14px 16px; border: 1px solid var(--geo-line); border-radius: 6px; }
+.charging-step h3 {
+  margin: 0 0 8px;
+  color: var(--geo-navy);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.charging-title { margin: 0 0 8px; color: var(--geo-navy); font-size: 18px; font-weight: 700; }
+.charging-title span { margin-left: 8px; color: var(--geo-blue); font-size: 14px; }
+.charging-variant select {
+  width: 100%;
+  min-height: 40px;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border: 1px solid #9eb8cc;
+  border-radius: 6px;
+  background: var(--geo-surface);
+  color: var(--geo-ink);
+  font: inherit;
+  font-size: 14px;
+}
+.charging-variant-text { margin: 0 0 10px; font-size: 14px; }
+.charging-quotes blockquote { margin: 0 0 8px; padding: 8px 12px; border-left: 3px solid var(--geo-blue); background: #f4f8fb; font-size: 14px; }
+.charging-notes { margin: 8px 0 0; color: var(--geo-muted); font-size: 13px; }
+.charging-elements { display: grid; gap: 6px; }
+.charging-alternatives { display: grid; gap: 6px; padding: 8px 0 0; border-top: 1px dashed var(--geo-line); }
+.charging-element { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.charging-element input { width: 18px; height: 18px; flex: 0 0 18px; margin-top: 2px; accent-color: var(--geo-navy); }
+.charging-flag { display: inline-block; margin: 0 0 8px; padding: 2px 10px; border-radius: 10px; background: #fff3d6; color: #6b4b00; font-size: 12px; font-weight: 700; }
+.charging-wording { margin: 0 0 12px; padding: 12px; border: 1px solid var(--geo-line); border-radius: 6px; background: #f8fafb; font-size: 14px; white-space: pre-wrap; }
+.charging-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.charging-copy {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--geo-navy);
+  border-radius: 5px;
+  background: var(--geo-navy);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.charging-copy:disabled { border-color: var(--geo-line); background: #e6ebef; color: #7b8994; cursor: not-allowed; }
+.dark .charging-quotes blockquote, .dark .charging-wording { background: #203344; }
+.dark .charging-results button:hover { background: #263f56; }
+@media (max-width: 640px) {
+  .charging-body { padding: 14px 16px 18px; }
+  .charging-results button { grid-template-columns: 1fr auto; }
+  .charging-code { grid-column: 1 / -1; }
+}

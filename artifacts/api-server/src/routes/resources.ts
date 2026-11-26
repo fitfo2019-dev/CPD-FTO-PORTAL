@@ -94,7 +94,14 @@ router.get(
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.type(resource.content_type);
-    res.download(filePath, resource.download_name, (error?: Error) => {
+    const inline = "disposition" in resource && resource.disposition === "inline";
+    const send = inline
+      ? (done: (error?: Error) => void) => {
+          res.setHeader("Content-Disposition", `inline; filename="${resource.download_name}"`);
+          res.sendFile(filePath, done);
+        }
+      : (done: (error?: Error) => void) => res.download(filePath, resource.download_name, done);
+    send((error?: Error) => {
       if (!error || res.headersSent) return;
       req.log.error(
         { resourceId: resource.id },
