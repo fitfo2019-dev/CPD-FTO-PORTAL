@@ -41,12 +41,12 @@ export function PrintSectionPanel({ title, children, className = '', heading = 2
   return <section className={`print-section-panel ${className}`}><Heading>{title}</Heading>{children}</section>;
 }
 
-export function PrintChecklistRow({ label, checked, mixed, help, details }: {
-  label: string; checked: boolean; mixed?: boolean; help?: string; details?: ReactNode;
+export function PrintChecklistRow({ label, labelContent, checked, mixed, help, details }: {
+  label: string; labelContent?: ReactNode; checked: boolean; mixed?: boolean; help?: string; details?: ReactNode;
 }) {
   return <li className="print-checklist-row" title={help}>
     <b aria-label={mixed ? 'Partly completed' : checked ? 'Complete' : 'Not complete'}>{mixed ? '◩' : checked ? '☒' : '☐'}</b>
-    <span>{label}{details}</span>
+    <span>{labelContent ?? label}{details}</span>
   </li>;
 }
 

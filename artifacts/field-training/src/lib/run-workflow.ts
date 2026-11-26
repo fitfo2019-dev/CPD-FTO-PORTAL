@@ -48,6 +48,7 @@ export function runSheetReviewSnapshot(run: RunWorkflowDraft, sheet: RunSheetKey
     transportDestination:run.transportDestination??'', transportDestinationType:run.transportDestinationType??'',
     notApplicable:checklist[sheet==='primary'?'na-task':`na-supp-${sheet}`]===true,
     answers:items.map((_,index)=>checklist[`${prefix}${index}`]!==false),
+    notApplicableItems:items.map((_,index)=>run.checklistNotApplicable?.[`${prefix}${index}`]===true),
     failureActions:items.map((_,index)=>run.checklistFailures?.[`${prefix}${index}`]??[]),
     directiveReview:run.directiveReviews?.[form]??null,
     ...(sheet==='narrative_addition'?{narrative:run.narrative??''}:{}),

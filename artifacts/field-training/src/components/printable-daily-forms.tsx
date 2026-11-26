@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react';
-import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS, partitionRevisedChecklist, revisedRowState, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
+import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS, partitionRevisedChecklist, revisedRowState, rowSegments, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
 import { PrintDocument, PrintTitleBlock, PrintFieldGrid, PrintField, PrintSectionPanel, PrintChecklistRow, PrintNotesArea, PrintFooter } from '@/components/print-template.js';
 import {
   DAILY_DUTY_CHECKLIST,
@@ -27,6 +27,7 @@ import {
 } from '@/lib/training-calendar.js';
 import { PrintableOrientationContinuations, PrintableSubstationOrientation } from '@/components/printable-extended-forms.js';
 import type { SubstationOrientationRecord } from '@/lib/model.js';
+import { runFailureStatements } from '@/lib/run-failure-statements.js';
 import { splitNarrativeContinuation } from '@/lib/narrative-continuation.js';
 import { buildOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { DIVISION_DIRECTIVE_SOURCE_REVISION } from '@/lib/division-directives.js';
@@ -125,7 +126,8 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
   const additionalItems=[...attachedForms,...relatedActivity.map(item=>item.label)];
   const trafficStop=run.runKind==='traffic_stop'||run.runKind==='high_risk_stop';
   const {sections}=partitionRevisedChecklist(REVISED_PRIMARY_CHECKLISTS[run.runKind]);
-  const narrativeSupport=<PrintNotesArea title="Run narrative">{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the following narrative continuation page'}.`:run.narrative||'—'}</PrintNotesArea>;
+  const failureLines=runFailureStatements(run).map(statement=>statement.text);
+  const narrativeSupport=<PrintNotesArea title="Run narrative">{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the following narrative continuation page'}.`:<>{failureLines.map(line=><span key={line} className="print-po-failed-line">{line} </span>)}{run.narrative||(failureLines.length?'':'—')}</>}</PrintNotesArea>;
   const separateNarrative=sections.length===9;
   const support=<><DirectiveReviewPrint run={run} formKey={run.runKind} prefix="task-"/>{!separateNarrative&&narrativeSupport}</>;
   const insetSupport=sections.length===7;
@@ -152,7 +154,7 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
       <span data-print-field="OVI processed"><b>OVI processed:</b> {run.oviProcessed?'Yes':'No'}</span>
       {citationSummons&&<span data-print-field="Solve Citation/Summons*"><b>Solve Citation/Summons*:</b> 1</span>}
     </div>
-      <Checklist title="Primary form checklist" sections={sections} state={run.checklist} failures={run.checklistFailures} prefix="task-" notApplicable={!!run.checklist['na-task']} support={support} tail={insetSupport?support:undefined}/>
+      <Checklist title="Primary form checklist" sections={sections} state={run.checklist} failures={run.checklistFailures} itemNotApplicable={run.checklistNotApplicable} prefix="task-" notApplicable={!!run.checklist['na-task']} support={support} tail={insetSupport?support:undefined}/>
     {separateNarrative&&narrativeSupport}
     <PrintFooter className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.<span className="print-source-note">Division directive index revised {DIVISION_DIRECTIVE_SOURCE_REVISION}.</span></PrintFooter>
   </PrintDocument>;
@@ -181,7 +183,7 @@ function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{
       <span data-print-field="OVI processed"><b>OVI processed:</b> {run.oviProcessed?'Yes':'No'}</span>
       <span data-print-field="Dispatched"><b>Dispatched:</b> {run.isDispatched?'Yes':'No'}</span>
     </div>
-      {REVISED_SUPPLEMENT_CHECKLISTS[formKey].length>0&&<Checklist title={`${form?.label||'Supplemental'} checklist`} sections={REVISED_SUPPLEMENT_CHECKLISTS[formKey]} state={run.checklist} failures={run.checklistFailures} prefix={`supp-${formKey}-`} notApplicable={!!run.checklist[`na-supp-${formKey}`]} support={support} tail={insetSupport?support:undefined}/>}
+      {REVISED_SUPPLEMENT_CHECKLISTS[formKey].length>0&&<Checklist title={`${form?.label||'Supplemental'} checklist`} sections={REVISED_SUPPLEMENT_CHECKLISTS[formKey]} state={run.checklist} failures={run.checklistFailures} itemNotApplicable={run.checklistNotApplicable} prefix={`supp-${formKey}-`} notApplicable={!!run.checklist[`na-supp-${formKey}`]} support={support} tail={insetSupport?support:undefined}/>}
     <footer className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.<span className="print-source-note">Division directive index revised {DIVISION_DIRECTIVE_SOURCE_REVISION}.</span><PrintableColumbusFooterMarks /></footer>
   </PrintDocument>;
 }
@@ -235,7 +237,18 @@ function NarrativeContinuationPages({report,run,pageReferences}:{report:Report;r
 }
 
 
-function Checklist({title,sections,state,failures,prefix,notApplicable,tail,support}:{title:string;sections:readonly RevisedChecklistSection[];state:Record<string,boolean>;failures?:Record<string,string[]>;prefix:string;notApplicable:boolean;tail?:React.ReactNode;support:React.ReactNode}) {
+function PrintRowLabel({label,indices,state,prefix,itemNotApplicable}:{label:string;indices:readonly number[];state:Record<string,boolean>;prefix:string;itemNotApplicable?:Record<string,true>}) {
+  const parts=rowSegments(label,indices);
+  if(!parts)return <>{label}</>;
+  return <>{parts.map((part,position)=>{
+    const key=`${prefix}${indices[position]}`;
+    const na=itemNotApplicable?.[key]===true&&state[key]===false;
+    const failed=state[key]===false&&!na;
+    return <Fragment key={key}>{position>0&&' / '}<span className={na?'print-item-na':failed?'print-item-failed':undefined}>{part}</span></Fragment>;
+  })}</>;
+}
+
+function Checklist({title,sections,state,failures,prefix,notApplicable,itemNotApplicable,tail,support}:{title:string;sections:readonly RevisedChecklistSection[];state:Record<string,boolean>;failures?:Record<string,string[]>;prefix:string;notApplicable:boolean;itemNotApplicable?:Record<string,true>;tail?:React.ReactNode;support:React.ReactNode}) {
   const introduction=<><h2>{title}</h2><p>Not applicable: {notApplicable?'Yes':'No'} · ☒ complete · ☐ not complete · ◩ partly completed. A combined row is complete only when all listed actions are complete. New items start checked; the FTO must verify each row.</p></>;
   return <section className="print-run-checklist">
     <div className="print-checklist-intro">{introduction}</div>
@@ -243,7 +256,7 @@ function Checklist({title,sections,state,failures,prefix,notApplicable,tail,supp
       {sections.map((section,index)=><PrintSectionPanel className="print-run-checkgroup" key={section.title} title={section.title} heading={3}><ul style={{'--print-checklist-rows':section.items.length} as React.CSSProperties}>{section.items.map(item=>{
         const value=revisedRowState(state,prefix,item.indices);
         const failedActions=item.indices.flatMap(index=>failures?.[`${prefix}${index}`]??[]);
-        return <PrintChecklistRow key={item.id} label={item.label} help={item.help} {...value}
+        return <PrintChecklistRow key={item.id} label={item.label} labelContent={<PrintRowLabel label={item.label} indices={item.indices} state={state} prefix={prefix} itemNotApplicable={itemNotApplicable}/>} help={item.help} {...value}
           details={failedActions.length>0?<span className="print-run-failure-detail">{failedActions.map((action,actionIndex)=><span key={`${actionIndex}-${action}`}><span>Not completed: </span><strong>{action}</strong></span>)}</span>:undefined}/>;
       })}</ul>{index===sections.length-1&&!tail&&<div className="print-equal-support">{support}</div>}</PrintSectionPanel>)}
       {tail&&<div className="print-equal-support">{tail}</div>}

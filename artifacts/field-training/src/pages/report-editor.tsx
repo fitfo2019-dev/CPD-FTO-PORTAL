@@ -39,6 +39,9 @@ import { TrafficStopRiskPrompt } from '@/components/traffic-stop-risk-choice.js'
 import { RunChecklistFailureDialog } from '@/components/run-checklist-failure-dialog.js';
 import { formatTimeEntry24H } from '@/lib/training-calendar.js';
 import { runFailureActionChoices, runChecklistFailureSummaries, type RunChecklistSourceForm } from '@/lib/run-checklist-failures.js';
+import { RunChecklistUncheckedDialog, type UncheckedChoice, type UncheckedItem } from '@/components/run-checklist-unchecked-dialog.js';
+import { activeFailureStatementEdits, activeNotApplicable, runFailureStatements } from '@/lib/run-failure-statements.js';
+import { SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
 import '@/components/run-sheet-workflow.css';
 
 import { PacketSubmitControl } from '@/components/packet-review/submit-control.js';
@@ -161,12 +164,20 @@ export default function ReportEditor() {
   const [failurePrompt, setFailurePrompt] = useState<FailurePromptTarget|null>(null);
   const [failurePromptSelection, setFailurePromptSelection] = useState<string[]>([]);
   const [failurePromptQueue, setFailurePromptQueue] = useState<FailurePromptTarget[]>([]);
+  const [runChecklistNA, setRunChecklistNAState] = useState<Record<string, true>>({});
+  const [runFailureEdits, setRunFailureEdits] = useState<Record<string, string>>({});
+  const [uncheckedPrompt, setUncheckedPrompt] = useState<{form:RunChecklistSourceForm;naKey:string;rowLabel:string;items:UncheckedItem[]}|null>(null);
+  const [uncheckedChoices, setUncheckedChoices] = useState<Record<string, UncheckedChoice|undefined>>({});
   const setRunChecklist: typeof setRunChecklistState = update => {
     setRunChecklistState(update);
     setR(current => current && ({ ...current, deficiencyAutomationEnabled: true, ratingsReviewedAt: undefined }));
   };
   const setRunChecklistFailures: typeof setRunChecklistFailuresState = update => {
     setRunChecklistFailuresState(update);
+    setR(current => current && ({ ...current, deficiencyAutomationEnabled: true, ratingsReviewedAt: undefined }));
+  };
+  const setRunChecklistNA: typeof setRunChecklistNAState = update => {
+    setRunChecklistNAState(update);
     setR(current => current && ({ ...current, deficiencyAutomationEnabled: true, ratingsReviewedAt: undefined }));
   };
   const [directiveReviews,setDirectiveReviews]=useState<Partial<Record<DirectiveReviewForm,DirectiveReviewRecord>>>({});
@@ -182,10 +193,10 @@ export default function ReportEditor() {
       transportDestination:arrestMade&&transported?transportDestination.trim()||undefined:undefined,
       transportDestinationType:arrestMade&&transported?transportDestinationType:undefined,
       clearanceCode,
-       oviProcessed, narrativeAdditionRequired, checklist: runChecklist, checklistFailures:runChecklistFailures, narrative: runNarrative, directiveReviews,
+       oviProcessed, narrativeAdditionRequired, checklist: runChecklist, checklistFailures:runChecklistFailures, checklistNotApplicable:runChecklistNA, failureStatements:runFailureEdits, narrative: runNarrative, directiveReviews,
       formStatus: runNarrative.trim() ? 'complete' : 'in_progress',
     };
-  }, [r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, transportDestinationType, clearanceCode, arrestProcessRequired, buildingSearchRequired, oviProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runChecklistFailures, runNarrative, directiveReviews]);
+  }, [runChecklistNA, runFailureEdits, r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, transportDestinationType, clearanceCode, arrestProcessRequired, buildingSearchRequired, oviProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runChecklistFailures, runNarrative, directiveReviews]);
   const deficiencyEditor = useDeficiencyEditor(r, setR, getOperationalPacket, candidateRun, r?.status === 'draft' && ws.role === 'fto');
   const parsedDate = parseDateDMY(dateText);
   const runDateTimeParts = splitDateTimeEntryMDY(runDateTimeText);
@@ -200,7 +211,7 @@ export default function ReportEditor() {
   const runMeta = { runKind, trafficMode, isDispatched:runDispatched, arrestMade, transportedAfterArrest:arrestMade && transported, arrestProcessRequired, buildingSearchRequired, oviProcessed, oviProcessRequired, narrativeAdditionRequired };
   const requiredSupplements = requiredSupplementalForms(runMeta);
   const workflowDraft: RunWorkflowDraft = {
-    ...runMeta, checklist: runChecklist, checklistFailures:runChecklistFailures, directiveReviews, narrative: runNarrative,
+    ...runMeta, checklist: runChecklist, checklistFailures:runChecklistFailures, checklistNotApplicable:runChecklistNA, failureStatements:runFailureEdits, directiveReviews, narrative: runNarrative,
     arrestClassificationVersion: editingRunId ? r?.runs.find(run=>run.id===editingRunId)?.arrestClassificationVersion ?? 1 : 1,
     arrestSeverity, arrestType,
     incidentNumber: incidentNumber.trim() || undefined, location: runLocation.trim() || undefined,
@@ -235,7 +246,7 @@ export default function ReportEditor() {
   },[existing?.syncStatus,existing?.serverVersion]);
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
-  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== '' || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestSeverity !== '' || arrestType !== '' || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runLocationCity.trim() !== '' || runLocationState.trim() !== '' || runLocationZip.trim() !== '' || runZone.trim() !== '' || runCruiserDistrict.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist);
+  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== '' || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestSeverity !== '' || arrestType !== '' || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runLocationCity.trim() !== '' || runLocationState.trim() !== '' || runLocationZip.trim() !== '' || runZone.trim() !== '' || runCruiserDistrict.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist) || Object.keys(runFailureEdits).length>0;
   const isDirty = !!r && (authoredReportSnapshot(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
   useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
@@ -433,6 +444,10 @@ export default function ReportEditor() {
     setRunError('');
   };
   const clearChecklistItems=(targets:ChecklistActionTarget[],notApplicableKey:string)=>{
+    setRunChecklistNA(current=>{
+      if(!targets.some(target=>target.key in current))return current;
+      const next={...current};targets.forEach(target=>{delete next[target.key];});return next;
+    });
     const changed=targets.filter(target=>runChecklist[target.key]!==false);
     const updates:Record<string,boolean>={[notApplicableKey]:false};
     const queued:FailurePromptTarget[]=[];
@@ -461,6 +476,14 @@ export default function ReportEditor() {
     setRunError('');
   };
   const selectChecklistItems=(targets:ChecklistActionTarget[],notApplicableKey:string)=>{
+    setRunChecklistNA(current=>{
+      if(!targets.some(target=>target.key in current))return current;
+      const next={...current};targets.forEach(target=>{delete next[target.key];});return next;
+    });
+    setRunFailureEdits(current=>{
+      if(!targets.some(target=>target.key in current))return current;
+      const next={...current};targets.forEach(target=>{delete next[target.key];});return next;
+    });
     setRunChecklist(current=>({...current,[notApplicableKey]:false,...Object.fromEntries(targets.map(target=>[target.key,true]))}));
     setRunChecklistFailures(current=>{
       const next={...current};
@@ -468,6 +491,33 @@ export default function ReportEditor() {
       return next;
     });
     setRunError('');
+  };
+  const openUncheckedPrompt=(form:RunChecklistSourceForm,prefix:string,naKey:string,indices:readonly number[],labels:readonly string[],rowLabel:string)=>{
+    const items=indices.map(index=>({key:`${prefix}${index}`,label:labels[index]??`Checklist item ${index+1}`}));
+    setUncheckedChoices(Object.fromEntries(items.map(item=>[item.key,runChecklist[item.key]===false?(runChecklistNA[item.key]?'na':'fail'):undefined])));
+    setUncheckedPrompt({form,naKey,rowLabel,items});
+  };
+  const confirmUncheckedPrompt=()=>{
+    if(!uncheckedPrompt)return;
+    const {form,naKey,items}=uncheckedPrompt;
+    const failed=items.filter(item=>uncheckedChoices[item.key]==='fail');
+    const notApplicable=items.filter(item=>uncheckedChoices[item.key]==='na');
+    const satisfied=items.filter(item=>!uncheckedChoices[item.key]);
+    setUncheckedPrompt(null);
+    if(satisfied.length)selectChecklistItems(satisfied.map(item=>({form,...item})),naKey);
+    if(notApplicable.length){
+      setRunChecklist(current=>({...current,[naKey]:false,...Object.fromEntries(notApplicable.map(item=>[item.key,false]))}));
+      setRunChecklistNA(current=>({...current,...Object.fromEntries(notApplicable.map(item=>[item.key,true as const]))}));
+      setRunChecklistFailures(current=>{const next={...current};notApplicable.forEach(item=>{delete next[item.key];});return next;});
+      setRunFailureEdits(current=>{const next={...current};notApplicable.forEach(item=>{delete next[item.key];});return next;});
+    }
+    if(failed.length)clearChecklistItems(failed.map(item=>({form,...item})),naKey);
+  };
+  const failureStatements=runFailureStatements(workflowDraft as Parameters<typeof runFailureStatements>[0]);
+  const statementCategory=(key:string)=>{
+    const supplement=/^supp-(.+)-\d+$/.exec(key)?.[1];
+    const category=SEG_TASK_DIRECTORY[`${supplement??runKind}:${key}`];
+    return category?CATEGORY_LABEL[category]:undefined;
   };
   const renderChecklistFailureDetails=(form:RunChecklistSourceForm,prefix:string,indices:readonly number[],labels:readonly string[])=>(
     <div className="ml-6 space-y-1">
@@ -561,6 +611,10 @@ export default function ReportEditor() {
       ...nextRun, checklistFailures: runChecklistFailures,
     }).filter(item => item.failureActions.length).map(item => [item.key, [...item.failureActions]]));
     if (Object.keys(activeFailures).length) nextRun.checklistFailures = activeFailures;
+    const savedNotApplicable=activeNotApplicable({checklist:nextRun.checklist,checklistNotApplicable:runChecklistNA});
+    if(savedNotApplicable)nextRun.checklistNotApplicable=savedNotApplicable;
+    const savedStatements=activeFailureStatementEdits({...nextRun,checklistNotApplicable:savedNotApplicable,failureStatements:runFailureEdits});
+    if(savedStatements)nextRun.failureStatements=savedStatements;
     nextRun.generatedDocuments=buildClearanceDocuments(nextRun);
     setR(current=>current && ({...current,ratingsReviewedAt:undefined,runs: previous ? current.runs.map(item => item.id === previous.id ? nextRun : item) : [...current.runs, nextRun]}));
     resetRunForm();
@@ -600,6 +654,9 @@ export default function ReportEditor() {
     setRunNarrative('');
     setRunChecklist(newRunChecklist('call_for_service'));
     setRunChecklistFailures({});
+    setRunChecklistNA({});
+    setRunFailureEdits({});
+    setUncheckedPrompt(null);
     setFailurePrompt(null);
     setFailurePromptQueue([]);
     setFailurePromptSelection([]);
@@ -627,7 +684,7 @@ export default function ReportEditor() {
     setTransported(run.transportedAfterArrest); setTransportDestination(run.transportDestination??''); setTransportDestinationType(run.transportDestinationType); setArrestProcessRequired(!!run.arrestProcessRequired); setBuildingSearchRequired(!!run.buildingSearchRequired); setOviProcessRequired(!!run.oviProcessRequired); setOviProcessed(run.oviProcessed);
     setNarrativeAdditionRequired(run.narrativeAdditionRequired);
     setDirectiveReviews(run.directiveReviews??{});
-    setRunNarrative(run.narrative); setRunChecklist(run.checklist ?? {});setRunChecklistFailures(run.checklistFailures??{});
+    setRunNarrative(run.narrative); setRunChecklist(run.checklist ?? {});setRunChecklistFailures(run.checklistFailures??{});setRunChecklistNA(run.checklistNotApplicable??{});setRunFailureEdits(run.failureStatements??{});
     setSheetReviews({});
     setLegacyReviewSheets(run.checklistReviewedAt ? ['primary' as RunSheetKey, ...requiredSupplementalForms(run)] : null);
     setStage('runs');
@@ -990,16 +1047,15 @@ export default function ReportEditor() {
                     <button type="button" disabled={!editable} onClick={()=>{const targets=checkItems.map((label,index)=>({form:runKind,key:`task-${index}`,label}));clearChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid="button-clear-run-checklist">Clear all checkboxes</button>
                 </div>
               </div>
-                <details className="mt-2 rounded border bg-muted/30 p-2 text-xs"><summary className="cursor-pointer font-semibold">{RUN_FORM_GUIDANCE[runKind]}</summary><p className="mt-1">The segments below follow the selected manual form. Hover or focus each item for its meaning. Check only when the PO completed the action acceptably; clear it if not completed acceptably, not applicable, or performed by the FTO, and document deficiencies or training in the narrative.</p></details>
-                <p className="my-2 rounded border border-warn/50 bg-warn/10 p-2 text-xs">Run checklist items start checked. Review every segment before saving; clear any item the PO did not complete acceptably or that did not apply. A combined row is checked only when every listed action is complete. Mixed rows retain the saved individual task values until you explicitly change them.</p>
                <div className="mt-2 grid gap-3">
                       <RunChecklistFields sections={primaryChecklistGroups} state={runChecklist} prefix="task-"
                         disabled={!editable||!!runChecklist['na-task']} testId={`checklist-primary-${runKind}`}
                         onChange={(indices,checked)=>{
                           const targets=indices.map(index=>({form:runKind,key:`task-${index}`,label:checkItems[index]}));
-                          if(checked)selectChecklistItems(targets,'na-task');else clearChecklistItems(targets,'na-task');
+                          if(checked)selectChecklistItems(targets,'na-task');else openUncheckedPrompt(runKind,'task-','na-task',indices,checkItems,primaryChecklistGroups.flatMap(section=>section.items).find(item=>item.indices===indices)?.label??targets.map(target=>target.label).join(' / '));
                           if(indices.includes(primaryDirectiveIndex))setDirectiveReviewFlags(runKind,checked);
                         }}
+                        notApplicable={runChecklistNA}
                         renderItemDetails={indices=>renderChecklistFailureDetails(runKind,'task-',indices,checkItems)}/>
                      {primaryDirectiveIndex>=0&&<DirectiveReviewEditor value={primaryDirectiveReview} disabled={!editable||runChecklist[`task-${primaryDirectiveIndex}`]===false} dataTestId={`directive-review-${runKind}`} onChange={(field,value)=>updateDirectiveReview(runKind,field,value)}/>}
                </div>
@@ -1028,9 +1084,10 @@ export default function ReportEditor() {
                         disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} testId={`checklist-supplement-${supplement}`}
                         onChange={(indices,checked)=>{
                            const targets=indices.map(index=>({form:supplement,key:`supp-${supplement}-${index}`,label:supplementItems[index]}));
-                           if(checked)selectChecklistItems(targets,`na-supp-${supplement}`);else clearChecklistItems(targets,`na-supp-${supplement}`);
+                           if(checked)selectChecklistItems(targets,`na-supp-${supplement}`);else openUncheckedPrompt(supplement,`supp-${supplement}-`,`na-supp-${supplement}`,indices,supplementItems,groups.flatMap(section=>section.items).find(item=>item.indices===indices)?.label??targets.map(target=>target.label).join(' / '));
                           if(indices.includes(supplementDirectiveIndex))setDirectiveReviewFlags(supplement,checked);
                          }}
+                         notApplicable={runChecklistNA}
                          renderItemDetails={indices=>renderChecklistFailureDetails(supplement,`supp-${supplement}-`,indices,supplementItems)}/>
                      {supplementDirectiveIndex>=0&&<DirectiveReviewEditor value={supplementDirectiveReview} disabled={!editable||runChecklist[`supp-${supplement}-${supplementDirectiveIndex}`]===false} dataTestId={`directive-review-${supplement}`} onChange={(field,value)=>updateDirectiveReview(supplement,field,value)}/>}</>:<p className="mt-2 text-xs text-muted-foreground">The submitted form has no separate checkbox list here.</p>}
                      {supplement==='narrative_addition'&&<p className="mt-2 rounded border bg-card p-2 text-xs">The continuation pages print the run narrative written on the Narrative &amp; save sheet. Changing that narrative requires this sheet to be reviewed again.</p>}
@@ -1047,6 +1104,21 @@ export default function ReportEditor() {
                 <button type="button" disabled={!editable||!allSheetsReviewed} onClick={draftNarrative} className="min-h-10 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-50" data-testid="button-draft-run-narrative">Draft narrative outline from reviewed sheets</button>
                 <span className="text-xs text-muted-foreground">Only fills an empty narrative or an unedited outline. Written text is never replaced.</span>
               </div>
+            {failureStatements.length>0&&<section className="my-3 rounded border border-destructive/40 bg-destructive/5 p-3" data-testid="section-po-failed-to">
+              <h4 className="text-xs font-bold uppercase tracking-wide text-destructive">PO failed to</h4>
+              <ul className="mt-2 space-y-2">
+                {failureStatements.map((statement,index)=>{
+                  const category=statementCategory(statement.key);
+                  return <li key={statement.keys.join('|')} className="flex flex-col gap-1">
+                    {category&&<span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" data-testid={`text-po-failed-category-${index}`}>UA · {category}</span>}
+                    <textarea rows={Math.max(2,Math.ceil(statement.text.length/85))} disabled={!editable} className="w-full rounded border bg-card p-2 text-sm" value={statement.text}
+                      aria-label={`PO failed to statement ${index+1}`}
+                      onChange={event=>{const value=event.target.value;setRunFailureEdits(current=>({...current,...Object.fromEntries(statement.keys.map(key=>[key,value]))}));}}
+                      data-testid={`input-po-failed-${index}`}/>
+                  </li>;
+                })}
+              </ul>
+            </section>}
             <F l="Training narrative · performance, coaching, response"><textarea rows={3} disabled={!editable} className="mt-3 w-full rounded border bg-card p-2.5 text-sm" value={runNarrative} onChange={e=>setRunNarrative(e.target.value)} placeholder="Describe observed performance, response, and coaching." data-testid="input-run-narrative" /></F>
             {narrativeAdditionRequired&&<button type="button" onClick={()=>{document.body.classList.add('print-narrative-only');window.addEventListener('afterprint',()=>document.body.classList.remove('print-narrative-only'),{once:true});window.print();}} className="mt-2 min-h-10 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-print-narrative-continuation">Print narrative continuation pages only</button>}
             </div>}
@@ -1243,6 +1315,14 @@ export default function ReportEditor() {
       <NewRunDialog open={newRunOpen&&editable} contextKey={operationalContextKey} defaultUnit={profile?.role==='FTO'&&profile.badge===r.ftoBadge?profile.identity?.cadUnit??'':''} onCancel={()=>setNewRunOpen(false)} onConfirm={startNewRun}/>
       <TrafficStopRiskPrompt open={riskPrompt&&editable} onOpenChange={setRiskPrompt} kind={riskCandidate} code={dispatchedCode}
         testId="dialog-run-high-risk" onChange={next=>{setRiskPrompt(false);requestRunKind(next,true);}}/>
+      <RunChecklistUncheckedDialog
+        open={!!uncheckedPrompt}
+        rowLabel={uncheckedPrompt?.rowLabel??''}
+        items={uncheckedPrompt?.items??[]}
+        choices={uncheckedChoices}
+        onChoicesChange={setUncheckedChoices}
+        onCancel={()=>setUncheckedPrompt(null)}
+        onConfirm={confirmUncheckedPrompt}/>
       <RunChecklistFailureDialog
         open={!!failurePrompt}
         parentLabel={failurePrompt?.label??''}

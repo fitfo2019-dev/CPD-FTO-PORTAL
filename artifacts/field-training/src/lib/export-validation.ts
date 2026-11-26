@@ -105,6 +105,8 @@ const trainingRunSchema = z.object({
   formStatus: z.enum(['not_started', 'in_progress', 'complete']),
   checklist: booleanRecordSchema,
   checklistFailures: z.record(z.string(), z.array(z.string().min(1)).min(1)).optional(),
+  checklistNotApplicable: z.record(z.string(), z.literal(true)).optional(),
+  failureStatements: z.record(z.string(), z.string()).optional(),
   directiveReviews: z.partialRecord(
     z.enum([...PRIMARY_RUN_FORMS.map(form => form.key), ...SUPPLEMENTAL_RUN_FORMS.map(form => form.key)]),
     directiveReviewSchema,

@@ -114,7 +114,7 @@ test('fixed accessible section and row structure is identical when checked, unch
     for (const section of sections) assert.ok(html.includes(section.title));
   }
   assert.ok(mixed.includes('aria-checked="mixed"'));
-  assert.ok(mixed.includes('Partly completed'));
+  assert.ok(mixed.includes('data-state="failed"'));
   assert.equal((readOnly.match(/<input[^>]*disabled/g) ?? []).length, 22);
   assert.equal((readOnly.match(/<button[^>]*disabled/g) ?? []).length, 6);
 });
