@@ -28,6 +28,13 @@ test('weekly totals tighten by phase: I 12/24, II 10/20, III 8/16, IV 5/10', () 
   for (const [ph, n, , s] of cases) assert.equal(last([wk(2, spread(n), { ph })]), s, `Phase ${ph}, ${n} UA's`);
 });
 
+test('weekly totals are counted per 40 rated hours', () => {
+  const short = (n: number) => ({ ...(wk(5, spread(n)) as Extract<Week, { kind: 'rated' }>), hours: 24 });
+  assert.equal(last([short(5)]), 'MEETS STANDARD');
+  assert.equal(last([short(6)]), 'EMERGING CONCERN');
+  assert.equal(last([short(12)]), 'BELOW STANDARD');
+});
+
 test('3 UA\'s on the same task in a week is below standard; 3 different tasks in one category is not', () => {
   assert.equal(last([wk(2, { 9: 3 }, { task: { '9.1': 3 } })]), 'BELOW STANDARD');
   assert.equal(last([wk(2, { 9: 3 }, { task: { '9.1': 1, '9.2': 1, '9.3': 1 } })]), 'MEETS STANDARD');
