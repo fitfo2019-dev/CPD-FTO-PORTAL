@@ -20,7 +20,7 @@ export function RebuildMyProbationaryOfficer() {
 
 export function RebuildPoProgress() {
   const { ws } = useWorkspace();
-  return <AdminPage><PageHeader section="Coordinator" title="PO Progress" /><ProgressView coordinatorScope={ws.role !== "fto_sgt"} /></AdminPage>;
+  return <AdminPage><PageHeader section="Coordinator" title="PO Progress" photo="cruiser-skyline" /><ProgressView coordinatorScope={ws.role !== "fto_sgt"} /></AdminPage>;
 }
 
 /** PO Progress cards without the page header, for the FTO Sergeant home. */

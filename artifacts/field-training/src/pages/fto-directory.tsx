@@ -19,7 +19,11 @@ export default function FtoDirectoryPage() {
   if (ws.role !== 'fto_coordinator') return <Redirect to="/" />;
 
   return <div className="mx-auto max-w-7xl">
-    <PageHead kicker="Coordinator" title="FTO Directory" />
+    <PageHead kicker="Coordinator" title="FTO Directory" photo="class-seated" stats={[
+      { label: 'FTO’s', value: ws.ftoDirectory.length, testId: 'hero-fto-count' },
+      { label: 'PO’s Trained', value: new Set(ws.assignments.map(a => a.recruitBadge.toLowerCase())).size, testId: 'hero-pos-trained' },
+      { label: 'Phases Covered', value: new Set(ws.assignments.map(a => `${a.className}|${a.phase}`)).size, testId: 'hero-phases-covered' },
+    ]} />
     <Panel title={`${ws.ftoDirectory.length} FTO’s`} action={<input type="search" aria-label="Search FTO directory" placeholder="Name, badge or email" value={query} onChange={e => setQuery(e.target.value)} className="h-9 w-full rounded border bg-card px-3 text-sm sm:w-64" data-testid="input-fto-directory-search" />}>
       <div className="overflow-x-auto">
         <table className="portal-table" data-testid="table-fto-directory">

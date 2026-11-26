@@ -4,6 +4,7 @@ import { ClerkProvider, SignIn, useAuth, useClerk, useUser } from '@clerk/react'
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { ErrorBoundary } from '@/components/error-boundary.js';
+import { SignInPhotos } from '@/components/sign-in-photos.js';
 import { Toaster } from '@/components/ui/toaster.js';
 import { TooltipProvider } from '@/components/ui/tooltip.js';
 import NotFound from '@/pages/not-found.js';
@@ -116,7 +117,9 @@ const clerkAppearance = {
 
 function SignInPage() {
   return (
-    <div className={`flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8 ${import.meta.env.DEV ? 'flex-col gap-4' : ''}`}>
+    <div className="sign-in-split">
+    <SignInPhotos />
+    <div className={`flex items-center justify-center px-4 py-8 ${import.meta.env.DEV ? 'flex-col gap-4' : ''}`}>
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
@@ -157,6 +160,7 @@ function SignInPage() {
           </a>
         </div>
       )}
+    </div>
     </div>
   );
 }

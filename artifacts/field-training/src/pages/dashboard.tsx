@@ -4,7 +4,7 @@ import { ArrowRight, ClipboardList, FolderOpen } from 'lucide-react';
 import { useWorkspace } from '@/state/workspace.js';
 import { CATEGORIES, CATEGORY_LABEL, evaluationProgress, needsJustification, phaseAssignmentLabel, type Workspace } from '@/lib/model.js';
 import { formatDateDMY, getPhaseEndDate, localISODate } from '@/lib/training-calendar.js';
-import { PageHead, Panel, RatingChip, StatusPill, caseSafe } from '@/components/bits.js';
+import { PageHead, Panel, RatingChip, StatusPill, caseSafe, type HeroStat } from '@/components/bits.js';
 import { NrtAdminReviewPanel } from '@/components/nrt-admin-review-panel.js';
 import { PhaseExtensionPanel } from '@/components/phase-extension-panel.js';
 import { missingDailySummaryDates } from '@/lib/weekly-packet.js';
@@ -98,8 +98,16 @@ function CoordinatorDashboard() {
     ...awaiting.map(a => ({ key: `p-${a.id}`, tag: 'Packet', text: `${a.recruitName || 'Weekly packet'}`, href: '/reports/weekly-ack' })),
   ];
 
+  const ftoCount = new Set(ws.assignments.map(a => a.ftoBadge.toLowerCase())).size;
+  const heroStats: HeroStat[] = [
+    { label: 'FTO’s Training', value: ftoCount, testId: 'hero-ftos-training' },
+    { label: 'Daily Performance Summaries Finalized', value: ws.reports.filter(r => r.status === 'locked').length, testId: 'hero-summaries-finalized' },
+    { label: 'Runs Documented', value: ws.reports.reduce((n, r) => n + (r.runs?.length ?? 0), 0), testId: 'hero-runs-documented' },
+    { label: 'Classes', value: classes.length, testId: 'hero-classes' },
+  ];
+
   return <div className="mx-auto max-w-7xl">
-    <PageHead kicker="Coordinator" title="Coordinator Dashboard">{todayLabel()}</PageHead>
+    <PageHead kicker="Coordinator" title="Coordinator Dashboard" photo="graduation-oath" stats={heroStats}>{todayLabel()}</PageHead>
 
     <div className="count-tiles" data-testid="coordinator-count-tiles">
       {import.meta.env.DEV && <CountTile label="PO’s Below Standard" value={belowStandard ?? '–'} alert={!!belowStandard} href="/po-progress?show=below-standard" testId="stat-po-review" />}
@@ -179,7 +187,11 @@ function FtoDailyPacketHome() {
   const flags = ratingFlags(ws);
 
   return <div className="mx-auto max-w-7xl">
-    <PageHead kicker="FTO" title="Daily Packet">
+    <PageHead kicker="FTO" title="Daily Packet" photo="cruiser-dusk" stats={[
+      { label: 'PO’s Trained', value: new Set(reports.map(r => r.recruitBadge.toLowerCase())).size, testId: 'hero-pos-trained' },
+      { label: 'Shifts Documented', value: reports.length, testId: 'hero-shifts-documented' },
+      { label: 'Runs Documented', value: reports.reduce((n, r) => n + (r.runs?.length ?? 0), 0), testId: 'hero-runs-documented' },
+    ]}>
       <Link href={shiftHref} data-testid={folder ? 'link-start-shift' : 'link-phase-setup'} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground">
         {folder ? <ClipboardList className="h-4 w-4" /> : <FolderOpen className="h-4 w-4" />}{shiftLabel}
       </Link>

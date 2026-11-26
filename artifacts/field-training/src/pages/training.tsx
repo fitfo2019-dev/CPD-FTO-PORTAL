@@ -15,7 +15,9 @@ export default function Training() {
   const groups = Array.from(new Set(tasks.map(t => t.group)));
   return (
     <div className="max-w-4xl">
-      <PageHead kicker="Phase competency tasks" title={phaseLabel(phase)} />
+      <PageHead kicker="Phase competency tasks" title={phaseLabel(phase)} photo="new-officers" stats={ws.tasks.length ? [
+        { label: 'Tasks Complete', value: `${ws.tasks.filter(t => t.done).length} / ${ws.tasks.length}`, testId: 'hero-tasks-complete' },
+      ] : undefined} />
       <div className="rise grid grid-cols-3 sm:grid-cols-5 gap-1 mb-4" role="tablist">{PHASES.map(p => { const all = ws.tasks.filter(t=>t.phase===p); const d = all.filter(t=>t.done).length; return (
         <button key={p} role="tab" aria-selected={phase===p} data-testid={'tab-phase-' + p} onClick={()=>setPhase(p)} className={cn('rounded border p-3 text-left transition', phase===p ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted')}>
           <div className="text-xs font-bold uppercase tracking-wider opacity-80">{phaseLabel(p)}</div><div className="mono text-xl font-bold">{d}/{all.length}</div>

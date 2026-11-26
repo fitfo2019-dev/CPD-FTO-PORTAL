@@ -13,7 +13,7 @@ export default function HelpPage() {
 
   return (
     <div className="mx-auto max-w-[1440px]">
-      <PageHead kicker="Field Training Officer Portal · Columbus" title="Help Desk">
+      <PageHead kicker="Field Training Officer Portal · Columbus" title="Help Desk" photo="cruiser-lights">
         <a
           href={DIRECTIVE_PDF_INDEX_SOURCE}
           target="_blank"

@@ -164,6 +164,7 @@ export function PhaseSetup({ initialClass }: { initialClass?: string }) {
       <PageHeader
         section="Coordinator"
         title="Phase Setup"
+        photo="recruit-run"
         actions={
           <div className="step-wrap">
             {["Import Class", "Phase Weeks", "Assign FTO’s"].map((l, k) => {

@@ -33,7 +33,7 @@ export default function SergeantHome() {
   const alerts = [...nrt, ...nonRelease, ...withdrawals].sort((a, b) => b.at.localeCompare(a.at));
 
   return <div className="mx-auto max-w-7xl">
-    <PageHead kicker="FTO Sergeant" title="Sergeant Dashboard">
+    <PageHead kicker="FTO Sergeant" title="Sergeant Dashboard" photo="officers-portrait">
       <span className="mono text-xs text-muted-foreground">{formatDateDMY(localISODate())}</span>
     </PageHead>
 
