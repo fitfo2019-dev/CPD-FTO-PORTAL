@@ -4,6 +4,7 @@ import {
   GetTestAdminScenarioResponse, ListTestAdminAuditEventsResponse,
   type TestAdminParticipantInput, type TestAdminClassInput, type TestAdminAssignmentInput,
   type TestAdminScenarioEnvelope, type TestAdminAuditEnvelope,
+  ListTestAdminTrainingRecordVersionsResponse, type TestAdminRecordVersionsEnvelope,
 } from "@workspace/api-zod";
 import { hashUserIdentifier } from "../utils/cryptoUtils.js";
 import { StagingFailure, StagingRepository, type Member, type StagingContext } from "./repository.js";
@@ -86,6 +87,43 @@ export class TestAdminRepository extends StagingRepository {
       );
       return ListTestAdminAuditEventsResponse.parse({
         status: "success", metadata: { environment: "SYNTHETIC_STAGING" }, data: result.rows,
+      });
+    });
+  }
+
+  async recordVersions(ctx: StagingContext, id: string): Promise<TestAdminRecordVersionsEnvelope> {
+    return this.admin(ctx, async (tx, member) => {
+      const record = await tx.query<{ version: number }>(
+        `SELECT r.version FROM synthetic_training.records r
+         JOIN synthetic_training.assignments a ON a.id=r.assignment_id
+         JOIN synthetic_training.classes c ON c.id=a.class_id
+         JOIN synthetic_training.members po ON po.id=a.po_id
+         JOIN synthetic_training.members fto ON fto.id=a.fto_id
+         JOIN synthetic_training.members coordinator ON coordinator.id=c.coordinator_id
+         WHERE r.id=$1 AND a.fictional AND c.fictional
+           AND po.fictional AND fto.fictional AND coordinator.fictional
+         FOR SHARE OF r,a,c,po,fto,coordinator`,
+        [id],
+      );
+      if (!record.rows[0]) throw new StagingFailure(404, "RECORD_NOT_FOUND");
+      if (!ctx.requestId) throw new StagingFailure(503, "AUDIT_CONTEXT_REQUIRED");
+
+      const versions = await tx.query<{ version: number; narrative: string; status: "draft" | "submitted" }>(
+        `SELECT version,narrative,status FROM synthetic_training.record_versions
+         WHERE record_id=$1 ORDER BY version ASC`,
+        [id],
+      );
+      await tx.query(
+        `INSERT INTO synthetic_training.audit_events
+         (id,actor_hash,role,client_ip_hash,request_id,action,record_id,version)
+         VALUES ($1,$2,$3,$4,$5,'READ_VERSIONS',$6,$7)`,
+        [randomUUID(), hashUserIdentifier(ctx.session.subject), member.role,
+          hashUserIdentifier(ctx.clientIp || "UNKNOWN"), ctx.requestId, id, record.rows[0].version],
+      );
+      return ListTestAdminTrainingRecordVersionsResponse.parse({
+        status: "success",
+        metadata: { environment: "SYNTHETIC_STAGING" },
+        data: versions.rows,
       });
     });
   }

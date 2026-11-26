@@ -4,9 +4,11 @@ import {
   createTestAdminClass, updateTestAdminClass, deactivateTestAdminClass,
   createTestAdminAssignment, updateTestAdminAssignment, deactivateTestAdminAssignment,
   listStagingTrainingRecords, createStagingTrainingRecord, updateStagingTrainingRecord,
+  listTestAdminTrainingRecordVersions,
 } from "@workspace/api-client-react";
 import {
   GetTestAdminScenarioResponse, ListTestAdminAuditEventsResponse, ListStagingTrainingRecordsResponse,
+  ListTestAdminTrainingRecordVersionsResponse,
   CreateTestAdminParticipantBody, CreateTestAdminClassBody, CreateTestAdminAssignmentBody,
   CreateStagingTrainingRecordBody, UpdateStagingTrainingRecordBody,
 } from "@workspace/api-zod";
@@ -74,6 +76,10 @@ export const loadAudit = (signal?: AbortSignal) =>
   call(async () => ListTestAdminAuditEventsResponse.parse(await listTestAdminAuditEvents(requestOptions(signal))).data);
 export const loadRecords = (signal?: AbortSignal) =>
   call(async () => ListStagingTrainingRecordsResponse.parse(await listStagingTrainingRecords(requestOptions(signal))).data);
+export const loadRecordVersions = (id: string, signal?: AbortSignal) =>
+  call(async () => ListTestAdminTrainingRecordVersionsResponse.parse(
+    await listTestAdminTrainingRecordVersions(id, requestOptions(signal)),
+  ).data);
 
 /** Server-authoritative probe: true only when the server grants Test Admin scope. */
 export async function probeTestAdmin(signal?: AbortSignal): Promise<boolean> {

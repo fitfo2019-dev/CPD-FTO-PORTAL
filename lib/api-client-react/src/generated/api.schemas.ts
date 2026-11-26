@@ -746,6 +746,46 @@ export interface StagingTrainingEnvelope {
   data: StagingTrainingRecord[];
 }
 
+export type TestAdminRecordVersionStatus = typeof TestAdminRecordVersionStatus[keyof typeof TestAdminRecordVersionStatus];
+
+
+export const TestAdminRecordVersionStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
+export interface TestAdminRecordVersion {
+  /** @minimum 1 */
+  version: number;
+  /** @maxLength 4000 */
+  narrative: string;
+  status: TestAdminRecordVersionStatus;
+}
+
+export type TestAdminRecordVersionsEnvelopeStatus = typeof TestAdminRecordVersionsEnvelopeStatus[keyof typeof TestAdminRecordVersionsEnvelopeStatus];
+
+
+export const TestAdminRecordVersionsEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type TestAdminRecordVersionsEnvelopeMetadataEnvironment = typeof TestAdminRecordVersionsEnvelopeMetadataEnvironment[keyof typeof TestAdminRecordVersionsEnvelopeMetadataEnvironment];
+
+
+export const TestAdminRecordVersionsEnvelopeMetadataEnvironment = {
+  SYNTHETIC_STAGING: 'SYNTHETIC_STAGING',
+} as const;
+
+export type TestAdminRecordVersionsEnvelopeMetadata = {
+  environment: TestAdminRecordVersionsEnvelopeMetadataEnvironment;
+};
+
+export interface TestAdminRecordVersionsEnvelope {
+  status: TestAdminRecordVersionsEnvelopeStatus;
+  metadata: TestAdminRecordVersionsEnvelopeMetadata;
+  data: TestAdminRecordVersion[];
+}
+
 export interface TrainingPacketSyncItem {
   operation_id: string;
   /** @minimum 0 */

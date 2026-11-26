@@ -66,6 +66,7 @@ import type {
   TestAdminAuditEnvelope,
   TestAdminClassInput,
   TestAdminParticipantInput,
+  TestAdminRecordVersionsEnvelope,
   TestAdminScenarioEnvelope,
   TrainingPacketAcknowledgmentInput,
   TrainingPacketFinalizationInput,
@@ -1880,6 +1881,107 @@ export function useListTestAdminAuditEvents<TData = Awaited<ReturnType<typeof li
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListTestAdminAuditEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListTestAdminTrainingRecordVersionsUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/test-admin/records/${id}/versions`
+}
+
+/**
+ * @summary Read fictional training record versions (test administrator only)
+ */
+export const listTestAdminTrainingRecordVersions = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminRecordVersionsEnvelope> => {
+
+  return customFetch<TestAdminRecordVersionsEnvelope>(getListTestAdminTrainingRecordVersionsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTestAdminTrainingRecordVersionsQueryKey = (id: string,) => {
+    return [
+    `/api/v1/staging/test-admin/records/${id}/versions`
+    ] as const;
+    }
+
+
+export const getListTestAdminTrainingRecordVersionsQueryOptions = <TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTestAdminTrainingRecordVersionsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>> = ({ signal }) => listTestAdminTrainingRecordVersions(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListTestAdminTrainingRecordVersionsQueryResult = NonNullable<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>>
+export type ListTestAdminTrainingRecordVersionsQueryError = ErrorType<ApiError>
+
+
+export function useListTestAdminTrainingRecordVersions<TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>,
+          TError,
+          Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTestAdminTrainingRecordVersions<TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>,
+          TError,
+          Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTestAdminTrainingRecordVersions<TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read fictional training record versions (test administrator only)
+ */
+
+export function useListTestAdminTrainingRecordVersions<TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListTestAdminTrainingRecordVersionsQueryOptions(id,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

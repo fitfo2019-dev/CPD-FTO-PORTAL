@@ -980,6 +980,31 @@ export const ListTestAdminAuditEventsResponse = zod.object({
 
 
 /**
+ * @summary Read fictional training record versions (test administrator only)
+ */
+export const ListTestAdminTrainingRecordVersionsParams = zod.object({
+  "id": zod.string().uuid()
+})
+
+
+export const listTestAdminTrainingRecordVersionsResponseDataItemNarrativeMax = 4000;
+
+
+
+export const ListTestAdminTrainingRecordVersionsResponse = zod.object({
+  "status": zod.enum(['success']),
+  "metadata": zod.object({
+  "environment": zod.enum(['SYNTHETIC_STAGING'])
+}),
+  "data": zod.array(zod.object({
+  "version": zod.number().int().min(1),
+  "narrative": zod.string().max(listTestAdminTrainingRecordVersionsResponseDataItemNarrativeMax),
+  "status": zod.enum(['draft', 'submitted'])
+}))
+})
+
+
+/**
  * @summary Create a fictional participant
  */
 export const createTestAdminParticipantBodyDisplayLabelMax = 80;

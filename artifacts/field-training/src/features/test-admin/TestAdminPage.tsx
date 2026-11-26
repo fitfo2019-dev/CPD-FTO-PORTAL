@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Plus, Search, ShieldCheck, Users,
 } from "lucide-react";
 import {
-  deactivate, loadAudit, loadRecords, loadScenario, createRecord, saveAssignment,
+  deactivate, loadAudit, loadRecords, loadRecordVersions, loadScenario, createRecord, saveAssignment,
   saveClass, saveParticipant, testAdminError, updateRecord,
   type AuditEvent, type Scenario, type ScenarioKind, type TrainingRecord,
 } from "./api.js";
@@ -471,12 +471,64 @@ function RecordEditor({ record, poName, onClose, onSave }: {
       <Field label="Probationary officer"><input readOnly value={poName} /></Field>
       <Field label="Record date"><input readOnly value={record.record_date} /></Field>
       <Field label="Phase"><input readOnly value={`Phase ${record.phase}`} /></Field>
+      <RecordVersionHistory recordId={record.id} currentVersion={record.version} />
       <Field label="Narrative"><textarea maxLength={4000} rows={8} value={narrative} onChange={event => setNarrative(event.target.value)} required /></Field>
       <Field label="Status"><select value={status} onChange={event => setStatus(event.target.value as "draft" | "submitted")}><option value="draft">Draft</option><option value="submitted">Submitted</option></select></Field>
       {error && <p className="ta-form-error" role="alert">{error}</p>}
       <div className="ta-dialog-actions"><button type="button" className="ta-button ta-button-secondary" onClick={onClose} disabled={busy}>Cancel</button><button type="submit" className="ta-button ta-button-primary" disabled={busy}>Save new version</button></div>
     </form>
   </Dialog>;
+}
+
+function RecordVersionHistory({ recordId, currentVersion }: { recordId: string; currentVersion: number }) {
+  const [versions, setVersions] = useState<Awaited<ReturnType<typeof loadRecordVersions>> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    void loadRecordVersions(recordId, controller.signal)
+      .then(items => {
+        if (!controller.signal.aborted) setVersions([...items].sort((left, right) => left.version - right.version));
+      })
+      .catch(cause => {
+        if (!controller.signal.aborted) setError(testAdminError(cause).message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [attempt, recordId]);
+
+  return (
+    <section className="ta-version-history" aria-labelledby="ta-version-history-title">
+      <div className="ta-version-history-heading">
+        <h3 id="ta-version-history-title">Saved versions</h3>
+        {!loading && !error && versions && <span>{versions.length} {versions.length === 1 ? "version" : "versions"}</span>}
+      </div>
+      {loading ? <p className="ta-version-message" role="status">Loading saved versions…</p>
+        : error ? <div className="ta-version-error" role="alert">
+          <span>{error}</span>
+          <button type="button" className="ta-text-button" onClick={() => setAttempt(value => value + 1)}>Retry</button>
+        </div>
+          : !versions?.length ? <p className="ta-version-message">No saved versions are available.</p>
+            : <ol className="ta-version-list">
+              {versions.map(snapshot => (
+                <li key={snapshot.version} className="ta-version-item">
+                  <div className="ta-version-meta">
+                    <strong>Version {snapshot.version}</strong>
+                    <RecordStatus status={snapshot.status} />
+                    {snapshot.version === currentVersion && <span className="ta-version-current">Current</span>}
+                  </div>
+                  <p className="ta-version-narrative">{snapshot.narrative}</p>
+                </li>
+              ))}
+            </ol>}
+    </section>
+  );
 }
 
 function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {

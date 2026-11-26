@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Response } from "express";
 import {
   CreateTestAdminParticipantBody, CreateTestAdminClassBody, CreateTestAdminAssignmentBody,
-  UpdateTestAdminParticipantParams,
+  UpdateTestAdminParticipantParams, ListTestAdminTrainingRecordVersionsParams,
 } from "@workspace/api-zod";
 import { resolveClerkSession, stagingError, type SessionResolver } from "./access.js";
 import { StagingFailure, type StagingContext } from "./repository.js";
@@ -41,6 +41,11 @@ export function createTestAdminRouter(repository: TestAdminRepository, resolveSe
 
   router.get(`${prefix}/scenario`, (_req, res) => run(res, () => repository.scenario(context(res))));
   router.get(`${prefix}/audit`, (_req, res) => run(res, () => repository.auditHistory(context(res))));
+  router.get(`${prefix}/records/:id/versions`, (req, res) => {
+    const parsed = ListTestAdminTrainingRecordVersionsParams.strict().safeParse(req.params);
+    if (!parsed.success) { stagingError(res, 400, "INVALID_RECORD_ID", "A valid record identifier is required."); return; }
+    run(res, () => repository.recordVersions(context(res), parsed.data.id));
+  });
 
   const participantBody = (body: unknown, res: Response) => {
     const parsed = CreateTestAdminParticipantBody.strict().safeParse(body);

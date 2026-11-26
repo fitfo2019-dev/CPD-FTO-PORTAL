@@ -139,10 +139,26 @@ test("test administrator builds, edits and deactivates a fictional scenario with
     operation_id: randomUUID(), assignment_id: assignmentId, record_date: "2026-11-10",
     narrative: "Duplicate fictional date.", status: "draft", synthetic: true,
   })).status, 409);
+  const revised = await call(`${records}/${recordId}`, asAdmin(), "PUT", {
+    operation_id: randomUUID(), base_version: 1, narrative: "FICTIONAL corrected scenario note.", status: "submitted", synthetic: true,
+  });
+  assert.equal(revised.status, 200);
   // Version conflicts are reported, not overwritten.
   assert.equal((await call(`${records}/${recordId}`, asAdmin(), "PUT", {
-    operation_id: randomUUID(), base_version: 2, narrative: "Stale", status: "draft", synthetic: true,
+    operation_id: randomUUID(), base_version: 1, narrative: "Stale", status: "draft", synthetic: true,
   })).status, 409);
+  const versions = await call(`${admin}/records/${recordId}/versions`, asAdmin());
+  assert.equal(versions.status, 200);
+  const versionData = (versions.data as {
+    data: { version: number; narrative: string; status: string }[];
+    metadata: { environment: string };
+  });
+  assert.equal(versionData.metadata.environment, "SYNTHETIC_STAGING");
+  assert.deepEqual(versionData.data, [
+    { version: 1, narrative: "FICTIONAL scenario note.", status: "draft" },
+    { version: 2, narrative: "FICTIONAL corrected scenario note.", status: "submitted" },
+  ]);
+  assert.equal((await call(`${admin}/records/${recordId}/versions`, session(subjects.fto))).status, 403);
   // Test admin never acknowledges for a PO.
   assert.equal((await call(`${records}/${recordId}/acknowledgement`, asAdmin(), "POST", {
     operation_id: randomUUID(), base_version: 1, acknowledged: true,
@@ -179,6 +195,7 @@ test("test administrator builds, edits and deactivates a fictional scenario with
     assert.ok(events.some(e => e.action === action), `missing ${action}`);
   }
   assert.ok(events.some(e => e.action === "CREATE" && e.record_id === recordId));
+  assert.ok(events.some(e => e.action === "READ_VERSIONS" && e.record_id === recordId && e.version === 2));
   // No actor or client hashes leave the server.
   assert.ok(events.every(e => !("actor_hash" in e) && !("client_ip_hash" in e)));
 });

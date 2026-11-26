@@ -351,6 +351,26 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/records/{id}/versions:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listTestAdminTrainingRecordVersions
+      summary: Read fictional training record versions (test administrator only)
+      responses:
+        "200":
+          description: Ordered, read-only synthetic record versions
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminRecordVersionsEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
   /v1/staging/test-admin/participants:
     post:
       operationId: createTestAdminParticipant
@@ -1539,6 +1559,29 @@ components:
           type: array
           maxItems: 100
           items: { $ref: "#/components/schemas/StagingTrainingRecord" }
+    TestAdminRecordVersion:
+      type: object
+      additionalProperties: false
+      required: [version, narrative, status]
+      properties:
+        version: { type: integer, minimum: 1 }
+        narrative: { type: string, maxLength: 4000 }
+        status: { type: string, enum: [draft, submitted] }
+    TestAdminRecordVersionsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [environment]
+          properties:
+            environment: { type: string, enum: [SYNTHETIC_STAGING] }
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/TestAdminRecordVersion" }
     TrainingPacketReport:
       type: object
       additionalProperties: true
