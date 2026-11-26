@@ -5,11 +5,14 @@ import { createPacketReviewCommand, loadAgencyPackets, performPacketReview, pack
   packetCommandSatisfied, type AgencyPacketsEnvelope, type AgencyPacket,
   type PacketReviewCommand, type PacketReviewDraft } from "../lib/agency-packets.js";
 
-type AccessProps = { userId?: string; authenticated: boolean; previewOnly: boolean; unlocked: boolean };
+type AccessProps = {
+  userId?: string; authenticated: boolean; previewOnly: boolean; unlocked: boolean;
+  validateSession?: () => Promise<void>;
+};
 
 /** No query controller exists outside this single eligibility boundary. In
  * particular, imperative refresh cannot override a disabled React Query. */
-export function AgencyPacketAccess({ userId, authenticated, previewOnly, unlocked }: AccessProps) {
+export function AgencyPacketAccess({ userId, authenticated, previewOnly, unlocked, validateSession }: AccessProps) {
   const eligible = Boolean(userId) && authenticated && !previewOnly && unlocked;
   if (!eligible) return <AgencyPacketReview packets={[]} role={null} loading={false} refreshing={false}
     canRefresh={false} unavailable={previewOnly
@@ -20,10 +23,10 @@ export function AgencyPacketAccess({ userId, authenticated, previewOnly, unlocke
     onRefresh={() => {}} onRetry={() => {}} onAction={() => {}} />;
   // Lock, sign-out, preview and identity changes destroy the controller. A new
   // mount gets a unique cache scope so late responses cannot reach a new session.
-  return <PacketController key={userId} userId={userId!} />;
+  return <PacketController key={userId} userId={userId!} validateSession={validateSession} />;
 }
 
-function PacketController({ userId }: { userId: string }) {
+function PacketController({ userId, validateSession }: { userId: string; validateSession?: () => Promise<void> }) {
   const cache = useQueryClient();
   const [queryKey] = useState(() => ["agency-packets", userId, crypto.randomUUID()] as const);
   const active = useRef(true);
@@ -55,7 +58,7 @@ function PacketController({ userId }: { userId: string }) {
     mutationKey: queryKey,
     mutationFn: (command: PacketReviewCommand) => {
       if (!active.current) throw new Error("Agency Packet Access Is Locked.");
-      return performPacketReview(command, controller.current.signal);
+      return performPacketReview(command, controller.current.signal, validateSession);
     }, retry: false,
     onSuccess: async result => {
       if (!active.current) return;
@@ -75,7 +78,7 @@ function PacketController({ userId }: { userId: string }) {
       if (!active.current) return;
       setActionError(packetReviewError(error));
       const status = typeof error === "object" && error !== null && "status" in error ? error.status : undefined;
-      if ([400, 401, 403, 404, 409].includes(Number(status))) {
+      if ([400, 403, 404, 409].includes(Number(status))) {
         setPending(null);
         void cache.invalidateQueries({ queryKey, exact: true });
       }

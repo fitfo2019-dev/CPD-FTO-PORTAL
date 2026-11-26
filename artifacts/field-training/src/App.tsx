@@ -1,6 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { ClerkProvider, SignIn, useClerk, useUser } from '@clerk/react';
+import { ClerkProvider, SignIn, useAuth, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { ErrorBoundary } from '@/components/error-boundary.js';
@@ -43,6 +43,7 @@ import AgencyPacketsPage from '@/pages/agency-packets.js';
 import { createFtoTestPacketWorkspace } from '@/lib/test-packet.js';
 import { OperationalProfileProvider, useOperationalProfile } from '@/state/operational-profile.js';
 import { DaisyStatusNotice } from '@/components/daisy-status-notice.js';
+import type { ClerkSessionIdentity, ValidateClerkSession } from '@/lib/auth-session.js';
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -171,24 +172,32 @@ function ClerkWorkspaceSessionPurger() {
   const { addListener } = useClerk();
   const cache = useQueryClient();
   const { user } = useUser();
-  const { lockNow } = useWorkspace();
+  const workspace = useWorkspace();
+  const workspaceRef = useRef(workspace); workspaceRef.current = workspace;
   const previousUserId = useRef<string | null>(user?.id ?? null);
 
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
       if (previousUserId.current !== userId) {
-        cache.clear();
-        lockNow();
+        const current = workspaceRef.current;
+        const priorUserId = previousUserId.current;
+        if (priorUserId && (current.dirty || current.editorDirty) && current.vault === 'unlocked') {
+          void current.saveAuthRecoverySnapshot?.(priorUserId)
+            .catch(() => { /* Failed local recovery is surfaced by the workspace save state. */ })
+            .finally(() => { cache.clear(); current.lockNow(); });
+        } else {
+          cache.clear();
+          current.lockNow();
+        }
       }
       previousUserId.current = userId;
     });
     return () => {
       unsubscribe();
       cache.clear();
-      lockNow();
     };
-  }, [addListener, cache, lockNow]);
+  }, [addListener, cache]);
 
   return null;
 }
@@ -280,14 +289,19 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
-function DemoWorkspace() {
+function DemoWorkspace({ authSession, validateSession }: {
+  authSession: ClerkSessionIdentity;
+  validateSession: ValidateClerkSession;
+}) {
   return (
-    <WorkspaceProvider>
-      <ClerkWorkspaceSessionPurger />
-      <PacketReviewProvider>
-        <PacketReviewGate/>
-        <Shell><WorkspaceRoutes /></Shell>
-      </PacketReviewProvider>
+    <WorkspaceProvider authSession={authSession} validateSession={validateSession}>
+      <OperationalProfileProvider key={authSession.accountId} authSession={authSession} validateSession={validateSession}>
+        <ClerkWorkspaceSessionPurger />
+        <PacketReviewProvider>
+          <PacketReviewGate/>
+          <Shell><WorkspaceRoutes /></Shell>
+        </PacketReviewProvider>
+      </OperationalProfileProvider>
     </WorkspaceProvider>
   );
 }
@@ -347,11 +361,24 @@ function DevelopmentFtoTestPacketPreview() {
 }
 
 function AuthenticatedWorkspace() {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { getToken, isLoaded, isSignedIn, userId, sessionId } = useAuth();
+  const liveSession = useRef({ isLoaded, isSignedIn, userId, sessionId });
+  liveSession.current = { isLoaded, isSignedIn, userId, sessionId };
+  const validateSession = useCallback<ValidateClerkSession>(async expected => {
+    const current = liveSession.current;
+    if (!current.isLoaded || !current.isSignedIn || current.userId !== expected.accountId ||
+      current.sessionId !== expected.sessionId) throw new Error('Clerk session changed.');
+    let token: string | null = null;
+    try { token = await getToken({ skipCache: true }); } catch { /* Fail closed below. */ }
+    const after = liveSession.current;
+    if (!token || !after.isLoaded || !after.isSignedIn || after.userId !== expected.accountId ||
+      after.sessionId !== expected.sessionId) throw new Error('Clerk session is unavailable.');
+  }, [getToken]);
 
   if (!isLoaded) return null;
-  if (!isSignedIn || !user) return <Redirect to="/sign-in" />;
-  return <OperationalProfileProvider key={user.id}><DemoWorkspace key={user.id} /></OperationalProfileProvider>;
+  if (!isSignedIn || !userId || !sessionId) return <Redirect to="/sign-in" />;
+  const authSession = { accountId: userId, sessionId };
+  return <DemoWorkspace key={userId} authSession={authSession} validateSession={validateSession} />;
 }
 
 function ClerkRoutes() {

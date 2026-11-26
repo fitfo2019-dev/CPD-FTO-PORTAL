@@ -13,8 +13,10 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import {
   assertArchiveFileMatchesSource,
+  assertProductionArchiveSize,
   assertReleaseArchiveContents,
   getResourceCatalogFileNames,
+  PRODUCTION_ARCHIVE_MAX_BYTES,
 } from "./bundle-package-contents.js";
 
 type PackageManifest = {
@@ -30,9 +32,7 @@ const apiRoot = join(workspaceRoot, "artifacts/api-server");
 const apiDist = join(apiRoot, "dist");
 const outputDir = join(workspaceRoot, "dist-production");
 const archivePath = join(workspaceRoot, "dist-production.zip");
-const maxArchiveBytes = 26_214_400;
 const excludedBuildHelpers = new Set(["pino-file.mjs", "pino-pretty.mjs"]);
-const approvedArchiveMaxBytes = 26_214_400;
 
 async function readArchiveFile(
   archivePath: string,
@@ -279,21 +279,9 @@ async function bundlePackage(): Promise<void> {
   }
 
   const archiveStats = await stat(archivePath);
-  if (archiveStats.size > maxArchiveBytes) {
-    throw new Error(
-      `Production archive exceeds the 25 MB limit (${archiveStats.size} > ${maxArchiveBytes} bytes).`,
-    );
-  }
+  assertProductionArchiveSize(archiveStats.size);
   console.log(
-    `Combined API + portal archive: ${archiveStats.size} bytes (approved maximum: ${approvedArchiveMaxBytes} bytes).`,
-  );
-  if (archiveStats.size > approvedArchiveMaxBytes) {
-    throw new Error(
-      `dist-production.zip exceeds the approved ${approvedArchiveMaxBytes}-byte size budget.`,
-    );
-  }
-  console.log(
-    `Created dist-production/ with ${runtimeFiles.length} API runtime modules, ${portalFiles.length} portal files, ${resourceFiles.length} protected resources and ${Object.keys(dependencies).length} production dependencies; verified combined dist-production.zip (${archiveStats.size} bytes).`,
+    `Created dist-production/ with ${runtimeFiles.length} API runtime modules, ${portalFiles.length} portal files, ${resourceFiles.length} protected resources and ${Object.keys(dependencies).length} production dependencies; verified combined dist-production.zip (${archiveStats.size} bytes; maximum ${PRODUCTION_ARCHIVE_MAX_BYTES}).`,
   );
 }
 

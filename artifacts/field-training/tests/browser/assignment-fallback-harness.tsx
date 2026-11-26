@@ -49,7 +49,10 @@ export function mount() {
       proxyUrl={import.meta.env.VITE_CLERK_PROXY_URL}
     >
       <QueryClientProvider client={cache}>
-        <OperationalProfileProvider><Probe /></OperationalProfileProvider>
+        <OperationalProfileProvider
+          authSession={{ accountId: "FICTIONAL-BROWSER-USER", sessionId: "FICTIONAL-BROWSER-SESSION" }}
+          validateSession={async () => {}}
+        ><Probe /></OperationalProfileProvider>
       </QueryClientProvider>
     </ClerkProvider>,
   );

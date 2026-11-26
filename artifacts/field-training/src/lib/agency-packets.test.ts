@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { agencyPacketsEnvelope, createPacketReviewCommand, packetCommandSatisfied,
-  packetReviewError, type AgencyPacket } from "./agency-packets.js";
+  packetReviewError, performPacketReview, type AgencyPacket } from "./agency-packets.js";
+import { AuthenticationRequiredError } from "./auth-session.js";
 
 const hash = "a".repeat(64);
 const packet = (overrides: Partial<AgencyPacket> = {}): AgencyPacket => ({
@@ -98,4 +99,24 @@ test("API failures receive plain, role-neutral corrective messages", () => {
   assert.match(packetReviewError({ status: 404 }), /no longer available/);
   assert.match(packetReviewError({ status: 409 }), /Refresh and review/);
   assert.match(packetReviewError({ status: 503 }), /do not assume it failed/);
+});
+
+test("packet review writes require a live session and preserve authoritative server rejection", async t => {
+  const command = createPacketReviewCommand(packet(), { action: "release" });
+  let requests = 0;
+  await assert.rejects(performPacketReview(command, undefined, async () => {
+    throw new AuthenticationRequiredError();
+  }), { name: "AuthenticationRequiredError" });
+  assert.equal(requests, 0, "Expired preflight blocks release transport.");
+
+  t.mock.method(globalThis, "fetch", async () => {
+    requests++;
+    return new Response(JSON.stringify({ status: "error", error_code: "UNAUTHENTICATED" }), {
+      status: 401, headers: { "content-type": "application/json" },
+    });
+  });
+  await assert.rejects(performPacketReview(command, undefined, async () => {}), {
+    name: "AuthenticationRequiredError",
+  }, "A server 401 remains authoritative after preflight.");
+  assert.equal(requests, 1);
 });

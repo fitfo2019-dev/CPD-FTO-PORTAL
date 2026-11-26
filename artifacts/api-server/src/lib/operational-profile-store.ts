@@ -10,6 +10,38 @@ function checkRole(identity: AgencyIdentity): asserts identity is AgencyIdentity
   if (identity.role !== "FTO" && identity.role !== "PO") throw new PacketError(403, "PROFILE_ACCESS_DENIED");
 }
 export function createOperationalProfileStore(pool: pg.Pool) {
+  async function withProfileWrite<T>(
+    subjectHash: string,
+    expectedVersion: number,
+    operation: (client: pg.PoolClient) => Promise<T>,
+  ): Promise<T> {
+    const client = await pool.connect();
+    let transactionStarted = false;
+    try {
+      await client.query("BEGIN");
+      transactionStarted = true;
+      if (expectedVersion > 0) {
+        // Lock only this subject's existing profile. The following CAS statement
+        // still checks the version after any competing transaction commits.
+        await client.query(
+          "SELECT subject_hash FROM agency_training.operational_profiles WHERE subject_hash=$1 FOR UPDATE",
+          [subjectHash],
+        );
+      }
+      const result = await operation(client);
+      await client.query("COMMIT");
+      transactionStarted = false;
+      return result;
+    } catch (error) {
+      if (transactionStarted) {
+        try { await client.query("ROLLBACK"); } catch { /* Preserve the original failure. */ }
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   return {
     async history(identity: AgencyIdentity, beforeVersion?: number) {
       checkRole(identity);
@@ -47,7 +79,8 @@ export function createOperationalProfileStore(pool: pg.Pool) {
     async clear(identity: AgencyIdentity, input: unknown) {
       checkRole(identity);
       const { expectedVersion } = ClearOperationalProfileBody.strict().parse(input);
-      const result = await pool.query(
+      const subjectHash = hashUserIdentifier(identity.id);
+      const result = await withProfileWrite(subjectHash, expectedVersion, client => client.query(
         expectedVersion === 0
           ? `WITH saved AS (INSERT INTO agency_training.operational_profiles (subject_hash)
             VALUES ($1) ON CONFLICT (subject_hash) DO NOTHING RETURNING version,updated_at),
@@ -56,7 +89,7 @@ export function createOperationalProfileStore(pool: pg.Pool) {
               SELECT $1,version,NULL,NULL,$1,updated_at,'cleared' FROM saved)
             SELECT version,updated_at FROM saved`
           : `WITH prior AS (SELECT assignment_token FROM agency_training.operational_profiles
-              WHERE subject_hash=$1 AND version=$2 FOR UPDATE),
+              WHERE subject_hash=$1 AND version=$2),
             saved AS (UPDATE agency_training.operational_profiles AS profile SET assignment_token=NULL,
             district_token=NULL,cad_unit=NULL,company=NULL,side=NULL,
             version=version+1,updated_at=clock_timestamp()
@@ -66,8 +99,8 @@ export function createOperationalProfileStore(pool: pg.Pool) {
               (subject_hash,version,old_token,new_token,actor_hash,recorded_at,event)
               SELECT $1,version,old_token,NULL,$1,updated_at,'cleared' FROM saved)
             SELECT version,updated_at FROM saved`,
-        [hashUserIdentifier(identity.id), ...(expectedVersion ? [expectedVersion] : [])],
-      );
+        [subjectHash, ...(expectedVersion ? [expectedVersion] : [])],
+      ));
       if (!result.rows[0]) throw new PacketError(409, "PROFILE_VERSION_CONFLICT");
       return GetOperationalProfileResponse.parse({
         subject: identity.id, role: identity.role, badge: identity.badge, identity: null,
@@ -78,10 +111,8 @@ export function createOperationalProfileStore(pool: pg.Pool) {
       checkRole(identity);
       const { assignmentToken, expectedVersion } = UpdateOperationalProfileBody.strict().parse(input);
       const derived = parseOperationalIdentity(assignmentToken);
-      // Data-modifying CTEs commit the profile and evidence as one statement.
-      // Row locking captures the actual prior token, including after a competing
-      // writer commits. Failed compare-and-swap and no-op saves add no transition.
-      const result = await pool.query(
+      const subjectHash = hashUserIdentifier(identity.id);
+      const result = await withProfileWrite(subjectHash, expectedVersion, client => client.query(
         expectedVersion === 0
           ? `WITH saved AS (INSERT INTO agency_training.operational_profiles
             (subject_hash,assignment_token,district_token,cad_unit,company,side)
@@ -92,7 +123,7 @@ export function createOperationalProfileStore(pool: pg.Pool) {
               SELECT $1,version,NULL,$2,$1,updated_at,'created' FROM saved)
             SELECT version,updated_at FROM saved`
           : `WITH prior AS (SELECT assignment_token FROM agency_training.operational_profiles
-              WHERE subject_hash=$1 AND version=$7 FOR UPDATE),
+              WHERE subject_hash=$1 AND version=$7),
             saved AS (UPDATE agency_training.operational_profiles AS profile SET assignment_token=$2,
             district_token=$3,cad_unit=$4,company=$5,side=$6,version=version+1,updated_at=clock_timestamp()
             FROM prior WHERE profile.subject_hash=$1 AND profile.version=$7
@@ -102,9 +133,9 @@ export function createOperationalProfileStore(pool: pg.Pool) {
               SELECT $1,version,old_token,$2,$1,updated_at,'changed' FROM saved
               WHERE old_token IS DISTINCT FROM $2)
             SELECT version,updated_at FROM saved`,
-        [hashUserIdentifier(identity.id), assignmentToken, derived.districtToken,
+        [subjectHash, assignmentToken, derived.districtToken,
           derived.cadUnit, derived.company, derived.side ?? null, ...(expectedVersion ? [expectedVersion] : [])],
-      );
+      ));
       if (!result.rows[0]) throw new PacketError(409, "PROFILE_VERSION_CONFLICT");
       return GetOperationalProfileResponse.parse({
         subject: identity.id, role: identity.role, badge: identity.badge, identity: derived,

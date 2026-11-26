@@ -10,6 +10,7 @@ import {
   setOrientationGroup,
 } from './substation-orientation.js';
 import { orientationPrintLayout } from './orientation-print-layout.js';
+import { ORIENTATION_NARRATIVE_LAYOUT, paginateNarrativeToPages } from './narrative-continuation.js';
 
 test('orientation checklist keeps all manual items in clear, balanced categories', () => {
   const groupedKeys = SUBSTATION_ORIENTATION_SECTIONS.flatMap(section => section.items.map(([key]) => key));
@@ -109,6 +110,10 @@ test('short notes stay on the base sheet and long or newline-heavy notes retain 
     assert.equal(layout.narrative,'');
     assert.equal(layout.continuations.filter(page=>page.label==='Division Directives / SOP reviewed').map(page=>page.text).join(''),source);
     assert.equal(layout.continuations.filter(page=>page.label==='Additional narrative / continuation').map(page=>page.text).join(''),source);
+     assert.deepEqual(
+       layout.continuations.filter(page=>page.label==='Additional narrative / continuation').map(page=>page.text),
+       paginateNarrativeToPages(source,ORIENTATION_NARRATIVE_LAYOUT),
+     );
   }
 });
 

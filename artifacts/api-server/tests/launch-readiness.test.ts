@@ -80,7 +80,9 @@ function fakeDatabase() {
         return { rows: [...packets.values()].filter(packet =>
           role === "FTO" || (role === "PO"
             ? packet.sync_status === "submitted_complete" && packet.released_to_po === true && !packet.withdrawn_at
-            : packet.sync_status === "submitted_complete")) };
+            : role === "FTO_COORDINATOR"
+              ? Boolean(packet.po_reviewed_at)
+              : packet.sync_status === "submitted_complete")) };
       }
       if (sql.includes("FROM agency_training.packets WHERE id=$1")) {
         const packet = packets.get(String(args[0]));
@@ -215,6 +217,7 @@ test("LR-06 packet history retains its bounded page and continuation metadata", 
   const historical = Array.from({ length: 101 }, (_, i) => ({
     id: `SYNTHETIC-${i}`, assignment_id: assignmentId, record_date: "2026-11-23",
     phase: 2, server_version: 1, sync_status: "submitted_complete",submission_status:"submitted",
+    handoff_status:"awaiting_coordinator_receipt",
     content_hash: "a".repeat(64), report: report(`SYNTHETIC-${i}`),
     released_to_po: false, released_at: null, withdrawn_at: null, withdrawal_reason: null,
     amendment_of: null, amendment_reason: null, acknowledgment: null,
@@ -229,8 +232,9 @@ test("LR-06 packet history retains its bounded page and continuation metadata", 
   const store = createAgencyPacketStore({ connect: async () => client } as unknown as pg.Pool);
   await withApi(store, async url => {
     const res = await fetch(url);
-    assert.equal(res.status, 200);
-    const result = await res.json();
+    const text = await res.text();
+    assert.equal(res.status, 200, text);
+    const result = JSON.parse(text);
     assert.equal(result.data.length, 100);
     assert.equal(result.metadata.has_more,true);
     assert.equal(typeof result.metadata.next_cursor,"string");
@@ -241,7 +245,7 @@ test("LR-07 readiness reports true for an injected unavailable store without pro
   const db = fakeDatabase();
   await withApi(db.store, async url => {
     const res = await fetch(`${url}/sync-readiness`);
-    assert.equal((await res.json()).metadata.service_available, true);
+    assert.equal((await res.json()).metadata.can_sync, true);
     assert.equal(db.queries.length, 0);
   });
 });
@@ -254,7 +258,7 @@ test("LR-08 narratives above the contract limit are rejected without a write", a
     assert.equal(res.status, 400); assert.equal(db.queries.length, 0);
   });
 });
-test("finalization is a distinct idempotent transition and the Coordinator scope excludes drafts", async () => {
+test("finalization is distinct and Coordinator visibility still waits for PO review", async () => {
   const db = fakeDatabase();
   const initial = { operation_id: crypto.randomUUID(), base_version: 0, report: report() };
   const [draft] = await db.store.sync(identity, audit, [initial]);
@@ -265,13 +269,15 @@ test("finalization is a distinct idempotent transition and the Coordinator scope
   const readSql = db.queries.find(sql => sql.includes("FROM agency_training.packets p JOIN agency_training.packet_assignments"));
   assert.match(readSql ?? "", /p\.submission_status = 'submitted'/);
   assert.match(readSql ?? "", /a\.coordinator_id_hash = \$2/);
+  assert.match(readSql ?? "", /s\.po_reviewed_at IS NOT NULL/);
   const po = { id: "SYNTHETIC-PO", badge: "TEST-PO", role: "PO" as const };
   assert.equal((await db.store.read(po, audit)).length, 0);
   const poSql = db.queries.find(sql => sql.includes("FROM agency_training.packets p JOIN agency_training.packet_assignments")
     && sql.includes("p.released_to_po = true"));
   assert.match(poSql ?? "", /p\.submission_status = 'submitted'/);
 
-  const finalization = { operation_id: crypto.randomUUID(), content_hash: draft.content_hash };
+  const finalization = { operation_id: crypto.randomUUID(), base_version: draft.server_version,
+    content_hash: draft.content_hash };
   await assert.rejects(db.store.finalize({ ...identity, badge: "NOT-ASSIGNED" }, audit,
     report().id, finalization),
   error => error instanceof PacketError && error.code === "PACKET_ASSIGNMENT_REQUIRED");
@@ -286,14 +292,13 @@ test("finalization is a distinct idempotent transition and the Coordinator scope
   }), error => error instanceof PacketError && error.code === "PACKET_SNAPSHOT_CONFLICT");
   const [submitted] = await db.store.finalize(identity, audit, report().id, finalization);
   assert.equal(submitted.sync_status, "submitted_complete");
-  assert.equal(db.queries.filter(sql=>sql.includes("'SUBMIT'")).length,1);
+  assert.equal(db.queries.filter(sql=>sql.includes("'SUBMIT'")).length,1,db.queries.join("\n"));
   const retry = await db.store.finalize(identity, audit, report().id, finalization);
   assert.equal(retry[0].sync_status, "submitted_complete");
   assert.equal(db.queries.filter(sql => sql.includes("'SUBMIT'")).length, 1);
 
   const after = await db.store.read(coordinator, audit);
-  assert.equal(after.length, 1);
-  assert.equal(after[0].sync_status, "submitted_complete");
+  assert.equal(after.length, 0, "FTO finalization stays in the existing PO review lifecycle before Coordinator visibility");
   assert.equal((await db.store.read(po, audit)).length, 0,
     "finalization must not release a packet or make it visible to the PO");
   await assert.rejects(db.store.sync(identity, audit, [{

@@ -25,8 +25,11 @@ async function withComponent(t: TestContext, run: (h: {
   cache: QueryClient; container: HTMLElement;
   render: (changes?: Partial<Parameters<typeof AgencyPacketAccess>[0]>) => Promise<void>;
 }) => Promise<void>) {
-  const dom = new JSDOM('<!doctype html><div id="root"></div>', { pretendToBeVisual: true });
-  const globals = { window: dom.window, document: dom.window.document, navigator: dom.window.navigator,
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: 'https://localhost/', pretendToBeVisual: true });
+  const globals = { window: dom.window, document: dom.window.document, location: dom.window.location,
+    addEventListener: dom.window.addEventListener.bind(dom.window),
+    removeEventListener: dom.window.removeEventListener.bind(dom.window),
+    navigator: dom.window.navigator,
     HTMLElement: dom.window.HTMLElement, Node: dom.window.Node, IS_REACT_ACT_ENVIRONMENT: true };
   const previous = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   for (const [key, value] of Object.entries(globals)) {
@@ -82,7 +85,7 @@ test("locking discards loaded snapshots and cache, and unlock starts a fresh sco
   t.mock.method(globalThis, "fetch", async () => { requests++; return packetResponse(); });
   await withComponent(t, async ({ container, render, cache }) => {
     await render();
-    assert.equal(requests, 1);
+    assert.equal(requests, 1, String(cache.getQueryCache().getAll()[0]?.state.error ?? 'No query error recorded'));
     assert.ok(container.textContent?.includes("PRIVATE FICTIONAL PACKET"));
     const oldKey = cache.getQueryCache().getAll()[0].queryKey;
     await render({ unlocked: false });

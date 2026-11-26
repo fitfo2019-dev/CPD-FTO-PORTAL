@@ -3,6 +3,7 @@ import { listTrainingPackets, releaseTrainingPacket,
 import { ListTrainingPacketsResponse, ReleaseTrainingPacketBody,
   AcknowledgeTrainingPacketBody, WithdrawTrainingPacketBody } from "@workspace/api-zod";
 import { z } from "zod/v4";
+import { AuthenticationRequiredError, isAuthenticationRejection } from "./auth-session.js";
 
 // Preserve complete uploaded snapshots, not just the generated summary fields.
 const packetRecordSchema = ListTrainingPacketsResponse.shape.data.element;
@@ -37,15 +38,25 @@ export async function loadAgencyPackets(signal?: AbortSignal): Promise<AgencyPac
   }));
 }
 
-export async function performPacketReview(command: PacketReviewCommand, signal?: AbortSignal): Promise<AgencyPacketsEnvelope> {
+export async function performPacketReview(
+  command: PacketReviewCommand,
+  signal?: AbortSignal,
+  assertSession?: () => Promise<void>,
+): Promise<AgencyPacketsEnvelope> {
   const timeout = AbortSignal.timeout(15000);
   const options = { signal: signal ? AbortSignal.any([signal, timeout]) : timeout };
-  const result = command.action === "release"
-    ? await releaseTrainingPacket(command.packetId, ReleaseTrainingPacketBody.strict().parse(command.input), options)
-    : command.action === "withdraw"
-      ? await withdrawTrainingPacket(command.packetId, WithdrawTrainingPacketBody.strict().parse(command.input), options)
-      : await acknowledgeTrainingPacket(command.packetId, AcknowledgeTrainingPacketBody.strict().parse(command.input), options);
-  return agencyPacketsEnvelope.parse(result);
+  await assertSession?.();
+  try {
+    const result = command.action === "release"
+      ? await releaseTrainingPacket(command.packetId, ReleaseTrainingPacketBody.strict().parse(command.input), options)
+      : command.action === "withdraw"
+        ? await withdrawTrainingPacket(command.packetId, WithdrawTrainingPacketBody.strict().parse(command.input), options)
+        : await acknowledgeTrainingPacket(command.packetId, AcknowledgeTrainingPacketBody.strict().parse(command.input), options);
+    return agencyPacketsEnvelope.parse(result);
+  } catch (error) {
+    if (isAuthenticationRejection(error)) throw new AuthenticationRequiredError();
+    throw error;
+  }
 }
 
 /** A lost response is reconciled with authoritative packet metadata before a

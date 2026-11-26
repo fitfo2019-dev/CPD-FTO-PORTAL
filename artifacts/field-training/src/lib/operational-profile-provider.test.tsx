@@ -18,10 +18,14 @@ test("real profile provider clears cache immediately, recovers lost responses an
   const { createRoot } = await import("react-dom/client");
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   let subject = "TEST-A";
+  let sessionId = "SESSION-A";
+  let sessionValid = true;
   let serverProfile: OperationalProfileContext = { subject, role: "FTO", badge: "TEST", version: 1, identity: parseOperationalIdentity("9150E-1") };
   let state: ReturnType<typeof useOperationalProfile>;
   let write: { resolve(response: Response): void; reject(error: Error): void; signal: AbortSignal; body: unknown } | undefined;
   let reads = 0;
+  let writes = 0;
+  const recoveredAccounts: string[] = [];
   let holdRead = false;
   let staleRead: ((response: Response) => void) | undefined;
   const json = (value: unknown) => new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -31,14 +35,21 @@ test("real profile provider clears cache immediately, recovers lost responses an
       if (holdRead) return new Promise<Response>(resolve => { staleRead = resolve; });
       return json(serverProfile);
     }
+    writes++;
     return new Promise<Response>((resolve, reject) => {
       write = { resolve, reject, signal: init.signal as AbortSignal, body: JSON.parse(String(init.body)) };
     });
   });
   function Probe() { state = useOperationalProfile(); return null; }
+  const validateSession = async ({ accountId, sessionId: expectedSession }: { accountId: string; sessionId: string }) => {
+    if (!sessionValid || accountId !== subject || expectedSession !== sessionId) throw new Error("Expired session");
+  };
   const root = createRoot(dom.window.document.getElementById("root")!);
   const render = () => root.render(<QueryClientProvider client={cache}>
-    <OperationalProfileSessionProvider subject={subject}><Probe/></OperationalProfileSessionProvider>
+    <OperationalProfileSessionProvider subject={subject} authSession={{ accountId: subject, sessionId }}
+      validateSession={validateSession} saveAuthRecoverySnapshot={async accountId => {
+        if (accountId) recoveredAccounts.push(accountId);
+      }}><Probe/></OperationalProfileSessionProvider>
   </QueryClientProvider>);
   const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
   try {
@@ -70,10 +81,31 @@ test("real profile provider clears cache immediately, recovers lost responses an
     assert.equal(state!.profile?.identity?.assignmentToken, "9150E-2");
     assert.equal(state!.profile?.identity?.cadUnit, "9150E");
 
+    const writesBeforeExpiry = writes;
+    sessionValid = false;
+    await act(async () => {
+      await assert.rejects(state!.save!("1234A", 3), /Sign in again/);
+    });
+    assert.equal(writes, writesBeforeExpiry, "Expired preflight must block the profile transport.");
+    assert.deepEqual(recoveredAccounts, ["TEST-A"]);
+    sessionValid = true;
+
+    let rejectedWrite!: Promise<OperationalProfileContext>;
+    await act(async () => { rejectedWrite = state!.save!("9151E", 3); void rejectedWrite.catch(() => {}); });
+    const unauthorized = write!;
+    await act(async () => {
+      unauthorized.resolve(new Response(JSON.stringify({ error: "UNAUTHENTICATED" }), {
+        status: 401, headers: { "Content-Type": "application/json" },
+      }));
+      await assert.rejects(rejectedWrite, /Sign in again/);
+    });
+    assert.deepEqual(recoveredAccounts, ["TEST-A", "TEST-A"], "A server rejection is authoritative after successful preflight.");
+
     await act(async () => { clearing = state!.clear!(3); void clearing.catch(() => {}); });
     const formerWrite = write!;
     const formerClear = state!.clear!;
     subject = "TEST-B";
+    sessionId = "SESSION-B";
     serverProfile = { subject, role: "PO", badge: "OTHER", version: 0, identity: null };
     await act(async () => render()); await settle();
     assert.equal(formerWrite.signal.aborted, true);

@@ -3,6 +3,7 @@ import { apiEndpoint } from "@workspace/api-client-react";
 import { FinalizeTrainingPacketResponse, GetTrainingPacketSyncReadinessResponse, ListTrainingPacketsResponse,
   SyncTrainingPacketsResponse } from "@workspace/api-zod";
 import { z } from "zod/v4";
+import { AuthenticationRequiredError, isAuthenticationRejection } from "./auth-session.js";
 import { MAX_PACKET_BATCH_COUNT, MAX_PACKET_REQUEST_BYTES, serializePacketBatchRequest,
   type PendingChange, type PacketBatchReceipt } from "./offlineStorage.js";
 export { createSharedPacketHistory, continueSharedPacketHistory, PacketHistoryCursorError } from "./packet-history.js";
@@ -78,17 +79,24 @@ export async function readSharedPackets(signal?: AbortSignal): Promise<SharedPac
 /** Packet snapshots enter draft storage only; never official submission, a Workspace,
  * roster, chat draft, local key, or browser-provided assignment authority. */
 export async function uploadPacketBatch(
-  changes: PendingChange[], signal?: AbortSignal,
+  changes: PendingChange[], signal?: AbortSignal, assertSession?: () => Promise<void>,
 ): Promise<PacketBatchReceipt[]> {
   if (!changes.length || changes.length > MAX_PACKET_BATCH_COUNT) throw new Error("Sync supports 1–100 packets per batch.");
   const body = serializePacketBatchRequest(changes);
   if (new TextEncoder().encode(body).byteLength > MAX_PACKET_REQUEST_BYTES)
     throw new Error("The serialized packet batch exceeds the 2 MB sync request limit.");
-  const response = await customFetch<unknown>(apiEndpoint("/v1/training-packets/sync"), {
-    method: "POST", credentials: "same-origin", responseType: "json",
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
-    body,
-  });
+  await assertSession?.();
+  let response: unknown;
+  try {
+    response = await customFetch<unknown>(apiEndpoint("/v1/training-packets/sync"), {
+      method: "POST", credentials: "same-origin", responseType: "json",
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000),
+      body,
+    });
+  } catch (error) {
+    if (isAuthenticationRejection(error)) throw new AuthenticationRequiredError();
+    throw error;
+  }
   const receipts = SyncTrainingPacketsResponse.parse(response).data;
   if (receipts.some(receipt => receipt.sync_status !== "local_draft_pending"))
     throw new Error("Draft synchronization cannot submit or seal a packet. The local record was retained.");
@@ -98,12 +106,20 @@ export async function uploadPacketBatch(
 /** Explicit action only. Never called by autosave, network events, or sync. */
 export async function finalizePacket(
   id: string, operationId: string, contentHash: string, baseVersion: number, signal?: AbortSignal,
+  assertSession?: () => Promise<void>,
 ) {
-  const response=await customFetch<unknown>(apiEndpoint(`/v1/training-packets/${encodeURIComponent(id)}/finalize`),{
-    method:"POST",credentials:"same-origin",responseType:"json",
-    signal:signal?AbortSignal.any([signal,AbortSignal.timeout(15000)]):AbortSignal.timeout(15000),
-    body:JSON.stringify({operation_id:operationId,base_version:baseVersion,content_hash:contentHash}),
-  });
+  await assertSession?.();
+  let response: unknown;
+  try {
+    response=await customFetch<unknown>(apiEndpoint(`/v1/training-packets/${encodeURIComponent(id)}/finalize`),{
+      method:"POST",credentials:"same-origin",responseType:"json",
+      signal:signal?AbortSignal.any([signal,AbortSignal.timeout(15000)]):AbortSignal.timeout(15000),
+      body:JSON.stringify({operation_id:operationId,base_version:baseVersion,content_hash:contentHash}),
+    });
+  } catch (error) {
+    if (isAuthenticationRejection(error)) throw new AuthenticationRequiredError();
+    throw error;
+  }
   const receipt=FinalizeTrainingPacketResponse.parse(response);
   if(receipt.id!==id||receipt.operation_id!==operationId||receipt.server_version!==baseVersion||
     receipt.sync_status!=="submitted_complete"||receipt.content_hash!==contentHash)

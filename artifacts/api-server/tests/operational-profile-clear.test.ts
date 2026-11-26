@@ -11,6 +11,22 @@ import type { AgencyIdentity } from "../src/security/agencyIdentity.js";
 const fto: AgencyIdentity = { id: "FICTIONAL-CLEAR-FTO", role: "FTO", badge: "TEST-1" };
 const po: AgencyIdentity = { id: "FICTIONAL-CLEAR-PO", role: "PO", badge: "TEST-2" };
 const conflict = { status: 409, code: "PROFILE_VERSION_CONFLICT" };
+function pglitePool(db: PGlite) {
+  let queued = Promise.resolve();
+  return {
+    query: (sql: string, args?: unknown[]) => db.query(sql, args),
+    connect: async () => {
+      let releaseLease!: () => void;
+      const previous = queued;
+      queued = new Promise<void>(resolve => { releaseLease = resolve; });
+      await previous;
+      return {
+        query: (sql: string, args?: unknown[]) => db.query(sql, args),
+        release: releaseLease,
+      };
+    },
+  } as unknown as pg.Pool;
+}
 
 test("own-account clearing persists a versioned empty state, rejects stale saves and preserves roster/packet snapshots", async () => {
   const db = new PGlite();
@@ -22,7 +38,7 @@ test("own-account clearing persists a versioned empty state, rejects stale saves
       INSERT INTO agency_training.untouched_test VALUES
       ('roster','{"fto":"original"}'),('packet','{"operationalIdentity":{"cadUnit":"9150E-1"},"cruiserId":"MANUAL"}')`);
     const before = await db.query("SELECT * FROM agency_training.untouched_test");
-    const store = createOperationalProfileStore({ query: (sql: string, args: unknown[]) => db.query(sql, args) } as unknown as pg.Pool);
+    const store = createOperationalProfileStore(pglitePool(db));
     const second = await store.save(po, { assignmentToken: "1234A-2", expectedVersion: 0 });
     const first = await store.save(fto, { assignmentToken: "9150E-1", expectedVersion: 0 });
     for (const input of [

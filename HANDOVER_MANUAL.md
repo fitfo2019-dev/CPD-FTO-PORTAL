@@ -15,7 +15,8 @@ prerequisite for handing over the implementation. Before running it, IT must
 approve an isolated test URL and provision three verified fictional-data
 profiles: an assigned FTO, that FTO's assigned Coordinator, and an unassigned
 staff account. Confirm that a synced draft stays out of the Coordinator's
-active inbox, only explicit FTO finalization makes it visible, and unassigned,
+active inbox, only explicit FTO finalization starts submission, and the
+existing PO review gates still control Coordinator visibility. Unassigned,
 stale or unready submissions cannot create inbox entries. Synthetic SQL and
 scripted-pool checks do not substitute for this browser check.
 
@@ -41,7 +42,42 @@ account browser check remains an IT acceptance step after an approved isolated
 test URL and three verified fictional-data accounts are provisioned. Local
 encrypted IndexedDB saves remain independent of network access. Draft sync
 remains unsubmitted and hidden from Coordinator reads until explicit FTO
-finalization revalidates the server-held assignment roster.
+finalization revalidates the server-held assignment roster. The existing PO
+review lifecycle still determines when submitted work becomes Coordinator-visible.
+
+### Launch-state hardening verification — 2026-11-26
+
+Existing-profile writes now take a subject-scoped PostgreSQL row lock inside
+the same transaction as the version-guarded compare-and-swap. First inserts
+retain the uniqueness-conflict path. The disposable real-PostgreSQL profile
+suite passed **23/23**, including independent-subject progress and rollback
+after a forced history-write failure.
+
+Profile, packet sync, finalization and packet-review transports perform an
+active-session check immediately before sending; a server 401 remains
+authoritative. Expiry stops later packet batches and keeps the exact uncertain
+operation available for reconciliation. Dirty narrative buffers and profile
+edit intent can be copied to encrypted, account-scoped device storage when the
+vault is unlocked. Recovery copies are not uploaded or automatically restored,
+and storage failures do not report a saved result.
+
+Continuation pagination now uses the existing print font metrics and reserved
+sheet geometry. Synthetic Chromium output produced **39 portrait pages**
+(27 run continuations and 9 orientation continuations, plus 3 base sheets),
+**11 landscape daily-log pages** (10 continuations plus the base sheet), and
+**8 portrait weekly-acknowledgement pages** (7 narrative attachments plus the
+acknowledgement sheet), all with the expected training-folder references,
+revised-form labels, preserved Unicode and unbroken text, and no overflow or
+blank trailing sheet. This verifies the synthetic Chromium PDFs only; it is
+not target-printer certification.
+
+The targeted authenticated-recovery and pagination suites passed **80/80**.
+The packet regression command passed **29/29** portal cases, **12/12** API
+readiness cases, and **1/1** isolated preview case. `pnpm typecheck`, the
+Field Training production build, and the production archive size boundary
+tests passed. The combined ZIP remains subject to the enforced
+**26,214,400-byte** maximum. No live agency browser check, production change,
+operational data access, or printer certification was performed.
 
 The portal continues to save locally in its passphrase-encrypted IndexedDB
 vault without requiring a network request. New daily reports initialize

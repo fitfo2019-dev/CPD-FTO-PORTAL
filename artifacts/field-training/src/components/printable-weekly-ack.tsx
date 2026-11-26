@@ -2,7 +2,7 @@ import { phaseLabel, type WeeklyPacketAcknowledgement } from '@/lib/model.js';
 import { formatDateDMY } from '@/lib/training-calendar.js';
 import { PrintableColumbusFooterMarks, PrintableColumbusHeader } from '@/components/printable-columbus-header.js';
 import { PrintDocument, PrintFieldGrid, PrintField } from '@/components/print-template.js';
-import { needsRunNarrativeContinuation, splitNarrativeContinuation } from '@/lib/narrative-continuation.js';
+import { needsRunNarrativeContinuation, paginateNarrativeToPages, WEEKLY_NARRATIVE_LAYOUT } from '@/lib/narrative-continuation.js';
 
 export function PrintableWeeklyAcknowledgement({ acknowledgement }: { acknowledgement: WeeklyPacketAcknowledgement }) {
   const comments=[
@@ -39,7 +39,7 @@ export function PrintableWeeklyAcknowledgement({ acknowledgement }: { acknowledg
       </footer>
     </PrintDocument>
     {attachments.flatMap(item=>{
-      const parts=splitNarrativeContinuation(item.value);
+      const parts=paginateNarrativeToPages(item.value,WEEKLY_NARRATIVE_LAYOUT);
       return parts.map((text,index)=><PrintDocument as="section" className="print-weekly print-weekly-narrative" aria-hidden="true" key={`${item.label}-${index}`}>
         <header className="print-weekly-header">
           <PrintableColumbusHeader formId="weekly_acknowledgement"/>

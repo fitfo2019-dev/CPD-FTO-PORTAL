@@ -5,6 +5,7 @@ import { OfflineStorage } from './offlineStorage.js';
 import { createDailyReportDraft } from './daily-report-draft.js';
 import { createUiPreviewWorkspace } from './empty-workspace.js';
 import { checkPacketService, finalizePacket, readSharedPackets, readSharedPacketsPage, uploadPacketBatch } from './training-packet-sync.js';
+import { AuthenticationRequiredError } from './auth-session.js';
 
 function success(data: unknown, metadata: Record<string, unknown> = {}) {
   return new Response(JSON.stringify({ status: 'success', metadata, data }), {
@@ -27,6 +28,41 @@ test('draft sync rejects a submitted receipt and never finalizes the packet',asy
   await assert.rejects(uploadPacketBatch([change]));
   assert.deepEqual(calls,['/api/v1/training-packets/sync']);
   assert.ok(calls.every(url=>!url.includes('/finalize')));
+});
+test('authenticated transport preflight and server rejection block packet writes and finalization', async t => {
+  const report = createDailyReportDraft(createUiPreviewWorkspace().caseFolder!, '2026-11-23');
+  const change = {
+    operationId: '29b09e69-073a-4b60-b7be-564945cf587e',
+    recordId: report.id,
+    baseVersion: 0,
+    value: report,
+    attempted: true,
+    clientTimestamp: '2026-11-23T14:00:00Z',
+  };
+  let requests = 0;
+  let validations = 0;
+  await assert.rejects(uploadPacketBatch([change], undefined, async () => {
+    validations++;
+    throw new AuthenticationRequiredError();
+  }), { name: 'AuthenticationRequiredError' });
+  assert.equal(validations, 1);
+  assert.equal(requests, 0, 'Expired preflight must stop before dispatch.');
+
+  t.mock.method(globalThis, 'fetch', async () => {
+    requests++;
+    return new Response(JSON.stringify({ status: 'error', error_code: 'UNAUTHENTICATED' }), {
+      status: 401, headers: { 'content-type': 'application/json' },
+    });
+  });
+  const validPreflight = async () => { validations++; };
+  await assert.rejects(uploadPacketBatch([change], undefined, validPreflight), {
+    name: 'AuthenticationRequiredError',
+  }, 'The server rejection overrides a successful preflight.');
+  await assert.rejects(finalizePacket(report.id, change.operationId, 'a'.repeat(64), 0, undefined, validPreflight), {
+    name: 'AuthenticationRequiredError',
+  });
+  assert.equal(validations, 3);
+  assert.equal(requests, 2);
 });
 test('shared packet reads request bounded continuation pages and stop only at the real end', async t => {
   const report = createDailyReportDraft(createUiPreviewWorkspace().caseFolder!, '2026-11-23');

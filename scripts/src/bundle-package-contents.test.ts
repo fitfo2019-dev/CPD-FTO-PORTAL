@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertArchiveFileMatchesSource,
+  assertProductionArchiveSize,
   assertReleaseArchiveContents,
   assertSameFileSet,
   getResourceCatalogFileNames,
+  PRODUCTION_ARCHIVE_MAX_BYTES,
 } from "./bundle-package-contents.js";
 
 test("accepts packaged bytes that match the source file", () => {
@@ -72,4 +74,15 @@ test("checks resources, migrations, exact archive contents, and excludes build f
       }),
     /Generated or workspace-only files[\s\S]*portal\/assets\/app\.js\.map/,
   );
+});
+
+test("production archive size accepts below and exactly at the limit, and rejects one byte above", () => {
+  assert.doesNotThrow(() => assertProductionArchiveSize(PRODUCTION_ARCHIVE_MAX_BYTES - 1));
+  assert.doesNotThrow(() => assertProductionArchiveSize(PRODUCTION_ARCHIVE_MAX_BYTES));
+  assert.throws(
+    () => assertProductionArchiveSize(PRODUCTION_ARCHIVE_MAX_BYTES + 1),
+    /exceeds the approved 26214400-byte size budget/,
+  );
+  for (const invalid of [-1, Number.NaN, Number.POSITIVE_INFINITY, 1.5])
+    assert.throws(() => assertProductionArchiveSize(invalid));
 });

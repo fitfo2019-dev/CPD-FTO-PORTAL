@@ -5,6 +5,8 @@ import { useGetOperationalProfile, updateOperationalProfile, type OperationalPro
 import { OperationalAssignmentToken, OperationalIdentitySnapshot, type OperationalIdentity } from "@workspace/api-zod/operational-profile";
 import { OperatorFacingError } from "@/lib/operator-errors.js";
 import type { PhaseCaseFolder } from "@/lib/model.js";
+import { AUTHENTICATION_REQUIRED_MESSAGE, AuthenticationRequiredError, isAuthenticationRejection, validateClerkSession, type ClerkSessionIdentity, type ValidateClerkSession } from "@/lib/auth-session.js";
+import { useWorkspace } from "./workspace.js";
 
 type ProfileState = {
   profile?: OperationalProfileContext; editorProfile?: OperationalProfileContext;
@@ -14,20 +16,37 @@ type ProfileState = {
   clear?(expectedVersion: number): Promise<OperationalProfileContext>;
   refresh?(): Promise<OperationalProfileContext>;
   confirmCadIdentity?(identity: OperationalIdentity, expectedContextKey: string): void;
+  setEditorDirty?(dirty: boolean): void;
+  saveAuthRecoverySnapshot?(accountId?: string, fields?: Array<{ form: string; field: string; value: string }>): Promise<void>;
 };
 const Context = createContext<ProfileState>({ pending: false, contextKey: "no-operational-session" });
 export { Context as OperationalProfileStateContext };
 export const useOperationalProfile = () => useContext(Context);
 /** No profile is restored from the local vault or a previous account's cache. */
-export function OperationalProfileProvider({ children }: { children: ReactNode }) {
+export function OperationalProfileProvider({
+  children, authSession, validateSession,
+}: { children: ReactNode; authSession: ClerkSessionIdentity; validateSession: ValidateClerkSession }) {
   const { user, isLoaded, isSignedIn } = useUser();
+  const workspace = useWorkspace();
   const subject = isLoaded && isSignedIn ? user?.id : undefined;
-  return <OperationalProfileSessionProvider subject={subject}>{children}</OperationalProfileSessionProvider>;
+  return <OperationalProfileSessionProvider subject={subject} authSession={authSession}
+    validateSession={validateSession} saveAuthRecoverySnapshot={workspace.saveAuthRecoverySnapshot}
+    setEditorDirty={workspace.setEditorDirty}>
+    {children}
+  </OperationalProfileSessionProvider>;
 }
 /** Subject is session context only; the API independently verifies ownership. */
-export function OperationalProfileSessionProvider({ subject, children }: { subject?: string; children: ReactNode }) {
+export function OperationalProfileSessionProvider({
+  subject, children, authSession, validateSession, saveAuthRecoverySnapshot, setEditorDirty,
+}: {
+  subject?: string; children: ReactNode; authSession?: ClerkSessionIdentity;
+  validateSession?: ValidateClerkSession;
+  saveAuthRecoverySnapshot?: (accountId?: string, fields?: Array<{ form: string; field: string; value: string }>) => Promise<void>;
+  setEditorDirty?: (dirty: boolean) => void;
+}) {
   const cache = useQueryClient();
   const subjectRef = useRef(subject); subjectRef.current = subject;
+  const authSessionRef = useRef(authSession); authSessionRef.current = authSession;
   const [successfulRead, setSuccessfulRead] = useState(0);
   const controllers = useRef(new Set<AbortController>());
   const channel = useRef<BroadcastChannel | null>(null);
@@ -39,7 +58,7 @@ export function OperationalProfileSessionProvider({ subject, children }: { subje
       for (const controller of controllers.current) controller.abort();
       controllers.current.clear();
     };
-  }, [subject]);
+  }, [subject, authSession?.accountId, authSession?.sessionId]);
   const query = useGetOperationalProfile({
     query: {
       queryKey: ["operational-profile", subject], enabled: !!subject, retry: false,
@@ -85,6 +104,7 @@ export function OperationalProfileSessionProvider({ subject, children }: { subje
     if (assignmentToken !== null && !OperationalAssignmentToken.safeParse(assignmentToken).success)
       throw new OperatorFacingError("Use four district digits, an uppercase shift letter, and optional side -1 or -2.");
     const controller = new AbortController();
+    const operationSession = authSessionRef.current;
     controllers.current.add(controller);
     // Stop dispatch consumers before sending either write; a lost response may
     // still have committed. Editor data remains available for explicit recovery.
@@ -94,6 +114,10 @@ export function OperationalProfileSessionProvider({ subject, children }: { subje
       if (subjectRef.current !== current || controller.signal.aborted)
         throw new OperatorFacingError("Your account changed. Reopen Account Settings before saving again.");
       const request = { credentials: "include" as const, signal: controller.signal };
+      await validateClerkSession(validateSession, operationSession);
+      if (subjectRef.current !== current || controller.signal.aborted ||
+        operationSession?.accountId !== current || authSessionRef.current?.sessionId !== operationSession.sessionId)
+        throw new AuthenticationRequiredError();
       const result = assignmentToken === null
         ? await clearOperationalProfile({ expectedVersion, confirmedNoVehicle: true }, request)
         : await updateOperationalProfile({ assignmentToken, expectedVersion }, request);
@@ -112,6 +136,10 @@ export function OperationalProfileSessionProvider({ subject, children }: { subje
       channel.current?.postMessage({ type: "changed" });
       return result;
     } catch (error) {
+      if (isAuthenticationRejection(error)) {
+        try { await saveAuthRecoverySnapshot?.(operationSession?.accountId); } catch { /* Workspace reports local persistence failures. */ }
+        throw new OperatorFacingError(AUTHENTICATION_REQUIRED_MESSAGE);
+      }
       if (subjectRef.current === current) {
         setSuspendedSubject(current);
         channel.current?.postMessage({ type: "changed" });
@@ -121,7 +149,7 @@ export function OperationalProfileSessionProvider({ subject, children }: { subje
         throw new OperatorFacingError("This assignment changed elsewhere. Reload the saved assignment before retrying.");
       throw new OperatorFacingError("The profile save was not confirmed. Reload the saved assignment before retrying. Existing packets are unchanged.");
     } finally { controllers.current.delete(controller); }
-  }, [cache, subject]);
+  }, [cache, subject, validateSession, saveAuthRecoverySnapshot]);
   const save = useCallback((token: string, version: number) => mutate(token, version), [mutate]);
   const clear = useCallback((version: number) => mutate(null, version), [mutate]);
   // Reuse the existing subject/version cache, not another profile store. A
@@ -140,7 +168,7 @@ export function OperationalProfileSessionProvider({ subject, children }: { subje
     pending: !!subject && query.isPending, successfulRead,
     contextKey: `${subject ?? ""}:${profile?.version ?? "unavailable"}`,
     error: query.isError ? "The agency profile service is unavailable or your account is not authorized. Existing packets are unchanged." : undefined,
-    save, clear, refresh, confirmCadIdentity,
+    save, clear, refresh, confirmCadIdentity, setEditorDirty, saveAuthRecoverySnapshot,
   }}>{children}</Context.Provider>;
 }
 export function activeFtoIdentity(profile: OperationalProfileContext | undefined, folder: PhaseCaseFolder) {

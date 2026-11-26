@@ -87,7 +87,8 @@ export default function ReportEditor() {
   const { profile, contextKey: operationalContextKey } = useOperationalProfile();
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
-  const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket, previewOnly } = useWorkspace();
+  const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket, previewOnly,
+    authAccountId, saveAuthRecoverySnapshot } = useWorkspace();
   const [, nav] = useLocation();
   const { toast } = useToast();
   useEffect(() => {
@@ -240,8 +241,28 @@ export default function ReportEditor() {
     [r?.runs, runIncidentSearch],
   );
   const isDirty = !!r && (authoredReportSnapshot(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
+  const recoveryBuffer = useRef<{ accountId?: string; reportId: string; dirty: boolean; fields: Array<{ form: string; field: string; value: string }> }>({
+    accountId: authAccountId, reportId: r?.id ?? '', dirty: isDirty, fields: [],
+  });
+  recoveryBuffer.current = {
+    accountId: authAccountId,
+    reportId: r?.id ?? '',
+    dirty: isDirty,
+    fields: r ? [
+      { form: `report:${r.id}`, field: 'input-narrative', value: r.narrative },
+      { form: `report:${r.id}`, field: 'input-remedial', value: r.remedial },
+      { form: `report:${r.id}`, field: 'input-recruit-comments', value: r.recruitComments },
+      { form: `report:${r.id}`, field: 'input-duty-notes', value: r.reportingForDuty?.notes ?? '' },
+      { form: `report:${r.id}`, field: 'input-run-narrative', value: runNarrative },
+    ] : [],
+  };
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
-  useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
+  useEffect(() => () => {
+    const recovery = recoveryBuffer.current;
+    if (recovery.dirty && recovery.fields.length)
+      void saveAuthRecoverySnapshot?.(recovery.accountId, recovery.fields).catch(() => {});
+    setEditorDirty(false);
+  }, [saveAuthRecoverySnapshot, setEditorDirty]);
   useEffect(() => {
     if (!r) return;
     setDateText(formatDateDMY(r.date));
@@ -778,7 +799,7 @@ export default function ReportEditor() {
     .filter(Boolean);
 
   return (
-    <div className="report-editor-page max-w-5xl">
+    <div className="report-editor-page max-w-5xl" data-auth-recovery-form={`report:${r.id}`}>
       <DeficiencyDialog group={deficiencyEditor.active} onNarrative={deficiencyEditor.setNarrative} onOverride={deficiencyEditor.override} onClose={deficiencyEditor.close}/>
       <Link href="/reports" className="text-sm font-semibold inline-flex items-center gap-1 mb-2 hover:underline" data-testid="link-back"><ArrowLeft className="h-4 w-4" />Saved records</Link>
       <PageHead kicker="Shift workspace · Daily Performance Log · U-10.174" title={r.recruitName ? `PO ${r.recruitName} #${r.recruitBadge}` : 'Probationary Officer shift'}>

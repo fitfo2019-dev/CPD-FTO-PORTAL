@@ -26,16 +26,10 @@ test("offline local saves stay local and reconnect syncs an editable draft witho
     requests.push({ url, body });
     if (url.includes("/finalize")) {
       const id = decodeURIComponent(url.split("/").at(-2)!);
-      const request = JSON.parse(body) as { content_hash: string };
-      const report = JSON.parse(requests.find(item => item.url.endsWith("/sync"))!.body)
-        .packets[0].report;
+      const request = JSON.parse(body) as { operation_id: string; content_hash: string };
       return new Response(JSON.stringify({
-        status: "success", metadata: { total_records: 1, role: "FTO" },
-        data: [{ id, assignment_id: "81dc3739-03c3-4cc1-bc9c-851bba10e833",
-          record_date: report.date, phase: report.phase, server_version: 1,
-          sync_status: "submitted_complete", report, content_hash: request.content_hash,
-          released_to_po: false, released_at: null, withdrawn_at: null, withdrawal_reason: null,
-          amendment_of: null, amendment_reason: null, acknowledgment: null }],
+        id, operation_id: request.operation_id, server_version: 1,
+        sync_status: "submitted_complete", content_hash: request.content_hash,
       }), { headers: { "content-type": "application/json" } });
     }
     const packets = (JSON.parse(body) as { packets: Array<{ operation_id: string; report: { id: string } }> }).packets;
@@ -53,7 +47,8 @@ test("offline local saves stay local and reconnect syncs an editable draft witho
   try {
     await act(async () => {
       root.render(createElement(WorkspaceProvider, {
-        storageNamespace: namespace, children: createElement(Probe),
+        storageNamespace: namespace, authSession: { accountId: "FICTIONAL-FTO", sessionId: "FICTIONAL-SESSION" },
+        validateSession: async () => {}, children: createElement(Probe),
       }));
     });
     assert.ok(current);

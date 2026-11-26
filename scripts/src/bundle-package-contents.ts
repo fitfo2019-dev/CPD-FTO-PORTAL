@@ -9,6 +9,19 @@ const generatedOrWorkspaceOnlyPatterns = [
   /(^|\/)(?:vite|webpack|rollup|esbuild)\.config\.[^/]+$/,
 ];
 
+export const PRODUCTION_ARCHIVE_MAX_BYTES = 26_214_400;
+
+export function assertProductionArchiveSize(sizeBytes: number): void {
+  if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0) {
+    throw new Error("Production archive size must be a non-negative safe integer.");
+  }
+  if (sizeBytes > PRODUCTION_ARCHIVE_MAX_BYTES) {
+    throw new Error(
+      `dist-production.zip exceeds the approved ${PRODUCTION_ARCHIVE_MAX_BYTES}-byte size budget (${sizeBytes} bytes).`,
+    );
+  }
+}
+
 export function getResourceCatalogFileNames(source: string): string[] {
   const names = [...source.matchAll(/\bfile_name\s*:\s*"([^"]+)"/g)].map(
     (match) => match[1],

@@ -286,6 +286,45 @@ test("optional-side upgrade preserves agency permissions on real PostgreSQL", as
       assert.deepEqual(await row(po), beforePo);
     });
 
+    await t.test("row locks are subject-scoped and failed history writes roll profile changes back", async () => {
+      const current = await store.read(fto);
+      const lockHolder = await limited.connect();
+      try {
+        await lockHolder.query("BEGIN");
+        await lockHolder.query(
+          "SELECT subject_hash FROM agency_training.operational_profiles WHERE subject_hash=$1 FOR UPDATE",
+          [hashUserIdentifier(fto.id)],
+        );
+        const independent = await Promise.race([
+          store.save(po, { assignmentToken: "1234A-1", expectedVersion: (await store.read(po)).version }),
+          new Promise<never>((_, reject) => setTimeout(
+            () => reject(new Error("An unrelated profile write waited on another subject's row lock.")), 1000,
+          )),
+        ]);
+        assert.equal(independent.version, (await store.read(po)).version);
+      } finally {
+        await lockHolder.query("ROLLBACK");
+        lockHolder.release();
+      }
+
+      await db.query(`CREATE FUNCTION agency_training.reject_profile_history() RETURNS trigger
+        LANGUAGE plpgsql AS $$ BEGIN
+          IF NEW.event='changed' THEN RAISE EXCEPTION 'synthetic history failure'; END IF;
+          RETURN NEW;
+        END $$;
+        CREATE TRIGGER reject_profile_history BEFORE INSERT ON agency_training.operational_profile_history
+        FOR EACH ROW EXECUTE FUNCTION agency_training.reject_profile_history()`);
+      const before = await row(fto);
+      await assert.rejects(
+        store.save(fto, { assignmentToken: "9153E-2", expectedVersion: before.version }),
+        /synthetic history failure/,
+      );
+      assert.deepEqual(await row(fto), before, "The profile and derived columns roll back with failed evidence.");
+      await db.query(`DROP TRIGGER reject_profile_history ON agency_training.operational_profile_history;
+        DROP FUNCTION agency_training.reject_profile_history()`);
+      assert.equal((await store.read(fto)).version, before.version, "The pooled connection remains usable after rollback.");
+    });
+
     await t.test("lost HTTP save responses preserve committed creation and optional-side edits until explicit reload", async () => {
       for (const role of ["FTO", "PO"] as const) {
         const identity: AgencyIdentity = { id: `FICTIONAL-LOST-RESPONSE-${role}`, badge: `TEST-LOST-${role}`, role };

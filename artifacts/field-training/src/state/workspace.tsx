@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, WorkspaceConflictError, type LocalChatDraft, type RecoverySnapshot } from '@/lib/offlineStorage.js';
+import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, WorkspaceConflictError, type AuthRecoveryField, type LocalChatDraft, type RecoverySnapshot } from '@/lib/offlineStorage.js';
 import { createEmptyWorkspace, createUiPreviewWorkspace } from '@/lib/empty-workspace.js';
 import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type PhaseExtensionRequest, type PhaseWeekRange, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
 import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography.js';
@@ -17,6 +17,7 @@ import { validateReport } from '@/lib/model.js';
 import { packetSubmissionReady } from '@workspace/api-zod/packet-readiness';
 import { assertAssignmentMetadata, assertTacticalAssignmentMetadata } from '@/lib/assignment-metadata.js';
 import { OperatorFacingError, operatorErrorMessage, reportUnexpectedOperatorError } from '@/lib/operator-errors.js';
+import { AUTHENTICATION_REQUIRED_MESSAGE, AuthenticationRequiredError, isAuthenticationRejection, validateClerkSession, type ClerkSessionIdentity, type ValidateClerkSession } from '@/lib/auth-session.js';
 
 export type VaultState = 'none' | 'unlocked';
 export type PacketSyncState = 'idle' | 'uploading' | 'failed' | 'synchronized';
@@ -46,6 +47,9 @@ type PendingRecoveryRequest = {
 interface Ctx {
   ws: Workspace; epoch: number; saveError: string | null; editorDirty: boolean; setEditorDirty(d: boolean): void; vault: VaultState; restored: boolean; pending: number; dirty: boolean; online: boolean; lockedNotice: boolean; lockedWithUnsaved: boolean; storagePersistent: boolean | null; previewOnly: boolean; previewLabel: string; otherSessions: WorkspaceSessionStatus[]; overwrittenElsewhere: boolean; recoverySnapshots: RecoverySnapshotInfo[]; recoverySyncReviewRequired: boolean;
   setRole(r: Role): void; upsertReport(r: Report): void; upsertWeeklyAcknowledgement(ack: WeeklyPacketAcknowledgement): void; deleteReport(id: string): void; toggleTask(id: string, by: string): void; setCaseFolder(folder: PhaseCaseFolder): void;
+  saveAuthRecoverySnapshot?(accountId?: string, fields?: AuthRecoveryField[]): Promise<void>;
+  validateRemoteSession(): Promise<void>;
+  authAccountId?: string;
   submitPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; syncSharedPhaseExtensionRequest(request:PhaseExtensionRequest):Promise<void>; resolvePhaseExtensionRequest(id:string,approve:boolean):Promise<void>;
   upsertWeeklyPerformanceLog(log:WeeklyPerformanceLog):void; upsertSubstationOrientation(record:SubstationOrientationRecord):void;
   upsertFtoPhasePosting(posting:FtoPhasePosting):void; upsertFtoPhaseSignup(signup:FtoPhaseSignup):void; upsertCoverageRequest(request:CoverageRequest):void;
@@ -278,21 +282,48 @@ function sameExtensionTarget(left:PhaseExtensionRequest,right:PhaseExtensionRequ
     &&left.className.toLowerCase()===right.className.toLowerCase();
 }
 
+function collectAuthRecoveryFields(): AuthRecoveryField[] {
+  if (typeof document === 'undefined') return [];
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-auth-recovery-form]')).flatMap(form => {
+    const formId = form.dataset.authRecoveryForm;
+    if (!formId) return [];
+    return Array.from(form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+      'input[type="text"],input[type="search"],input[type="email"],textarea',
+    )).map((field, index) => ({
+      form: formId,
+      field: field.dataset.testid ?? field.id ?? field.name ?? `text-field-${index + 1}`,
+      value: field.value,
+    }));
+  });
+}
+
+function sameSession(left?: ClerkSessionIdentity, right?: ClerkSessionIdentity) {
+  return left?.accountId === right?.accountId && left?.sessionId === right?.sessionId;
+}
+
 export function WorkspaceProvider({
   children,
   storageNamespace = 'fieldready-demo',
   previewOnly = false,
   previewWorkspace,
   previewLabel = 'UI test workspace',
+  authSession,
+  validateSession,
 }: {
   children?: ReactNode;
   storageNamespace?: string;
   previewOnly?: boolean;
   previewWorkspace?: () => Workspace;
   previewLabel?: string;
+  authSession?: ClerkSessionIdentity;
+  validateSession?: ValidateClerkSession;
 }) {
   const storage = useRef<OfflineStorage>(null as unknown as OfflineStorage);
   if (!storage.current) storage.current = new OfflineStorage(storageNamespace);
+  const authRecoveryPending = useRef(new Set<Promise<string>>());
+  const authSessionRef = useRef(authSession); authSessionRef.current = authSession;
+  const previousAuthSessionRef = useRef(authSession);
+  const previousAbortSessionRef = useRef(authSession);
   const previewWorkspaceFactory = useRef(previewWorkspace ?? createUiPreviewWorkspace);
   const hasCustomPreviewWorkspace = !!previewWorkspace;
   const [ws, setWs] = useState<Workspace>(() => previewOnly ? previewWorkspaceFactory.current() : createEmptyWorkspace());
@@ -332,7 +363,72 @@ export function WorkspaceProvider({
   const announceSession = useRef<() => void>(() => {});
   const liveSessions = useRef<() => WorkspaceSessionStatus[]>(() => []);
   const recoveryRequests = useRef(new Map<string, PendingRecoveryRequest>());
-  useEffect(() => () => { syncAbort.current?.abort(); storage.current.lock(); }, []);
+  const assertCurrentSession = useCallback(async (expected = authSessionRef.current) => {
+    if (previewOnly) return;
+    await validateClerkSession(validateSession, expected);
+    if (!sameSession(expected, authSessionRef.current)) throw new AuthenticationRequiredError();
+  }, [previewOnly, validateSession]);
+  const captureAuthRecovery = useCallback(async (
+    accountId = authSessionRef.current?.accountId,
+    providedFields?: AuthRecoveryField[],
+  ) => {
+    if (previewOnly) throw new Error('Recovery copies are unavailable in preview mode.');
+    if (!accountId || !storage.current.isUnlocked) {
+      const error = new Error(!accountId ? 'The signed-in account is unavailable for local recovery.' : 'Unlock the local vault first.');
+      setSaveError(operatorErrorMessage(error, 'Could not save or restore the local vault'));
+      throw error;
+    }
+    const fields = providedFields ?? collectAuthRecoveryFields();
+    if (!fields.length) return;
+    let write: Promise<string> | undefined;
+    try {
+      write = storage.current.saveAuthRecoverySnapshot(accountId, fields);
+      authRecoveryPending.current.add(write);
+      await write;
+    } catch (error) {
+      setSaveError(operatorErrorMessage(error, 'Local save failed. Your on-screen work is unchanged.'));
+      throw error;
+    } finally {
+      if (write) authRecoveryPending.current.delete(write);
+    }
+  }, [previewOnly]);
+  useEffect(() => () => {
+    syncAbort.current?.abort();
+    if (!previewOnly && (dirtyRef.current || editorDirtyRef.current) && storage.current.isUnlocked && authSessionRef.current) {
+      const accountId = authSessionRef.current.accountId;
+      const fields = collectAuthRecoveryFields();
+      if (fields.length) {
+        void storage.current.saveAuthRecoverySnapshot(accountId, fields)
+          .catch(() => { /* Do not claim recovery when local storage fails. */ })
+          .finally(() => storage.current.lock());
+        return;
+      }
+      if (authRecoveryPending.current.size) {
+        void Promise.allSettled([...authRecoveryPending.current]).finally(() => storage.current.lock());
+        return;
+      }
+    }
+    storage.current.lock();
+  }, [previewOnly, storageNamespace]);
+
+  useEffect(() => {
+    const previous = previousAbortSessionRef.current;
+    previousAbortSessionRef.current = authSession;
+    if (previous && authSession && !sameSession(previous, authSession))
+      syncAbort.current?.abort();
+  }, [authSession?.accountId, authSession?.sessionId]);
+
+  useEffect(() => {
+    if (previewOnly || !authSession) return;
+    const previous = previousAuthSessionRef.current;
+    previousAuthSessionRef.current = authSession;
+    if (previous && !sameSession(previous, authSession) &&
+      (dirtyRef.current || editorDirtyRef.current) && storage.current.isUnlocked) {
+      void captureAuthRecovery(previous.accountId).catch(error => {
+        setSaveError(operatorErrorMessage(error, 'Local save failed. Your on-screen work is unchanged.'));
+      });
+    }
+  }, [authSession?.accountId, authSession?.sessionId, captureAuthRecovery, previewOnly]);
 
   useEffect(() => { const on = () => setOnline(true), off = () => setOnline(false);
     window.addEventListener('online', on); window.addEventListener('offline', off);
@@ -795,10 +891,12 @@ export function WorkspaceProvider({
     setPacketSyncState('uploading'); setPacketSyncError(null);
     const controller = new AbortController();
     syncAbort.current = controller;
+    const operationSession = authSessionRef.current;
+    const assertSession = () => assertCurrentSession(operationSession);
     try {
       await persist(wsRef.current);
       await storage.current.syncPacketQueue<Workspace>(
-        changes => uploadPacketBatch(changes, controller.signal),
+        changes => uploadPacketBatch(changes, controller.signal, assertSession),
         next => {
           const merged=applyPacketSyncState(wsRef.current,next);
           wsRef.current = merged;
@@ -813,17 +911,26 @@ export function WorkspaceProvider({
       if (!controller.signal.aborted) setPacketSyncState('synchronized');
     } catch (error) {
       if (!controller.signal.aborted) {
+        const authenticationRejected = isAuthenticationRejection(error);
+        if (authenticationRejected) {
+          try { await captureAuthRecovery(operationSession?.accountId); }
+          catch (recoveryError) {
+            setSaveError(operatorErrorMessage(recoveryError, 'Local save failed. Your on-screen work is unchanged.'));
+          }
+        }
         const guarded = await storage.current.get<Workspace>('workspace');
         if (guarded && !controller.signal.aborted) {
           const merged=applyPacketSyncState(wsRef.current,guarded);
           wsRef.current = merged; setWs(merged);
         }
-        setPacketSyncError('Upload Not Confirmed. The Exact Saved Snapshot Is Protected Until Retry Confirms the Outcome.');
+        setPacketSyncError(authenticationRejected
+          ? AUTHENTICATION_REQUIRED_MESSAGE
+          : 'Upload Not Confirmed. The Exact Saved Snapshot Is Protected Until Retry Confirms the Outcome.');
         setPacketSyncState('failed');
       }
       throw error;
     } finally { syncing.current = false; syncAbort.current = null; }
-  }, [previewOnly, vault, online, persist, refreshPending]);
+  }, [previewOnly, vault, online, persist, refreshPending, assertCurrentSession, captureAuthRecovery]);
 
   const finalizePacket=useCallback(async(id:string)=>{
     if(recoverySyncReviewRef.current)
@@ -841,6 +948,8 @@ export function WorkspaceProvider({
     syncing.current=true;
     setPacketSyncState('uploading');setPacketSyncError(null);
     const controller=new AbortController();syncAbort.current=controller;
+    const operationSession=authSessionRef.current;
+    const assertSession=()=>assertCurrentSession(operationSession);
     // Publish the lock before the first asynchronous operation. The storage
     // layer durably records its exact retry snapshot before sending the request.
     const guarded={...wsRef.current,reports:wsRef.current.reports.map(item=>
@@ -849,21 +958,28 @@ export function WorkspaceProvider({
     try {
       const next=await storage.current.finalizePacket<Workspace>(id,
         (packetId,operationId,contentHash)=>finalizePacketRequest(
-          packetId,operationId,contentHash,report.serverVersion ?? 0,controller.signal));
+          packetId,operationId,contentHash,report.serverVersion ?? 0,controller.signal,assertSession));
       if(controller.signal.aborted) throw new Error('Submission response interrupted. Check shared packet status before retrying.');
       if(next){wsRef.current=next;setWs(next);}
       await refreshPending();
       setPacketSyncState('synchronized');
     } catch(error) {
       if(!controller.signal.aborted){
+        const authenticationRejected=isAuthenticationRejection(error);
+        if(authenticationRejected){
+          try{await captureAuthRecovery(operationSession?.accountId);}
+          catch(recoveryError){setSaveError(operatorErrorMessage(recoveryError,'Local save failed. Your on-screen work is unchanged.'));}
+        }
         const guarded=await storage.current.get<Workspace>('workspace');
         if(guarded&&!controller.signal.aborted){wsRef.current=guarded;setWs(guarded);}
-        setPacketSyncError('Finalization Not Confirmed. The Exact Saved Snapshot Is Protected Until Retry Confirms the Outcome.');
+        setPacketSyncError(authenticationRejected
+          ?AUTHENTICATION_REQUIRED_MESSAGE
+          :'Finalization Not Confirmed. The Exact Saved Snapshot Is Protected Until Retry Confirms the Outcome.');
         setPacketSyncState('failed');
       }
       throw error;
     } finally {syncing.current=false;if(syncAbort.current===controller)syncAbort.current=null;}
-  },[previewOnly,vault,online,persist,refreshPending]);
+  },[previewOnly,vault,online,persist,refreshPending,assertCurrentSession,captureAuthRecovery]);
 
   useEffect(()=>{
     if(previewOnly||vault!=='unlocked'||!restored||ws.role!=='fto'||!online||dirty||editorDirty||
@@ -917,7 +1033,7 @@ export function WorkspaceProvider({
   }, [previewOnly]);
 
   const value = useMemo<Ctx>(() => ({
-    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, previewOnly, previewLabel, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired,
+    ws, epoch, saveError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, previewOnly, previewLabel, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired, saveAuthRecoverySnapshot: captureAuthRecovery, validateRemoteSession: () => assertCurrentSession(), authAccountId: authSession?.accountId,
     segTaskDirectory: SEG_TASK_DIRECTORY,
     getOperationalPacket: report => resolveOperationalPacket(
       report,
@@ -1024,7 +1140,7 @@ export function WorkspaceProvider({
     setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, finalizePacket, openPacketCorrection, packetSyncState, packetSyncError, lockNow, dismissLockedNotice: () => setLockedNotice(false),
     dismissOverwrittenElsewhere: () => setOverwrittenElsewhere(false),
     resetWorkspace: () => { rev.current++; setWs(previewOnly ? (hasCustomPreviewWorkspace ? previewWorkspaceFactory.current() : createUiPreviewWorkspace(wsRef.current.role)) : createEmptyWorkspace()); setDirty(!previewOnly); setEditorDirty(false); setPreviewChatDrafts([]); setOverwrittenElsewhere(false); setEpoch(e => e + 1); },
-  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, finalizePacket, openPacketCorrection, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly, previewLabel, hasCustomPreviewWorkspace]);
+  }), [ws, epoch, saveError, packetSyncState, packetSyncError, editorDirty, setEditorDirty, vault, restored, pending, dirty, online, intent, lockedNotice, lockedWithUnsaved, storagePersistent, otherSessions, overwrittenElsewhere, recoverySnapshots, recoverySyncReviewRequired, captureAuthRecovery, assertCurrentSession, mutate, mutateAndPersist, setupAndSave, unlockAndRestore, saveNow, overwriteOtherSessions, refreshRecoverySnapshots, restoreRecoverySnapshot, syncPackets, finalizePacket, openPacketCorrection, lockNow, loadLocalChatDrafts, saveLocalChatDraft, deleteLocalChatDraft, previewOnly, previewLabel, hasCustomPreviewWorkspace]);
 
   return <C.Provider value={value}>{children}</C.Provider>;
 }
