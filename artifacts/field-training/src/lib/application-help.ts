@@ -116,6 +116,9 @@ const PAGE_NOTE_TOPICS: readonly ApplicationHelpTopic[] = [
       'FTO: read packets in your assigned classes. You can correct only your own returned packets.',
       'Other roles: read-only packets for classes assigned to your verified account.',
       'Access is scoped by the agency server. Role shown here comes only from the server response.',
+      'FTO Coordinator: the list is scoped by the agency server to your authorized training classes.',
+      'PO: only packets the server released to you are shown. When your Coordinator releases a packet, your own summary appears. Draft and withdrawn packets remain hidden.',
+      'FTO and other roles: submitted daily records for your authorized classes appear here. Read access does not grant another role’s actions; workflow actions remain limited to their assigned roles.',
     ],
     expectedResult: 'Packet snapshot unavailable means no record details are shown and no packet state has been changed.',
     recovery: 'Packet submissions are not loaded in UI previews. No shared records are shown.',
@@ -156,6 +159,7 @@ const PAGE_NOTE_TOPICS: readonly ApplicationHelpTopic[] = [
     steps: [
       'Coverage requests are saved on this device only.',
       'Other FTO’s are not notified and cannot accept or decline it here.',
+      'Saving does not notify another account or create a substitute daily form.',
       'A request must be delivered to the FTO team before anyone can respond. No response buttons are shown for requests that have not been sent.',
     ],
     expectedResult: 'None means no local requests are saved on this device.',
@@ -186,6 +190,20 @@ const PAGE_NOTE_TOPICS: readonly ApplicationHelpTopic[] = [
     ],
     expectedResult: 'Your own training records appear after your department email is verified and your class and phase are activated.',
     recovery: 'If an invitation or activation is missing, follow your established department process.',
+  },
+  {
+    id: 'page-technical-access',
+    title: 'Technical access notes',
+    roles: ['policenet', 'policenet_admin_sgt'],
+    keywords: 'POLICENET technical access prepare test delete records two approvals SGT LT boundary',
+    steps: [
+      'POLICENET staff prepare and test technical changes. Plan the change, then use an approved test environment.',
+      'Deleting training records requires separate approval from a POLICENET admin with SGT rank and one with LT rank. This portal does not offer deletion.',
+      'The two-person rule applies only to deleting training records. It does not apply to other technical work.',
+      'Technical roles cannot change training judgments or bypass operational access rules.',
+    ],
+    expectedResult: 'Technical roles cannot open operational training records.',
+    recovery: 'If approved test tools are needed, request them through your established POLICENET process.',
   },
 ];
 

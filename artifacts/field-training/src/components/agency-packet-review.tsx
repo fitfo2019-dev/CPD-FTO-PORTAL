@@ -75,9 +75,6 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
   const blocked = Boolean(unavailable) || roleMissing;
 
   const listTitle = role === "FTO_COORDINATOR" ? "Authorized class packets" : role === "PO" ? "Your released packets" : "Assigned class packets";
-  const listSub = role === "FTO_COORDINATOR" ? "Scoped by the agency server to your authorized training classes."
-    : role === "PO" ? "Only packets the server released to you are shown."
-    : "Class reads are scoped by the agency server. Workflow actions remain limited to their assigned roles.";
 
   return (
     <div className="apr" data-testid="page-agency-packets">
@@ -113,7 +110,6 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
       <div className="apr-columns">
         <section className="apr-list" aria-label="Agency packet list">
           <div className="apr-list-head"><h2>{listTitle}</h2>{!blocked && !loading && <span className="apr-count" data-testid="text-packet-count">{visible.length} {visible.length === 1 ? "PACKET" : "PACKETS"}</span>}</div>
-          {listSub && !blocked && <p className="apr-list-sub">{listSub}</p>}
           {unavailable ? <div className="apr-empty" role="alert" data-testid="status-packets-unavailable"><div className="apr-empty-icon err"><AlertCircle size={17} /></div><h3>Packets unavailable</h3><p>{unavailable}</p>
               <button className="apr-button" type="button" onClick={onRefresh} disabled={!canRefresh || busy || refreshing} data-testid="button-try-refresh"><RefreshCw size={12} />Try refresh</button></div>
             : loading ? [0, 1, 2].map(i => <div className="apr-skel" key={i} aria-hidden><i style={{ width: "45%" }} /><i style={{ width: "70%" }} /><i style={{ width: "55%" }} /></div>)
@@ -127,9 +123,7 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
               </button>;
             })
             : <div className="apr-empty" data-testid="status-packets-empty"><div className="apr-empty-icon"><Archive size={17} /></div>
-                <h3>{role === "PO" ? "No released packets yet" : "No packets in your assigned classes"}</h3>
-                <p>{role === "PO" ? "When your Coordinator releases a packet, your own summary will appear here. Draft and withdrawn packets remain hidden."
-                  : "Submitted daily records for your authorized classes will appear here. Read access does not grant another role’s actions."}</p></div>}
+                <h3>None</h3></div>}
         </section>
 
         <section className="apr-detail" aria-label="Packet snapshot">

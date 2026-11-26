@@ -174,8 +174,8 @@ test('Help Desk topics are limited to their declared roles with shared guidance 
   for (const role of ['policenet', 'policenet_admin_sgt'] as const) {
     assert.deepEqual(
       getApplicationHelpTopicsForRole(role).map(topic => topic.id),
-      ['local-save', 'record-status'],
-      `${role} should not see operational Help Desk topics`,
+      ['local-save', 'record-status', 'page-technical-access'],
+      `${role} should see only shared topics and its own technical access notes, never operational topics`,
     );
   }
   for (const role of ['po', 'fto', 'fto_coordinator', 'fto_coc'] as const) {

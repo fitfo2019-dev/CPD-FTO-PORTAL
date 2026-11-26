@@ -92,7 +92,6 @@ export default function SubstituteFtoPage() {
         {error&&<p role="alert" className="text-sm font-semibold text-destructive sm:col-span-2">{error}</p>}
         <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
           <button type="button" onClick={saveRequest} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground" data-testid="button-save-coverage-request"><CalendarClock className="h-4 w-4"/>Save request locally</button>
-          <span className="text-xs text-muted-foreground">Saving does not notify another account or create a substitute daily form.</span>
         </div>
       </div>}
     </Panel>}

@@ -1,4 +1,4 @@
-import { ArrowRight, LockKeyhole, ShieldAlert, Wrench, CheckCircle2 } from 'lucide-react';
+import { LockKeyhole, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { Link } from 'wouter';
 import { PageHead, Panel } from '@/components/bits.js';
 import { useWorkspace } from '@/state/workspace.js';
@@ -31,19 +31,10 @@ export default function RoleAccessPage() {
       <PageHead kicker="Technical role · approval status" title="POLICENET ADMIN — SGT"/>
       <Panel title="Training-record deletion needs two approvals">
         <div className="space-y-4 p-4 sm:p-5" role="status" data-testid="status-policenet-sgt-approval">
-          <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-warn"><ShieldAlert className="h-5 w-5"/></span>
-            <div><p className="font-semibold">Record deletion is not available here.</p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">Deletion requires separate approval from a POLICENET admin with SGT rank and one with LT rank. This portal does not offer deletion.</p>
-            </div>
-          </div>
+          <p className="flex items-center gap-2 font-semibold"><ShieldAlert className="h-5 w-5 shrink-0 text-warn"/>Record deletion is not available here.</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <ApprovalStep label="POLICENET admin · SGT rank" state="Unavailable here"/>
             <ApprovalStep label="POLICENET admin · LT rank" state="Unavailable here"/>
-          </div>
-          <div className="rounded border-l-4 border-primary bg-primary/[0.04] p-3 text-sm">
-            <p className="font-semibold">Your boundary</p>
-            <p className="mt-1 text-muted-foreground">The two-person rule applies only to deleting training records. It does not apply to other technical work. This role cannot change training judgments or bypass operational access rules.</p>
           </div>
         </div>
       </Panel>
@@ -54,25 +45,10 @@ export default function RoleAccessPage() {
     <PageHead kicker="POLICENET · technical work" title="Prepare and test changes"/>
     <Panel title="Technical test tools are unavailable">
       <div className="space-y-4 p-4 sm:p-5" role="status" data-testid="status-policenet-tools-unavailable">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"><Wrench className="h-5 w-5"/></span>
-          <div><p className="font-semibold">Your next step is technical preparation.</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">POLICENET staff prepare and test technical changes. Approved test tools are unavailable for this account.</p>
-          </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <TechStep title="Prepare" detail="Plan the technical change"/>
-          <TechStep title="Test" detail="Use an approved test environment"/>
-            <TechStep title="Delete records" detail="Requires separate SGT- and LT-rank admin approvals"/>
-        </div>
         <p className="flex items-center gap-2 rounded border bg-muted/50 p-3 text-sm text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0"/>This role cannot access operational training records.</p>
       </div>
     </Panel>
   </div>;
-}
-
-function TechStep({title,detail}:{title:string;detail:string}) {
-  return <div className="rounded border bg-card p-3"><div className="flex items-center gap-2 text-sm font-semibold"><ArrowRight className="h-3.5 w-3.5 text-primary"/>{title}</div><p className="mt-1 text-xs text-muted-foreground">{detail}</p></div>;
 }
 
 function ApprovalStep({label,state}:{label:string;state:string}) {

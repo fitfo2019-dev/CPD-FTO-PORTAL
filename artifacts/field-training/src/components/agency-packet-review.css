@@ -20,7 +20,6 @@
 .apr-list-head{padding:15px 17px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .apr-list-head h2{font:700 14px Manrope,sans-serif;color:var(--navy);margin:0}
 .apr-count{font:10px 'DM Mono',monospace;color:#829095;letter-spacing:.06em}
-.apr-list-sub{font-size:11px;color:#859196;padding:0 17px 12px;margin:0;border-bottom:1px solid #edf0ee}
 .apr-row{display:block;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid #e9eeeb;padding:14px 16px;color:inherit;transition:background .15s}
 .apr-row:hover{background:#f6f8f6}.apr-row.selected{background:#edf3ef;box-shadow:inset 3px 0 #568173}
 .apr-row-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
