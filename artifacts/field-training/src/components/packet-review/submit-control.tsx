@@ -5,7 +5,17 @@ import {Button} from '@/components/ui/button.js';
 import {usePacketReview,packetReviewError} from '@/state/packet-review.js';
 import {useWorkspace} from '@/state/workspace.js';
 
-export function PacketSubmitControl({reportId,disabled}:{reportId:string;disabled?:boolean}) {
+export function PacketSubmitControl({
+  reportId,
+  disabled,
+  missingIncidentNumberCount=0,
+  onReturnToMissingRun,
+}:{
+  reportId:string;
+  disabled?:boolean;
+  missingIncidentNumberCount?:number;
+  onReturnToMissingRun?:()=>void;
+}) {
   const {context,previewOnly,finalizeReport}=usePacketReview();
   const {ws}=useWorkspace();
   const [open,setOpen]=useState(false);
@@ -33,8 +43,13 @@ export function PacketSubmitControl({reportId,disabled}:{reportId:string;disable
       <AlertDialogContent className="sm:rounded-none">
         <AlertDialogTitle className="tracking-[0.06em]">FINALIZE AND SUBMIT TO COORDINATOR</AlertDialogTitle>
         <AlertDialogDescription>This packet will be sent only to the FTO Coordinator assigned to this probationary officer. On success the packet is sealed and can only change through a Coordinator-requested correction.</AlertDialogDescription>
+        {missingIncidentNumberCount>0&&<div role="alert" className="rounded border border-warn bg-warn/5 p-3 text-sm" data-testid="warning-missing-incident-number">
+          <b className="block">{missingIncidentNumberCount===1?'Dispatched run is missing an incident number':`${missingIncidentNumberCount} dispatched runs are missing incident numbers`}</b>
+          <p className="mt-1">Return to the run details to add the missing number, or continue if an older record has no number available.</p>
+        </div>}
         {failure&&<p role="alert" className="text-sm text-destructive">{failure}</p>}
         <AlertDialogFooter>
+          {missingIncidentNumberCount>0&&onReturnToMissingRun&&<Button type="button" variant="outline" disabled={busy} onClick={()=>{setOpen(false);onReturnToMissingRun();}} data-testid="button-return-to-missing-run">RETURN TO RUN DETAILS</Button>}
           <AlertDialogCancel disabled={busy} data-testid="button-cancel-submit">CANCEL</AlertDialogCancel>
           <Button data-testid="button-confirm-submit" disabled={busy} onClick={()=>void submit()}>{busy?'SUBMITTING…':'CONFIRM SUBMISSION'}</Button>
         </AlertDialogFooter>

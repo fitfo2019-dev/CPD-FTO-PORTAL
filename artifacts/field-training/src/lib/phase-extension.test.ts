@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { PhaseExtensionReviewView } from '../components/phase-extension-panel.js';
 import { createEmptyWorkspace } from './empty-workspace.js';
 import { applyApprovedPhaseExtensions, approvePhaseExtension, denyPhaseExtension, normalizePhaseExtensionRequests, phaseExtensionRequestInputSchema } from './phase-extension.js';
+import { reviewSharedPhaseExtensionRequest } from './phase-extension-api.js';
 import { OfflineStorage } from './offlineStorage.js';
 import type { PhaseCaseFolder, PhaseExtensionRequest, Workspace } from './model.js';
 import { seedReports } from './seed.js';
@@ -293,15 +294,18 @@ test('legacy local request drafts remain unsent while shared pending requests ex
   assert.deepEqual(restoredRequests,[{...request,status:'local_draft'}]);
   const pendingSharedRequest={...request,status:'pending' as const};
   let reviewedDecision:string|undefined;
+  let reviewedExplanation:string|undefined;
   const review=()=>PhaseExtensionReviewView({
     requests:[pendingSharedRequest],
-    onReview:async(_id,approve)=>{reviewedDecision=approve?'approved':'denied';},
+    onReview:async(_id,approve,explanation)=>{reviewedDecision=approve?'approved':'denied';reviewedExplanation=explanation;},
   });
 
   const approveMarkup=renderToStaticMarkup(review());
-  assert.match(approveMarkup,/Pending phase extension requests · 1/);
+  assert.match(approveMarkup,/Phase extension requests · 1/);
   assert.match(approveMarkup,/Example PO/);
   assert.match(approveMarkup,/Need one additional training week\./);
+  assert.match(approveMarkup,/Denial explanation \(optional\)/);
+  assert.match(approveMarkup,/maxlength="500"/i);
   const approveButton=findByTestId(review(),'button-approve-extension-extension-1');
   assert.ok(approveButton);
   assert.equal(approveButton.props.disabled,false);
@@ -310,5 +314,70 @@ test('legacy local request drafts remain unsent while shared pending requests ex
   await (approve as () => void)();
   assert.equal(reviewedDecision,'approved');
   assert.deepEqual((await coordinatorVault.get<Workspace>('workspace'))?.phaseExtensionRequests,[request]);
+
+  reviewedDecision=undefined;
+  const denyButton=findByTestId(review(),'button-deny-extension-extension-1');
+  assert.ok(denyButton);
+  const deny=denyButton.props.onClick;
+  assert.equal(typeof deny,'function');
+  await (deny as (event:unknown)=>void)({
+    currentTarget:{
+      closest:()=>({querySelector:()=>({value:'Include the planned coaching dates.'})}),
+    },
+  });
+  await Promise.resolve();
+  assert.equal(reviewedDecision,'denied');
+  assert.equal(reviewedExplanation,'Include the planned coaching dates.');
+
+  const deniedMarkup=renderToStaticMarkup(PhaseExtensionReviewView({
+    requests:[{...pendingSharedRequest,status:'denied',denialExplanation:'Include the planned coaching dates.'}],
+    onReview:async()=>{},
+  }));
+  assert.match(deniedMarkup,/Coordinator explanation/);
+  assert.match(deniedMarkup,/Include the planned coaching dates\./);
+  assert.doesNotMatch(deniedMarkup,/button-approve-extension/);
   coordinatorVault.lock();
+});
+
+test('shared review sends an optional denial explanation and leaves approval unchanged',async()=>{
+  const originalFetch=globalThis.fetch;
+  let body:Record<string,unknown>|undefined;
+  globalThis.fetch=async(_input,_init)=>{
+    body=JSON.parse(String(_init?.body)) as Record<string,unknown>;
+    const denied=body.decision==='deny';
+    return new Response(JSON.stringify({
+      status:'success',
+      metadata:{total_records:1,role:'FTO_COORDINATOR'},
+      data:[{
+        ...request,
+        status:denied?'denied':'approved',
+        reviewedAt:'2027-01-31T12:00:00.000Z',
+        denialExplanation:denied?body.denialExplanation??null:null,
+      }],
+    }),{status:200,headers:{'content-type':'application/json'}});
+  };
+  try{
+    const denial=await reviewSharedPhaseExtensionRequest(
+      'test-token',
+      request.id,
+      false,
+      ' Include the planned coaching dates. ',
+    );
+    assert.deepEqual(body,{
+      decision:'deny',
+      denialExplanation:'Include the planned coaching dates.',
+    });
+    assert.equal(denial.denialExplanation,'Include the planned coaching dates.');
+
+    const approval=await reviewSharedPhaseExtensionRequest(
+      'test-token',
+      request.id,
+      true,
+      'This text must not be sent with an approval.',
+    );
+    assert.deepEqual(body,{decision:'approve'});
+    assert.equal(approval.denialExplanation,undefined);
+  }finally{
+    globalThis.fetch=originalFetch;
+  }
 });

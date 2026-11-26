@@ -5,25 +5,57 @@ import type { AgencyIdentity } from "../security/agencyIdentity.js";
 import { PacketError } from "./packet-errors.js";
 import { getAgencyDatabasePool } from "./agency-database.js";
 import { hashUserIdentifier } from "../utils/cryptoUtils.js";
+import { summarizePacketPoTotals } from "./packet-po-totals.js";
 
 const columns=`s.id,s.packet_id,s.packet_version,s.coordinator_id,d.name AS coordinator_name,
- s.state,(s.report->>'date') AS record_date,(s.report->>'recruitName') AS po_name,
- (s.report->>'ftoName') AS fto_name,s.submitted_at::text,s.acknowledged_at::text,
- s.reviewed_at::text,s.review_note`;
+ s.state,(s.report->>'date') AS record_date,
+ CASE WHEN $1='PO' THEN '' ELSE (s.report->>'recruitName') END AS po_name,
+ CASE WHEN $1='PO' THEN '' ELSE (s.report->>'ftoName') END AS fto_name,
+ ($1='FTO' AND s.fto_id=$2) AS can_correct,
+ s.submitted_at::text,s.acknowledged_at::text,
+ s.po_reviewed_at::text AS po_reviewed_at,s.reviewed_at::text,
+ CASE WHEN $1='PO' THEN '' ELSE s.review_note END AS review_note,p.released_at::text AS released_at,
+ (SELECT k.acknowledged_at::text FROM agency_training.packet_acknowledgments k
+   WHERE k.packet_id=p.id AND k.content_hash=p.content_hash) AS po_acknowledged_at,
+ CASE
+   WHEN p.withdrawn_at IS NOT NULL OR s.state='withdrawn' THEN 'withdrawn'
+   WHEN s.state='correction_requested' THEN 'correction_requested'
+   WHEN s.state='submitted' AND s.po_reviewed_at IS NULL THEN 'awaiting_po_totals_review'
+   WHEN s.state='submitted' THEN 'awaiting_coordinator_receipt'
+   WHEN s.state='acknowledged' THEN 'coordinator_review'
+   WHEN s.state='approved' AND p.released_to_po AND EXISTS(
+     SELECT 1 FROM agency_training.packet_acknowledgments k
+     WHERE k.packet_id=p.id AND k.content_hash=p.content_hash) THEN 'po_acknowledged'
+   WHEN s.state='approved' AND p.released_to_po THEN 'awaiting_po_acknowledgment'
+   WHEN s.state='approved' THEN 'awaiting_po_release'
+   ELSE 'draft'
+ END AS handoff_status`;
 const joins=`FROM agency_training.packet_submissions s
  JOIN agency_training.coordinator_directory d ON d.id=s.coordinator_id
  JOIN agency_training.po_coordinators pc ON pc.po_id=s.po_id
  JOIN agency_training.packet_assignments pa ON pa.packet_id=s.packet_id AND pa.active
  JOIN agency_training.assignments a ON a.id=pa.assignment_id AND a.active AND a.po_id_hash=pc.po_id_hash
  JOIN agency_training.packets p ON p.id=s.packet_id AND p.assignment_id=a.id`;
-const scope=`(($1='FTO' AND s.fto_id=$2 AND a.fto_id=$2 AND a.fto_badge=$3
-   AND a.fto_id_hash=$5 AND a.fto_badge_hash=$6)
+const scope=`(
+  ($1='FTO' AND s.fto_id=$2 AND a.fto_id=$2 AND a.fto_badge=$3
+    AND a.fto_id_hash=$5 AND a.fto_badge_hash=$6)
+  OR ($1='FTO' AND EXISTS(
+    SELECT 1 FROM agency_training.assignments staff
+    WHERE staff.active AND staff.class_name=a.class_name
+      AND staff.fto_id_hash=$5 AND staff.fto_badge_hash=$6))
  OR ($1='PO' AND s.po_id=$2 AND a.po_id=$2 AND a.po_badge=$3
    AND a.po_id_hash=$5 AND a.po_badge_hash=$6
-   AND p.released_to_po AND p.withdrawn_at IS NULL AND p.submission_status='submitted'
-   AND s.state='approved' AND s.packet_version=p.server_version
-   AND (s.report-'status')=(p.report-'status'))
- OR ($1='FTO_COORDINATOR' AND pc.coordinator_id=$2))`;
+   AND p.withdrawn_at IS NULL AND p.submission_status='submitted'
+   AND s.packet_version=p.server_version
+   AND (s.report-'status')=(p.report-'status')
+   AND ((s.state='submitted' AND s.po_reviewed_at IS NULL)
+     OR (s.state='approved' AND p.released_to_po)))
+ OR ($1='FTO_COORDINATOR' AND pc.coordinator_id=$2
+    AND s.po_reviewed_at IS NOT NULL)
+  OR ($1 IN ('FTO_COC','POLICENET','POLICENET_ADMIN_SGT') AND EXISTS(
+    SELECT 1 FROM agency_training.staff_class_read_grants g
+    WHERE g.identity_id_hash=$5 AND g.identity_role=$1
+      AND g.class_name=a.class_name AND g.active)))`;
 
 async function transaction<T>(pool:pg.Pool,run:(client:pg.PoolClient)=>Promise<T>):Promise<T> {
   const client=await pool.connect();
@@ -64,11 +96,23 @@ export async function registerPacketSubmission(
 
 export function createPacketReviewStore(pool:pg.Pool) {
   async function pending(identity:AgencyIdentity,client:pg.Pool|pg.PoolClient=pool) {
-    if(identity.role!=="FTO_COORDINATOR") return {count:0,item:null};
+    if(identity.role!=="FTO_COORDINATOR"&&identity.role!=="PO") return {count:0,item:null};
+    const isPo=identity.role==="PO";
     const result=await client.query<PacketSubmission&{pending_count:string}>(
       `SELECT ${columns},count(*) OVER()::text AS pending_count ${joins}
-       WHERE pc.coordinator_id=$1 AND s.coordinator_id=$1 AND s.state='submitted'
-       ORDER BY s.submitted_at,s.id LIMIT 1`,[identity.id]);
+       WHERE ${isPo
+         ? `s.po_id=$2 AND a.po_id=$2 AND a.po_badge=$3
+            AND a.po_id_hash=$4 AND a.po_badge_hash=$5
+            AND s.state='submitted' AND s.po_reviewed_at IS NULL
+            AND p.submission_status='submitted' AND p.withdrawn_at IS NULL
+            AND s.packet_version=p.server_version
+            AND (s.report-'status')=(p.report-'status')`
+         : `pc.coordinator_id=$2 AND s.coordinator_id=$2 AND s.state='submitted'
+            AND s.po_reviewed_at IS NOT NULL`}
+       ORDER BY s.submitted_at,s.id LIMIT 1`,
+      isPo
+        ? ["PO",identity.id,identity.badge,hashUserIdentifier(identity.id),hashUserIdentifier(identity.badge)]
+        : ["FTO_COORDINATOR",identity.id]);
     const row=result.rows[0];
     if(!row) return {count:0,item:null};
     const {pending_count,...item}=row;
@@ -78,7 +122,8 @@ export function createPacketReviewStore(pool:pg.Pool) {
     pending,
     async context(identity:AgencyIdentity) {
       const [directory,assignments,unread]=await Promise.all([
-        pool.query(`SELECT id,name FROM agency_training.coordinator_directory WHERE active ORDER BY name,id`),
+        pool.query(`SELECT id,name FROM agency_training.coordinator_directory
+          WHERE active AND $1 IN ('PO','FTO_COORDINATOR') ORDER BY name,id`,[identity.role]),
         pool.query(`SELECT pc.po_id,pc.po_badge,pc.coordinator_id,pc.revision
           FROM agency_training.po_coordinators pc
           WHERE ($1='PO' AND pc.po_id=$2 AND pc.po_badge=$3)
@@ -149,18 +194,47 @@ export function createPacketReviewStore(pool:pg.Pool) {
            [identity.role,identity.id,identity.badge,id,hashUserIdentifier(identity.id),hashUserIdentifier(identity.badge)]);
         if(!result.rows[0]) throw new PacketError(404,"SUBMISSION_NOT_FOUND");
         const {report,...submission}=result.rows[0];
-        const history=await client.query(`SELECT e.action,e.occurred_at::text,e.note
+        const poTotals=identity.role==="PO"
+          ? await client.query<{report:unknown;record_date:string}>(`SELECT s.report,p.record_date::text
+              FROM agency_training.packet_submissions s
+              JOIN agency_training.packets p ON p.id=s.packet_id AND p.server_version=s.packet_version
+              WHERE s.po_id=$1 AND p.submission_status='submitted' AND p.withdrawn_at IS NULL
+                AND s.state IN ('submitted','acknowledged','approved')
+                AND p.record_date BETWEEN date_trunc('month',$2::date)::date AND $2::date
+                AND (s.report-'status')=(p.report-'status')
+              ORDER BY p.record_date,s.packet_id`,
+            [identity.id,submission.record_date])
+          : null;
+        const history=await client.query(`SELECT e.action,e.occurred_at::text,
+            CASE WHEN $2='PO' THEN '' ELSE e.note END AS note
           FROM agency_training.packet_review_events e
           JOIN agency_training.packet_submissions s ON s.id=e.submission_id
-          WHERE s.packet_id=$1 AND ($2<>'PO' OR e.submission_id=$3)
+          WHERE s.packet_id=$1 AND ($2<>'PO' OR
+            (e.submission_id=$3 AND e.action IN ('PO_TOTALS_REVIEWED','PO_OPENED_TOTALS')))
           ORDER BY e.id`,[submission.packet_id,identity.role,id]);
-        await event(client,identity,id,"OPENED_FOR_REVIEW");
-        return {submission,report,history:history.rows};
+        if(identity.role==="PO") await event(client,identity,id,"PO_OPENED_TOTALS");
+        else await event(client,identity,id,"OPENED_FOR_REVIEW");
+        return {
+          submission:identity.role==="PO" ? {...submission,review_note:""} : submission,
+          report:identity.role==="PO" ? null : report,
+          po_totals:poTotals ? summarizePacketPoTotals(poTotals.rows,submission.record_date) : null,
+          history:history.rows,
+        };
       });
     },
     async act(identity:AgencyIdentity,id:string,input:PacketReviewActionInput) {
-      if(identity.role!=="FTO_COORDINATOR") throw new PacketError(403,"REVIEW_FORBIDDEN");
+      const poTotalsReview=identity.role==="PO"&&input.action==="review_totals";
+      if(input.action==="review_totals"&&!poTotalsReview) throw new PacketError(403,"REVIEW_FORBIDDEN");
+      if(identity.role!=="FTO_COORDINATOR"&&!poTotalsReview) throw new PacketError(403,"REVIEW_FORBIDDEN");
       return transaction(pool,async client=>{
+        const replay=await client.query<{actor_hash:string;submission_id:string;action:string;note:string;receipt:PacketSubmission}>(
+          "SELECT * FROM agency_training.packet_review_operations WHERE operation_id=$1",[input.operation_id]);
+        if(replay.rows[0]) {
+          const prior=replay.rows[0];
+          if(prior.actor_hash!==hashUserIdentifier(identity.id)||prior.submission_id!==id||
+            prior.action!==input.action||prior.note!==input.note) throw new PacketError(409,"REVIEW_OPERATION_CONFLICT");
+          return prior.receipt;
+        }
         const ownership=await client.query<{packet_id:string;po_id:string}>(
           `SELECT s.packet_id,s.po_id ${joins} WHERE ${scope} AND s.id=$4`,
           [identity.role,identity.id,identity.badge,id,hashUserIdentifier(identity.id),hashUserIdentifier(identity.badge)]);
@@ -168,7 +242,8 @@ export function createPacketReviewStore(pool:pg.Pool) {
         await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[ownership.rows[0].packet_id]);
         await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[`po:${ownership.rows[0].po_id}`]);
         const result=await client.query<PacketSubmission>(
-          `SELECT ${columns} ${joins} WHERE ${scope} AND s.id=$4 AND s.coordinator_id=$2
+          `SELECT ${columns} ${joins} WHERE ${scope} AND s.id=$4
+           AND ($1<>'FTO_COORDINATOR' OR s.coordinator_id=$2)
            FOR UPDATE OF s,pc`,[identity.role,identity.id,identity.badge,id,hashUserIdentifier(identity.id),hashUserIdentifier(identity.badge)]);
         const current=result.rows[0];
         if(!current) throw new PacketError(404,"SUBMISSION_NOT_FOUND");
@@ -180,7 +255,12 @@ export function createPacketReviewStore(pool:pg.Pool) {
             retry.action!==input.action||retry.note!==input.note) throw new PacketError(409,"REVIEW_OPERATION_CONFLICT");
           return retry.receipt;
         }
-        if(input.action==="acknowledge") {
+        if(input.action==="review_totals") {
+          if(identity.role!=="PO") throw new PacketError(403,"REVIEW_FORBIDDEN");
+          if(current.state!=="submitted"||current.po_reviewed_at) throw new PacketError(409,"REVIEW_STATE_CHANGED");
+          await client.query(`UPDATE agency_training.packet_submissions SET po_reviewed_at=now() WHERE id=$1`,[id]);
+          await event(client,identity,id,"PO_TOTALS_REVIEWED");
+        } else if(input.action==="acknowledge") {
           if(current.state!=="submitted") {
             // Acknowledgment on another device is already durable.
             if(current.state!=="acknowledged") throw new PacketError(409,"REVIEW_STATE_CHANGED");
@@ -205,7 +285,8 @@ export function createPacketReviewStore(pool:pg.Pool) {
             [current.packet_id,current.packet_version]);
           await event(client,identity,id,input.action==="approve"?"APPROVED":"CORRECTION_REQUESTED",input.note);
         }
-        const saved=await client.query<PacketSubmission>(`SELECT ${columns} ${joins} WHERE s.id=$1`,[id]);
+         const saved=await client.query<PacketSubmission>(`SELECT ${columns} ${joins} WHERE s.id=$3`,
+           [identity.role,identity.id,id]);
         const receipt=saved.rows[0];
         await client.query(`INSERT INTO agency_training.packet_review_operations
           (operation_id,actor_hash,submission_id,action,note,receipt) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,

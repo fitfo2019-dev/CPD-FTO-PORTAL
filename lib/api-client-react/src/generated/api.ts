@@ -26,11 +26,15 @@ import type {
 
 import type {
   ApiError,
+  AssignmentTransitionContext,
+  AssignmentTransitionEnvelope,
+  AssignmentTransitionHistoryPage,
   AuditLogsEnvelope,
   DispatchEventIngressEnvelope,
   DispatchEventIngressInput,
   DispatchIncidentEnvelope,
   DispatchIncidentLookupInput,
+  GetAssignmentTransitionHistoryParams,
   GetOperationalProfileHistoryParams,
   HealthEnvelope,
   ListPacketSubmissionsParams,
@@ -57,8 +61,10 @@ import type {
   StagingTrainingEnvelope,
   StagingTrainingInput,
   StagingTrainingUpdate,
+  SuccessorAssignmentInput,
   TrainingPacketAcknowledgmentInput,
-  TrainingPacketFinalizeInput,
+  TrainingPacketFinalizationInput,
+  TrainingPacketFinalizationReceipt,
   TrainingPacketReviewInput,
   TrainingPacketSyncEnvelope,
   TrainingPacketSyncInput,
@@ -94,6 +100,195 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export const getGetOperationalProfileUrl = () => {
+
+
+
+
+  return `/api/v1/account/operational-profile`
+}
+
+/**
+ * @summary Read the verified account's operational profile
+ */
+export const getOperationalProfile = async ( options?: Parameters<typeof customFetch>[1]): Promise<OperationalProfileContext> => {
+
+  return customFetch<OperationalProfileContext>(getGetOperationalProfileUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOperationalProfileQueryKey = () => {
+    return [
+    `/api/v1/account/operational-profile`
+    ] as const;
+    }
+
+
+export const getGetOperationalProfileQueryOptions = <TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOperationalProfileQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOperationalProfile>>> = ({ signal }) => getOperationalProfile({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetOperationalProfileQueryResult = NonNullable<Awaited<ReturnType<typeof getOperationalProfile>>>
+export type GetOperationalProfileQueryError = ErrorType<void>
+
+
+export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOperationalProfile>>,
+          TError,
+          Awaited<ReturnType<typeof getOperationalProfile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOperationalProfile>>,
+          TError,
+          Awaited<ReturnType<typeof getOperationalProfile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read the verified account's operational profile
+ */
+
+export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetOperationalProfileQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateOperationalProfileUrl = () => {
+
+
+
+
+  return `/api/v1/account/operational-profile`
+}
+
+/**
+ * @summary Update the verified account's operational profile
+ */
+export const updateOperationalProfile = async (operationalProfileInput: OperationalProfileInput, options?: Parameters<typeof customFetch>[1]): Promise<OperationalProfileContext> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<OperationalProfileContext>(getUpdateOperationalProfileUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(operationalProfileInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateOperationalProfileMutationKey = () => ['updateOperationalProfile'] as const;
+
+export const getUpdateOperationalProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOperationalProfile>>, TError,UpdateOperationalProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOperationalProfile>>, TError,UpdateOperationalProfileMutationVariables, TContext> => {
+
+const mutationKey = getUpdateOperationalProfileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOperationalProfile>>, UpdateOperationalProfileMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateOperationalProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOperationalProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateOperationalProfile>>>
+    export type UpdateOperationalProfileMutationBody = BodyType<OperationalProfileInput>
+    export type UpdateOperationalProfileMutationError = ErrorType<void>
+    export type UpdateOperationalProfileMutationVariables = {data: BodyType<OperationalProfileInput>}
+
+    /**
+ * @summary Update the verified account's operational profile
+ */
+export const useUpdateOperationalProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOperationalProfile>>, TError,UpdateOperationalProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateOperationalProfile>>,
+        TError,
+        UpdateOperationalProfileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateOperationalProfileMutationOptions(options), queryClient);
+    }
+
 export const getGetOperationalProfileHistoryUrl = (params?: GetOperationalProfileHistoryParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -111,6 +306,7 @@ export const getGetOperationalProfileHistoryUrl = (params?: GetOperationalProfil
 
 /**
  * Own-account history only. Identity and actor come from the verified server session. No account selector is accepted.
+ * @summary Read the verified account's profile change history
  */
 export const getOperationalProfileHistory = async (params?: GetOperationalProfileHistoryParams, options?: Parameters<typeof customFetch>[1]): Promise<OperationalProfileHistory> => {
 
@@ -180,6 +376,9 @@ export function useGetOperationalProfileHistory<TData = Awaited<ReturnType<typeo
  params?: GetOperationalProfileHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfileHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read the verified account's profile change history
+ */
 
 export function useGetOperationalProfileHistory<TData = Awaited<ReturnType<typeof getOperationalProfileHistory>>, TError = ErrorType<void>>(
  params?: GetOperationalProfileHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfileHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
@@ -198,183 +397,6 @@ export function useGetOperationalProfileHistory<TData = Awaited<ReturnType<typeo
 
 
 
-
-export const getGetOperationalProfileUrl = () => {
-
-
-
-
-  return `/api/v1/account/operational-profile`
-}
-
-export const getOperationalProfile = async ( options?: Parameters<typeof customFetch>[1]): Promise<OperationalProfileContext> => {
-
-  return customFetch<OperationalProfileContext>(getGetOperationalProfileUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetOperationalProfileQueryKey = () => {
-    return [
-    `/api/v1/account/operational-profile`
-    ] as const;
-    }
-
-
-export const getGetOperationalProfileQueryOptions = <TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetOperationalProfileQueryKey();
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOperationalProfile>>> = ({ signal }) => getOperationalProfile({ signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
-}
-
-export type GetOperationalProfileQueryResult = NonNullable<Awaited<ReturnType<typeof getOperationalProfile>>>
-export type GetOperationalProfileQueryError = ErrorType<void>
-
-
-export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getOperationalProfile>>,
-          TError,
-          Awaited<ReturnType<typeof getOperationalProfile>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getOperationalProfile>>,
-          TError,
-          Awaited<ReturnType<typeof getOperationalProfile>>
-        > , 'initialData'
-      >, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-
-export function useGetOperationalProfile<TData = Awaited<ReturnType<typeof getOperationalProfile>>, TError = ErrorType<void>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOperationalProfile>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
-
-  const queryOptions = getGetOperationalProfileQueryOptions(options)
-
-  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getUpdateOperationalProfileUrl = () => {
-
-
-
-
-  return `/api/v1/account/operational-profile`
-}
-
-export const updateOperationalProfile = async (operationalProfileInput: OperationalProfileInput, options?: Parameters<typeof customFetch>[1]): Promise<OperationalProfileContext> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return customFetch<OperationalProfileContext>(getUpdateOperationalProfileUrl(),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(operationalProfileInput)
-  }
-);}
-
-
-
-
-
-export const getUpdateOperationalProfileMutationKey = () => ['updateOperationalProfile'] as const;
-
-export const getUpdateOperationalProfileMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOperationalProfile>>, TError,UpdateOperationalProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateOperationalProfile>>, TError,UpdateOperationalProfileMutationVariables, TContext> => {
-
-const mutationKey = getUpdateOperationalProfileMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOperationalProfile>>, UpdateOperationalProfileMutationVariables> = (props) => {
-          const {data} = props ?? {};
-
-          return  updateOperationalProfile(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateOperationalProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateOperationalProfile>>>
-    export type UpdateOperationalProfileMutationBody = BodyType<OperationalProfileInput>
-    export type UpdateOperationalProfileMutationError = ErrorType<void>
-    export type UpdateOperationalProfileMutationVariables = {data: BodyType<OperationalProfileInput>}
-
-    export const useUpdateOperationalProfile = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOperationalProfile>>, TError,UpdateOperationalProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof updateOperationalProfile>>,
-        TError,
-        UpdateOperationalProfileMutationVariables,
-        TContext
-      > => {
-      return useMutation(getUpdateOperationalProfileMutationOptions(options), queryClient);
-    }
 
 export const getClearOperationalProfileUrl = () => {
 
@@ -913,6 +935,285 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getActOnPacketSubmissionMutationOptions(options), queryClient);
+    }
+
+export const getGetAssignmentTransitionContextUrl = () => {
+
+
+
+
+  return `/api/v1/agency/assignment-transitions/context`
+}
+
+export const getAssignmentTransitionContext = async ( options?: Parameters<typeof customFetch>[1]): Promise<AssignmentTransitionContext> => {
+
+  return customFetch<AssignmentTransitionContext>(getGetAssignmentTransitionContextUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAssignmentTransitionContextQueryKey = () => {
+    return [
+    `/api/v1/agency/assignment-transitions/context`
+    ] as const;
+    }
+
+
+export const getGetAssignmentTransitionContextQueryOptions = <TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAssignmentTransitionContextQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAssignmentTransitionContext>>> = ({ signal }) => getAssignmentTransitionContext({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAssignmentTransitionContextQueryResult = NonNullable<Awaited<ReturnType<typeof getAssignmentTransitionContext>>>
+export type GetAssignmentTransitionContextQueryError = ErrorType<void>
+
+
+export function useGetAssignmentTransitionContext<TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssignmentTransitionContext>>,
+          TError,
+          Awaited<ReturnType<typeof getAssignmentTransitionContext>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAssignmentTransitionContext<TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssignmentTransitionContext>>,
+          TError,
+          Awaited<ReturnType<typeof getAssignmentTransitionContext>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAssignmentTransitionContext<TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetAssignmentTransitionContext<TData = Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionContext>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAssignmentTransitionContextQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAssignmentTransitionHistoryUrl = (params: GetAssignmentTransitionHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/agency/assignment-transitions/history?${stringifiedParams}` : `/api/v1/agency/assignment-transitions/history`
+}
+
+export const getAssignmentTransitionHistory = async (params: GetAssignmentTransitionHistoryParams, options?: Parameters<typeof customFetch>[1]): Promise<AssignmentTransitionHistoryPage> => {
+
+  return customFetch<AssignmentTransitionHistoryPage>(getGetAssignmentTransitionHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAssignmentTransitionHistoryQueryKey = (params?: GetAssignmentTransitionHistoryParams,) => {
+    return [
+    `/api/v1/agency/assignment-transitions/history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAssignmentTransitionHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(params: GetAssignmentTransitionHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAssignmentTransitionHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>> = ({ signal }) => getAssignmentTransitionHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAssignmentTransitionHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>>
+export type GetAssignmentTransitionHistoryQueryError = ErrorType<void>
+
+
+export function useGetAssignmentTransitionHistory<TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(
+ params: GetAssignmentTransitionHistoryParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssignmentTransitionHistory>>,
+          TError,
+          Awaited<ReturnType<typeof getAssignmentTransitionHistory>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAssignmentTransitionHistory<TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(
+ params: GetAssignmentTransitionHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssignmentTransitionHistory>>,
+          TError,
+          Awaited<ReturnType<typeof getAssignmentTransitionHistory>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAssignmentTransitionHistory<TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(
+ params: GetAssignmentTransitionHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetAssignmentTransitionHistory<TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(
+ params: GetAssignmentTransitionHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAssignmentTransitionHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSuccessorAssignmentUrl = () => {
+
+
+
+
+  return `/api/v1/agency/assignment-transitions`
+}
+
+export const createSuccessorAssignment = async (successorAssignmentInput: SuccessorAssignmentInput, options?: Parameters<typeof customFetch>[1]): Promise<AssignmentTransitionEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AssignmentTransitionEnvelope>(getCreateSuccessorAssignmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(successorAssignmentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSuccessorAssignmentMutationKey = () => ['createSuccessorAssignment'] as const;
+
+export const getCreateSuccessorAssignmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSuccessorAssignment>>, TError,CreateSuccessorAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSuccessorAssignment>>, TError,CreateSuccessorAssignmentMutationVariables, TContext> => {
+
+const mutationKey = getCreateSuccessorAssignmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSuccessorAssignment>>, CreateSuccessorAssignmentMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSuccessorAssignment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSuccessorAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof createSuccessorAssignment>>>
+    export type CreateSuccessorAssignmentMutationBody = BodyType<SuccessorAssignmentInput>
+    export type CreateSuccessorAssignmentMutationError = ErrorType<void>
+    export type CreateSuccessorAssignmentMutationVariables = {data: BodyType<SuccessorAssignmentInput>}
+
+    export const useCreateSuccessorAssignment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSuccessorAssignment>>, TError,CreateSuccessorAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createSuccessorAssignment>>,
+        TError,
+        CreateSuccessorAssignmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateSuccessorAssignmentMutationOptions(options), queryClient);
     }
 
 export const getListStagingTrainingRecordsUrl = () => {
@@ -1795,8 +2096,8 @@ export const getGetTrainingPacketSyncReadinessUrl = () => {
 }
 
 /**
- * This reports service availability only. It does not validate a roster assignment or authorize finalization; each packet operation independently verifies the signed identity and server-held assignment.
- * @summary Check whether the agency draft-sync service is configured
+ * Automatic sync is enabled only for a verified FTO on an agency-configured network address. Manual sync still enforces signed role and server roster checks.
+ * @summary Check whether automatic packet sync is allowed
  */
 export const getTrainingPacketSyncReadiness = async ( options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketSyncReadinessEnvelope> => {
 
@@ -1867,7 +2168,7 @@ export function useGetTrainingPacketSyncReadiness<TData = Awaited<ReturnType<typ
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Check whether the agency draft-sync service is configured
+ * @summary Check whether automatic packet sync is allowed
  */
 
 export function useGetTrainingPacketSyncReadiness<TData = Awaited<ReturnType<typeof getTrainingPacketSyncReadiness>>, TError = ErrorType<ApiError>>(
@@ -1897,8 +2198,8 @@ export const getSyncTrainingPacketsUrl = () => {
 }
 
 /**
- * The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. Drafts remain editable and are excluded from Coordinator and PO reads until explicit finalization.
- * @summary Synchronize editable packet drafts as the assigned FTO
+ * Synchronization never submits a packet. Drafts are visible only to their assigned FTO and remain editable until the separate explicit finalization operation.
+ * @summary Save editable packet drafts as the assigned FTO
  */
 export const syncTrainingPackets = async (trainingPacketSyncInput: TrainingPacketSyncInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketSyncEnvelope> => {
 
@@ -1964,7 +2265,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type SyncTrainingPacketsMutationVariables = {data: BodyType<TrainingPacketSyncInput>}
 
     /**
- * @summary Synchronize editable packet drafts as the assigned FTO
+ * @summary Save editable packet drafts as the assigned FTO
  */
 export const useSyncTrainingPackets = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncTrainingPackets>>, TError,SyncTrainingPacketsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1975,96 +2276,6 @@ export const useSyncTrainingPackets = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getSyncTrainingPacketsMutationOptions(options), queryClient);
-    }
-
-export const getFinalizeTrainingPacketUrl = (id: string,) => {
-
-
-
-
-  return `/api/v1/training-packets/${id}/finalize`
-}
-
-/**
- * An authenticated FTO explicitly finalizes the current synchronized draft. The server atomically rechecks the signed identity, badge, active roster assignment, and exact content hash, seals the packet as submitted_complete, and exposes it only to the Coordinator assigned by the server roster. Idempotent retries are safe. This is not a signature, PO release, or acknowledgment.
- * @summary Explicitly submit an exact packet snapshot to its assigned Coordinator
- */
-export const finalizeTrainingPacket = async (id: string,
-    trainingPacketFinalizeInput: TrainingPacketFinalizeInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketsEnvelope> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return customFetch<TrainingPacketsEnvelope>(getFinalizeTrainingPacketUrl(id),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(trainingPacketFinalizeInput)
-  }
-);}
-
-
-
-
-
-export const getFinalizeTrainingPacketMutationKey = () => ['finalizeTrainingPacket'] as const;
-
-export const getFinalizeTrainingPacketMutationOptions = <TError = ErrorType<ApiError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext> => {
-
-const mutationKey = getFinalizeTrainingPacketMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof finalizeTrainingPacket>>, FinalizeTrainingPacketMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  finalizeTrainingPacket(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type FinalizeTrainingPacketMutationResult = NonNullable<Awaited<ReturnType<typeof finalizeTrainingPacket>>>
-    export type FinalizeTrainingPacketMutationBody = BodyType<TrainingPacketFinalizeInput>
-    export type FinalizeTrainingPacketMutationError = ErrorType<ApiError>
-    export type FinalizeTrainingPacketMutationVariables = {id: string;data: BodyType<TrainingPacketFinalizeInput>}
-
-    /**
- * @summary Explicitly submit an exact packet snapshot to its assigned Coordinator
- */
-export const useFinalizeTrainingPacket = <TError = ErrorType<ApiError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof finalizeTrainingPacket>>,
-        TError,
-        FinalizeTrainingPacketMutationVariables,
-        TContext
-      > => {
-      return useMutation(getFinalizeTrainingPacketMutationOptions(options), queryClient);
     }
 
 export const getReleaseTrainingPacketUrl = (id: string,) => {
@@ -2332,6 +2543,96 @@ export const useWithdrawTrainingPacket = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getWithdrawTrainingPacketMutationOptions(options), queryClient);
+    }
+
+export const getFinalizeTrainingPacketUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/training-packets/${id}/finalize`
+}
+
+/**
+ * Rechecks the active server roster, exact draft version, and content hash. Finalization sends the snapshot to the assigned PO for totals review; the Coordinator can see it only after that review.
+ * @summary Explicitly finalize a saved draft for its assigned Coordinator
+ */
+export const finalizeTrainingPacket = async (id: string,
+    trainingPacketFinalizationInput: TrainingPacketFinalizationInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingPacketFinalizationReceipt> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingPacketFinalizationReceipt>(getFinalizeTrainingPacketUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trainingPacketFinalizationInput)
+  }
+);}
+
+
+
+
+
+export const getFinalizeTrainingPacketMutationKey = () => ['finalizeTrainingPacket'] as const;
+
+export const getFinalizeTrainingPacketMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext> => {
+
+const mutationKey = getFinalizeTrainingPacketMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof finalizeTrainingPacket>>, FinalizeTrainingPacketMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  finalizeTrainingPacket(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FinalizeTrainingPacketMutationResult = NonNullable<Awaited<ReturnType<typeof finalizeTrainingPacket>>>
+    export type FinalizeTrainingPacketMutationBody = BodyType<TrainingPacketFinalizationInput>
+    export type FinalizeTrainingPacketMutationError = ErrorType<ApiError>
+    export type FinalizeTrainingPacketMutationVariables = {id: string;data: BodyType<TrainingPacketFinalizationInput>}
+
+    /**
+ * @summary Explicitly finalize a saved draft for its assigned Coordinator
+ */
+export const useFinalizeTrainingPacket = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finalizeTrainingPacket>>, TError,FinalizeTrainingPacketMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof finalizeTrainingPacket>>,
+        TError,
+        FinalizeTrainingPacketMutationVariables,
+        TContext
+      > => {
+      return useMutation(getFinalizeTrainingPacketMutationOptions(options), queryClient);
     }
 
 export const getGetTrainingPacketUrl = (id: string,) => {
@@ -2928,7 +3229,7 @@ export const getListPhaseExtensionRequestsUrl = () => {
 }
 
 /**
- * FTOs receive their own request statuses; FTO Coordinators receive pending requests. The server verifies the Clerk session and role metadata.
+ * FTOs receive their own request statuses; FTO Coordinators receive pending requests and denials with explanations within their current assignment scope. The server verifies the Clerk session and role metadata.
  * @summary List phase extension requests available to the signed-in staff member
  */
 export const listPhaseExtensionRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<PhaseExtensionRequestsEnvelope> => {
@@ -3119,7 +3420,7 @@ export const getReviewPhaseExtensionRequestUrl = (id: string,) => {
 }
 
 /**
- * The server verifies the signed-in Coordinator role and records the decision without trusting client role preview.
+ * The server verifies the signed-in Coordinator role and records the decision without trusting client role preview. A denial may include a short explanation; approval does not accept one.
  * @summary Approve or deny a pending request as an FTO Coordinator
  */
 export const reviewPhaseExtensionRequest = async (id: string,

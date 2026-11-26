@@ -1,4 +1,4 @@
-import type {PacketSubmission,PacketSubmissionState,PacketSubmissionDetail} from '@workspace/api-client-react';
+import type {PacketSubmission,PacketSubmissionState,PacketSubmissionDetail,PacketHandoffStatus} from '@workspace/api-client-react';
 import {CATEGORY_LABEL,type Category} from '@/lib/model.js';
 
 export const STATE_LABEL:Record<PacketSubmissionState,string>={
@@ -10,6 +10,20 @@ const STATE_TONE:Record<PacketSubmissionState,string>={
 };
 export function StatusTag({state}:{state:PacketSubmissionState}) {
   return <span data-testid={`status-packet-${state}`} className={`inline-block border-2 px-2 py-0.5 text-[0.68rem] font-bold tracking-[0.12em] ${STATE_TONE[state]}`}>{STATE_LABEL[state]}</span>;
+}
+export const HANDOFF_LABEL:Record<PacketHandoffStatus,string>={
+  draft:'DRAFT · NOT SUBMITTED',
+  awaiting_po_totals_review:'AWAITING PO REVIEW',
+  awaiting_coordinator_receipt:'AWAITING COORDINATOR RECEIPT',
+  coordinator_review:'COORDINATOR REVIEW',
+  correction_requested:'CORRECTION REQUESTED',
+  awaiting_po_release:'APPROVED · NOT RELEASED',
+  awaiting_po_acknowledgment:'RELEASED · PO RECEIPT PENDING',
+  po_acknowledged:'PO RECEIPT ACKNOWLEDGED',
+  withdrawn:'WITHDRAWN',
+};
+export function HandoffTag({status}:{status:PacketHandoffStatus}) {
+  return <span data-testid={`status-handoff-${status}`} className="inline-block border border-primary/40 px-2 py-0.5 text-[0.62rem] font-bold tracking-[0.08em] text-primary">{HANDOFF_LABEL[status]}</span>;
 }
 export const when=(value:string|null)=>value?new Date(value).toLocaleString():'—';
 
@@ -39,6 +53,9 @@ function Narrative({label,text}:{label:string;text:string}) {
 
 export function PacketDocument({detail}:{detail:PacketSubmissionDetail}) {
   const {report,submission,history}=detail;
+  if(!report) return <div className="border border-border bg-card p-4 text-sm text-muted-foreground" role="status" data-testid="packet-report-hidden">
+    The full report is not available in this view. POs receive their own UA details and period counts only.
+  </div>;
   const {id:_id,date,phase,className,recruitName,recruitBadge,ftoName,ftoBadge,runs,activity,reportingForDuty,ratings,status:_s,narrative,remedial,recruitComments,...rest}=report;
   void _id;void _s;
   const header={date,phase,className,recruitName,recruitBadge,ftoName,ftoBadge,

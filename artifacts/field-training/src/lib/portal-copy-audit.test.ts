@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import React, { act, createElement } from 'react';
-import { createRoot } from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 import { ApplicationHelpDesk } from '../components/application-help-desk.js';
 import {
@@ -68,6 +67,7 @@ async function withMountedHelpDesk(
     value: () => undefined,
   });
   const container = dom.window.document.getElementById('root')!;
+  const { createRoot } = await import('react-dom/client');
   const root = createRoot(container);
   const renderRole = async (role: Role) => {
     await act(async () => root.render(createElement(ApplicationHelpDesk, { role })));
@@ -86,6 +86,23 @@ async function withMountedHelpDesk(
     else delete (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT;
     dom.window.close();
   }
+}
+
+async function navigateHistory(direction: 'back' | 'forward') {
+  await act(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        window.removeEventListener('popstate', onPopState);
+        reject(new Error(`Timed out waiting for browser ${direction} navigation`));
+      }, 1000);
+      const onPopState = () => {
+        window.clearTimeout(timeout);
+        resolve();
+      };
+      window.addEventListener('popstate', onPopState, { once: true });
+      window.history[direction]();
+    });
+  });
 }
 
 test('application-use topics are searchable and include steps, results, and recovery', () => {
@@ -195,6 +212,39 @@ test('Help Desk deep links show an allowed answer when the role cannot access th
   });
 });
 
+test('Help Desk follows back and forward topic navigation for the active role', async () => {
+  await withMountedHelpDesk('?topic=local-save', async (container, renderRole) => {
+    await renderRole('fto');
+    window.history.pushState({}, '', '/resources?topic=roster-import');
+    window.history.pushState({}, '', '/resources?topic=record-status');
+
+    await navigateHistory('back');
+    assert.equal(window.location.search, '?topic=roster-import');
+    assert.equal(container.querySelector('article h3')?.textContent, 'Import a roster');
+
+    await navigateHistory('forward');
+    assert.equal(window.location.search, '?topic=record-status');
+    assert.equal(container.querySelector('article h3')?.textContent, 'Check record status');
+  });
+});
+
+test('Help Desk history navigation keeps restricted topic answers hidden', async () => {
+  await withMountedHelpDesk('?topic=local-save', async (container, renderRole) => {
+    await renderRole('po');
+    window.history.pushState({}, '', '/resources?topic=roster-import');
+
+    await navigateHistory('back');
+    assert.equal(window.location.search, '?topic=local-save');
+    assert.equal(container.querySelector('article h3')?.textContent, 'Save and reopen a local draft');
+
+    await navigateHistory('forward');
+    const answer = container.querySelector('article')!;
+    assert.equal(window.location.search, '?topic=roster-import');
+    assert.equal(answer.querySelector('h3')?.textContent, 'Save and reopen a local draft');
+    assert.doesNotMatch(answer.textContent ?? '', /Import a roster/);
+  });
+});
+
 test('Help Desk immediately replaces a restricted answer after an in-place role change', async () => {
   await withMountedHelpDesk('?topic=roster-import', async (container, renderRole) => {
     await renderRole('fto');
@@ -206,6 +256,48 @@ test('Help Desk immediately replaces a restricted answer after an in-place role 
     assert.equal(answer.querySelector('h3')?.textContent, 'Save and reopen a local draft');
     assert.doesNotMatch(answer.textContent ?? '', /Import a roster/);
     assert.equal(window.location.search, '?topic=roster-import');
+  });
+});
+
+test('Help Desk clears a previous role-only search and shows topics available to the new role', async () => {
+  await withMountedHelpDesk('', async (container, renderRole) => {
+    await renderRole('fto_coordinator');
+    const input = container.querySelector<HTMLInputElement>('[data-testid="input-application-help-search"]')!;
+    const setInputValue = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    setInputValue?.call(input, 'xlsx');
+    await act(async () => {
+      input.focus();
+      input.dispatchEvent(new window.InputEvent('input', {
+        data: 'xlsx',
+        inputType: 'insertText',
+        bubbles: true,
+      }));
+    });
+
+    assert.equal(input.value, 'xlsx');
+    assert.deepEqual(
+      Array.from(container.querySelectorAll('nav button')).map(button => button.textContent),
+      ['Import a roster'],
+    );
+    assert.equal(container.querySelector('article h3')?.textContent, 'Import a roster');
+
+    await renderRole('po');
+
+    assert.equal(input.value, '');
+    assert.deepEqual(
+      Array.from(container.querySelectorAll('nav button')).map(button => button.textContent),
+      [
+        'Save and reopen a local draft',
+        'Check record status',
+        'Activate an account',
+        'Check an agency packet action',
+      ],
+    );
+    assert.equal(container.querySelector('article h3')?.textContent, 'Save and reopen a local draft');
+    assert.doesNotMatch(container.textContent ?? '', /Import a roster/);
   });
 });
 

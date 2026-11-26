@@ -30,26 +30,18 @@ function designTokensPlugin(): Plugin {
   };
 }
 
-const rawPort = process.env.PORT;
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
+const rawPort = process.env.PORT ?? "19391";
 
 const port = Number(rawPort);
 
-if (Number.isNaN(port) || port <= 0) {
+if (!Number.isInteger(port) || port <= 0 || port > 65535) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH ?? "/fto-law-library-schema/";
 
-if (!basePath) {
-  throw new Error(
-    "BASE_PATH environment variable is required but was not provided.",
-  );
+if (!basePath.startsWith("/") || basePath.startsWith("//")) {
+  throw new Error("BASE_PATH must be an absolute path.");
 }
 
 export default defineConfig({

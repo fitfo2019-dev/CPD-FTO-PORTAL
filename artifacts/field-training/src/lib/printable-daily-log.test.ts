@@ -2,14 +2,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PrintableDailyForms } from '../components/printable-daily-forms.js';
-import { PrintableDailyLog } from '../components/printable-daily-log.js';
+import { register } from 'node:module';
 import { seedReports } from './seed.js';
 import { dailyLogContinuations } from './narrative-continuation.js';
 import { buildOperationalPacket } from './operational-state-machine.js';
 import { assertExportCopy } from '../../test-support/export-copy-boundaries.js';
 
-test('long daily notes get one sequential training-folder reference per future sheet',()=>{
+register("data:text/javascript,"+encodeURIComponent(
+  "export async function load(url,ctx,next){if(url.includes('/components/printable-columbus-header.tsx'))return {format:'module',shortCircuit:true,source:'export function PrintableColumbusHeader(){return null} export function PrintableColumbusFooterMarks(){return null}'};return next(url,ctx)}"
+),import.meta.url);
+
+test('long daily notes get one sequential training-folder reference per future sheet',async()=>{
+  const [{PrintableDailyForms},{PrintableDailyLog}]=await Promise.all([
+    import('../components/printable-daily-forms.js'),
+    import('../components/printable-daily-log.js'),
+  ]);
   const report={...seedReports()[0],date:'2026-10-26',phase:1 as const,phaseWeek:2,
     narrative:`FTO narrative: ${'a'.repeat(10000)} end 👮🏽‍♀️`,
     remedial:`Corrective training: ${'b'.repeat(7000)} end.`};

@@ -15,7 +15,8 @@ prerequisite for handing over the implementation. Before running it, IT must
 approve an isolated test URL and provision three verified fictional-data
 profiles: an assigned FTO, that FTO's assigned Coordinator, and an unassigned
 staff account. Confirm that a synced draft stays out of the Coordinator's
-active inbox, only explicit FTO finalization makes it visible, and unassigned,
+active inbox, only explicit FTO finalization starts submission, and the
+existing PO review gates still control Coordinator visibility. Unassigned,
 stale or unready submissions cannot create inbox entries. Synthetic SQL and
 scripted-pool checks do not substitute for this browser check.
 
@@ -41,7 +42,42 @@ account browser check remains an IT acceptance step after an approved isolated
 test URL and three verified fictional-data accounts are provisioned. Local
 encrypted IndexedDB saves remain independent of network access. Draft sync
 remains unsubmitted and hidden from Coordinator reads until explicit FTO
-finalization revalidates the server-held assignment roster.
+finalization revalidates the server-held assignment roster. The existing PO
+review lifecycle still determines when submitted work becomes Coordinator-visible.
+
+### Launch-state hardening verification — 2026-11-26
+
+Existing-profile writes now take a subject-scoped PostgreSQL row lock inside
+the same transaction as the version-guarded compare-and-swap. First inserts
+retain the uniqueness-conflict path. The disposable real-PostgreSQL profile
+suite passed **23/23**, including independent-subject progress and rollback
+after a forced history-write failure.
+
+Profile, packet sync, finalization and packet-review transports perform an
+active-session check immediately before sending; a server 401 remains
+authoritative. Expiry stops later packet batches and keeps the exact uncertain
+operation available for reconciliation. Dirty narrative buffers and profile
+edit intent can be copied to encrypted, account-scoped device storage when the
+vault is unlocked. Recovery copies are not uploaded or automatically restored,
+and storage failures do not report a saved result.
+
+Continuation pagination now uses the existing print font metrics and reserved
+sheet geometry. Synthetic Chromium output produced **39 portrait pages**
+(27 run continuations and 9 orientation continuations, plus 3 base sheets),
+**11 landscape daily-log pages** (10 continuations plus the base sheet), and
+**8 portrait weekly-acknowledgement pages** (7 narrative attachments plus the
+acknowledgement sheet), all with the expected training-folder references,
+revised-form labels, preserved Unicode and unbroken text, and no overflow or
+blank trailing sheet. This verifies the synthetic Chromium PDFs only; it is
+not target-printer certification.
+
+The targeted authenticated-recovery and pagination suites passed **80/80**.
+The packet regression command passed **29/29** portal cases, **12/12** API
+readiness cases, and **1/1** isolated preview case. `pnpm typecheck`, the
+Field Training production build, and the production archive size boundary
+tests passed. The combined ZIP remains subject to the enforced
+**26,214,400-byte** maximum. No live agency browser check, production change,
+operational data access, or printer certification was performed.
 
 The portal continues to save locally in its passphrase-encrypted IndexedDB
 vault without requiring a network request. New daily reports initialize
@@ -986,8 +1022,15 @@ by default:
    not Coordinator submissions. Inventory and reconcile any older sealed local
    copies with their FTOs before a live cutover; never rewrite their local vaults
    or infer a new submission from synchronization.
-   Then apply `migrations/agency-training-packet-review.sql` and
-   `migrations/agency-training-packet-guards.sql` in that order. These are
+    Then apply `migrations/agency-training-packet-review.sql`,
+    `migrations/agency-training-assignment-transitions.sql`, and
+    `migrations/agency-training-packet-guards.sql` in that order. The successor
+    assignment migration adds a Coordinator-only function using the trusted
+    server roster; grant its narrow SELECT and function-execution privileges as
+    documented in that migration, never direct assignment writes. Successor
+    changes keep prior packet links and pending drafts unchanged, preserve the
+    old assignment through its historical end date, and do not submit or approve
+    a packet. These are
    followed by `migrations/operational-profiles.sql` and then
    `migrations/operational-profile-optional-sides.sql` and then
    `migrations/operational-profile-history.sql` and then
@@ -1001,7 +1044,7 @@ by default:
    The ZIP includes compiled `portal/` static assets for agency reverse-proxy
    hosting with SPA fallback; the API does not serve those files itself.
    All of these are
-   single-application, DBA-reviewed migrations, not application startup scripts.
+    single-application, DBA-reviewed migrations, not application startup scripts.
    Do not run synthetic-staging schema against this database. Review the narrow
    SQL-function ownership and role grants described alongside that migration.
 4. Populate the trusted active `assignments` roster and verified
@@ -1167,3 +1210,54 @@ packager checks ZIP integrity and hard-fails if `dist-production.zip` exceeds
 manual. Local validation logs under `generated-artifacts/task-180/` and source
 snapshots are excluded from Git and deployment. This process does not publish
 or deploy the portal.
+
+## Task #144 — run-checklist merge packet divergence — BLOCKED (2026-11-26)
+
+### Repository state and safe boundary
+
+The supplied run-checklist packet targets `6495373`; the current workspace
+`main` is at `a0acaea`. Read-only Git inspection found no common ancestor, and
+neither commit is an ancestor of the other. The workspace has no GitHub `origin`
+remote configured. The packet's prescribed fast-forward-only update cannot be
+used; no rebase, cherry-pick, patch application, raw file copy or overwrite was
+attempted. **Task #144 remains BLOCKED and incomplete.**
+
+The packet bundle is not a safe replacement for the current workspace. A
+whole-tree comparison reports 274 differing paths: 27 added, 155 modified,
+91 deleted and 1 renamed when comparing current `main` toward the packet. The
+current-only paths include `.agents/memory/`, `replit.md`, and newer portal
+capabilities. Replacing the tree or copying its fallback files wholesale would
+discard unrelated current work. No changes from the packet were integrated.
+
+The packet's specific checklist and Traffic Data Collection proposals remain
+unreconciled. Any future work must compare those changes against the current
+portal and preserve current schemas, saved task offsets, offline vault behavior,
+and submission gates. Do not describe the packet as merged or validated.
+
+### Current-workspace verification for this status record
+
+Before writing this record, `pnpm run snapshot:context` created
+`local-history-snapshots/snapshot_20261126_131540_fba6a1a9/`. Its checksum
+manifest confirms copies of `.replit-context.md`, this manual and
+`src/config/phaseConfiguration.ts`, plus the other allowlisted configuration
+files. These are source-recovery copies, not a database or full-workspace backup.
+
+On the current workspace (not the unapplied packet), the following passed:
+
+- `pnpm typecheck`
+- `pnpm --filter @workspace/field-training run build`
+- `pnpm run test:field-training:regressions`: 16 phase tests and 42 offline and
+  dispatch tests passed.
+- `pnpm run test:training-packets`: 29 portal tests, 12 API readiness tests and
+  1 isolated preview test passed.
+- `pnpm --filter @workspace/field-training run test:ui-copy`: **11/11 passed**.
+- The snapshot and packet-control portions of
+  `pnpm run test:maintenance-guardrails` passed.
+
+That maintenance command did not complete: Node/tsx stopped while loading
+`weekly-log-print.test.ts` because it could not load the imported
+`columbus-logo.svg` (`ERR_UNKNOWN_FILE_EXTENSION`). The print-export guardrail
+file later in that command did not run. This is recorded as an unresolved
+test-runner limitation, not as a passing suite or a proven application defect.
+These results verify current-workspace behavior only; no code from commit
+`6495373` was built or tested. No production deployment was performed.

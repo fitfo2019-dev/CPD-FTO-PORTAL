@@ -45,7 +45,7 @@ function fixture(options:{
     sync:(identity:AgencyIdentity,changes:Parameters<typeof raw.sync>[2])=>raw.sync(identity,audit,changes),
     read:(identity:AgencyIdentity)=>raw.read(identity,audit),
     finalize:(identity:AgencyIdentity,id:string,op:string,version:number)=>raw.finalize(identity,audit,id,
-      {operation_id:op,content_hash:version===1?contentHash(report):"f".repeat(64)}),
+      {operation_id:op,base_version:version,content_hash:version===1?contentHash(report):"f".repeat(64)}),
   },statements};
 }
 
@@ -76,7 +76,7 @@ test("drafts are excluded from PO and Coordinator reads by the server query",asy
     const {store,statements}=fixture();
     assert.deepEqual(await store.read({...fto,role}),[]);
     const read=statements.find(item=>item.sql.includes("p.record_date::text"))!;
-    assert.match(read.sql,/p.submission_status = 'submitted' OR \$1 = 'FTO'/);
+    assert.match(read.sql,/p\.submission_status = 'submitted' OR\s+\(\$1 = 'FTO' AND/);
     assert.equal(read.values[0],role);
     assert.match(read.sql,/pc\.coordinator_id=\$5/);
   }
@@ -96,7 +96,7 @@ test("only explicit finalization submits and rechecks the active roster intersec
 test("unassigned, stale, unready, and non-FTO finalizations cannot submit",async()=>{
   const cases=[
     {options:{assigned:false},version:1,error:/PACKET_ASSIGNMENT_REQUIRED/},
-    {options:{},version:4,error:/PACKET_SNAPSHOT_CONFLICT/},
+    {options:{packet:{server_version:4}},version:4,error:/PACKET_SNAPSHOT_CONFLICT/},
     {options:{packet:{server_version:1,submission_status:"local_draft_pending",report:{...report,ratingsReviewedAt:undefined}}},version:1,error:/PACKET_NOT_READY/},
   ];
   for(const item of cases) {

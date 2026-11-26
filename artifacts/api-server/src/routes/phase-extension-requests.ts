@@ -201,6 +201,13 @@ router.post("/v1/phase-extension-requests/:id/review", async (req, res): Promise
     sendError(res, 400, "INVALID_PHASE_EXTENSION_REVIEW", "Choose approve or deny for a valid request.");
     return;
   }
+  const denialExplanation = input.data.denialExplanation?.trim();
+  if ((input.data.decision === "approve" && denialExplanation !== undefined) ||
+    (input.data.decision === "deny" && input.data.denialExplanation !== undefined &&
+      !denialExplanation)) {
+    sendError(res, 400, "INVALID_PHASE_EXTENSION_REVIEW", "Choose approve or deny for a valid request.");
+    return;
+  }
   const repository = provideStore();
   if (!repository) {
     sendError(res, 503, "REQUEST_STORAGE_UNAVAILABLE", "Shared request storage is not configured.");
@@ -212,6 +219,7 @@ router.post("/v1/phase-extension-requests/:id/review", async (req, res): Promise
       params.data.id,
       verified.caller.userId,
       input.data.decision,
+      denialExplanation,
     );
     if (!result.request) {
       sendError(res, 404, "PHASE_EXTENSION_NOT_FOUND", "The phase extension request is no longer available.");

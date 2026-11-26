@@ -4,19 +4,94 @@ import test from 'node:test';
 import { OfflineStorage } from './offlineStorage.js';
 import { createDailyReportDraft } from './daily-report-draft.js';
 import { createUiPreviewWorkspace } from './empty-workspace.js';
-import { checkPacketService, finalizePacket, readSharedPackets, uploadPacketBatch } from './training-packet-sync.js';
+import { checkPacketService, finalizePacket, readSharedPackets, readSharedPacketsPage, uploadPacketBatch } from './training-packet-sync.js';
+import { AuthenticationRequiredError } from './auth-session.js';
 
 function success(data: unknown, metadata: Record<string, unknown> = {}) {
   return new Response(JSON.stringify({ status: 'success', metadata, data }), {
     headers: { 'content-type': 'application/json' },
   });
 }
+test('draft sync rejects a submitted receipt and never finalizes the packet',async t=>{
+  const report=createDailyReportDraft(createUiPreviewWorkspace().caseFolder!,'2026-11-23');
+  const operation='29b09e69-073a-4b60-b7be-564945cf587e';
+  const calls:string[]=[];
+  t.mock.method(globalThis,'fetch',async(input:string|URL|Request)=>{
+    const url=String(input);calls.push(url);
+    return success([{
+      id:report.id,operation_id:operation,server_version:1,
+      sync_status:'submitted_complete',content_hash:'a'.repeat(64),
+    }],{total_records:1,role:'FTO'});
+  });
+  const change={operationId:operation,recordId:report.id,baseVersion:0,value:report,attempted:true,
+    clientTimestamp:'2026-11-23T14:00:00Z'};
+  await assert.rejects(uploadPacketBatch([change]));
+  assert.deepEqual(calls,['/api/v1/training-packets/sync']);
+  assert.ok(calls.every(url=>!url.includes('/finalize')));
+});
+test('authenticated transport preflight and server rejection block packet writes and finalization', async t => {
+  const report = createDailyReportDraft(createUiPreviewWorkspace().caseFolder!, '2026-11-23');
+  const change = {
+    operationId: '29b09e69-073a-4b60-b7be-564945cf587e',
+    recordId: report.id,
+    baseVersion: 0,
+    value: report,
+    attempted: true,
+    clientTimestamp: '2026-11-23T14:00:00Z',
+  };
+  let requests = 0;
+  let validations = 0;
+  await assert.rejects(uploadPacketBatch([change], undefined, async () => {
+    validations++;
+    throw new AuthenticationRequiredError();
+  }), { name: 'AuthenticationRequiredError' });
+  assert.equal(validations, 1);
+  assert.equal(requests, 0, 'Expired preflight must stop before dispatch.');
+
+  t.mock.method(globalThis, 'fetch', async () => {
+    requests++;
+    return new Response(JSON.stringify({ status: 'error', error_code: 'UNAUTHENTICATED' }), {
+      status: 401, headers: { 'content-type': 'application/json' },
+    });
+  });
+  const validPreflight = async () => { validations++; };
+  await assert.rejects(uploadPacketBatch([change], undefined, validPreflight), {
+    name: 'AuthenticationRequiredError',
+  }, 'The server rejection overrides a successful preflight.');
+  await assert.rejects(finalizePacket(report.id, change.operationId, 'a'.repeat(64), 0, undefined, validPreflight), {
+    name: 'AuthenticationRequiredError',
+  });
+  assert.equal(validations, 3);
+  assert.equal(requests, 2);
+});
+test('shared packet reads request bounded continuation pages and stop only at the real end', async t => {
+  const report = createDailyReportDraft(createUiPreviewWorkspace().caseFolder!, '2026-11-23');
+  const packet = { id: report.id, assignment_id: '81dc3739-03c3-4cc1-bc9c-851bba10e833',
+    record_date: report.date, phase: report.phase, server_version: 1,
+    sync_status: 'submitted_complete', handoff_status: 'draft', po_totals: null, report, content_hash: 'a'.repeat(64),
+    released_to_po: false, released_at: null, withdrawn_at: null, withdrawal_reason: null,
+    amendment_of: null, amendment_reason: null, acknowledgment: null };
+  const urls: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+    const url = String(input); urls.push(url);
+    return url.includes('?cursor=')
+      ? success([packet], { total_records: 1, role: 'FTO', has_more: false, next_cursor: null })
+      : success([packet], { total_records: 1, role: 'FTO', has_more: true, next_cursor: 'next-page-cursor' });
+  });
+  const first = await readSharedPacketsPage();
+  assert.equal(first.hasMore, true);
+  assert.equal(first.nextCursor, 'next-page-cursor');
+  const records = await readSharedPackets();
+  assert.equal(records.length, 2);
+  assert.equal(urls.filter(url => url === '/api/v1/training-packets').length, 2);
+  assert.ok(urls.includes('/api/v1/training-packets?cursor=next-page-cursor'));
+});
 
 test('read helpers use bounded same-origin GETs and retain complete packet data', async t => {
   const report = createDailyReportDraft(createUiPreviewWorkspace().caseFolder!, '2026-11-23');
   const packet = { id: report.id, assignment_id: '81dc3739-03c3-4cc1-bc9c-851bba10e833',
     record_date: report.date, phase: report.phase, server_version: 1,
-    sync_status: 'submitted_complete', report, content_hash: 'a'.repeat(64),
+    sync_status: 'submitted_complete', handoff_status: 'draft', po_totals: null, report, content_hash: 'a'.repeat(64),
     released_to_po: false, released_at: null, withdrawn_at: null, withdrawal_reason: null,
     amendment_of: null, amendment_reason: null, acknowledgment: null };
   const urls: string[] = [];
@@ -27,11 +102,12 @@ test('read helpers use bounded same-origin GETs and retain complete packet data'
     assert.ok(init?.signal);
     assert.equal(init?.body, undefined);
     return String(input).endsWith('sync-readiness')
-      ? success([{ draft_sync_available: true }], { service_available: true })
+      ? success([{ automatic_sync_allowed: false }], { can_sync: true })
       : success([packet], { total_records: 1, role: 'FTO', has_more:false,next_cursor:null });
   });
   assert.equal(await checkPacketService(), true);
   const records = await readSharedPackets();
+  assert.ok(records[0].report);
   assert.equal(records[0].report.shift, report.shift);
   assert.deepEqual(records[0].report.signatures, report.signatures);
   assert.equal(records[0].report.id, report.id);
@@ -46,29 +122,28 @@ test('reads fail explicitly for unavailable access or malformed envelopes', asyn
   await assert.rejects(checkPacketService());
   fetch.mock.mockImplementation(async () => success([{ missing: 'packet fields' }], { total_records: 1, role: 'FTO' }));
   await assert.rejects(readSharedPackets());
-  fetch.mock.mockImplementation(async () => success([], { service_available: false }));
+  fetch.mock.mockImplementation(async () => success([{ automatic_sync_allowed: false }], { can_sync: false }));
   assert.equal(await checkPacketService(), false);
 });
 
-test('finalization uses the separate authenticated route and requires a submitted receipt', async t => {
+test('finalization uses the separate authenticated route and verifies its submitted receipt', async t => {
   const report = createDailyReportDraft(createUiPreviewWorkspace().caseFolder!, '2026-11-23');
-  const packet = { id: report.id, assignment_id: '81dc3739-03c3-4cc1-bc9c-851bba10e833',
-    record_date: report.date, phase: report.phase, server_version: 3,
-    sync_status: 'submitted_complete', report, content_hash: 'c'.repeat(64),
-    released_to_po: false, released_at: null, withdrawn_at: null, withdrawal_reason: null,
-    amendment_of: null, amendment_reason: null, acknowledgment: null };
   let requestUrl = '';
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {
     requestUrl = String(input);
     assert.equal(init?.method, 'POST');
     assert.equal(init?.credentials, 'same-origin');
     assert.deepEqual(JSON.parse(String(init?.body)), {
-      operation_id: 'd6b1ed28-4e73-47b9-8138-455e6932e6cb', content_hash: 'c'.repeat(64),
+      operation_id: 'd6b1ed28-4e73-47b9-8138-455e6932e6cb',
+      base_version: 3, content_hash: 'c'.repeat(64),
     });
-    return success([packet], { total_records: 1, role: 'FTO' });
+    return new Response(JSON.stringify({
+      id: report.id, operation_id: 'd6b1ed28-4e73-47b9-8138-455e6932e6cb',
+      server_version: 3, sync_status: 'submitted_complete', content_hash: 'c'.repeat(64),
+    }), { headers: { 'content-type': 'application/json' } });
   });
-  const receipt = await finalizePacket(report.id, 'd6b1ed28-4e73-47b9-8138-455e6932e6cb', 'c'.repeat(64));
-  assert.deepEqual(receipt, { id: report.id, server_version: 3,
+  const receipt = await finalizePacket(report.id, 'd6b1ed28-4e73-47b9-8138-455e6932e6cb', 'c'.repeat(64), 3);
+  assert.deepEqual(receipt, { id: report.id, operation_id: 'd6b1ed28-4e73-47b9-8138-455e6932e6cb', server_version: 3,
     sync_status: 'submitted_complete', content_hash: 'c'.repeat(64) });
   assert.equal(requestUrl, `/api/v1/training-packets/${encodeURIComponent(report.id)}/finalize`);
 });

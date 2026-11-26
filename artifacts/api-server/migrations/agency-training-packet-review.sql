@@ -34,6 +34,7 @@ CREATE TABLE agency_training.packet_submissions (
     CHECK (state IN ('submitted','acknowledged','approved','correction_requested','withdrawn')),
   report jsonb NOT NULL,
   submitted_at timestamptz NOT NULL DEFAULT now(),
+  po_reviewed_at timestamptz,
   acknowledged_at timestamptz,
   reviewed_at timestamptz,
   review_note text NOT NULL DEFAULT '',
@@ -55,9 +56,11 @@ CREATE TABLE agency_training.packet_review_operations (
   note text NOT NULL,
   receipt jsonb NOT NULL
 );
-CREATE INDEX ON agency_training.packet_submissions(coordinator_id,submitted_at) WHERE state='submitted';
+CREATE INDEX ON agency_training.packet_submissions(coordinator_id,submitted_at)
+  WHERE state='submitted' AND po_reviewed_at IS NOT NULL;
 CREATE INDEX ON agency_training.packet_submissions(fto_id,submitted_at);
-CREATE INDEX ON agency_training.packet_submissions(po_id,submitted_at);
+CREATE INDEX ON agency_training.packet_submissions(po_id,submitted_at)
+  WHERE state='submitted' AND po_reviewed_at IS NULL;
 CREATE INDEX ON agency_training.packet_review_events(submission_id,id);
 -- Row-locking SELECT requires UPDATE privilege in PostgreSQL. These narrow
 -- owner-held functions lock trusted roster/directory rows without granting the
@@ -83,7 +86,7 @@ COMMIT;
 -- verified Coordinator account IDs and display names. Never use browser roles
 -- or sample accounts. The runtime needs directory SELECT, po_coordinators
 -- SELECT/INSERT plus UPDATE(coordinator_id,revision,updated_at), submissions
--- SELECT/INSERT plus UPDATE(coordinator_id,state,acknowledged_at,reviewed_at,
+-- SELECT/INSERT plus UPDATE(coordinator_id,state,po_reviewed_at,acknowledged_at,reviewed_at,
 -- review_note), review events SELECT/INSERT, operations SELECT/INSERT and
 -- sequence USAGE. Do not grant updates to snapshot/identity/version columns,
 -- or any event/operation UPDATE or DELETE privileges.

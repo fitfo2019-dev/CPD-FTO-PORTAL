@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PacketHandoffStatus } from './packetHandoffStatus';
+import type { PacketPoTotals } from './packetPoTotals';
 import type { TrainingPacketAcknowledgment } from './trainingPacketAcknowledgment';
 import type { TrainingPacketRecordSyncStatus } from './trainingPacketRecordSyncStatus';
 import type { TrainingPacketReport } from './trainingPacketReport';
@@ -26,7 +28,9 @@ export interface TrainingPacketRecord {
   /** @minimum 1 */
   server_version: number;
   sync_status: TrainingPacketRecordSyncStatus;
-  report: TrainingPacketReport;
+  handoff_status: PacketHandoffStatus;
+  report: TrainingPacketReport | null;
+  po_totals: PacketPoTotals | null;
   /** @pattern ^[a-f0-9]{64}$ */
   content_hash: string;
   released_to_po: boolean;

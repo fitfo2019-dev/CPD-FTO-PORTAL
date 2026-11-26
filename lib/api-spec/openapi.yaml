@@ -20,33 +20,21 @@ tags:
     description: Clerk-authenticated reference document catalog and downloads
   - name: training-packets
     description: Agency-roster-authorized training packet sync and reads
+  - name: account
+    description: Verified account operational profile
   - name: packet-review
     description: Server-scoped Coordinator packet review and PO acknowledgment
+  - name: assignment-transitions
+    description: Coordinator-authorized successor assignment transitions
 paths:
-  /v1/account/operational-profile/history:
-    get:
-      operationId: getOperationalProfileHistory
-      description: Own-account history only. Identity and actor come from the verified server session. No account selector is accepted.
-      parameters:
-        - name: beforeVersion
-          in: query
-          schema: { type: integer, minimum: 1, maximum: 2147483647 }
-      responses:
-        "200":
-          description: Up to 50 entries in descending profile-version order
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/OperationalProfileHistory" }
-        "400": { description: Invalid cursor or unsupported account selector }
-        "401": { description: Sign-in required }
-        "403": { description: Verified FTO or PO required }
-        "503": { description: Agency storage unavailable }
   /v1/account/operational-profile:
     get:
       operationId: getOperationalProfile
+      tags: [account]
+      summary: Read the verified account's operational profile
       responses:
         "200":
-          description: Own verified operational account context
+          description: Current operational identity and version
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OperationalProfileContext" }
@@ -55,6 +43,8 @@ paths:
         "503": { description: Agency storage unavailable }
     put:
       operationId: updateOperationalProfile
+      tags: [account]
+      summary: Update the verified account's operational profile
       requestBody:
         required: true
         content:
@@ -62,7 +52,7 @@ paths:
             schema: { $ref: "#/components/schemas/OperationalProfileInput" }
       responses:
         "200":
-          description: Atomic own-profile save
+          description: Saved operational identity and version
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OperationalProfileContext" }
@@ -71,9 +61,30 @@ paths:
         "403": { description: Verified FTO or PO required }
         "409": { description: Profile changed; refresh before retry }
         "503": { description: Agency storage unavailable }
+  /v1/account/operational-profile/history:
+    get:
+      operationId: getOperationalProfileHistory
+      tags: [account]
+      summary: Read the verified account's profile change history
+      description: Own-account history only. Identity and actor come from the verified server session. No account selector is accepted.
+      parameters:
+        - name: beforeVersion
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 2147483647 }
+      responses:
+        "200":
+          description: Profile history page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OperationalProfileHistory" }
+        "400": { description: Invalid cursor or unsupported account selector }
+        "401": { description: Sign-in required }
+        "403": { description: Verified FTO or PO required }
+        "503": { description: Agency storage unavailable }
   /v1/account/operational-profile/clear:
     post:
       operationId: clearOperationalProfile
+      tags: [account]
       requestBody:
         required: true
         content:
@@ -96,7 +107,7 @@ paths:
       tags: [packet-review]
       responses:
         "200":
-          description: Verified account context and mandatory receipt gate
+          description: Verified PO totals-review or Coordinator receipt gate
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PacketReviewContext" }
@@ -123,7 +134,7 @@ paths:
         - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
       responses:
         "200":
-          description: Scoped, paginated submission inbox and FTO status list
+          description: Scoped PO totals-review list, Coordinator inbox, or FTO status list
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PacketSubmissionPage" }
@@ -135,7 +146,7 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Immutable submitted packet and its review history
+          description: Immutable packet for authorized staff or the PO's own UA details and period summaries
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PacketSubmissionDetail" }
@@ -151,10 +162,66 @@ paths:
             schema: { $ref: "#/components/schemas/PacketReviewActionInput" }
       responses:
         "200":
-          description: Server-confirmed review action
+          description: Server-confirmed PO UA and period review or Coordinator review action
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PacketSubmission" }
+  /v1/agency/assignment-transitions/context:
+    get:
+      operationId: getAssignmentTransitionContext
+      tags: [assignment-transitions]
+      responses:
+        "200":
+          description: Server-authorized assignments, trusted FTO options, and transition history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentTransitionContext" }
+        "401": { description: Verified sign-in required }
+        "403": { description: Active FTO Coordinator scope required }
+        "503": { description: Agency storage unavailable }
+  /v1/agency/assignment-transitions/history:
+    get:
+      operationId: getAssignmentTransitionHistory
+      tags: [assignment-transitions]
+      parameters:
+        - { name: assignmentId, in: query, required: true, schema: { type: string, minLength: 36, maxLength: 36, pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$" } }
+        - { name: cursor, in: query, required: false, schema: { type: string, maxLength: 256 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: One PO's assignment transition history page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentTransitionHistoryPage" }
+        "400": { description: Invalid history page request }
+        "403": { description: Active FTO Coordinator scope required }
+        "503": { description: Agency storage unavailable }
+  /v1/agency/assignment-transitions:
+    post:
+      operationId: createSuccessorAssignment
+      tags: [assignment-transitions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SuccessorAssignmentInput" }
+      responses:
+        "200":
+          description: Idempotent retry of a previously completed transition
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentTransitionEnvelope" }
+        "201":
+          description: Successor assignment created without changing packet records
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentTransitionEnvelope" }
+        "400": { description: Invalid transition input }
+        "401": { description: Verified sign-in required }
+        "403": { description: Coordinator scope or trusted roster assignment required }
+        "409": { description: Conflicting dates or operation replay conflict }
+        "422": { description: Assignment dates or phase are not valid }
+        "503": { description: Agency storage unavailable }
   /v1/staging/training-records:
     get:
       operationId: listStagingTrainingRecords
@@ -379,8 +446,8 @@ paths:
     get:
       operationId: getTrainingPacketSyncReadiness
       tags: [training-packets]
-      summary: Check whether the agency draft-sync service is configured
-      description: This reports service availability only. It does not validate a roster assignment or authorize finalization; each packet operation independently verifies the signed identity and server-held assignment.
+      summary: Check whether automatic packet sync is allowed
+      description: Automatic sync is enabled only for a verified FTO on an agency-configured network address. Manual sync still enforces signed role and server roster checks.
       responses:
         "200":
           description: Sync readiness
@@ -396,8 +463,8 @@ paths:
     post:
       operationId: syncTrainingPackets
       tags: [training-packets]
-      summary: Synchronize editable packet drafts as the assigned FTO
-      description: The entire batch commits atomically only when the signed agency identity, signed badge claim, active server roster assignment, and optimistic base versions match. Drafts remain editable and are excluded from Coordinator and PO reads until explicit finalization.
+      summary: Save editable packet drafts as the assigned FTO
+      description: Synchronization never submits a packet. Drafts are visible only to their assigned FTO and remain editable until the separate explicit finalization operation.
       requestBody:
         required: true
         content:
@@ -405,7 +472,7 @@ paths:
             schema: { $ref: "#/components/schemas/TrainingPacketSyncInput" }
       responses:
         "200":
-          description: All editable drafts synchronized atomically
+          description: All packets committed atomically
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TrainingPacketSyncEnvelope" }
@@ -425,51 +492,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
         "409":
-          description: A draft version conflicts with the server or the packet is already finalized
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ApiError" }
-        "503":
-          description: Agency records service is unavailable
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ApiError" }
-  /v1/training-packets/{id}/finalize:
-    parameters:
-      - { name: id, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" } }
-    post:
-      operationId: finalizeTrainingPacket
-      tags: [training-packets]
-      summary: Explicitly submit an exact packet snapshot to its assigned Coordinator
-      description: An authenticated FTO explicitly finalizes the current synchronized draft. The server atomically rechecks the signed identity, badge, active roster assignment, and exact content hash, seals the packet as submitted_complete, and exposes it only to the Coordinator assigned by the server roster. Idempotent retries are safe. This is not a signature, PO release, or acknowledgment.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/TrainingPacketFinalizeInput" }
-      responses:
-        "200":
-          description: Finalized packet in its server-owned Coordinator scope
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
-        "400":
-          description: Invalid finalization request
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ApiError" }
-        "403":
-          description: FTO identity, badge, or active assignment does not match
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ApiError" }
-        "404":
-          description: Draft is not visible to this FTO
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ApiError" }
-        "409":
-          description: Snapshot changed, was withdrawn, or cannot be finalized
+          description: A packet version conflicts with the server
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
@@ -544,6 +567,33 @@ paths:
               schema: { $ref: "#/components/schemas/TrainingPacketsEnvelope" }
         default:
           description: Authentication, scope, conflict, validation or storage error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/training-packets/{id}/finalize:
+    post:
+      operationId: finalizeTrainingPacket
+      tags: [training-packets]
+      summary: Explicitly finalize a saved draft for its assigned Coordinator
+      description: Rechecks the active server roster, exact draft version, and content hash. Finalization sends the snapshot to the assigned PO for totals review; the Coordinator can see it only after that review.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingPacketFinalizationInput" }
+      responses:
+        "200":
+          description: Finalized packet receipt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingPacketFinalizationReceipt" }
+        default:
+          description: Identity, assignment, validation, or version failure
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
@@ -779,7 +829,7 @@ paths:
       operationId: listPhaseExtensionRequests
       tags: [phase-extensions]
       summary: List phase extension requests available to the signed-in staff member
-      description: FTOs receive their own request statuses; FTO Coordinators receive pending requests. The server verifies the Clerk session and role metadata.
+      description: FTOs receive their own request statuses; FTO Coordinators receive pending requests and denials with explanations within their current assignment scope. The server verifies the Clerk session and role metadata.
       responses:
         "200":
           description: Authorized phase extension requests
@@ -822,7 +872,7 @@ paths:
       operationId: reviewPhaseExtensionRequest
       tags: [phase-extensions]
       summary: Approve or deny a pending request as an FTO Coordinator
-      description: The server verifies the signed-in Coordinator role and records the decision without trusting client role preview.
+      description: The server verifies the signed-in Coordinator role and records the decision without trusting client role preview. A denial may include a short explanation; approval does not accept one.
       requestBody:
         required: true
         content:
@@ -847,7 +897,11 @@ components:
       required: [assignmentToken, cadUnit, company]
       properties:
         assignmentToken: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$" }
-        cruiserNumber: { type: string, pattern: "^[0-9]{4}$", deprecated: true, description: "Legacy snapshot only; never infer a physical fleet number from CAD." }
+        cruiserNumber:
+          type: string
+          deprecated: true
+          description: Legacy snapshot only; not a physical fleet number.
+          pattern: "^[0-9]{4}$"
         districtToken: { type: string, pattern: "^[0-9]{4}$" }
         cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z](-[12])?$", description: "Live profiles omit the division-internal side; former full-unit values remain readable in frozen packet snapshots." }
         company: { type: string, pattern: "^[A-Z]$" }
@@ -871,6 +925,7 @@ components:
         subject: { type: string }
         entries:
           type: array
+          maxItems: 50
           items: { $ref: "#/components/schemas/OperationalProfileHistoryEntry" }
         nextBeforeVersion: { type: ["integer", "null"], minimum: 1 }
     OperationalProfileClearInput:
@@ -897,7 +952,7 @@ components:
         badge: { type: string }
         version: { type: integer, minimum: 0 }
         identity:
-          anyOf:
+          oneOf:
             - { $ref: "#/components/schemas/OperationalIdentity" }
             - { type: "null" }
         updatedAt: { type: string, format: date-time }
@@ -923,13 +978,16 @@ components:
         po_id: { type: string, minLength: 1, maxLength: 256 }
         coordinator_id: { type: string, minLength: 1, maxLength: 256 }
         expected_revision: { type: integer, minimum: 0 }
+    PacketHandoffStatus:
+      type: string
+      enum: [draft, awaiting_po_totals_review, awaiting_coordinator_receipt, coordinator_review, correction_requested, awaiting_po_release, awaiting_po_acknowledgment, po_acknowledged, withdrawn]
     PacketReviewContext:
       type: object
       required: [available, account_id, role, coordinators, assignments, pending_count, pending]
       properties:
         available: { type: boolean }
         account_id: { type: string }
-        role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+        role: { type: string, enum: [PO, FTO, FTO_COORDINATOR, FTO_COC, POLICENET, POLICENET_ADMIN_SGT] }
         coordinators:
           type: array
           items: { $ref: "#/components/schemas/PacketCoordinator" }
@@ -943,7 +1001,7 @@ components:
             - { type: "null" }
     PacketSubmission:
       type: object
-      required: [id, packet_id, packet_version, coordinator_id, coordinator_name, state, record_date, po_name, fto_name, submitted_at, acknowledged_at, reviewed_at, review_note]
+      required: [id, packet_id, packet_version, coordinator_id, coordinator_name, state, handoff_status, record_date, po_name, fto_name, can_correct, submitted_at, po_reviewed_at, acknowledged_at, reviewed_at, review_note, released_at, po_acknowledged_at]
       properties:
         id: { type: string, format: uuid }
         packet_id: { type: string }
@@ -951,13 +1009,18 @@ components:
         coordinator_id: { type: string }
         coordinator_name: { type: string }
         state: { type: string, enum: [submitted, acknowledged, approved, correction_requested, withdrawn] }
+        handoff_status: { $ref: "#/components/schemas/PacketHandoffStatus" }
         record_date: { type: string }
         po_name: { type: string }
         fto_name: { type: string }
+        can_correct: { type: boolean }
         submitted_at: { type: string }
+        po_reviewed_at: { type: ["string", "null"] }
         acknowledged_at: { type: ["string", "null"] }
         reviewed_at: { type: ["string", "null"] }
         review_note: { type: string }
+        released_at: { type: ["string", "null"] }
+        po_acknowledged_at: { type: ["string", "null"] }
     PacketSubmissionPage:
       type: object
       required: [items, has_more, next_offset]
@@ -976,21 +1039,171 @@ components:
         note: { type: string }
     PacketSubmissionDetail:
       type: object
-      required: [submission, report, history]
+      required: [submission, report, po_totals, history]
       properties:
         submission: { $ref: "#/components/schemas/PacketSubmission" }
-        report: { $ref: "#/components/schemas/TrainingPacketReport" }
+        report:
+          oneOf:
+            - { $ref: "#/components/schemas/TrainingPacketReport" }
+            - { type: "null" }
+        po_totals:
+          oneOf:
+            - { $ref: "#/components/schemas/PacketPoTotals" }
+            - { type: "null" }
         history:
           type: array
           items: { $ref: "#/components/schemas/PacketSubmissionHistory" }
+    PacketPoPeriodTotals:
+      type: object
+      additionalProperties: false
+      required: [start_date, end_date, log_count, reviewed_log_count, activity, rating_counts, reviewed_run_checklists, total_runs]
+      properties:
+        start_date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        end_date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        log_count: { type: integer, minimum: 0 }
+        reviewed_log_count: { type: integer, minimum: 0 }
+        activity:
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+        rating_counts:
+          type: object
+          additionalProperties: false
+          required: [NO, A, RT, UA, NRT]
+          properties:
+            NO: { type: integer, minimum: 0 }
+            A: { type: integer, minimum: 0 }
+            RT: { type: integer, minimum: 0 }
+            UA: { type: integer, minimum: 0 }
+            NRT: { type: integer, minimum: 0 }
+        reviewed_run_checklists: { type: integer, minimum: 0 }
+        total_runs: { type: integer, minimum: 0 }
+    PacketPoTotals:
+      type: object
+      additionalProperties: false
+      required: [daily, weekly, monthly, unacceptable_details]
+      properties:
+        daily: { $ref: "#/components/schemas/PacketPoPeriodTotals" }
+        weekly: { $ref: "#/components/schemas/PacketPoPeriodTotals" }
+        monthly: { $ref: "#/components/schemas/PacketPoPeriodTotals" }
+        unacceptable_details:
+          type: array
+          maxItems: 1000
+          items: { $ref: "#/components/schemas/PacketPoUaDetail" }
+    PacketPoUaDetail:
+      type: object
+      additionalProperties: false
+      required: [record_date, category_key, rating, justification]
+      properties:
+        record_date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        category_key: { type: string, minLength: 1, maxLength: 80, pattern: "^[A-Za-z][A-Za-z0-9]*$" }
+        rating: { type: string, enum: [UA] }
+        justification: { type: string, maxLength: 100000 }
     PacketReviewActionInput:
       type: object
       additionalProperties: false
       required: [operation_id, action, note]
       properties:
         operation_id: { type: string, format: uuid }
-        action: { type: string, enum: [acknowledge, approve, return] }
+        action: { type: string, enum: [review_totals, acknowledge, approve, return] }
         note: { type: string, maxLength: 5000 }
+    SuccessorAssignmentInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, previous_assignment_id, fto_id, phase, starts_on, ends_on]
+      properties:
+        operation_id: { type: string, format: uuid }
+        previous_assignment_id: { type: string, format: uuid }
+        fto_id: { type: string, minLength: 1, maxLength: 256 }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        starts_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        ends_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+    TrustedTrainingAssignment:
+      type: object
+      additionalProperties: false
+      required: [id, class_name, phase, fto_name, fto_badge, po_name, po_badge, starts_on, ends_on]
+      properties:
+        id: { type: string, format: uuid }
+        class_name: { type: string }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        fto_name: { type: string }
+        fto_badge: { type: string }
+        po_name: { type: string }
+        po_badge: { type: string }
+        starts_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        ends_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+    TrustedTrainingFto:
+      type: object
+      additionalProperties: false
+      required: [class_name, fto_id, fto_name, fto_badge]
+      properties:
+        class_name: { type: string }
+        fto_id: { type: string }
+        fto_name: { type: string }
+        fto_badge: { type: string }
+    AssignmentTransitionRecord:
+      type: object
+      additionalProperties: false
+      required: [operation_id, occurred_at, class_name, po_name, po_badge, previous_assignment_id, successor_assignment_id, previous_phase, successor_phase, previous_fto_name, previous_fto_badge, successor_fto_name, successor_fto_badge, previous_ends_on, successor_starts_on, successor_ends_on]
+      properties:
+        operation_id: { type: string, format: uuid }
+        occurred_at: { type: string, format: date-time }
+        class_name: { type: string }
+        po_name: { type: string }
+        po_badge: { type: string }
+        previous_assignment_id: { type: string, format: uuid }
+        successor_assignment_id: { type: string, format: uuid }
+        previous_phase: { type: integer, minimum: 1, maximum: 4 }
+        successor_phase: { type: integer, minimum: 1, maximum: 4 }
+        previous_fto_name: { type: string }
+        previous_fto_badge: { type: string }
+        successor_fto_name: { type: string }
+        successor_fto_badge: { type: string }
+        previous_ends_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        successor_starts_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        successor_ends_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+    AssignmentTransitionContext:
+      type: object
+      additionalProperties: false
+      required: [available, role, assignments, ftos, transitions]
+      properties:
+        available: { type: boolean }
+        role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+        assignments:
+          type: array
+          items: { $ref: "#/components/schemas/TrustedTrainingAssignment" }
+        ftos:
+          type: array
+          items: { $ref: "#/components/schemas/TrustedTrainingFto" }
+        transitions:
+          type: array
+          items: { $ref: "#/components/schemas/AssignmentTransitionRecord" }
+    AssignmentTransitionHistoryPage:
+      type: object
+      additionalProperties: false
+      required: [transitions, next_cursor]
+      properties:
+        transitions:
+          type: array
+          items: { $ref: "#/components/schemas/AssignmentTransitionRecord" }
+        next_cursor: { type: ["string", "null"], maxLength: 256 }
+    AssignmentTransitionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [total_records, role]
+          properties:
+            total_records: { type: integer, enum: [1] }
+            role: { type: string, enum: [FTO_COORDINATOR] }
+        data:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items: { $ref: "#/components/schemas/AssignmentTransitionRecord" }
     PhaseExtensionRequestInput:
       type: object
       additionalProperties: false
@@ -1011,17 +1224,19 @@ components:
       allOf:
         - $ref: "#/components/schemas/PhaseExtensionRequestInput"
         - type: object
-          required: [status, createdAt, reviewedAt]
+          required: [status, createdAt, reviewedAt, denialExplanation]
           properties:
             status: { type: string, enum: [pending, approved, denied] }
             createdAt: { type: string, format: date-time }
             reviewedAt: { type: ["string", "null"], format: date-time }
+            denialExplanation: { type: ["string", "null"], maxLength: 500 }
     PhaseExtensionReviewInput:
       type: object
       additionalProperties: false
       required: [decision]
       properties:
         decision: { type: string, enum: [approve, deny] }
+        denialExplanation: { type: string, minLength: 1, maxLength: 500 }
     PhaseExtensionRequestsMetadata:
       type: object
       additionalProperties: false
@@ -1104,7 +1319,6 @@ components:
       additionalProperties: true
       required: [id, date, phase, className, recruitName, recruitBadge, ftoName, ftoBadge, runs, status, activity, reportingForDuty, ratings, narrative, remedial, recruitComments]
       properties:
-        operationalIdentity: { $ref: "#/components/schemas/OperationalIdentity" }
         id: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
         date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
         phase: { type: integer, minimum: 1, maximum: 4 }
@@ -1124,6 +1338,8 @@ components:
         narrative: { type: string, maxLength: 100000 }
         remedial: { type: string, maxLength: 100000 }
         recruitComments: { type: string, maxLength: 100000 }
+        operationalIdentity:
+          $ref: "#/components/schemas/OperationalIdentity"
     TrainingPacketSyncItem:
       type: object
       additionalProperties: false
@@ -1134,6 +1350,24 @@ components:
         amendment_of: { type: string, minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$" }
         amendment_reason: { type: string, minLength: 1, maxLength: 4000 }
         report: { $ref: "#/components/schemas/TrainingPacketReport" }
+    TrainingPacketFinalizationInput:
+      type: object
+      additionalProperties: false
+      required: [operation_id, base_version, content_hash]
+      properties:
+        operation_id: { type: string, format: uuid }
+        base_version: { type: integer, minimum: 1 }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+    TrainingPacketFinalizationReceipt:
+      type: object
+      additionalProperties: false
+      required: [id, operation_id, server_version, sync_status, content_hash]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128 }
+        operation_id: { type: string, format: uuid }
+        server_version: { type: integer, minimum: 1 }
+        sync_status: { type: string, enum: [submitted_complete] }
+        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
     TrainingPacketSyncInput:
       type: object
       additionalProperties: false
@@ -1171,13 +1405,6 @@ components:
           type: array
           maxItems: 100
           items: { $ref: "#/components/schemas/TrainingPacketSyncRecord" }
-    TrainingPacketFinalizeInput:
-      type: object
-      additionalProperties: false
-      required: [operation_id, content_hash]
-      properties:
-        operation_id: { type: string, format: uuid }
-        content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
     TrainingPacketReviewInput:
       type: object
       additionalProperties: false
@@ -1214,7 +1441,7 @@ components:
     TrainingPacketRecord:
       type: object
       additionalProperties: false
-      required: [id, assignment_id, record_date, phase, server_version, sync_status, report, content_hash, released_to_po, released_at, withdrawn_at, withdrawal_reason, acknowledgment, amendment_of, amendment_reason]
+      required: [id, assignment_id, record_date, phase, server_version, sync_status, handoff_status, report, po_totals, content_hash, released_to_po, released_at, withdrawn_at, withdrawal_reason, acknowledgment, amendment_of, amendment_reason]
       properties:
         id: { type: string, minLength: 1, maxLength: 128 }
         assignment_id: { type: string, format: uuid }
@@ -1222,7 +1449,15 @@ components:
         phase: { type: integer, minimum: 1, maximum: 4 }
         server_version: { type: integer, minimum: 1 }
         sync_status: { type: string, enum: [local_draft_pending, submitted_complete] }
-        report: { $ref: "#/components/schemas/TrainingPacketReport" }
+        handoff_status: { $ref: "#/components/schemas/PacketHandoffStatus" }
+        report:
+          oneOf:
+            - { $ref: "#/components/schemas/TrainingPacketReport" }
+            - { type: "null" }
+        po_totals:
+          oneOf:
+            - { $ref: "#/components/schemas/PacketPoTotals" }
+            - { type: "null" }
         content_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
         released_to_po: { type: boolean }
         released_at: { type: ["string", "null"], format: date-time }
@@ -1246,7 +1481,7 @@ components:
           required: [total_records, role]
           properties:
             total_records: { type: integer, minimum: 0, maximum: 100 }
-            role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+            role: { type: string, enum: [PO, FTO, FTO_COORDINATOR, FTO_COC, POLICENET, POLICENET_ADMIN_SGT] }
             has_more: { type: boolean }
             next_cursor: { type: ["string", "null"], maxLength: 256 }
         data:
@@ -1262,18 +1497,18 @@ components:
         metadata:
           type: object
           additionalProperties: false
-          required: [service_available]
+          required: [can_sync]
           properties:
-            service_available: { type: boolean }
+            can_sync: { type: boolean }
         data:
           type: array
           maxItems: 1
           items:
             type: object
             additionalProperties: false
-            required: [draft_sync_available]
+            required: [automatic_sync_allowed]
             properties:
-              draft_sync_available: { type: boolean }
+              automatic_sync_allowed: { type: boolean }
     HealthStatus:
       type: object
       properties:
@@ -1535,7 +1770,6 @@ components:
       additionalProperties: false
       required: [incidentNumber]
       properties:
-        cadIdentity: { $ref: "#/components/schemas/OperationalIdentity" }
         incidentNumber: { type: string, minLength: 1, maxLength: 120 }
         unitNumber: { type: string, minLength: 1, maxLength: 40 }
         eventDate: { type: string, format: date }
@@ -1574,7 +1808,11 @@ components:
       additionalProperties: false
       required: [eventId, cadUnit]
       properties:
-        cadUnit: { type: string, pattern: "^[0-9]{4}[A-Z]$" }
+        cadUnit:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: "^[0-9]{4}[A-Z]$"
         eventId:
           type: string
           minLength: 1
@@ -1584,7 +1822,6 @@ components:
       type: object
       additionalProperties: false
       properties:
-        cadIdentity: { $ref: "#/components/schemas/OperationalIdentity" }
         eventDate:
           type: string
           format: date

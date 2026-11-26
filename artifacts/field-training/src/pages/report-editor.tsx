@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
-import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, Trash, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useOperationalStateMachine, useWorkspace } from '@/state/workspace.js';
 import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
 import { PageHead, Panel, StatusPill } from '@/components/bits.js';
@@ -30,7 +30,7 @@ import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
 import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
 import { authoredReportSnapshot } from '@/lib/protected-packets.js';
 import { getRunWorkflowSteps, runSheetReviewSnapshot, type RunSheetKey, type RunWorkflowDraft } from '@/lib/run-workflow.js';
-import { restoreDispatchPrefillFields, serializeDispatchPrefillFields } from '@/lib/dispatch-prefill.js';
+import { isDispatchedRunMissingIncidentNumber, restoreDispatchPrefillFields, serializeDispatchPrefillFields } from '@/lib/dispatch-prefill.js';
 import { isArrestSeverity, isArrestType } from '@/lib/arrest-classification.js';
 import { ArrestClassificationFields } from '@/components/arrest-classification-fields.js';
 import { RunStepRail, SheetStatus, sheetHasEdits } from '@/components/run-sheet-workflow.js';
@@ -50,6 +50,9 @@ import { PacketSubmitControl } from '@/components/packet-review/submit-control.j
 import { activeFtoIdentity, useOperationalProfile } from '@/state/operational-profile.js';
 
 import { RunOptionsDialog } from '@/components/run-options-dialog.js';
+import { savedOrientationHref } from '@/lib/saved-orientation.js';
+
+import { searchTrainingRunsByIncidentNumber } from '@/lib/training-run-search.js';
 
 type EditorStage = 'shift'|'duty'|'runs'|'activity'|'evaluation'|'narrative';
 type FailurePromptTarget = { form:RunChecklistSourceForm;key:string;label:string;choices:readonly string[];mode:'clear'|'edit' };
@@ -88,7 +91,8 @@ export default function ReportEditor() {
   const { profile, contextKey: operationalContextKey } = useOperationalProfile();
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
-  const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket, previewOnly } = useWorkspace();
+  const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket, previewOnly,
+    authAccountId, saveAuthRecoverySnapshot } = useWorkspace();
   const requestedReportDate = (folder: NonNullable<typeof ws.caseFolder>, reports: typeof ws.reports) => {
     const value = isNew ? new URLSearchParams(window.location.search).get('date') : null;
     if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value < folder.phaseStartDate) return undefined;
@@ -116,6 +120,7 @@ export default function ReportEditor() {
   const [runDateTimeText, setRunDateTimeText] = useState(() => r ? formatDateDMY(r.date) : '');
   const [runTimeText, setRunTimeText] = useState('');
   const [incidentNumber, setIncidentNumber] = useState('');
+  const [runIncidentSearch, setRunIncidentSearch] = useState('');
   const [runLocation, setRunLocation] = useState('');
   const [runLocationCity, setRunLocationCity] = useState('');
   const [runLocationState, setRunLocationState] = useState('');
@@ -254,9 +259,33 @@ export default function ReportEditor() {
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
   const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== '' || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestSeverity !== '' || arrestType !== '' || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runLocationCity.trim() !== '' || runLocationState.trim() !== '' || runLocationZip.trim() !== '' || runZone.trim() !== '' || runCruiserDistrict.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist) || Object.keys(runFailureEdits).length>0;
+  const matchingRuns = useMemo(
+    () => searchTrainingRunsByIncidentNumber(r?.runs ?? [], runIncidentSearch),
+    [r?.runs, runIncidentSearch],
+  );
   const isDirty = !!r && (authoredReportSnapshot(r) !== (isNew ? initialReport : baseline) || dateText !== formatDateDMY(r.date) || runFormDirty);
+  const recoveryBuffer = useRef<{ accountId?: string; reportId: string; dirty: boolean; fields: Array<{ form: string; field: string; value: string }> }>({
+    accountId: authAccountId, reportId: r?.id ?? '', dirty: isDirty, fields: [],
+  });
+  recoveryBuffer.current = {
+    accountId: authAccountId,
+    reportId: r?.id ?? '',
+    dirty: isDirty,
+    fields: r ? [
+      { form: `report:${r.id}`, field: 'input-narrative', value: r.narrative },
+      { form: `report:${r.id}`, field: 'input-remedial', value: r.remedial },
+      { form: `report:${r.id}`, field: 'input-recruit-comments', value: r.recruitComments },
+      { form: `report:${r.id}`, field: 'input-duty-notes', value: r.reportingForDuty?.notes ?? '' },
+      { form: `report:${r.id}`, field: 'input-run-narrative', value: runNarrative },
+    ] : [],
+  };
   useEffect(() => { setEditorDirty(isDirty); }, [isDirty, setEditorDirty]);
-  useEffect(() => () => setEditorDirty(false), [setEditorDirty]);
+  useEffect(() => () => {
+    const recovery = recoveryBuffer.current;
+    if (recovery.dirty && recovery.fields.length)
+      void saveAuthRecoverySnapshot?.(recovery.accountId, recovery.fields).catch(() => {});
+    setEditorDirty(false);
+  }, [saveAuthRecoverySnapshot, setEditorDirty]);
   useEffect(() => {
     if (!r) return;
     setDateText(formatDateDMY(r.date));
@@ -844,6 +873,7 @@ export default function ReportEditor() {
   const radioCodeInput='h-10 min-w-0 flex-1 rounded-r border bg-card px-3 font-mono text-base uppercase disabled:opacity-70';
   const week = getSundaySaturdayWeek(r.date);
   const orientationForReport=operationalPacket?.orientation;
+  const orientationHref=savedOrientationHref(ws.role,orientationForReport);
   const trainingDayReference=operationalPacket?.dayReference;
   const runDerivedActivity=runDerivedActivityCounts(r?.runs??[]);
   const trafficSolveSuggestion=runKind==='traffic_stop'&&dispatchedCode==='6'&&citationSummonsRecorded;
@@ -854,13 +884,13 @@ export default function ReportEditor() {
     .filter(Boolean);
 
   return (
-    <div className="report-editor-page max-w-5xl">
+    <div className="report-editor-page max-w-5xl" data-auth-recovery-form={`report:${r.id}`}>
       <DeficiencyDialog group={deficiencyEditor.active} onNarrative={deficiencyEditor.setNarrative} onOverride={deficiencyEditor.override} onClose={deficiencyEditor.close}/>
       <Link href="/reports" className="text-sm font-semibold inline-flex items-center gap-1 mb-2 hover:underline" data-testid="link-back"><ArrowLeft className="h-4 w-4" />Saved records</Link>
       <PageHead kicker="Shift workspace · Daily Performance Summary · U-10.174" title={r.recruitName ? `PO ${r.recruitName} #${r.recruitBadge}` : 'Probationary Officer shift'}>
         <StatusPill s={r.status} />
         <button type="button" data-testid="button-print-daily-log" onClick={() => { if(operationalPacket?.blockingIssues.length){toast({title:'Complete the phase-start packet',description:operationalPacket.blockingIssues.join(' '),variant:'destructive'});return;} window.print(); }} className="h-10 px-3 rounded border bg-card text-sm font-bold inline-flex items-center gap-1.5"><Printer className="h-4 w-4" />Print all forms / PDF</button>
-        {r.phase===1&&<Link href="/substation-orientation" className="inline-flex h-10 items-center rounded border bg-card px-3 text-sm font-bold">Substation Orientation</Link>}
+        {orientationHref&&<Link href={orientationHref} data-testid="link-saved-orientation" className="inline-flex h-10 items-center rounded border bg-card px-3 text-sm font-bold">Substation Orientation</Link>}
         {(editable || commentsEditable) && <button data-testid="button-save-draft" onClick={()=>save()} className="h-10 px-4 rounded bg-primary text-primary-foreground font-bold text-sm active:scale-[.98] transition">{commentsEditable ? 'Save comments' : 'Save draft'}{isDirty && ' *'}</button>}
         {editable && <button data-testid="button-save-next-workday" onClick={()=>save(false,true)} className="h-10 rounded border bg-card px-3 text-sm font-semibold">Save and next workday</button>}
         {editable && !isLimboDay && <button type="button" className="h-10 rounded border bg-card px-3 text-sm font-bold" onClick={()=>{setReviewConfirmed(false);setReviewOpen(true);}} data-testid="button-review-ratings">Review before submission</button>}
@@ -1157,9 +1187,28 @@ export default function ReportEditor() {
              {runError && <p role="alert" className="mt-2 text-sm font-semibold text-destructive" data-testid="text-run-error">{runError}</p>}
           </div>:<div className="rounded border border-dashed bg-muted/20 p-8" data-testid="section-no-open-run"><ClipboardList className="mb-3 h-7 w-7 text-primary" aria-hidden/><h3 className="font-bold">Ready for the next run</h3><p className="mt-2 text-sm text-muted-foreground">The previous run is in today’s unsaved daily-log draft. Select New run, enter the next incident number, and review its details. Save the daily draft before leaving if you need it kept in your encrypted workspace.</p><button type="button" disabled={!editable} onClick={requestNewRun} className="mt-4 min-h-11 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50">New run</button></div>}
           <div>
-            <div className="flex items-center justify-between border-b pb-2"><h3 className="font-bold">Runs recorded</h3><span className="mono text-xs" data-testid="status-run-count">{r.runs.length} recorded</span></div>
+            <div className="flex items-center justify-between border-b pb-2"><h3 className="font-bold">Runs recorded</h3><span className="mono text-xs" data-testid="status-run-count">{runIncidentSearch.trim()?`${matchingRuns.length} of ${r.runs.length} matching`:`${r.runs.length} recorded`}</span></div>
+            {r.runs.length > 0 && <label className="mt-3 block">
+              <span className="label-caps">Find by incident number</span>
+              <input
+                type="search"
+                inputMode="numeric"
+                maxLength={16}
+                value={runIncidentSearch}
+                onChange={event=>setRunIncidentSearch(event.target.value)}
+                placeholder="Enter 9–16 digits"
+                aria-label="Find saved runs by incident number"
+                className="mt-1 h-10 w-full rounded border bg-card px-3 text-sm"
+                data-testid="input-search-runs-by-incident"
+              />
+            </label>}
             {r.runs.length === 0 ? <div className="mt-3 rounded border border-dashed p-5 text-sm text-muted-foreground" data-testid="text-no-runs"><ClipboardList className="mb-2 h-5 w-5" />No runs recorded for this day yet.</div> :
-              <ul className="divide-y" data-testid="list-training-runs">{r.runs.map(run=>{
+              matchingRuns.length === 0 ? <div className="mt-3 rounded border border-dashed p-5 text-sm text-muted-foreground" data-testid="text-no-matching-runs">
+                <ClipboardList className="mb-2 h-5 w-5" />
+                <p>No saved runs match that incident number.</p>
+                <button type="button" className="mt-2 font-semibold text-primary underline underline-offset-2" onClick={()=>setRunIncidentSearch('')} data-testid="button-clear-run-search">Clear search</button>
+              </div> :
+              <ul className="divide-y" data-testid="list-training-runs">{matchingRuns.map(run=>{
                 const form=PRIMARY_RUN_FORMS.find(item=>item.key===run.runKind);
                  const supplements=requiredSupplementalForms(run).map(key=>{
                    const item=SUPPLEMENTAL_RUN_FORMS.find(form=>form.key===key);
@@ -1167,8 +1216,9 @@ export default function ReportEditor() {
                  }).filter(Boolean);
                  const failureSummaries=runChecklistFailureSummaries(run);
                 return <li id={`run-${run.id}`} key={run.id} className="scroll-mt-28 py-3" data-testid={`row-training-run-${run.id}`}>
-                   <div className="flex items-start gap-2"><div className="min-w-0 flex-1"><div className="font-semibold text-sm">{form?.label ?? 'Training run'}</div><div className="text-xs text-muted-foreground">{formatDateTimeMDY(run.occurredAt)} · {run.isDispatched?'Dispatched':'Self-initiated'}</div></div><button type="button" disabled={!editable} onClick={()=>requestEditRun(run)} className="rounded border px-2 py-1 text-xs font-semibold disabled:opacity-50" data-testid={`button-edit-run-${run.id}`}>Edit</button><button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>set('runs',r.runs.filter(item=>item.id!==run.id))})} aria-label="Remove run" className="rounded border p-1.5 text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}><Trash className="h-4 w-4" /></button></div>
+                   <div className="min-w-0"><div className="font-semibold text-sm">{form?.label ?? 'Training run'}</div><div className="text-xs text-muted-foreground">{formatDateTimeMDY(run.occurredAt)} · {run.isDispatched?'Dispatched':'Self-initiated'}</div></div>
                   <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]"><span className="rounded bg-muted px-2 py-0.5" data-testid={`status-run-form-${run.id}`}>{run.formStatus.replace('_',' ')}</span>{supplements.map(name=><span key={name} className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5">{name}</span>)}</div>
+                   {run.incidentNumber&&<p className="mt-1 text-xs mono" data-testid={`text-run-incident-number-${run.id}`}>Incident number · {run.incidentNumber}</p>}
                    <p className="mt-1 text-xs">Run: {run.dispatchedCode ? `10-${run.dispatchedCode}`:'Not recorded'} · Found: {run.situationFoundCode ? formatRadioCode(run.situationFoundCode):'Not recorded'} · Clearance: {run.clearanceCode || 'Not recorded'}</p>
                       {(run.runKind==='traffic_stop'||run.runKind==='high_risk_stop')&&run.trafficMode!=='none'&&<p className="mt-1 text-xs">Traffic violator: {run.trafficMode.replaceAll('_',' ')}{run.activityFlags?.solveCitationSummons?' · Solve Citation/Summons selected':''}</p>}
                    {failureSummaries.length>0&&<div className="mt-2 rounded border border-destructive/30 bg-destructive/5 p-2" data-testid={`list-run-failures-${run.id}`}>
@@ -1179,6 +1229,10 @@ export default function ReportEditor() {
                      </li>)}</ul>
                    </div>}
                   {run.narrative && <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{run.narrative}</p>}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-x-12 gap-y-2 border-t pt-3">
+                    <button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>setR(current=>current&&({...current,runs:current.runs.filter(item=>item.id!==run.id)}))})} className="min-h-10 rounded border border-destructive/60 px-3 py-2 text-xs font-semibold text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}>Remove run</button>
+                    <button type="button" disabled={!editable} onClick={()=>requestEditRun(run)} className="min-h-10 rounded border px-3 py-2 text-xs font-semibold disabled:opacity-50" data-testid={`button-edit-run-${run.id}`}>Edit</button>
+                  </div>
                 </li>;
               })}</ul>}
           </div>
@@ -1323,7 +1377,18 @@ export default function ReportEditor() {
       </Panel>
       </>}
 
-      <PacketSubmitControl reportId={r.id} disabled={isDirty||runFormDirty||isNew}/>
+      <PacketSubmitControl
+        reportId={r.id}
+        disabled={isDirty||runFormDirty||isNew}
+        missingIncidentNumberCount={r.runs.filter(isDispatchedRunMissingIncidentNumber).length}
+        onReturnToMissingRun={()=>{
+          const missingRun=r.runs.find(isDispatchedRunMissingIncidentNumber);
+          if(!missingRun)return;
+          setStage('runs');
+          editRun(missingRun);
+          window.scrollTo({top:0,behavior:'smooth'});
+        }}
+      />
       <div className="editor-savebar" data-testid="bar-daily-save">
         <button type="button" disabled={EDITOR_STAGES[0].id===stage} onClick={()=>{const i=EDITOR_STAGES.findIndex(item=>item.id===stage);setStage(EDITOR_STAGES[Math.max(0,i-1)].id);window.scrollTo({top:0});}} className="inline-flex min-h-10 items-center gap-1 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-40" data-testid="button-stage-back"><ChevronLeft className="h-4 w-4"/>Back</button>
         <span className="editor-savebar-state" data-testid="status-daily-save">

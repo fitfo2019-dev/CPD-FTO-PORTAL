@@ -28,6 +28,13 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
   let profile:OperationalProfileContext={subject:"TEST-FTO",role:"FTO",badge:"TEST-BADGE",version:1,identity:parseOperationalIdentity("9150E-1")};
   let saved=structuredClone(profile);
   let error:string|undefined;
+  const dirtyStates:boolean[]=[];
+  const recoveryWrites:Array<{accountId:string|undefined;value:string}>=[];
+  const setEditorDirty=(dirty:boolean)=>{dirtyStates.push(dirty);};
+  const saveAuthRecoverySnapshot=async(accountId?:string,fields?:Array<{field:string;value:string}> )=>{
+    recoveryWrites.push({accountId,value:fields?.find(field=>field.field==="operational-assignment-token")?.value
+      ??dom.window.document.querySelector<HTMLInputElement>('[data-testid="input-operational-assignment"]')?.value??''});
+  };
    let failures=false,writes=0,loseResponse=false,reloadFails=false;
   const root=createRoot(dom.window.document.getElementById("root")!);
   const save=async(token:string,version:number)=>{
@@ -54,6 +61,7 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
   };
   const render=()=>root.render(<QueryClientProvider client={cache}><OperationalProfileStateContext.Provider value={{
     profile:error?undefined:profile,editorProfile:profile,pending:false,error,contextKey:`${profile.subject}:${profile.version}`,save,clear,refresh,
+    setEditorDirty,saveAuthRecoverySnapshot,
   }}><OperationalProfilePanel/></OperationalProfileStateContext.Provider></QueryClientProvider>);
   function element<T extends HTMLElement=HTMLElement>(id:string){
     const node=dom.window.document.querySelector<T>(`[data-testid="${id}"]`);assert.ok(node,id);return node;
@@ -189,8 +197,14 @@ test("approved account editor validates own-profile saves, preserves conflicts, 
     assert.equal(element<HTMLButtonElement>("button-clear-operational-profile").disabled,true);
     assert.match(element("text-profile-error").textContent!,/clear was not confirmed/);
     assert.equal(saved.identity?.assignmentToken,"1234A-1");
+    await input("7777E-1");
+    assert.equal(dirtyStates.at(-1),true,"Pending profile edits participate in workspace recovery.");
+    await act(async()=>root.unmount());
+    await new Promise(resolve=>setTimeout(resolve,10));
+    assert.ok(recoveryWrites.some(item=>item.accountId==="FICTIONAL-LOST-PO"&&item.value==="7777E-1"),
+      `Captured editor recovery: ${JSON.stringify(recoveryWrites.slice(-4))}`);
   }finally{
-    await act(async()=>root.unmount());cache.clear();dom.window.close();
+    cache.clear();dom.window.close();
     for(const [key,descriptor]of previous)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);
   }
 });

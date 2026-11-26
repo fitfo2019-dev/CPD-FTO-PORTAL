@@ -4,7 +4,8 @@ import test from 'node:test';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { JSDOM } from 'jsdom';
-import { OfflineStorage, WorkspaceConflictError } from './offlineStorage.js';
+import { MAX_PACKET_BATCH_COUNT, OfflineStorage, WorkspaceConflictError } from './offlineStorage.js';
+import { AuthenticationRequiredError } from './auth-session.js';
 import { createUiPreviewWorkspace } from './empty-workspace.js';
 import {
   emptyDailyActivitySummary,
@@ -488,6 +489,162 @@ test('locking clears access to the unlocked key', async () => {
   vault.lock();
   assert.equal(vault.isUnlocked, false);
   await assert.rejects(vault.get('workspace'), /Unlock the local vault/);
+});
+
+test('authentication recovery is encrypted, isolated by account and excluded from saved drafts and sync', async () => {
+  const { namespace, vault } = createVault();
+  const accountId = 'FICTIONAL-RECOVERY-ACCOUNT-A';
+  const sensitiveText = 'Exact 6-5 narrative; preserve spaces  and punctuation.';
+  await vault.unlock(passphrase);
+  await vault.saveLocalOnlyDraft('kept-draft', { note: 'Existing saved draft remains.' });
+  await vault.saveAuthRecoverySnapshot(accountId, [{
+    form: 'report:fictional-report',
+    field: 'input-narrative',
+    value: sensitiveText,
+  }]);
+  assert.equal(await vault.pendingCount(), 0);
+  assert.deepEqual(await vault.getLocalOnlyDrafts(), [{ note: 'Existing saved draft remains.' }]);
+  const forOwner = await vault.getAuthRecoverySnapshots(accountId);
+  assert.equal(forOwner.length, 1);
+  assert.equal(forOwner[0].fields[0].value, sensitiveText);
+  assert.deepEqual(await vault.getAuthRecoverySnapshots('FICTIONAL-RECOVERY-ACCOUNT-B'), []);
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const open = indexedDB.open(`fieldready-vault-${namespace}`, 2);
+    open.onsuccess = () => resolve(open.result);
+    open.onerror = () => reject(open.error);
+  });
+  try {
+    const envelopes = await new Promise<Array<{ id: string } & Record<string, unknown>>>((resolve, reject) => {
+      const request = db.transaction('local_drafts').objectStore('local_drafts').getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    assert.doesNotMatch(JSON.stringify(envelopes), new RegExp(sensitiveText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    const recoveryId = envelopes.find(item => String(item.id).startsWith('auth-recovery:'))?.id;
+    assert.ok(recoveryId);
+    assert.doesNotMatch(String(recoveryId), /FICTIONAL-RECOVERY-ACCOUNT-A/);
+  } finally { db.close(); }
+  vault.lock();
+  const reopened = new OfflineStorage(namespace);
+  await reopened.unlock(passphrase);
+  assert.equal((await reopened.getAuthRecoverySnapshots(accountId))[0].fields[0].value, sensitiveText);
+  reopened.lock();
+});
+
+test('failed or locked local recovery writes reject instead of claiming persistence', async () => {
+  const { vault } = createVault();
+  await vault.unlock(passphrase);
+  vault.lock();
+  assert.throws(() => vault.saveAuthRecoverySnapshot('FICTIONAL-ACCOUNT', [{
+    form: 'report:fictional-report', field: 'narrative', value: 'Unsaved text',
+  }]), /Unlock the local vault first/);
+
+  const unavailable = new OfflineStorage(`offline-failing-${crypto.randomUUID()}`);
+  await unavailable.unlock(passphrase);
+  Object.defineProperty(unavailable, 'db', {
+    configurable: true,
+    value: async () => { throw new Error('Synthetic local storage write failure'); },
+  });
+  await assert.rejects(unavailable.saveAuthRecoverySnapshot('FICTIONAL-ACCOUNT', [{
+    form: 'report:fictional-report', field: 'narrative', value: 'Unsaved text',
+  }]), /Synthetic local storage write failure/);
+  unavailable.lock();
+});
+
+test('mounted workspace preserves dirty editor buffers in the encrypted account-scoped vault', async () => {
+  const namespace = `auth-recovery-mounted-${crypto.randomUUID()}`;
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { pretendToBeVisual: true });
+  const globalKeys = ['window', 'document', 'navigator', 'HTMLElement', 'Node', 'IS_REACT_ACT_ENVIRONMENT'];
+  const previous = new Map(globalKeys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  for (const [key, value] of Object.entries({
+    window: dom.window, document: dom.window.document, navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement, Node: dom.window.Node, IS_REACT_ACT_ENVIRONMENT: true,
+  })) Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+  const identity = { accountId: 'FICTIONAL-AUTH-ACCOUNT', sessionId: 'SESSION-ONE' };
+  let sessionValid = true;
+  let current: ReturnType<typeof useWorkspace> | undefined;
+  function Probe() { current = useWorkspace(); return null; }
+  const root = createRoot(dom.window.document.getElementById('root')!);
+  const narrative = 'Unsaved original wording, 6-5 codes, and exact  spacing.';
+  const form = dom.window.document.createElement('form');
+  form.dataset.authRecoveryForm = 'report:FICTIONAL-REPORT';
+  const textarea = dom.window.document.createElement('textarea');
+  textarea.dataset.testid = 'input-narrative';
+  textarea.value = narrative;
+  form.append(textarea);
+  dom.window.document.body.append(form);
+  try {
+    await act(async () => {
+      root.render(createElement(WorkspaceProvider, {
+        storageNamespace: namespace,
+        authSession: identity,
+        validateSession: async expected => {
+          if (!sessionValid || expected.accountId !== identity.accountId || expected.sessionId !== identity.sessionId)
+            throw new Error('Expired or changed Clerk session.');
+        },
+        children: createElement(Probe),
+      }));
+    });
+    await act(async () => { await current!.setupAndSave('mounted-test-passphrase'); });
+    await act(async () => {
+      current!.setEditorDirty(true);
+      await current!.saveAuthRecoverySnapshot!(identity.accountId);
+    });
+    sessionValid = false;
+    assert.equal(sessionValid, false, 'Local recovery remains available after authentication expires.');
+
+    const reader = new OfflineStorage(namespace);
+    await reader.unlock(new TextEncoder().encode('mounted-test-passphrase'));
+    const saved = await reader.getAuthRecoverySnapshots(identity.accountId);
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].fields.find(field => field.field === 'input-narrative')?.value, narrative);
+    assert.deepEqual(await reader.getAuthRecoverySnapshots('FICTIONAL-OTHER-ACCOUNT'), []);
+    assert.equal(await reader.pendingPacketCount(), 0, 'Recovery text does not create a remote packet operation.');
+    reader.lock();
+  } finally {
+    await act(async () => { root.unmount(); });
+    dom.window.close();
+    for (const [key, descriptor] of previous)
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+  }
+});
+
+test('authentication expiry between packet batches stops draining and preserves the exact uncertain operation', async () => {
+  const { vault } = createVault();
+  await vault.unlock(passphrase);
+  const reports = Array.from({ length: MAX_PACKET_BATCH_COUNT + 1 }, (_, index) => ({
+    id: `FICTIONAL-BATCH-${index}`,
+    syncStatus: 'local_draft_pending',
+    narrative: `Fictional test packet ${index}`,
+  }));
+  await vault.saveWorkspace({ reports });
+  const calls: Array<Array<{ operationId: string; recordId: string; baseVersion: number; value: unknown }>> = [];
+  await assert.rejects(vault.syncPacketQueue(async changes => {
+    calls.push(changes.map(({ operationId, recordId, baseVersion, value }) =>
+      ({ operationId, recordId, baseVersion, value })));
+    if (calls.length === 2) throw new AuthenticationRequiredError();
+    return changes.map(change => ({
+      id: change.recordId,
+      operation_id: change.operationId,
+      server_version: 1,
+      sync_status: 'local_draft_pending' as const,
+      content_hash: 'a'.repeat(64),
+    }));
+  }), { name: 'AuthenticationRequiredError' });
+  assert.equal(calls.length, 2, 'A failed second batch does not start an automatic retry loop.');
+  assert.equal(calls[0].length, MAX_PACKET_BATCH_COUNT);
+  assert.equal(calls[1].length, 1);
+  assert.equal(await vault.pendingPacketCount(), 1);
+  let retry: typeof calls[number] = [];
+  await assert.rejects(vault.syncPacketBatch(async changes => {
+    retry = changes.map(({ operationId, recordId, baseVersion, value }) =>
+      ({ operationId, recordId, baseVersion, value }));
+    throw new Error('Synthetic response-loss boundary');
+  }), /Synthetic response-loss boundary/);
+  assert.deepEqual(retry, calls[1], 'Retry keeps the exact record, operation ID, base version, and snapshot.');
+  assert.equal(await vault.pendingPacketCount(), 1);
+  vault.lock();
 });
 
 test('preview edits, autosave, sync, and reset never create device storage records', async () => {

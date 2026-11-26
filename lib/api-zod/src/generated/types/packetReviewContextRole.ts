@@ -13,4 +13,7 @@ export const PacketReviewContextRole = {
   PO: 'PO',
   FTO: 'FTO',
   FTO_COORDINATOR: 'FTO_COORDINATOR',
+  FTO_COC: 'FTO_COC',
+  POLICENET: 'POLICENET',
+  POLICENET_ADMIN_SGT: 'POLICENET_ADMIN_SGT',
 } as const;

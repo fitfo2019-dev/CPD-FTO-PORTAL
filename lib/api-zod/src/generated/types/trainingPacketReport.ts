@@ -13,7 +13,6 @@ import type { TrainingPacketReportRunsItem } from './trainingPacketReportRunsIte
 import type { TrainingPacketReportStatus } from './trainingPacketReportStatus';
 
 export interface TrainingPacketReport {
-  operationalIdentity?: OperationalIdentity;
   /**
      * @minLength 1
      * @maxLength 128
@@ -61,5 +60,6 @@ export interface TrainingPacketReport {
   remedial: string;
   /** @maxLength 100000 */
   recruitComments: string;
+  operationalIdentity?: OperationalIdentity;
   [key: string]: unknown;
  }

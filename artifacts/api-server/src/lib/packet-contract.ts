@@ -17,7 +17,7 @@ const packetAcknowledgmentSchema = packetRecordSchema.shape.acknowledgment.optio
 export const CompletePacketsEnvelope = ListTrainingPacketsResponse.extend({
   metadata: ListTrainingPacketsResponse.shape.metadata.strict(),
   data: packetRecordSchema.extend({
-    report: CompletePacketReport,
+    report: CompletePacketReport.nullable(),
     acknowledgment: packetAcknowledgmentSchema,
   }).strict().array().max(100),
 }).strict();

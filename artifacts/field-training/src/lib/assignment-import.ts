@@ -209,7 +209,9 @@ export async function parseRosterFile(file: File): Promise<ParsedRoster> {
   }
   if (!/\.docx$/i.test(file.name)) throw new OperatorFacingError('Use a CSV, Excel .xlsx, or Word .docx file with a header row.');
   const imported=await import('mammoth');
-  const {value, messages}=await imported.convertToHtml({arrayBuffer:await file.arrayBuffer()});
+  const arrayBuffer=await file.arrayBuffer();
+  const input={arrayBuffer,...(typeof Buffer==='undefined'?{}:{buffer:Buffer.from(arrayBuffer)})};
+  const {value, messages}=await imported.convertToHtml(input as Parameters<typeof imported.convertToHtml>[0]);
   const document=new DOMParser().parseFromString(value,'text/html');
   const table=[...document.querySelectorAll('table')].find(item=>item.rows.length>1);
   if (!table) throw new OperatorFacingError('The Word document needs a table with column headings in its first row.');

@@ -37,7 +37,7 @@ test("a root-scoped portal worker never substitutes sign-in for approval preview
     });
     return handled;
   };
-  for (const path of ["/__mockup", "/__mockup/preview/PacketReviewPreview", "/approval-preview",
+  for (const path of ["/__mockup", "/__mockup/preview/PacketHandoffFlowPreview", "/approval-preview",
     "/ui-preview", "/ui-preview/reports", "/api/v1/training-packets", "/another-app/", "/pitch-deck/"]) {
     assert.equal(intercepted(path), false, path);
   }
@@ -55,7 +55,7 @@ test("the portal navigation boundary also respects a non-root base path", () => 
     ["/training-portal/reports/one", true],
     ["/training-portal/", true],
     ["/training-portal/approval-preview", false],
-    ["/__mockup/preview/PacketReviewPreview", false],
+    ["/__mockup/preview/PacketHandoffFlowPreview", false],
     ["/reports/one", false],
   ] as const) {
     let handled = false;

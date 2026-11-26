@@ -1,7 +1,0 @@
-FIELD TRAINING OFFICER PORTAL — SOURCE CODE ARCHIVE
-
-This archive contains the current workspace source tree and the pnpm workspace lockfile. It is a personal reference copy, separate from the application runtime and production package.
-
-Excluded by design: secret/environment files and private keys, uploaded reference materials, dependency directories, build output, generated artifacts (including the completed-build dossier), local history snapshots, Git metadata, and Replit-only assistant context.
-
-To install from the workspace root on a compatible Node.js runtime, use Corepack/pnpm with the included pnpm-lock.yaml: `corepack pnpm install --frozen-lockfile`. The repository scripts document typechecking and builds. This source archive does not include deployment credentials or guarantee external agency service configuration.

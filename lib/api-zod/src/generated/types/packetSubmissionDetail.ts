@@ -5,12 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PacketPoTotals } from './packetPoTotals';
 import type { PacketSubmission } from './packetSubmission';
 import type { PacketSubmissionHistory } from './packetSubmissionHistory';
 import type { TrainingPacketReport } from './trainingPacketReport';
 
 export interface PacketSubmissionDetail {
   submission: PacketSubmission;
-  report: TrainingPacketReport;
+  report: TrainingPacketReport | null;
+  po_totals: PacketPoTotals | null;
   history: PacketSubmissionHistory[];
 }

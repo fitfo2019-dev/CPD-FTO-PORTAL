@@ -632,6 +632,7 @@ export interface PhaseExtensionRequest {
   createdAt: string;
   status?: 'local_draft'|'pending'|'approved'|'denied';
   reviewedAt?: string;
+  denialExplanation?: string;
   appliedToLocalSchedule?: boolean;
 }
 export type Shift = 'A-Co'|'B-Co'|'C-Co'|'DMW'|'EMW';

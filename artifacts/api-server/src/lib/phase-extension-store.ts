@@ -6,6 +6,7 @@ export type SharedPhaseExtensionRequest = PhaseExtensionRequestInput & {
   status: "pending" | "approved" | "denied";
   createdAt: string;
   reviewedAt: string | null;
+  denialExplanation: string | null;
 };
 
 type RequestRow = {
@@ -23,6 +24,7 @@ type RequestRow = {
   status: "pending" | "approved" | "denied";
   created_at: Date;
   reviewed_at: Date | null;
+  denial_explanation: string | null;
   requester_user_id: string;
   reviewed_by_user_id: string | null;
   assignment_id: string;
@@ -36,7 +38,12 @@ export type PhaseExtensionRequestStore = {
     request: SharedPhaseExtensionRequest;
     created: boolean;
   }>;
-  review(id: string, reviewerUserId: string, decision: "approve" | "deny"): Promise<{
+  review(
+    id: string,
+    reviewerUserId: string,
+    decision: "approve" | "deny",
+    denialExplanation?: string,
+  ): Promise<{
     request: SharedPhaseExtensionRequest | null;
     alreadyResolved: boolean;
   }>;
@@ -60,13 +67,14 @@ function toRequest(row: RequestRow): SharedPhaseExtensionRequest {
     status: row.status,
     createdAt: row.created_at.toISOString(),
     reviewedAt: row.reviewed_at?.toISOString() ?? null,
+    denialExplanation: row.denial_explanation,
   };
 }
 
 const columns = `r.id, r.class_name, r.recruit_name, r.recruit_badge, r.phase, r.phase_start_date,
   r.requesting_fto_name, r.requesting_fto_badge, r.extension_type, r.requested_weeks,
   r.justification, r.status, r.created_at, r.reviewed_at, r.requester_user_id,
-  r.reviewed_by_user_id, r.assignment_id`;
+  r.reviewed_by_user_id, r.assignment_id, r.denial_explanation`;
 
 const assignmentColumns = `a.id, a.class_name, a.po_name, a.po_badge, a.phase,
   a.starts_on, a.fto_name, a.fto_badge`;
@@ -119,7 +127,8 @@ export function createPhaseExtensionRequestStore(
     async listPending(coordinatorUserId) {
       const result = await pool.query<RequestRow>(
         `SELECT ${columns} FROM agency_training.phase_extension_requests r
-         WHERE r.status = 'pending'
+         WHERE (r.status = 'pending'
+           OR (r.status = 'denied' AND r.denial_explanation IS NOT NULL))
            AND ${coordinatorAssignmentScope(1, 2)}
          ORDER BY r.created_at ASC`,
         [coordinatorUserId, hashUserIdentifier(coordinatorUserId)],
@@ -199,8 +208,11 @@ export function createPhaseExtensionRequestStore(
       if (!assignment.rows.length) throw new Error("PHASE_EXTENSION_ASSIGNMENT_REQUIRED");
       throw new Error("PHASE_EXTENSION_ID_CONFLICT");
     },
-    async review(id, reviewerUserId, decision) {
+    async review(id, reviewerUserId, decision, denialExplanation) {
       const status = decision === "approve" ? "approved" : "denied";
+      const explanation = decision === "deny"
+        ? denialExplanation?.trim() || null
+        : null;
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
@@ -222,11 +234,12 @@ export function createPhaseExtensionRequestStore(
         }
         const result = await client.query<RequestRow>(
           `UPDATE agency_training.phase_extension_requests r
-           SET status = $4, reviewed_at = NOW(), reviewed_by_user_id = $2
+           SET status = $4, reviewed_at = NOW(), reviewed_by_user_id = $2,
+               denial_explanation = $5
            WHERE r.id = $1 AND r.status = 'pending'
              AND ${coordinatorAssignmentScope(2, 3)}
            RETURNING ${columns}`,
-          [id, reviewerUserId, hashUserIdentifier(reviewerUserId), status],
+          [id, reviewerUserId, hashUserIdentifier(reviewerUserId), status, explanation],
         );
         if (result.rows[0]) {
           await client.query("COMMIT");

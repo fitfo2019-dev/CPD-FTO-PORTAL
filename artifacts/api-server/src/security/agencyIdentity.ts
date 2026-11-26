@@ -2,7 +2,7 @@ import { getAuth } from "@clerk/express";
 import type { Request, RequestHandler } from "express";
 import type { Principal } from "./authorization.js";
 
-export type AgencyRole = "PO" | "FTO" | "FTO_COORDINATOR";
+export type AgencyRole = "PO" | "FTO" | "FTO_COORDINATOR" | "FTO_COC" | "POLICENET" | "POLICENET_ADMIN_SGT";
 export type AgencyIdentity = { id: string; badge: string; role: AgencyRole };
 
 function claimAt(claims: unknown, path: string | undefined): unknown {
@@ -20,7 +20,8 @@ export function agencyIdentityFromClaims(id: string, claims: unknown): AgencyIde
   if (claimAt(claims, process.env.AGENCY_VERIFIED_CLAIM_PATH) !== true) return null;
   const role = claimAt(claims, process.env.AGENCY_ROLE_CLAIM_PATH);
   const badge = claimAt(claims, process.env.AGENCY_BADGE_CLAIM_PATH);
-  if (typeof role !== "string" || !["PO", "FTO", "FTO_COORDINATOR"].includes(role) ||
+  if (typeof role !== "string" ||
+    !["PO", "FTO", "FTO_COORDINATOR", "FTO_COC", "POLICENET", "POLICENET_ADMIN_SGT"].includes(role) ||
     typeof badge !== "string" || !/^[A-Za-z0-9-]{1,40}$/.test(badge) ||
     !id || id.length > 256) return null;
   return { id, badge, role: role as AgencyRole };

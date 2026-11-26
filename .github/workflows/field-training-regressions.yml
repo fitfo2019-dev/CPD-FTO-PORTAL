@@ -30,5 +30,11 @@ jobs:
       - name: Run field training regressions
         run: pnpm test:field-training:regressions
 
+      - name: Test production bundle size budget
+        run: node --test artifacts/field-training/bundle-size-budget.test.mjs
+
+      - name: Build shared TypeScript libraries
+        run: pnpm run typecheck:libs
+
       - name: Build field training production bundle
         run: pnpm --filter @workspace/field-training run build

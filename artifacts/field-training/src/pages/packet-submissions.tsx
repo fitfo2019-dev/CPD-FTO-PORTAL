@@ -4,7 +4,8 @@ import {useListPacketSubmissions,getListPacketSubmissionsQueryKey,useGetPacketSu
 import {AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel} from '@/components/ui/alert-dialog.js';
 import {Button} from '@/components/ui/button.js';
 import {usePacketReview,packetReviewError} from '@/state/packet-review.js';
-import {StatusTag,PacketDocument,when} from '@/components/packet-review/packet-view.js';
+import {HandoffTag,StatusTag,PacketDocument,when} from '@/components/packet-review/packet-view.js';
+import {PoPacketSummary} from '@/components/packet-review/po-summary.js';
 
 const PAGE=50;
 function Skeleton() {return <div className="space-y-2" aria-busy="true">{[0,1,2].map(i=><div key={i} className="uploaded-resource-skeleton !min-h-14"/>)}</div>;}
@@ -19,22 +20,29 @@ function Detail({id,onClose}:{id:string;onClose():void}) {
   const [busy,setBusy]=useState(false);
   const [failure,setFailure]=useState<string|null>(null);
   const role=context?.role;
+  const poView=role==='PO';
+  const s=q.data?.submission;
   const run=async(fn:()=>Promise<unknown>,done?:()=>void)=>{
     setBusy(true);setFailure(null);
     try{await fn();await q.refetch();setConfirm(null);setNote('');done?.();}catch(e){setFailure(packetReviewError(e));}finally{setBusy(false);}
   };
-  const s=q.data?.submission;
+  const reviewPoTotals=async()=>{
+    if(!s||!q.data?.po_totals)return;
+    setBusy(true);setFailure(null);
+    try{await act(s.id,'review_totals');onClose();}catch(e){setFailure(packetReviewError(e));}finally{setBusy(false);}
+  };
   return <section className="border-2 border-primary/40 bg-background p-4" data-testid="packet-detail">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <h2 className="font-[family-name:var(--app-font-display)] text-xl text-foreground">Packet Detail</h2>
+      <h2 className="font-[family-name:var(--app-font-display)] text-xl text-foreground">{poView?'Your packet review':'Packet Detail'}</h2>
       <Button variant="outline" data-testid="button-close-detail" onClick={onClose}>CLOSE</Button>
     </div>
     {q.isLoading&&<Skeleton/>}
     {q.error&&<div role="alert" className="flex items-center justify-between gap-2 border border-destructive p-3 text-sm text-destructive">{packetReviewError(q.error)}<Button variant="outline" onClick={()=>void q.refetch()}>RETRY</Button></div>}
     {q.data&&s&&<div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3 border border-border bg-card p-3 text-sm">
-        <StatusTag state={s.state}/><span>{s.record_date} · {s.po_name} · FTO {s.fto_name}</span>
-        <span className="mono text-xs text-muted-foreground">v{s.packet_version} · Coordinator {s.coordinator_name}</span>
+        {poView?<HandoffTag status={s.handoff_status}/>:<><StatusTag state={s.state}/><HandoffTag status={s.handoff_status}/></>}
+        <span>{s.record_date}{!poView&&` · ${s.po_name} · FTO ${s.fto_name}`}</span>
+        {!poView&&<span className="mono text-xs text-muted-foreground">v{s.packet_version} · Coordinator {s.coordinator_name}</span>}
       </div>
       {failure&&!confirm&&<p role="alert" className="text-sm text-destructive">{failure}</p>}
       {role==='FTO_COORDINATOR'&&<div className="flex flex-wrap gap-2">
@@ -43,9 +51,20 @@ function Detail({id,onClose}:{id:string;onClose():void}) {
         <Button variant="destructive" data-testid="button-return" disabled={busy||!(s.state==='acknowledged'||s.state==='submitted')} onClick={()=>{setFailure(null);setConfirm('return');}}>RETURN FOR CORRECTION</Button>
         {s.state==='submitted'&&<p className="w-full text-xs text-muted-foreground">Acknowledge receipt before approving. Acknowledgement is not approval.</p>}
       </div>}
-      {role==='FTO'&&s.state==='correction_requested'&&<Button data-testid="button-open-correction" disabled={busy}
-        onClick={()=>void run(()=>openCorrection(s.packet_id),()=>navigate(`/reports/${q.data!.report.id}`))}>OPEN CORRECTION</Button>}
-      <PacketDocument detail={q.data}/>
+      {role==='FTO'&&s.can_correct&&s.state==='correction_requested'&&q.data.report&&<Button data-testid="button-open-correction" disabled={busy}
+        onClick={()=>void run(()=>openCorrection(s.packet_id),()=>navigate(`/reports/${q.data!.report!.id}`))}>OPEN CORRECTION</Button>}
+      {poView
+        ? q.data.po_totals
+          ? <PoPacketSummary totals={q.data.po_totals} testId="po-submission-summary"/>
+          : <div role="alert" className="border border-destructive p-3 text-sm" data-testid="status-po-summary-unavailable">Your summary could not be loaded, so no review action is available. Retry or contact your training Coordinator.</div>
+        : <PacketDocument detail={q.data}/>}
+      {poView&&s.handoff_status==='awaiting_po_totals_review'&&q.data.po_totals&&<div className="border border-primary/30 bg-primary/5 p-3" data-testid="section-po-review-confirmation">
+        <p className="mb-3 text-sm">After your review is recorded, the packet becomes visible to its assigned Coordinator.</p>
+        <Button data-testid="button-review-po-totals" disabled={busy} onClick={()=>void reviewPoTotals()}>CONFIRM MY REVIEW</Button>
+      </div>}
+      {poView&&s.handoff_status!=='awaiting_po_totals_review'&&<p className="border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+        Your review was recorded. A released packet and its receipt action appear under Agency Packets.
+      </p>}
     </div>}
     <AlertDialog open={!!confirm} onOpenChange={o=>{if(!o&&!busy)setConfirm(null);}}>
       <AlertDialogContent className="sm:rounded-none">
@@ -69,7 +88,7 @@ function Assignments() {
   const [busy,setBusy]=useState<string|null>(null);
   const [failure,setFailure]=useState<string|null>(null);
   const [pending,setPending]=useState<{po_id:string;rev:number}|null>(null);
-  if(!context?.available||context.role==='FTO') return null;
+  if(!context?.available||(context.role!=='FTO_COORDINATOR'&&context.role!=='PO')) return null;
   const name=(id:string)=>context.coordinators.find(c=>c.id===id)?.name??'Coordinator not in directory';
   const save=async(po_id:string,expected_revision:number)=>{
     const coordinator_id=picks[po_id];if(!coordinator_id)return;
@@ -108,7 +127,10 @@ export default function PacketSubmissions() {
   const live=!previewOnly&&!!context?.available;
   const list=useListPacketSubmissions({offset},{query:{enabled:live,queryKey:[...getListPacketSubmissionsQueryKey({offset}),context?.account_id],refetchInterval:5000,retry:false}});
   const items=list.data?.items??[];
-  const scope=context?.role==='FTO_COORDINATOR'?'Packets routed to you for receipt and review.':'Shared status of your submitted packets. Receipt is not approval.';
+  const scope=context?.role==='FTO_COORDINATOR'?'Packets enter your inbox only after the PO reviews their own UA details and counts. Receipt is separate from approval and release.'
+    :context?.role==='PO'?'Review only your own UA details and daily, weekly, and monthly counts before Coordinator routing.'
+    :context?.role==='FTO'?'Read packets in your assigned classes; only your own returned packets can be corrected.'
+    :'Read-only submitted packets for classes assigned to your verified account.';
   return <div className="space-y-4 pb-8">
     <header className="border border-border border-t-4 border-t-primary bg-card p-4">
       <p className="library-eyebrow">Packet Submissions</p>
@@ -120,17 +142,19 @@ export default function PacketSubmissions() {
     :error||!context?<div role="alert" className="flex items-center justify-between gap-2 border border-destructive bg-card p-4 text-sm text-destructive">{error??'Packet service unavailable.'}<Button variant="outline" onClick={()=>void refresh().catch(()=>{})}>RETRY</Button></div>
     :!context.available?<p role="status" className="border border-dashed border-border bg-card p-4 text-sm">Agency packet storage is not configured or unavailable. Local drafting remains available.</p>
     :<>
-      <Assignments/>
+      {(context.role==='FTO_COORDINATOR'||context.role==='PO')&&<Assignments/>}
       {openId&&<Detail key={openId} id={openId} onClose={()=>setOpenId(null)}/>}
       <section className="border border-border bg-card">
         {list.isLoading?<div className="p-4"><Skeleton/></div>
         :list.error?<div role="alert" className="flex items-center justify-between gap-2 p-4 text-sm text-destructive">{packetReviewError(list.error)}<Button variant="outline" onClick={()=>void list.refetch()}>RETRY</Button></div>
         :items.length===0?<p className="p-6 text-center text-sm text-muted-foreground" data-testid="text-empty">{offset>0?'No packets on this page.':'No packet submissions on record.'}</p>
         :<div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-muted text-xs uppercase tracking-[0.1em]"><tr>
-          <th className="p-2">Record Date</th><th className="p-2">Probationary</th><th className="p-2">FTO</th><th className="p-2">Coordinator</th><th className="p-2">Submitted</th><th className="p-2">Status</th><th className="p-2"/></tr></thead>
+          <th className="p-2">Record Date</th>{context.role!=='PO'&&<><th className="p-2">Probationary</th><th className="p-2">FTO</th><th className="p-2">Coordinator</th></>}
+          <th className="p-2">Handoff</th>{context.role!=='PO'&&<th className="p-2">Review State</th>}<th className="p-2">Submitted</th><th className="p-2"/></tr></thead>
           <tbody>{items.map(p=><tr key={p.id} className={`border-t border-border ${openId===p.id?'bg-primary/5':''}`} data-testid={`row-packet-${p.id}`}>
-            <td className="p-2 mono">{p.record_date}</td><td className="p-2">{p.po_name}</td><td className="p-2">{p.fto_name}</td><td className="p-2">{p.coordinator_name}</td>
-            <td className="p-2 text-xs">{when(p.submitted_at)}</td><td className="p-2"><StatusTag state={p.state}/></td>
+            <td className="p-2 mono">{p.record_date}</td>{context.role!=='PO'&&<><td className="p-2">{p.po_name}</td><td className="p-2">{p.fto_name}</td><td className="p-2">{p.coordinator_name}</td></>}
+            <td className="p-2"><HandoffTag status={p.handoff_status}/></td>{context.role!=='PO'&&<td className="p-2"><StatusTag state={p.state}/></td>}
+            <td className="p-2 text-xs">{when(p.submitted_at)}</td>
             <td className="p-2"><Button variant="outline" data-testid={`button-open-${p.id}`} onClick={()=>setOpenId(p.id)}>OPEN</Button></td></tr>)}</tbody></table></div>}
         <div className="flex items-center justify-between border-t border-border p-3">
           <Button variant="outline" data-testid="button-prev" disabled={offset===0} onClick={()=>setOffset(o=>Math.max(0,o-PAGE))}>PREVIOUS</Button>

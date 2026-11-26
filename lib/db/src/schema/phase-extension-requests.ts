@@ -24,6 +24,7 @@ export const phaseExtensionRequestsTable = pgSchema("agency_training").table(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewedByUserId: text("reviewed_by_user_id"),
+    denialExplanation: text("denial_explanation"),
   },
   table => [
     index("phase_extension_requests_requester_created_idx").on(

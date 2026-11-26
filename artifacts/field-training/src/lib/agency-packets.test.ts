@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { agencyPacketsEnvelope, createPacketReviewCommand, packetCommandSatisfied,
-  packetReviewError, type AgencyPacket } from "./agency-packets.js";
+  packetReviewError, performPacketReview, type AgencyPacket } from "./agency-packets.js";
+import { AuthenticationRequiredError } from "./auth-session.js";
 
 const hash = "a".repeat(64);
 const packet = (overrides: Partial<AgencyPacket> = {}): AgencyPacket => ({
   id: "packet-1", assignment_id: "11111111-1111-4111-8111-111111111111",
   record_date: "2026-11-23", phase: 1, server_version: 1, sync_status: "submitted_complete",
+  handoff_status: "awaiting_coordinator_receipt", po_totals: null,
   report: {
     id: "packet-1", date: "2026-11-23", phase: 1, className: "Class A",
     recruitName: "Synthetic PO", recruitBadge: "20", ftoName: "Synthetic FTO", ftoBadge: "30",
@@ -24,9 +26,24 @@ test("packet envelope preserves complete unverified report properties and parses
     status: "success", metadata: { total_records: 1, role: "FTO_COORDINATOR" },
     data: [{ ...packet(), released_at: "2026-11-23T12:00:00Z" }],
   });
+  assert.ok(result.data[0].report);
   assert.deepEqual(result.data[0].report.signatures, { recruit: { signed: true } });
   assert.deepEqual(result.data[0].report.extraSourceField, { notes: "Preserved verbatim" });
   assert.ok(result.data[0].released_at instanceof Date);
+});
+
+test("packet envelope accepts a PO-owned released summary without a full report", () => {
+  const result = agencyPacketsEnvelope.parse({
+    status: "success", metadata: { total_records: 1, role: "PO" },
+    data: [{ ...packet({
+      handoff_status: "awaiting_po_acknowledgment",
+      released_to_po: true,
+      released_at: new Date("2026-11-23T12:00:00Z"),
+      report: null,
+    }) }],
+  });
+  assert.equal(result.data[0].report, null);
+  assert.equal(result.data[0].po_totals, null);
 });
 
 test("each action binds one operation UUID to exact server hash and validated confirmation fields", () => {
@@ -53,7 +70,7 @@ test("uncertain-action reconciliation relies only on server workflow state", () 
   const release = createPacketReviewCommand(source, { action: "release" });
   assert.equal(packetCommandSatisfied(release, source), false);
   assert.equal(packetCommandSatisfied(release, packet({
-    released_to_po: true, released_at: new Date(), report: { ...source.report, status: "draft", signatures: {} },
+    released_to_po: true, released_at: new Date(), report: { ...source.report!, status: "draft", signatures: {} },
   })), true);
 
   const acknowledgment = createPacketReviewCommand(source, { action: "acknowledge", comments: "Reviewed." });
@@ -82,4 +99,24 @@ test("API failures receive plain, role-neutral corrective messages", () => {
   assert.match(packetReviewError({ status: 404 }), /no longer available/);
   assert.match(packetReviewError({ status: 409 }), /Refresh and review/);
   assert.match(packetReviewError({ status: 503 }), /do not assume it failed/);
+});
+
+test("packet review writes require a live session and preserve authoritative server rejection", async t => {
+  const command = createPacketReviewCommand(packet(), { action: "release" });
+  let requests = 0;
+  await assert.rejects(performPacketReview(command, undefined, async () => {
+    throw new AuthenticationRequiredError();
+  }), { name: "AuthenticationRequiredError" });
+  assert.equal(requests, 0, "Expired preflight blocks release transport.");
+
+  t.mock.method(globalThis, "fetch", async () => {
+    requests++;
+    return new Response(JSON.stringify({ status: "error", error_code: "UNAUTHENTICATED" }), {
+      status: 401, headers: { "content-type": "application/json" },
+    });
+  });
+  await assert.rejects(performPacketReview(command, undefined, async () => {}), {
+    name: "AuthenticationRequiredError",
+  }, "A server 401 remains authoritative after preflight.");
+  assert.equal(requests, 1);
 });

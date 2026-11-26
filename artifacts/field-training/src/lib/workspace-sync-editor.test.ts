@@ -11,7 +11,7 @@ import {createFtoTestPacketWorkspace} from "./test-packet.js";
 import {CATEGORIES,type Workspace} from "./model.js";
 
 register("data:text/javascript,"+encodeURIComponent(
-  "export async function load(url,ctx,next){if(url.endsWith('.css'))return {format:'module',shortCircuit:true,source:'export default {}'};return next(url,ctx)}"
+  "export async function load(url,ctx,next){if(url.endsWith('.css'))return {format:'module',shortCircuit:true,source:'export default {}'};if(url.includes('/components/printable-columbus-header.tsx'))return {format:'module',shortCircuit:true,source:'export function PrintableColumbusHeader(){return null} export function PrintableColumbusFooterMarks(){return null}'};return next(url,ctx)}"
 ),import.meta.url);
 
 test("a deferred automatic sync preserves the mounted editor and saves newly typed narrative and run edits",async t=>{
@@ -62,7 +62,9 @@ test("a deferred automatic sync preserves the mounted editor and saves newly typ
         children:createElement(Route,{key:current.epoch,path:"/reports/:id",component:ReportEditor})})}):null;
   }
   const root=createRoot(dom.window.document.getElementById("root")!);
-  const render=()=>root.render(createElement(WorkspaceProvider,{storageNamespace:namespace,children:createElement(Probe)}));
+  const render=()=>root.render(createElement(WorkspaceProvider,{storageNamespace:namespace,
+    authSession:{accountId:"FICTIONAL-FTO",sessionId:"FICTIONAL-SESSION"},validateSession:async()=>{},
+    children:createElement(Probe)}));
   const element=<T extends Element>(id:string)=>{
     const found=dom.window.document.querySelector<T>(`[data-testid="${id}"]`);
     assert.ok(found,`missing ${id}`);return found;
@@ -162,25 +164,24 @@ for(const outcome of ["success","lost-response"] as const) {
     let current:ReturnType<typeof useWorkspace>|undefined,showEditor=false;
     let resolveResponse:((value:Response)=>void)|undefined,rejectResponse:((error:Error)=>void)|undefined;
     const bodies:string[]=[];
-    let syncedReport:unknown;
+    let finalizationRequest:{operation_id:string;content_hash:string}|undefined;
     function success(data:unknown) {
       return new Response(JSON.stringify({status:"success",metadata:{total_records:1,role:"FTO"},data}),
         {headers:{"content-type":"application/json"}});
     }
     function finalized(){
-      return success([{id:report.id,assignment_id:"81dc3739-03c3-4cc1-bc9c-851bba10e833",
-        record_date:report.date,phase:report.phase,server_version:1,report:syncedReport,
-        sync_status:"submitted_complete",content_hash:"a".repeat(64),released_to_po:false,
-        released_at:null,withdrawn_at:null,withdrawal_reason:null,amendment_of:null,
-        amendment_reason:null,acknowledgment:null}]);
+      return new Response(JSON.stringify({id:report.id,operation_id:finalizationRequest!.operation_id,
+        server_version:1,sync_status:"submitted_complete",content_hash:finalizationRequest!.content_hash}),
+        {headers:{"content-type":"application/json"}});
     }
     t.mock.method(globalThis,"fetch",async(input:string|URL|Request,init?:RequestInit)=>{
       if(String(input).endsWith("/sync")){
-        const packet=JSON.parse(String(init?.body)).packets[0];syncedReport=packet.report;
+         const packet=JSON.parse(String(init?.body)).packets[0];
         return success([{id:report.id,operation_id:packet.operation_id,server_version:1,
           sync_status:"local_draft_pending",content_hash:"a".repeat(64)}]);
       }
-      assert.ok(String(input).endsWith("/finalize"));bodies.push(String(init?.body));
+       assert.ok(String(input).endsWith("/finalize"));bodies.push(String(init?.body));
+       finalizationRequest=JSON.parse(String(init?.body)) as {operation_id:string;content_hash:string};
       if(bodies.length>1)return finalized();
       return new Promise<Response>((resolve,reject)=>{resolveResponse=resolve;rejectResponse=reject;});
     });
@@ -194,7 +195,9 @@ for(const outcome of ["success","lost-response"] as const) {
     }
     const container=dom.window.document.getElementById("root")!;
     let root=createRoot(container);
-    const render=()=>root.render(createElement(WorkspaceProvider,{storageNamespace:namespace,children:createElement(Probe)}));
+    const render=()=>root.render(createElement(WorkspaceProvider,{storageNamespace:namespace,
+      authSession:{accountId:"FICTIONAL-FTO",sessionId:"FICTIONAL-SESSION"},validateSession:async()=>{},
+      children:createElement(Probe)}));
     const narrative=()=>dom.window.document.querySelector<HTMLTextAreaElement>('[data-testid="input-narrative"]')!;
     try{
       await act(async()=>{render();});

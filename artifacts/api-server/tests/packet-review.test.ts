@@ -26,6 +26,8 @@ import {
 const coordinator: AgencyIdentity = { id: "coordinator", badge: "10", role: "FTO_COORDINATOR" };
 const po: AgencyIdentity = { id: "po", badge: "20", role: "PO" };
 const fto: AgencyIdentity = { id: "fto", badge: "30", role: "FTO" };
+const otherFto: AgencyIdentity = { id: "other-fto", badge: "31", role: "FTO" };
+const classStaff: AgencyIdentity = { id: "class-staff", badge: "40", role: "FTO_COC" };
 const audit = () => ({ requestId: randomUUID(), clientIp: "192.0.2.1" });
 const contentHash = (report: unknown) => createHash("sha256").update(JSON.stringify(report)).digest("hex");
 const change = (report: unknown) => ({ operation_id: randomUUID(), content_hash: contentHash(report), review_confirmed: true });
@@ -249,7 +251,9 @@ function packetReviewResponseFixture() {
       record_date: "2026-11-25",
       phase: 1,
       server_version: 1,
-      sync_status: "local_draft_pending",
+      sync_status: "submitted_complete",
+      handoff_status: "awaiting_coordinator_receipt",
+      po_totals: null,
       report: {
         operationalIdentity: {
           assignmentToken: "1234D", districtToken: "1234", cadUnit: "1234D", company: "D",
@@ -342,7 +346,7 @@ test("packet-review server validators match OpenAPI request schemas", async t =>
 test("packet-review response validators match OpenAPI schemas", async t => {
   const responseSchema = CompletePacketsEnvelope;
   const responseData = responseSchema.shape.data.element;
-  const reportSchema = responseData.shape.report;
+  const reportSchema = responseData.shape.report.unwrap();
   const identitySchema = reportSchema.shape.operationalIdentity.unwrap();
   const acknowledgmentSchema = responseData.shape.acknowledgment.unwrap();
   const componentSchemas = [
@@ -466,22 +470,36 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
     pool = new pg.Pool({ host: dir, port, user: "packet_test", database: "postgres", max: 6 });
     await pool.query(readFileSync(new URL("../migrations/agency-training.sql", import.meta.url), "utf8"));
     await pool.query(readFileSync(new URL("../migrations/agency-training-packet-review.sql", import.meta.url), "utf8"));
+    await pool.query(readFileSync(new URL("../migrations/agency-training-po-totals-review-upgrade.sql", import.meta.url), "utf8"));
+    await pool.query(readFileSync(new URL("../migrations/agency-training-staff-class-access.sql", import.meta.url), "utf8"));
     await pool.query(readFileSync(new URL("../migrations/agency-training-packet-guards.sql", import.meta.url), "utf8"));
     const db = pool;
     const store = createAgencyPacketStore(db);
+    const finalizeDraft = async (identity: typeof fto, packetId: string, packetStore = store) => {
+      const draft = (await packetStore.read(identity, audit(), packetId))[0];
+      assert.ok(draft);
+      return packetStore.finalize(identity, audit(), packetId, {
+        operation_id: randomUUID(), base_version: draft.server_version, content_hash: draft.content_hash,
+      });
+    };
     const assignment = randomUUID();
     const otherAssignment = randomUUID();
-    const seedAssignment = async (id: string, className: string, coordinatorId: string,assignedPo=po) => db.query(
+    const seedAssignment = async (id: string, className: string, coordinatorId: string,assignedPo=po,assignedFto=fto) => db.query(
       `INSERT INTO agency_training.assignments
        (id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,po_id_hash,po_badge_hash,po_name,
          coordinator_id_hash,starts_on,ends_on,fto_id,fto_badge,po_id,po_badge,coordinator_id)
-        VALUES ($1,$2,1,$3,$4,'Synthetic FTO',$5,$6,'Synthetic PO',$7,'2026-01-01','2026-12-31',$8,$9,$10,$11,$12)`,
-      [id, className, hash(fto.id), hash(fto.badge), hash(assignedPo.id), hash(assignedPo.badge), hash(coordinatorId),
-        fto.id,fto.badge,assignedPo.id,assignedPo.badge,coordinatorId],
+         VALUES ($1,$2,1,$3,$4,'Synthetic FTO',$5,$6,'Synthetic PO',$7,'2026-01-01','2026-12-31',$8,$9,$10,$11,$12)`,
+      [id, className, hash(assignedFto.id), hash(assignedFto.badge), hash(assignedPo.id), hash(assignedPo.badge), hash(coordinatorId),
+         assignedFto.id,assignedFto.badge,assignedPo.id,assignedPo.badge,coordinatorId],
     );
+    const sameClassPo={...po,id:"same-class-po",badge:"21"};
+    const classBPo={...po,id:"class-b-po",badge:"22"};
     await seedAssignment(assignment, "Class A", coordinator.id);
-    await seedAssignment(randomUUID(), "Class A", "same-class-outsider",{...po,id:"other-po",badge:"21"});
-    await seedAssignment(otherAssignment, "Class B", "another-coordinator",{...po,id:"class-b-po",badge:"22"});
+    await seedAssignment(randomUUID(), "Class A", "same-class-outsider",sameClassPo,otherFto);
+    await seedAssignment(otherAssignment, "Class B", "another-coordinator",classBPo);
+    await db.query(`INSERT INTO agency_training.staff_class_read_grants
+      (identity_id_hash,identity_role,class_name) VALUES($1,$2,'Class A')`,
+      [hash(classStaff.id),classStaff.role]);
     await db.query("INSERT INTO agency_training.coordinator_directory(id,name) VALUES ($1,'Test Coordinator')",[coordinator.id]);
     const assigned=createPacketReviewStore(db);
     await assigned.assign(po,{po_id:po.id,coordinator_id:coordinator.id,expected_revision:0});
@@ -489,11 +507,43 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
       recruitBadge: po.badge, ftoBadge: fto.badge, recruitName: "Synthetic PO", ftoName: "Synthetic FTO",
       status: "recruit_signed", signatures: { recruit: { signed: true } }, runs: [], ratings: {},
       activity: {}, reportingForDuty: {reviewedAt:"2026-11-23T12:00:00Z"},ratingsReviewedAt:"2026-11-23T12:00:00Z",
+      ratings:{buildingSearch:{rating:"UA",justification:"Synthetic own UA explanation."}},
       narrative: "", remedial: "", recruitComments: "" };
     const approve=async(content:typeof report,packetStore=store)=>{
-      await packetStore.finalize(fto,audit(),content.id,{operation_id:randomUUID(),content_hash:contentHash(content)});
-      await assert.rejects(packetStore.review(coordinator,audit(),content.id,"release",change(content)),denied("PACKET_APPROVAL_REQUIRED"));
+      await finalizeDraft(fto,content.id,packetStore);
+      await assert.rejects(packetStore.review(coordinator,audit(),content.id,"release",change(content)),denied("PACKET_NOT_FOUND"));
+      await assert.rejects(packetStore.read(coordinator,audit(),content.id),denied("PACKET_NOT_FOUND"));
+      const poSubmission=(await assigned.list(po,0)).items.find(item=>item.packet_id===content.id)!;
+      assert.equal(poSubmission.handoff_status,"awaiting_po_totals_review");
+      assert.deepEqual((await assigned.list(coordinator,0)).items.filter(item=>item.packet_id===content.id),[]);
+      const classRecord=(await store.read(classStaff,audit(),content.id))[0];
+      assert.equal(classRecord.report.narrative,content.narrative);
+      const classSubmission=(await assigned.list(classStaff,0)).items.find(item=>item.packet_id===content.id)!;
+      assert.equal(classSubmission.can_correct,false);
+      assert.equal((await assigned.detail(classStaff,classSubmission.id)).report.narrative,content.narrative);
+      await assert.rejects(store.read({...classStaff,id:"unassigned-staff"},audit(),content.id),denied("PACKET_NOT_FOUND"));
+      await assert.rejects(store.review(classStaff,audit(),content.id,"release",change(content)),denied("PACKET_REVIEW_FORBIDDEN"));
+      await assert.rejects(assigned.act(classStaff,classSubmission.id,
+        {operation_id:randomUUID(),action:"approve",note:""}),denied("REVIEW_FORBIDDEN"));
+      const poDetail=await assigned.detail(po,poSubmission.id);
+      assert.equal(poDetail.report,null);
+      assert.ok(poDetail.po_totals);
+      assert.deepEqual(poDetail.po_totals?.unacceptable_details,[{
+        record_date:"2026-11-23",category_key:"buildingSearch",rating:"UA",
+        justification:"Synthetic own UA explanation.",
+      }]);
+      assert.equal(JSON.stringify(poDetail).includes("private report"),false);
+      await assert.rejects(assigned.detail({...po,id:"other-po"},poSubmission.id),denied("SUBMISSION_NOT_FOUND"));
+      await assert.rejects(assigned.act(coordinator,poSubmission.id,
+        {operation_id:randomUUID(),action:"review_totals",note:""}),denied("REVIEW_FORBIDDEN"));
+      const poReview={operation_id:randomUUID(),action:"review_totals" as const,note:""};
+      await assigned.act(po,poSubmission.id,poReview);
+      await assigned.act(po,poSubmission.id,poReview);
+      assert.equal((await db.query(`SELECT count(*)::int n FROM agency_training.packet_review_events
+        WHERE submission_id=$1 AND action='PO_TOTALS_REVIEWED'`,[poSubmission.id])).rows[0].n,1);
       const submission=(await assigned.list(coordinator,0)).items.find(item=>item.packet_id===content.id)!;
+      assert.ok(submission.po_reviewed_at);
+      await assert.rejects(packetStore.review(coordinator,audit(),content.id,"release",change(content)),denied("PACKET_APPROVAL_REQUIRED"));
       await assigned.act(coordinator,submission.id,{operation_id:randomUUID(),action:"acknowledge",note:""});
       await assigned.detail(coordinator,submission.id);
       await assigned.act(coordinator,submission.id,{operation_id:randomUUID(),action:"approve",note:"Reviewed"});
@@ -514,6 +564,22 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
     });
     await approve(report);
     await t.test("class access fails closed for another coordinator, badge, inactive assignment and class", async () => {
+      await assigned.assign(sameClassPo,{po_id:sameClassPo.id,coordinator_id:coordinator.id,expected_revision:0});
+      const otherReport={...report,id:"same-class-other-fto",recruitBadge:sameClassPo.badge,ftoBadge:otherFto.badge};
+      await store.sync(otherFto,audit(),[{operation_id:randomUUID(),base_version:0,report:otherReport}]);
+      await finalizeDraft(otherFto,otherReport.id);
+      assert.equal((await store.read(fto,audit(),otherReport.id))[0].report.id,otherReport.id);
+      const ftoClassView=(await assigned.list(fto,0)).items.find(item=>item.packet_id===otherReport.id)!;
+      assert.equal(ftoClassView.can_correct,false);
+      await assigned.assign(classBPo,{po_id:classBPo.id,coordinator_id:coordinator.id,expected_revision:0});
+      const classBReport={...report,id:"other-class-record",className:"Class B",recruitBadge:classBPo.badge};
+      await store.sync(fto,audit(),[{operation_id:randomUUID(),base_version:0,report:classBReport}]);
+      await finalizeDraft(fto,classBReport.id);
+      await assert.rejects(store.read(classStaff,audit(),classBReport.id),denied("PACKET_NOT_FOUND"));
+      const submission=(await assigned.list(coordinator,0)).items.find(item=>item.packet_id===report.id)!;
+      await assert.rejects(assigned.act(fto,submission.id,{operation_id:randomUUID(),action:"acknowledge",note:""}),denied("REVIEW_FORBIDDEN"));
+      await assert.rejects(assigned.act({...coordinator,id:"another-coordinator"},submission.id,
+        {operation_id:randomUUID(),action:"acknowledge",note:""}),denied("SUBMISSION_NOT_FOUND"));
       await assert.rejects(store.review({ ...coordinator, id: "outsider" }, audit(), report.id, "release", review), denied("PACKET_NOT_FOUND"));
       await assert.rejects(store.read({...coordinator,id:"same-class-outsider"},audit(),report.id),denied("PACKET_NOT_FOUND"));
       await db.query("UPDATE agency_training.packet_assignments SET active=false WHERE packet_id=$1", [report.id]);
@@ -523,28 +589,94 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
       await store.sync(fto, audit(), [{ ...upload, operation_id: randomUUID(), report: other }]);
       await assert.rejects(store.review(coordinator, audit(), other.id, "release", change(other)), denied("PACKET_NOT_FOUND"));
     });
+    await t.test("approval remains distinct from PO release and acknowledgment in both APIs", async () => {
+      const submission=()=>assigned.list(coordinator,0).then(page=>page.items.find(item=>item.packet_id===report.id)!);
+      const approved=await submission();
+      assert.equal(approved.state,"approved");
+      assert.equal(approved.handoff_status,"awaiting_po_release");
+      assert.equal(approved.released_at,null);
+      assert.equal(approved.po_acknowledged_at,null);
+      await assert.rejects(store.read(po,audit(),report.id),denied("PACKET_NOT_FOUND"));
+      assert.equal((await store.read(coordinator,audit(),report.id))[0].handoff_status,"awaiting_po_release");
+    });
     await t.test("release requires explicit exact-snapshot review and retries create just one audit event", async () => {
       await assert.rejects(store.review(coordinator, audit(), report.id, "release", { ...review, review_confirmed: false }), denied("PACKET_REVIEW_REQUIRED"));
       await assert.rejects(store.review(coordinator, audit(), report.id, "release", { ...review, content_hash: "f".repeat(64) }), denied("PACKET_SNAPSHOT_CONFLICT"));
-      await store.review(coordinator, audit(), report.id, "release", review);
-      await store.review(coordinator, audit(), report.id, "release", review);
+      const release=change(report);
+      await store.review(coordinator, audit(), report.id, "release", release);
+      await store.review(coordinator, audit(), report.id, "release", release);
       assert.equal((await db.query("SELECT count(*)::int n FROM agency_training.packet_events WHERE event_type='RELEASE'")).rows[0].n, 1);
-      assert.equal((await store.read(po, audit(), report.id))[0].released_to_po, true);
+      const released=(await store.read(po,audit(),report.id))[0];
+      assert.equal(released.released_to_po,true);
+      assert.equal(released.handoff_status,"awaiting_po_acknowledgment");
+      assert.equal(released.report,null);
+      assert.ok(released.po_totals);
+      assert.deepEqual(released.po_totals.unacceptable_details,[{
+        record_date:"2026-11-23",category_key:"buildingSearch",rating:"UA",
+        justification:"Synthetic own UA explanation.",
+      }]);
+      assert.equal(JSON.stringify(released).includes("narrative"),false);
+      const submission=(await assigned.list(coordinator,0)).items.find(item=>item.packet_id===report.id)!;
+      assert.equal(submission.handoff_status,"awaiting_po_acknowledgment");
+      assert.ok(submission.released_at);
+      assert.equal(submission.po_acknowledged_at,null);
       await assert.rejects(store.read({ ...po, badge: "wrong" }, audit(), report.id), denied("PACKET_NOT_FOUND"));
       await assert.rejects(store.read({ ...po, id: "another-po" }, audit(), report.id), denied("PACKET_NOT_FOUND"));
     });
     await t.test("PO acknowledgment is server-authored, exact-once and bound to the released content", async () => {
       const ack = { ...change(report), comments: "Reviewed, not agreement." };
       const result = await store.review(po, audit(), report.id, "acknowledge", ack);
+      assert.equal(result[0].report,null);
+      assert.ok(result[0].po_totals);
+      assert.equal(result[0].po_totals?.unacceptable_details[0]?.justification,"Synthetic own UA explanation.");
       assert.equal(result[0].acknowledgment.comments, ack.comments);
       assert.equal(result[0].acknowledgment.content_hash, review.content_hash);
       await store.review(po, audit(), report.id, "acknowledge", ack);
+      const submission=(await assigned.list(coordinator,0)).items.find(item=>item.packet_id===report.id)!;
+      assert.equal(submission.handoff_status,"po_acknowledged");
+      assert.ok(submission.po_acknowledged_at);
+      assert.equal((await store.read(po,audit(),report.id))[0].handoff_status,"po_acknowledged");
       await assert.rejects(store.review(po, audit(), report.id, "acknowledge", { ...ack, comments: "Changed" }), denied("PACKET_OPERATION_CONFLICT"));
       await assert.rejects(store.review(po, audit(), report.id, "acknowledge", change(report)), denied("PACKET_ALREADY_ACKNOWLEDGED"));
       const events = await db.query("SELECT * FROM agency_training.packet_events WHERE event_type='ACKNOWLEDGE'");
       assert.equal(events.rows.length, 1);
       assert.equal(events.rows[0].actor_hash, hash(po.id));
       assert.equal(events.rows[0].content_hash, review.content_hash);
+    });
+    await t.test("correction requests are visible, reasoned, retry-safe and require fresh receipt", async () => {
+      const correction={...report,id:"correction-return"};
+      await store.sync(fto,audit(),[{...upload,operation_id:randomUUID(),report:correction}]);
+      await finalizeDraft(fto,correction.id);
+      const initialPo=(await assigned.list(po,0)).items.find(item=>item.packet_id===correction.id)!;
+      await assigned.detail(po,initialPo.id);
+      await assigned.act(po,initialPo.id,{operation_id:randomUUID(),action:"review_totals",note:""});
+      const first=(await assigned.list(coordinator,0)).items.find(item=>item.packet_id===correction.id)!;
+      await assigned.act(coordinator,first.id,{operation_id:randomUUID(),action:"acknowledge",note:""});
+      await assigned.detail(coordinator,first.id);
+      const operation_id=randomUUID();
+      const returned=await assigned.act(coordinator,first.id,{operation_id,action:"return",note:"Correct the narrative."});
+      assert.equal(returned.state,"correction_requested");
+      assert.equal(returned.handoff_status,"correction_requested");
+      const retry=await assigned.act(coordinator,first.id,{operation_id,action:"return",note:"Correct the narrative."});
+      assert.equal(retry.state,"correction_requested");
+      assert.equal((await assigned.detail(coordinator,first.id)).history.filter(event=>event.action==="CORRECTION_REQUESTED").length,1);
+
+      const revised={...correction,narrative:"Corrected narrative."};
+      await store.sync(fto,audit(),[{...upload,base_version:1,operation_id:randomUUID(),report:revised}]);
+      await finalizeDraft(fto,revised.id);
+      const nextPo=(await assigned.list(po,0)).items.find(item=>item.packet_id===revised.id)!;
+      assert.equal(nextPo.handoff_status,"awaiting_po_totals_review");
+      await assigned.detail(po,nextPo.id);
+      await assigned.act(po,nextPo.id,{operation_id:randomUUID(),action:"review_totals",note:""});
+      const next=(await assigned.list(coordinator,0)).items.find(item=>item.packet_id===revised.id)!;
+      assert.equal(next.packet_version,2);
+      assert.equal(next.handoff_status,"awaiting_coordinator_receipt");
+      assert.equal(next.acknowledged_at,null);
+      await assigned.act(coordinator,next.id,{operation_id:randomUUID(),action:"acknowledge",note:""});
+      await assigned.detail(coordinator,next.id);
+      const approved=await assigned.act(coordinator,next.id,{operation_id:randomUUID(),action:"approve",note:"Reviewed corrected snapshot."});
+      assert.equal(approved.handoff_status,"awaiting_po_release");
+      await assert.rejects(store.read(po,audit(),revised.id),denied("PACKET_NOT_FOUND"));
     });
     await t.test("withdrawal preserves history and replacements require fresh release and acknowledgment", async () => {
       await assert.rejects(store.review(coordinator, audit(), report.id, "withdraw", { ...review, reason: " " }), denied("PACKET_WITHDRAWAL_REASON_REQUIRED"));
@@ -601,6 +733,7 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
         GRANT USAGE ON SCHEMA agency_training TO packet_runtime;
         GRANT SELECT ON agency_training.assignments TO packet_runtime;
         GRANT SELECT ON agency_training.coordinator_directory TO packet_runtime;
+        GRANT SELECT ON agency_training.staff_class_read_grants TO packet_runtime;
         GRANT SELECT,INSERT ON agency_training.po_coordinators,agency_training.packet_submissions,
           agency_training.packet_review_events,agency_training.packet_review_operations TO packet_runtime;
         GRANT UPDATE(state,reviewed_at,review_note) ON agency_training.packet_submissions TO packet_runtime;

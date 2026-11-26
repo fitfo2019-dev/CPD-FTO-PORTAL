@@ -9,6 +9,7 @@ import dispatchRouter from "./dispatch.js";
 import phaseExtensionRequestsRouter from "./phase-extension-requests.js";
 import trainingPacketsRouter from "./training-packets.js";
 import packetReviewRouter from "./packet-review.js";
+import agencyAssignmentTransitionsRouter from "./agency-assignment-transitions.js";
 import { enforcePacketReceiptGate } from "../middlewares/packet-receipt-gate.js";
 
 const router: IRouter = Router();
@@ -24,5 +25,6 @@ router.use(dispatchRouter);
 router.use(phaseExtensionRequestsRouter);
 router.use(trainingPacketsRouter);
 router.use(packetReviewRouter);
+router.use(agencyAssignmentTransitionsRouter);
 
 export default router;

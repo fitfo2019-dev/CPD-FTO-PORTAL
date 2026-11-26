@@ -19,6 +19,7 @@ async function buildAll() {
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
     platform: "node",
     bundle: true,
+    minify: true,
     format: "esm",
     define: {
       __INCLUDE_SYNTHETIC_STAGING__: JSON.stringify(

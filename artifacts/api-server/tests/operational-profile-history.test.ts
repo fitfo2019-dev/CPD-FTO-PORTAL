@@ -11,6 +11,15 @@ import type { AgencyIdentity } from "../src/security/agencyIdentity.js";
 
 const fto: AgencyIdentity = { id: "FICTIONAL-HISTORY-FTO", badge: "TEST-1", role: "FTO" };
 const po: AgencyIdentity = { id: "FICTIONAL-HISTORY-PO", badge: "TEST-2", role: "PO" };
+function pglitePool(db: PGlite) {
+  return {
+    query: (sql: string, args?: unknown[]) => db.query(sql, args),
+    connect: async () => ({
+      query: (sql: string, args?: unknown[]) => db.query(sql, args),
+      release: () => {},
+    }),
+  } as unknown as pg.Pool;
+}
 const migrate = async (db: PGlite, name: string) =>
   db.exec(await readFile(new URL(`../migrations/${name}.sql`, import.meta.url), "utf8"));
 
@@ -28,7 +37,7 @@ test("history tracks only successful own-account transitions and marks the exist
     const packets = await db.query("SELECT report FROM agency_training.packet_test");
     const started = Date.now();
     await migrate(db, "operational-profile-history");
-    const store = createOperationalProfileStore({ query: (sql: string, args: unknown[]) => db.query(sql, args) } as unknown as pg.Pool);
+    const store = createOperationalProfileStore(pglitePool(db));
     const baseline = (await store.history(fto)).entries[0];
     assert.equal(baseline.event, "baseline");
     assert.equal(baseline.actor, "agency_migration");

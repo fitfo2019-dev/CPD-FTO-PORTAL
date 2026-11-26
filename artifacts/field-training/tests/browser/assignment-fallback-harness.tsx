@@ -35,6 +35,7 @@ export function mount() {
     });
     latest = {
       profile: state.profile, contextKey: state.contextKey, error: state.error,
+      pending: state.pending, successfulRead: state.successfulRead,
       draft, prefills: [...prefills], ingress: ingress.status,
     };
     return <OperationalProfilePanel />;
@@ -48,12 +49,20 @@ export function mount() {
       proxyUrl={import.meta.env.VITE_CLERK_PROXY_URL}
     >
       <QueryClientProvider client={cache}>
-        <OperationalProfileProvider><Probe /></OperationalProfileProvider>
+        <OperationalProfileProvider
+          authSession={{ accountId: "FICTIONAL-BROWSER-USER", sessionId: "FICTIONAL-BROWSER-SESSION" }}
+          validateSession={async () => {}}
+        ><Probe /></OperationalProfileProvider>
       </QueryClientProvider>
     </ClerkProvider>,
   );
   return {
     snapshot: () => latest,
+    cachedProfile: (subject: string) => cache.getQueryData(["operational-profile", subject]),
+    profileQueryState: (subject: string) => {
+      const query = cache.getQueryCache().find({ queryKey: ["operational-profile", subject] });
+      return query ? { status: query.state.status, fetchStatus: query.state.fetchStatus } : null;
+    },
     managers: () => ({ focused: focusManager.isFocused(), online: onlineManager.isOnline() }),
     // No manager setters, invalidation, refetch calls, or alternate profile store.
     dispose() { root.unmount(); cache.clear(); host.remove(); },

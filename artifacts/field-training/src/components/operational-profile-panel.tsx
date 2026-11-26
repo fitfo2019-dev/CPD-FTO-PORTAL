@@ -21,7 +21,8 @@ export function OperationalProfilePanel() {
     </div></Panel>;
   }
   return <React.Fragment key={profile.subject}>
-    <ProfileEditor profile={profile} save={state.save} clear={state.clear} refresh={state.refresh} unavailable={state.error} successfulRead={state.successfulRead}/>
+    <ProfileEditor profile={profile} save={state.save} clear={state.clear} refresh={state.refresh} unavailable={state.error} successfulRead={state.successfulRead}
+      setEditorDirty={state.setEditorDirty} saveAuthRecoverySnapshot={state.saveAuthRecoverySnapshot}/>
     <OperationalProfileHistoryPanel subject={profile.subject} version={profile.version} unavailable={!!state.error}/>
   </React.Fragment>;
 }
@@ -35,13 +36,16 @@ function RetryProfile({ refresh }: { refresh: () => Promise<OperationalProfileCo
   </button>{error&&<p role="alert">{error}</p>}</>;
 }
 
-function ProfileEditor({ profile, save, clear, refresh, unavailable, successfulRead = 0 }: {
+function ProfileEditor({ profile, save, clear, refresh, unavailable, successfulRead = 0,
+  setEditorDirty, saveAuthRecoverySnapshot }: {
   profile: OperationalProfileContext;
   save: (token: string, version: number) => Promise<OperationalProfileContext>;
   clear?: (version: number) => Promise<OperationalProfileContext>;
   refresh: () => Promise<OperationalProfileContext>;
   unavailable?: string;
   successfulRead?: number;
+  setEditorDirty?: (dirty: boolean) => void;
+  saveAuthRecoverySnapshot?: (accountId?: string, fields?: Array<{ form: string; field: string; value: string }>) => Promise<void>;
 }) {
   const [token, setToken] = useState(profile.identity?.assignmentToken ?? "");
   const [baseToken, setBaseToken] = useState(token);
@@ -55,12 +59,26 @@ function ProfileEditor({ profile, save, clear, refresh, unavailable, successfulR
   const [confirmed, setConfirmed] = useState(false);
   const mounted = useRef(true);
   const dirty = token !== baseToken;
+  const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
+  const tokenRef = useRef(token); tokenRef.current = token;
   const valid = OperationalAssignmentToken.safeParse(token).success;
   const derived = valid ? parseOperationalIdentity(token) : undefined;
   const visibleRefreshError = refreshError && (unavailable || successfulRead <= refreshError.successfulRead)
     ? refreshError.message : "";
   const visibleError = error || visibleRefreshError;
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
+  useEffect(()=>{setEditorDirty?.(dirty);},[dirty,setEditorDirty]);
+  useEffect(()=>()=> {
+    if (!dirtyRef.current) {
+      setEditorDirty?.(false);
+      return;
+    }
+    const recovery = saveAuthRecoverySnapshot?.(profile.subject, [{
+      form: "operational-profile", field: "operational-assignment-token", value: tokenRef.current,
+    }]);
+    if (recovery) void recovery.catch(()=>{}).finally(()=>setEditorDirty?.(false));
+    else setEditorDirty?.(false);
+  },[profile.subject,saveAuthRecoverySnapshot,setEditorDirty]);
   useEffect(()=>{
     if (!unavailable && refreshError && successfulRead > refreshError.successfulRead) setRefreshError(undefined);
   },[unavailable,successfulRead,refreshError]);
@@ -112,7 +130,7 @@ function ProfileEditor({ profile, save, clear, refresh, unavailable, successfulR
     }
   }
   return <Panel title="Account Settings · Operational identity" id="operational-profile">
-    <form onSubmit={submit} noValidate className="p-4 space-y-4 text-sm" data-testid="form-operational-profile">
+    <form onSubmit={submit} noValidate className="p-4 space-y-4 text-sm" data-testid="form-operational-profile" data-auth-recovery-form="operational-profile">
       <div className="grid gap-4 sm:grid-cols-2">
         <div><div className="label-caps">Signed account role · read only</div><p className="mt-2 font-bold" data-testid="text-profile-role">{profile.role === "FTO" ? "FTO · Field Training Officer" : "PO · Probationary Officer"}</p>
           <p className="mt-1 text-xs text-muted-foreground">Badge {profile.badge} · This form cannot change roles or badges.</p></div>

@@ -9,6 +9,7 @@ function packet(date:string) {
   const report=createDailyReportDraft(createUiPreviewWorkspace().caseFolder!,date);
   return {id:report.id,assignment_id:"81dc3739-03c3-4cc1-bc9c-851bba10e833",
     record_date:date,phase:report.phase,server_version:1,sync_status:"submitted_complete",
+    handoff_status:"awaiting_coordinator_receipt",po_totals:null,
     report,content_hash:"a".repeat(64),released_to_po:false,released_at:null,withdrawn_at:null,
     withdrawal_reason:null,amendment_of:null,amendment_reason:null,acknowledgment:null};
 }

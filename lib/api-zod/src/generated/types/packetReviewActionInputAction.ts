@@ -10,6 +10,7 @@ export type PacketReviewActionInputAction = typeof PacketReviewActionInputAction
 
 
 export const PacketReviewActionInputAction = {
+  review_totals: 'review_totals',
   acknowledge: 'acknowledge',
   approve: 'approve',
   return: 'return',

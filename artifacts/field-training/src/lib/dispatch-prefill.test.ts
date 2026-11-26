@@ -1,10 +1,24 @@
 import 'fake-indexeddb/auto';
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyDispatchIncidentRetry, applyDispatchPrefill, applyDispatchPrefillValue, mapDispatchPrefillResponse, mapDispatchIncidentResponse, restoreDispatchPrefillFields, selectDispatchIncidentMatch, serializeDispatchPrefillFields, type DispatchIncidentDraftFields, type DispatchPrefillDraft } from "./dispatch-prefill.js";
+import { applyDispatchIncidentRetry, applyDispatchPrefill, applyDispatchPrefillValue, isDispatchedRunMissingIncidentNumber, mapDispatchPrefillResponse, mapDispatchIncidentResponse, restoreDispatchPrefillFields, selectDispatchIncidentMatch, serializeDispatchPrefillFields, type DispatchIncidentDraftFields, type DispatchPrefillDraft } from "./dispatch-prefill.js";
 import { lookupDispatchIncident } from "../components/dispatch-incident-lookup.js";
 import { OfflineStorage } from "./offlineStorage.js";
 import type { TrainingRun } from "./model.js";
+import { searchTrainingRunsByIncidentNumber } from "./training-run-search.js";
+
+test("saved runs search by incident-number text without losing long or leading-zero values",()=>{
+  const runs=[
+    {id:"short",incidentNumber:"012345678"},
+    {id:"long",incidentNumber:"0123456789012345"},
+    {id:"other",incidentNumber:"998877665"},
+    {id:"missing"},
+  ];
+  assert.deepEqual(searchTrainingRunsByIncidentNumber(runs,""),runs);
+  assert.deepEqual(searchTrainingRunsByIncidentNumber(runs," 012345678 "),runs.slice(0,2));
+  assert.deepEqual(searchTrainingRunsByIncidentNumber(runs,"0123456789012345"),[runs[1]]);
+  assert.deepEqual(searchTrainingRunsByIncidentNumber(runs,"123000000"),[]);
+});
 
 test('incident lookup matches the entered unit without borrowing another PO’s timings',()=>{
   const rows=[
@@ -187,6 +201,51 @@ test('a successful retry fills untouched fields but preserves manual corrections
     occurredAtText: '11/23/2026 14:05',
     clearanceCode: '3V',
   });
+});
+
+test('legacy runs reopen safely when structured dispatch fields are absent', () => {
+  const legacyRun: TrainingRun = {
+    id: 'legacy-dispatch-run',
+    occurredAt: '2026-11-23T14:00:00.000Z',
+    runKind: 'traffic_stop',
+    isDispatched: true,
+    trafficMode: 'motor_vehicle',
+    arrestMade: false,
+    transportedAfterArrest: false,
+    oviProcessed: false,
+    narrativeAdditionRequired: false,
+    formStatus: 'complete',
+    checklist: {},
+    narrative: 'Legacy run with no structured dispatch details.',
+  };
+  const savedSnapshot = structuredClone(legacyRun);
+
+  assert.deepEqual(restoreDispatchPrefillFields(legacyRun), {
+    incidentNumber: '',
+    runLocation: '',
+    runLocationCity: '',
+    runLocationState: '',
+    runLocationZip: '',
+    runZone: '',
+    runCruiserDistrict: '',
+    clearanceCode: '',
+    dispatchedCode: '6',
+  });
+  assert.deepEqual(legacyRun, savedSnapshot, 'restoring editor defaults must not mutate the saved run');
+
+  const correctedRun: TrainingRun = { ...legacyRun, dispatchedCode: '17A' };
+  assert.equal(restoreDispatchPrefillFields(correctedRun).dispatchedCode, '17A');
+
+  const intentionallyBlankRun: TrainingRun = { ...legacyRun, dispatchedCode: '' };
+  assert.equal(restoreDispatchPrefillFields(intentionallyBlankRun).dispatchedCode, '');
+});
+
+test('only dispatched runs with blank incident numbers trigger the submission warning',()=>{
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:true}),true);
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:true,incidentNumber:'   '}),true);
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:true,incidentNumber:'INC-2468'}),false);
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:false}),false);
+  assert.equal(isDispatchedRunMissingIncidentNumber({isDispatched:false,incidentNumber:''}),false);
 });
 
 test("dispatch ingress time is a default only until the FTO changes it", () => {

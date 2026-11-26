@@ -12,6 +12,22 @@ import { CompletePacketInput } from "../src/lib/packet-contract.js";
 
 const fto: AgencyIdentity={id:"FICTIONAL-FTO",badge:"TEST-1",role:"FTO"};
 const po: AgencyIdentity={id:"FICTIONAL-PO",badge:"TEST-2",role:"PO"};
+function pglitePool(db: PGlite) {
+  let queued = Promise.resolve();
+  return {
+    query: (sql: string, args?: unknown[]) => db.query(sql, args),
+    connect: async () => {
+      let releaseLease!: () => void;
+      const previous = queued;
+      queued = new Promise<void>(resolve => { releaseLease = resolve; });
+      await previous;
+      return {
+        query: (sql: string, args?: unknown[]) => db.query(sql, args),
+        release: releaseLease,
+      };
+    },
+  } as unknown as pg.Pool;
+}
 test("CAD examples strip internal sides without inferring a physical fleet number",()=>{
   for(const side of ["1","2"]) assert.deepEqual(parseOperationalIdentity(`9150E-${side}`),{
     assignmentToken:`9150E-${side}`,districtToken:"9150",cadUnit:"9150E",company:"E",side,
@@ -29,7 +45,7 @@ test("agency SQL atomically saves own profile, rejects stale concurrent saves an
     await db.exec(await readFile(new URL("../migrations/operational-profile-optional-sides.sql",import.meta.url),"utf8"));
     await db.exec(await readFile(new URL("../migrations/operational-profile-history.sql",import.meta.url),"utf8"));
     await db.exec(await readFile(new URL("../migrations/operational-profile-clear.sql",import.meta.url),"utf8"));
-    const store=createOperationalProfileStore({query:(sql:string,args:unknown[])=>db.query(sql,args)} as unknown as pg.Pool);
+    const store=createOperationalProfileStore(pglitePool(db));
     assert.equal((await store.read(fto)).identity,null);
     const creations=await Promise.allSettled(["9150E-1","9150E-2"].map(assignmentToken=>store.save(fto,{assignmentToken,expectedVersion:0})));
     assert.equal(creations.filter(result=>result.status==="fulfilled").length,1);

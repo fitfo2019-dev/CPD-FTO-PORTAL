@@ -17,7 +17,21 @@ export type RecoverySnapshot<T> = {
 };
 
 const RECOVERY_PREFIX = "recovery:";
+const AUTH_RECOVERY_PREFIX = "auth-recovery:";
 const RECOVERY_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+export type AuthRecoveryField = { form: string; field: string; value: string };
+export type AuthRecoverySnapshot = {
+  id: string;
+  accountId: string;
+  capturedAt: string;
+  expiresAt: string;
+  fields: AuthRecoveryField[];
+};
+
+async function accountStorageKey(accountId: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(accountId));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
 
 export class WorkspaceConflictError extends OperatorFacingError {
   constructor() {
@@ -318,6 +332,52 @@ export class OfflineStorage {
       for (const id of expired) tx.objectStore("local_drafts").delete(id);
       await done;
     }
+    return snapshots.sort((left, right) => right.capturedAt.localeCompare(left.capturedAt));
+  }
+
+  /** Encrypted, account-scoped text recovery; it never enters packet sync. */
+  saveAuthRecoverySnapshot(accountId: string, fields: AuthRecoveryField[]): Promise<string> {
+    if (!accountId) return Promise.reject(new Error("An account is required to save local recovery data."));
+    const { key, epoch } = this.session();
+    const snapshot: AuthRecoverySnapshot = {
+      id: "",
+      accountId,
+      capturedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + RECOVERY_RETENTION_MS).toISOString(),
+      fields: structuredClone(fields),
+    };
+    const run = this.operations.catch(() => {}).then(async () => {
+      this.assertActive(epoch);
+      const accountKey = await accountStorageKey(accountId);
+      snapshot.id = `${AUTH_RECOVERY_PREFIX}${accountKey}:${crypto.randomUUID()}`;
+      const [envelope, db] = await Promise.all([this.seal(key, snapshot.id, snapshot), this.db()]);
+      this.assertActive(epoch);
+      const tx = db.transaction("local_drafts", "readwrite");
+      const done = complete(tx);
+      tx.objectStore("local_drafts").add(envelope);
+      await done;
+      return snapshot.id;
+    });
+    this.operations = run;
+    return run;
+  }
+
+  async getAuthRecoverySnapshots(accountId: string): Promise<AuthRecoverySnapshot[]> {
+    if (!accountId) return [];
+    const { key, epoch } = this.session();
+    const prefix = `${AUTH_RECOVERY_PREFIX}${await accountStorageKey(accountId)}:`;
+    const db = await this.db();
+    const envelopes = await request<Envelope[]>(
+      db.transaction("local_drafts").objectStore("local_drafts").getAll(),
+    );
+    const snapshots: AuthRecoverySnapshot[] = [];
+    for (const envelope of envelopes) {
+      if (!envelope.id.startsWith(prefix)) continue;
+      const snapshot = await this.open<AuthRecoverySnapshot>(key, envelope);
+      if (snapshot.accountId === accountId && Date.parse(snapshot.expiresAt) > Date.now())
+        snapshots.push(snapshot);
+    }
+    this.assertActive(epoch);
     return snapshots.sort((left, right) => right.capturedAt.localeCompare(left.capturedAt));
   }
 
@@ -701,6 +761,7 @@ export class OfflineStorage {
     );
     const drafts = await Promise.all(envelopes
       .filter(envelope => !envelope.id.startsWith(RECOVERY_PREFIX))
+      .filter(envelope => !envelope.id.startsWith(AUTH_RECOVERY_PREFIX))
       .map(envelope => this.open<T>(key, envelope)));
     this.assertActive(epoch);
     return drafts;
