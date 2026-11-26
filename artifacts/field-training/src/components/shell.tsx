@@ -24,13 +24,14 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/class-overview', label: 'My PO’s', icon: Users },
     { href: '/reports/new', label: 'Shifts & Runs', icon: ClipboardList },
     { href: '/reports', label: 'Daily Records', icon: FileText },
-    { href: '/reports/weekly-summary', label: 'Weekly Packets', icon: ClipboardList },
+    { href: '/reports/weekly-packet', label: 'Weekly Packets', icon: ClipboardList },
     { href: '/agency-packets', label: 'Agency packets', icon: FileText },
     { href: '/packet-submissions', label: 'Packet Submissions', icon: ClipboardList },
     RESOURCES,
     { href: '/settings', label: 'Account Settings', icon: Settings },
   ],
   fto_sgt: [
+    { href: '/reports/weekly-packet', label: 'Packet Monitor', icon: ClipboardList },
     RESOURCES,
   ],
   fto_coordinator: [
@@ -39,7 +40,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/class-overview', label: 'Classes & Rosters', icon: Users },
     { href: '/phase-setup', label: 'Assignments', icon: FolderOpen },
     { href: '/substitute-fto', label: 'Coverage', icon: Users },
-    { href: '/reports/weekly-summary', label: 'Packet Monitor', icon: ClipboardList },
+    { href: '/reports/weekly-packet', label: 'Packet Monitor', icon: ClipboardList },
     { href: '/agency-packets', label: 'Agency packets', icon: FileText },
     RESOURCES,
   ],
@@ -127,11 +128,11 @@ export function Shell({ children }: { children: ReactNode }) {
   };
   const isActive = (h: string) => {
     if(h==='/') return loc==='/';
-    if(h==='/reports/weekly-summary') return loc==='/reports/weekly-summary'||loc==='/reports/weekly-ack';
+    if(h==='/reports/weekly-packet') return loc==='/reports/weekly-packet'||loc==='/reports/weekly-summary'||loc==='/reports/weekly-ack'||loc==='/reports/weekly-log';
     if(h==='/reports/monthly-summary') return loc==='/reports/monthly-summary';
     if(h==='/reports/weekly-log') return loc==='/reports/weekly-log';
     if(h==='/reports/new') return loc==='/reports/new';
-    if(h==='/reports') return loc==='/reports'||(/^\/reports\/[^/]+$/.test(loc)&&!['/reports/new','/reports/weekly-summary','/reports/monthly-summary','/reports/weekly-ack','/reports/weekly-log'].includes(loc));
+    if(h==='/reports') return loc==='/reports'||(/^\/reports\/[^/]+$/.test(loc)&&!['/reports/new','/reports/weekly-packet','/reports/weekly-summary','/reports/monthly-summary','/reports/weekly-ack','/reports/weekly-log'].includes(loc));
     return loc===h;
   };
   const isCommand=w.ws.role==='fto_coc';

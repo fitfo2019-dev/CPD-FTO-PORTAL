@@ -1478,6 +1478,19 @@ main button.seg-rating-choice {
     padding: 0 !important;
   }
   body.print-monthly-route .monthly-summary-page > :not(.print-monthly) { display: none !important; }
+  body.print-weekly-packet-route .min-h-screen:has(> [data-app-shell]) { min-height: 0 !important; height: auto !important; }
+  body.print-weekly-packet-route .min-h-screen:has(> [data-app-shell]) > [role="status"] { display: none !important; }
+  body.print-weekly-packet-route [data-app-shell] { min-height: 0 !important; display: block !important; }
+  body.print-weekly-packet-route [data-app-shell] > :not(main) { display: none !important; }
+  body.print-weekly-packet-route [data-app-shell] > main { display: block !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  body.print-weekly-packet-route [data-app-shell] > main > :not(.weekly-packet-page) { display: none !important; }
+  body.print-weekly-packet-route .weekly-packet-page { display: block !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  body.print-weekly-packet-route .weekly-packet-page > :not(.print-weekly):not(.print-summary):not(.print-weekly-log):not(.print-daily-package) { display: none !important; }
+  body.print-weekly-packet-route .weekly-packet-page > .print-weekly,
+  body.print-weekly-packet-route .weekly-packet-page > .print-summary,
+  body.print-weekly-packet-route .weekly-packet-page > .print-weekly-log,
+  body.print-weekly-packet-route .weekly-packet-page > .print-daily-package { position: static !important; display: block !important; width: 100% !important; break-after: page; page-break-after: always; }
+  body.print-weekly-packet-route .weekly-packet-page > .print-daily-package:last-child { break-after: auto; page-break-after: auto; }
   body.print-daily-route [data-app-shell] {
     min-height: 0 !important;
     display: block !important;

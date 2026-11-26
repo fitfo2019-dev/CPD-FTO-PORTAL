@@ -307,7 +307,7 @@ function FtoWeeklyPacket() {
       <PrintableWeeklyPerformanceLog log={log} />
       {week.reports.map(report => {
         const packet = resolveOperationalPacket(report, ws.phaseFolders, ws.substationOrientations);
-        return <div key={report.id} className="weekly-packet-daily">
+        return <div key={report.id} className="print-daily-package weekly-packet-daily">
           <PrintableDailyForms report={report} orientation={packet.orientation} dayReference={packet.dayReference} packet={packet} />
           <PrintableDailyLog report={report} dayReference={packet.dayReference} packet={packet} />
         </div>;
