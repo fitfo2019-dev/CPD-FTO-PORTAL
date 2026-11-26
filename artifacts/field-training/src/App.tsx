@@ -19,6 +19,7 @@ import ReportEditor from '@/pages/report-editor.js';
 import Training from '@/pages/training.js';
 import Settings from '@/pages/settings.js';
 import WeeklyAcknowledgementPage from '@/pages/weekly-acknowledgement.js';
+import WeeklyPacketPage from '@/pages/weekly-packet.js';
 import WeeklySummaryPage from '@/pages/weekly-summary.js';
 import MonthlySummaryPage from '@/pages/monthly-summary.js';
 import ClassOverview from '@/pages/class-overview.js';
@@ -212,6 +213,7 @@ function WorkspaceRoutes() {
   if (ws.role === 'fto_sgt') return <RoutedErrorBoundary><Switch>
     {RebuildPhaseSetup && <Route path="/rebuild-phase-setup">{() => <RebuildRoute page={RebuildPhaseSetup}/>}</Route>}
     {RebuildPoProgress && <Route path="/po-progress">{() => <RebuildRoute page={RebuildPoProgress}/>}</Route>}
+    <Route path="/reports/weekly-packet" component={WeeklyPacketPage}/>
     <Route path="/resources" component={HelpPage}/>
     <Route path="/help"><Redirect to="/resources"/></Route>
     <Route>{() => <Redirect to="/resources"/>}</Route>
@@ -253,6 +255,7 @@ function WorkspaceRoutes() {
         <Route path="/reports" component={Reports} />
         <Route path="/agency-packets" component={AgencyPacketsPage} />
          <Route path="/reports/new"><ShiftStartGate/></Route>
+        <Route path="/reports/weekly-packet" component={WeeklyPacketPage} />
         <Route path="/reports/weekly-summary" component={WeeklySummaryPage} />
         <Route path="/reports/monthly-summary" component={MonthlySummaryPage} />
         <Route path="/reports/weekly-log" component={WeeklyPerformanceLogPage} />
