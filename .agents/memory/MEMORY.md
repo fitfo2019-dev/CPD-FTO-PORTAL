@@ -1,3 +1,4 @@
+- [Owner rules and decision sources](owner-rules.md) — read docs/rebuild/DECISIONS_LOG.md first; standing owner rules for questions, terminology, previews and calculations.
 - [Portable runtime boundary](runtime-portability.md) — deployable source avoids Replit-only packages and runtime strings, uses ESM, and includes explicit local import extensions.
 - [Civic visual direction](civic-visual-direction.md) — use the requested Columbus public-service look with the portal's distinct demo notices.
 - [Columbus shift and week rules](columbus-shift-schedule.md) — phase lengths, Limbo workdays, Sunday–Saturday weeks, shifts, and required days off.
