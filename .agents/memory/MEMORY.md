@@ -23,3 +23,4 @@
 - [Assignment transition authorization](assignment-transition-authorization.md) — serialize per-PO writes and recheck current scope before returning an idempotent result.
 - [Portal transfer budget](portal-transfer-budget.md) — preserve separate gzip limits for initial JavaScript and intentionally deferred chunks.
 - [OpenAPI parameter codegen](openapi-parameter-codegen.md) — avoid generated path/query parameter symbol collisions and validate coerced UUID query strings with explicit patterns.
+- [Master system specification](master-system-specification.md) — apply the user's standing portal guardrails for interface copy, data, submission, export, profile, and validation behavior.

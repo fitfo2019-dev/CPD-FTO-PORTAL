@@ -1109,7 +1109,7 @@ export default function ReportEditor() {
                    </div>}
                   {run.narrative && <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{run.narrative}</p>}
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-x-12 gap-y-2 border-t pt-3">
-                    <button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>set('runs',r.runs.filter(item=>item.id!==run.id))})} className="min-h-10 rounded border border-destructive/60 px-3 py-2 text-xs font-semibold text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}>Remove run</button>
+                    <button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>setR(current=>current&&({...current,runs:current.runs.filter(item=>item.id!==run.id)}))})} className="min-h-10 rounded border border-destructive/60 px-3 py-2 text-xs font-semibold text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}>Remove run</button>
                     <button type="button" disabled={!editable} onClick={()=>requestEditRun(run)} className="min-h-10 rounded border px-3 py-2 text-xs font-semibold disabled:opacity-50" data-testid={`button-edit-run-${run.id}`}>Edit</button>
                   </div>
                 </li>;

@@ -106,11 +106,41 @@ test("saved run search keeps incident details and edit actions, and has a clear 
     ], "Cancelling does not change the saved report");
 
     await click("button-delete-run-incident-nine-digits");
+    await click("button-edit-run-incident-sixteen-digits");
+    await act(async () => {
+      const input = element<HTMLInputElement>("input-run-incident-number");
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")!.set!.call(
+        input, "UPDATED-DURING-CONFIRMATION",
+      );
+      input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    assert.equal(element<HTMLInputElement>("input-run-incident-number").value, "UPDATED-DURING-CONFIRMATION",
+      "The edited incident number is present in the open run form");
+    await click("button-run-step-primary");
+    await click("checkbox-sheet-review-primary");
+    await click("button-run-step-narrative_addition");
+    await click("checkbox-sheet-review-narrative_addition");
+    await click("button-run-step-finish");
+    await click("button-save-run");
+    assert.equal(dom.window.document.querySelector('[data-testid="text-run-error"]')?.textContent ?? "", "",
+      "The edited run saves to the daily-log draft");
+    assert.match(element("text-run-incident-number-incident-sixteen-digits").textContent ?? "",
+      /UPDATED-DURING-CONFIRMATION/,
+      "The draft run list changes while the removal confirmation is open");
+    assert.deepEqual(workspace.reports[0]?.runs.map(run => run.id), [
+      "incident-nine-digits", "incident-sixteen-digits",
+    ], "Editing the daily-log draft does not save the report");
+    assert.equal(workspace.reports[0]?.runs[1]?.incidentNumber, "0123456789012345",
+      "The saved run details remain unchanged before Save draft");
+
     await click("button-confirm-action");
     assert.equal(dom.window.document.querySelector('[data-testid="row-training-run-incident-nine-digits"]'), null,
       "Confirming removes the selected run from the current draft");
     assert.ok(dom.window.document.querySelector('[data-testid="row-training-run-incident-sixteen-digits"]'),
       "Confirming leaves the other run in the daily-log draft");
+    assert.match(element("text-run-incident-number-incident-sixteen-digits").textContent ?? "",
+      /UPDATED-DURING-CONFIRMATION/,
+      "Confirming removal preserves changes made to the latest draft");
     assert.deepEqual(workspace.reports[0]?.runs.map(run => run.id), [
       "incident-nine-digits", "incident-sixteen-digits",
     ], "Removal remains an unsaved draft change");
