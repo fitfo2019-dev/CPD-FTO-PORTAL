@@ -185,6 +185,9 @@ export function elementsForCitation(statute: StatuteClauses, path: readonly stri
     if (isAncestorOrSelf) lead.push({ index: clause.index, text: clause.text, depth: clause.path.length - 1 });
     else if (clause.path.length > target.length && startsWith(clause.path, target)) children.push(clause);
   });
+  if (!lead.length && !children.length && !path.length && usable.every(clause => clause.path.length === 0)) {
+    return { lead: usable.map(clause => ({ index: clause.index, text: clause.text, depth: 0 })), alternatives: [], requiresOne: false };
+  }
   const leadText = lead[lead.length - 1]?.text ?? '';
   const directDepth = target.length + 1;
   const requiresOne = children.some(child => child.path.length === directDepth) && ALTERNATIVE_LEAD.test(leadText);
