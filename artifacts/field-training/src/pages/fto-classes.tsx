@@ -30,7 +30,7 @@ export default function FtoClassesPage() {
   const suggestedStartDate=ws.assignments.find(item=>item.className===className&&item.phase===phase)?.phaseStartDate;
 
   if(ws.role!=='fto'&&!isCoordinator) {
-    return <Panel title="Class and phase sign-up"><p className="p-4 text-sm">This page is for FTOs and the FTO Coordinator.</p></Panel>;
+    return <Panel title="Class and phase sign-up"><p className="p-4 text-sm">This page is for FTO’s and the FTO Coordinator.</p></Panel>;
   }
 
   function postPhase() {
@@ -47,7 +47,7 @@ export default function FtoClassesPage() {
     const now=new Date().toISOString();
     const posting:FtoPhasePosting={id:uid(),className:className.trim(),phase,phaseStartDate:startDate,status:'open',createdAt:now,updatedAt:now};
     upsertFtoPhasePosting(posting);
-    toast({title:'Phase posting saved on this device',description:'Other FTOs have not been notified.'});
+    toast({title:'Phase posting saved on this device',description:'Other FTO’s have not been notified.'});
     setStartDateText('');
   }
 
@@ -154,8 +154,8 @@ export default function FtoClassesPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {isCoordinator
-                    ?<><CountTile label="POs in roster" value={assignments.length}/><CountTile label="No FTO assigned" value={openSlots}/></>
-                    :<CountTile label="POs who need an FTO" value={openSlots}/>}
+                    ?<><CountTile label="PO’s in roster" value={assignments.length}/><CountTile label="No FTO assigned" value={openSlots}/></>
+                    :<CountTile label="PO’s who need an FTO" value={openSlots}/>}
                 </div>
                 {isCoordinator?<button type="button" onClick={()=>closePosting(posting)} disabled={posting.status==='closed'} className="min-h-10 rounded border px-3 text-sm font-semibold disabled:opacity-50" data-testid={`button-close-posting-${posting.id}`}>{posting.status==='closed'?'Posting closed':'Close local posting'}</button>:
                   posting.status==='open'?<button type="button" onClick={()=>signUp(posting)} disabled={!selectedFto||alreadySigned} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid={`button-signup-${posting.id}`}><Check className="h-4 w-4"/>{alreadySigned?'Sign-up saved':'Sign up for this phase'}</button>:<span className="text-sm font-semibold text-muted-foreground">This posting is closed.</span>}
@@ -165,7 +165,7 @@ export default function FtoClassesPage() {
                   ?<CoordinatorNeeds assignments={unfilledAssignments} signups={signups} onChoose={chooseCandidateForPo}/>
                   :<div className="rounded border bg-muted/20 p-3">
                     <div className="flex items-center gap-2 text-sm font-semibold"><UsersRound className="h-4 w-4"/>Your sign-up</div>
-                    <p className="mt-2 text-sm text-muted-foreground">The FTO Coordinator sees the PO details and assigns FTOs. This page only shows how many POs need an FTO.</p>
+                    <p className="mt-2 text-sm text-muted-foreground">The FTO Coordinator sees the PO details and assigns FTO’s. This page only shows how many PO’s need an FTO.</p>
                     {mySignup&&<div className="mt-3 rounded border bg-card p-3 text-sm" role="status" data-testid={`fto-signup-status-${posting.id}`}>
                       <b>{mySignup.status==='selected_locally'?'Locally matched to a PO':'Saved on this device'}</b>
                       <p className="mt-1 text-xs text-muted-foreground">{mySignup.status==='selected_locally'?'This recommendation is not an official assignment.':'This sign-up has not been sent to the FTO Coordinator.'}</p>
@@ -195,7 +195,7 @@ function CoordinatorNeeds({assignments,signups,onChoose}:{assignments:ReturnType
   if(assignments.length===0) return <div className="rounded border bg-muted/20 p-3 text-sm"><b>Unfilled PO assignments</b><p className="mt-1 text-muted-foreground">There are no unfilled PO assignments for this phase. Add or update the roster if an FTO is still needed.</p></div>;
   return <div className="rounded border bg-muted/20 p-3">
     <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><ClipboardList className="h-4 w-4"/>Unfilled PO assignments</div>
-    <p className="mb-2 text-xs text-muted-foreground">Review the PO’s existing records and training needs, then use your judgment to recommend an FTO. The portal does not score or automatically match FTOs.</p>
+    <p className="mb-2 text-xs text-muted-foreground">Review the PO’s existing records and training needs, then use your judgment to recommend an FTO. The portal does not score or automatically match FTO’s.</p>
     <ul className="divide-y">{assignments.map(assignment=>{
       const selected=assignedSignup(assignment.id);
       const options=signups.filter(signup=>signup.status!=='withdrawn'&&(!signup.selectedAssignmentId||signup.selectedAssignmentId===assignment.id)&&(!usedAssignments.has(assignment.id)||signup.id===selected?.id));
@@ -218,6 +218,6 @@ function CoordinatorNeeds({assignments,signups,onChoose}:{assignments:ReturnType
         </div>
       </li>;
     })}</ul>
-    {signups.length===0&&<p className="mt-2 text-sm text-muted-foreground">No FTO sign-ups yet. FTOs can choose this class and phase from their portal.</p>}
+    {signups.length===0&&<p className="mt-2 text-sm text-muted-foreground">No FTO sign-ups yet. FTO’s can choose this class and phase from their portal.</p>}
   </div>;
 }

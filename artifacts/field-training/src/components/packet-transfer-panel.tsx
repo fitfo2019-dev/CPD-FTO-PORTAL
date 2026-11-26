@@ -214,7 +214,7 @@ export function PacketTransferPanel() {
         <button type="button" data-testid="button-access-remote" aria-pressed={accessPath === 'remote'} className={accessPath === 'remote' ? 'selected' : ''} onClick={() => setAccessPath('remote')}><Home size={17} />At Home</button>
       </div>
       <div className="pp-access-detail" aria-live="polite">{accessPath === 'station'
-        ? <><Wifi size={21} /><div><strong>Agency-Managed Wi-Fi</strong><p>An IT-Managed Access Point Can Let Multiple FTOs Use the Existing Network Connection Without Taking Turns at One Jack.</p></div></>
+        ? <><Wifi size={21} /><div><strong>Agency-Managed Wi-Fi</strong><p>An IT-Managed Access Point Can Let Multiple FTO’s Use the Existing Network Connection Without Taking Turns at One Jack.</p></div></>
         : <><ShieldCheck size={21} /><div><strong>Agency-Approved Remote Access</strong><p>Use a Department-Approved Device and VPN or Zero-Trust Route, if Agency Policy Allows It. Home Wi-Fi Alone Is Not Authorization.</p></div></>}</div>
       <p className="pp-access-boundary">This Selector Shows Guidance Only. It Does Not Detect, Establish, or Authorize a Network Connection.</p>
     </section>
@@ -333,7 +333,7 @@ export function PacketTransferPanel() {
     <AlertDialog open={confirmation !== null} onOpenChange={open => { if (!open) { setConfirmation(null); setAcknowledged(false); } }}>
       <AlertDialogContent className="packet-confirm">
         <AlertDialogHeader><AlertDialogTitle>Synchronize {pending.length} Editable Drafts?</AlertDialogTitle>
-          <AlertDialogDescription>Draft Sync Creates or Updates Editable Agency Snapshots. It Does Not Submit or Seal Them, and Does Not Expose Them to Coordinators or POs.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogDescription>Draft Sync Creates or Updates Editable Agency Snapshots. It Does Not Submit or Seal Them, and Does Not Expose Them to Coordinators or PO’s.</AlertDialogDescription></AlertDialogHeader>
         <ul className="max-h-40 overflow-auto text-sm">{pending.map(report => <li key={report.id}>{formatDateDMY(report.date)} · {report.recruitName} · {report.id}</li>)}</ul>
         <p className="text-sm">Finalization Is a Separate FTO Action. Sync Does Not Create an Electronic Signature, Approval, or PO Release. An Unconfirmed Attempt Must Be Retried with Its Exact Saved Snapshot.</p>
         <label className="flex items-start gap-3 text-sm font-bold"><input type="checkbox" data-testid="checkbox-confirm-draft-sync" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)} />I Reviewed These Drafts and Understand They Remain Editable and Unsubmitted.</label>

@@ -3,12 +3,13 @@ import { useClerk, useUser } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
-import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp } from 'lucide-react';
+import { LayoutGrid, LineChart, CalendarCheck, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp } from 'lucide-react';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
 import { VaultDialog } from './vault-dialog.js';
 import { cn } from '@/lib/utils.js';
+import { caseSafe } from './bits.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog.js';
 import { operatorErrorToast } from '@/lib/operator-errors.js';
@@ -20,7 +21,7 @@ const RESOURCES: NavItem = { href: '/resources', label: 'Help Desk', icon: Circl
 const ROLE_NAV: Record<Role, NavItem[]> = {
   fto: [
     HOME,
-    { href: '/class-overview', label: 'My POs', icon: Users },
+    { href: '/class-overview', label: 'My PO’s', icon: Users },
     { href: '/reports/new', label: 'Shifts & Runs', icon: ClipboardList },
     { href: '/reports', label: 'Daily Records', icon: FileText },
     { href: '/reports/weekly-summary', label: 'Weekly Packets', icon: ClipboardList },
@@ -61,6 +62,29 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/technical-access', label: 'Technical Access', icon: Settings },
     RESOURCES,
   ],
+};
+
+// Rebuild screens are preview-only until the server roster and sign-up routes are integrated.
+const REBUILD_NAV: Partial<Record<Role, NavItem[]>> = import.meta.env.DEV ? {
+  fto: [
+    { href: '/my-probationary-officer', label: 'My Probationary Officer', icon: UserRound },
+    { href: '/phase-sign-up', label: 'Phase Sign-Up', icon: CalendarCheck },
+  ],
+  fto_coordinator: [
+    { href: '/rebuild-phase-setup', label: 'Phase Setup', icon: FolderOpen },
+    { href: '/po-progress', label: 'PO Progress', icon: LineChart },
+  ],
+  fto_sgt: [
+    { href: '/rebuild-phase-setup', label: 'Phase Setup', icon: FolderOpen },
+    { href: '/po-progress', label: 'PO Progress', icon: LineChart },
+  ],
+} : {};
+const navFor = (role: Role): NavItem[] => {
+  const base = ROLE_NAV[role];
+  const extra = REBUILD_NAV[role] ?? [];
+  if (!extra.length) return base;
+  const at = base[0] === HOME ? 1 : 0;
+  return [...base.slice(0, at), ...extra, ...base.slice(at)];
 };
 
 const navTestId = (href: string) => `link-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`;
@@ -111,7 +135,7 @@ export function Shell({ children }: { children: ReactNode }) {
     return loc===h;
   };
   const isCommand=w.ws.role==='fto_coc';
-  const visibleNav = ROLE_NAV[w.ws.role];
+  const visibleNav = navFor(w.ws.role);
   const mobileNav = visibleNav.length > 5
     ? [...visibleNav.slice(0, 4), RESOURCES, ...visibleNav.slice(4).filter(item => item.href !== RESOURCES.href)]
     : visibleNav;
@@ -211,7 +235,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <nav aria-label="Main navigation" className="portal-side-nav" data-testid="nav-desktop">
             {visibleNav.map(n => (
               <Link key={n.href} href={n.href} data-testid={navTestId(n.href)} aria-current={isActive(n.href) ? 'page' : undefined} className={cn('portal-side-link', isActive(n.href) && 'is-active')}>
-                <n.icon className="h-4 w-4" />{n.label}
+                <n.icon className="h-4 w-4" />{caseSafe(n.label)}
               </Link>
             ))}
         </nav>
@@ -473,6 +497,6 @@ export function Shell({ children }: { children: ReactNode }) {
 function MobileLink({ href, label, icon: Icon, active }: { href: string; label: string; icon: typeof LayoutGrid; active: boolean }) {
   const shortLabel = label;
   return <Link href={href} data-testid={`link-mobile-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`} aria-current={active ? 'page' : undefined} className={cn('flex min-h-16 min-w-[76px] shrink-0 flex-col items-center justify-center gap-1 px-2 py-2 text-center text-[0.65rem] font-semibold leading-tight', active ? 'text-sidebar-primary' : 'opacity-80')}>
-    <Icon className="h-5 w-5 shrink-0" /><span>{shortLabel}</span>
+    <Icon className="h-5 w-5 shrink-0" /><span>{caseSafe(shortLabel)}</span>
   </Link>;
 }
