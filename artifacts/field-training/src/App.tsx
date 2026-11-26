@@ -119,12 +119,12 @@ function SignInPage() {
   return (
     <div className="sign-in-split">
     <SignInPhotos />
-    <div className={`flex items-center justify-center px-4 py-8 ${import.meta.env.DEV ? 'flex-col gap-4' : ''}`}>
+    <div className={`sign-in-card-area ${import.meta.env.DEV ? 'flex-col items-center gap-4' : ''}`}>
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
         signUpUrl={`${basePath}/sign-up`}
-        appearance={clerkAppearance}
+        appearance={{ ...clerkAppearance, elements: { ...clerkAppearance.elements, logoBox: 'hidden' } }}
       />
       {import.meta.env.DEV && (
         <div className="flex flex-col items-center gap-3">
