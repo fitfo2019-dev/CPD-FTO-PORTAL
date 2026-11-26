@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const VERSION = "Version 2 · November 26, 2026 · portal main d63712e";
+const VERSION = "Version 3 · November 26, 2026 · portal main c17d89a";
 
 const NAVY = "1F3A68";
 S.setTheme({
@@ -456,6 +456,31 @@ S.layouts.agenda(deck.addSlide(), {
   });
 }
 
+// ---------------------------------------------------------------- 19b Charging lookup and Resources
+{
+  const s = deck.addSlide();
+  const f = fr({
+    kicker: "RESOURCES / CHARGING LOOKUP",
+    headline: "The charging lookup goes from offense to elements to wording",
+    note: "FTO-only on the Arrest and OVI run pages; PO's use it under FTO direction during training. OVI is charged on a traffic citation, so it has no complaint wording.",
+    sources: [{ name: "Columbus Criminal Complaint Manual (Resources)", kind: "user" }, { name: "Ohio Revised Code, codes.ohio.gov", kind: "user" }, LOG],
+  });
+  S.layouts.table(s, {
+    frame: f,
+    table: {
+      headers: ["Step", "What the FTO sees", "Teaching point"],
+      colW: [0.18, 0.46, 0.36],
+      rows: [
+        ["1 Offense and level", "Offense, section and penalty sentences, word for word", "Confirm the level before writing"],
+        ["2 Statute text", "The statute split into its divisions as a checklist", "Check each element the facts support"],
+        ["3 Complaint wording", "Manual wording; Copy unlocks after the checks", "Fill every blank with the run's facts"],
+        ["Resources", "Complaint manual, street cards, felony traffic manual, warrant examples", "Example contacts are placeholders"],
+        ["Substation", "Filled from the assignment; still editable", "Correct it for a different substation"],
+      ],
+    },
+  });
+}
+
 // ---------------------------------------------------------------- 20 Teaching plan
 {
   const s = deck.addSlide();
@@ -509,14 +534,14 @@ S.layouts.agenda(deck.addSlide(), {
   const f = fr({
     kicker: "STATUS OF THE BUILD",
     headline: "The rules are live in the portal; several screens still await preview approval",
-    note: "As of portal main d63712e and website main 11d7cd1. This slide is updated each time a change is merged.",
+    note: "As of portal main c17d89a and website main 11d7cd1. This slide is updated each time a change is merged.",
     sources: [LOG],
   });
   S.layouts.comparison(s, {
     frame: f,
     criteria: ["Paperwork", "PO standing", "Roles", "Notices"],
-    a: { tag: "LIVE", heading: "Merged and published", rows: ["Daily and weekly packets, two-stage submission, sign-in", "PO-STD-2, PO-SCORE-2, Show Calculation, My Training", "Current sidebars for all five roles", "NRT rule logic and its tests"] },
-    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Real form exporter for every form; Shifts & Runs redesign", "PO status label and phase tracker on My Training", "Redesigned PO and FTO Chain of Command sidebars", "NRT and cease-training screens and notices"] },
+    a: { tag: "LIVE", heading: "Merged and published", rows: ["Two-stage packets, charging lookup, Resources", "PO-STD-2, PO-SCORE-2, Show Calculation, My Training", "Current sidebars for all five roles", "NRT rule logic and its tests"] },
+    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Real form exporter; Shifts & Runs redesign", "PO status label and phase tracker on My Training", "Redesigned PO and FTO Chain of Command sidebars", "NRT and cease-training screens and notices"] },
   });
 }
 
