@@ -8,7 +8,7 @@ import { PageHead, Panel, RatingChip, Stat, StatusPill, caseSafe } from '@/compo
 import { NrtAdminReviewPanel } from '@/components/nrt-admin-review-panel.js';
 import { PhaseExtensionPanel } from '@/components/phase-extension-panel.js';
 import { activityTotals } from '@/lib/run-activity.js';
-import { missingDorDates } from '@/lib/weekly-packet.js';
+import { missingDailySummaryDates } from '@/lib/weekly-packet.js';
 
 export default function Dashboard() {
   const {ws}=useWorkspace();
@@ -29,7 +29,7 @@ export default function Dashboard() {
     return rating==='UA'||rating==='NRT';
   }).map(category=>({report,category})));
   const phaseLabel=folder?`Phase ${folder.phase}`:'Not set';
-  const missingDors=folder&&ws.role==='fto'?missingDorDates(folder,reports,localISODate()):[];
+  const missingDailySummaries=folder&&ws.role==='fto'?missingDailySummaryDates(folder,reports,localISODate()):[];
 
   return <div className="mx-auto max-w-7xl">
     <PageHead kicker={`Field training · ${ROLE_LABEL[ws.role]}`} title={isCoordinator?'Training office':'My work'}>
@@ -42,10 +42,10 @@ export default function Dashboard() {
 
     <PhaseExtensionPanel/>
 
-    {missingDors.length>0&&<section aria-label="Missing DOR's" data-testid="card-missing-dor" className="mb-5 rounded border border-amber-500/50 bg-amber-50 p-4 dark:bg-amber-950/30">
-      <p className="label-caps text-amber-800 dark:text-amber-300">{caseSafe("Missing DOR's")}</p>
+    {missingDailySummaries.length>0&&<section aria-label="Missing Daily Performance Summaries" data-testid="card-missing-daily-summary" className="mb-5 rounded border border-amber-500/50 bg-amber-50 p-4 dark:bg-amber-950/30">
+      <p className="label-caps text-amber-800 dark:text-amber-300">{caseSafe('Missing Daily Performance Summaries')}</p>
       <ul className="mt-2 flex flex-wrap gap-2">
-        {missingDors.map(date=><li key={date}><Link href={`/reports/new?date=${date}`} data-testid={`link-missing-dor-${date}`} className="inline-flex min-h-10 items-center rounded border bg-card px-3 text-sm font-semibold">{formatDateDMY(date)}</Link></li>)}
+        {missingDailySummaries.map(date=><li key={date}><Link href={`/reports/new?date=${date}`} data-testid={`link-missing-daily-summary-${date}`} className="inline-flex min-h-10 items-center rounded border bg-card px-3 text-sm font-semibold">{formatDateDMY(date)}</Link></li>)}
       </ul>
     </section>}
 
