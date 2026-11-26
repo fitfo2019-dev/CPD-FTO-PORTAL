@@ -1,9 +1,9 @@
-import { useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { useClerk, useUser } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
-import { LayoutGrid, LineChart, CalendarCheck, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp } from 'lucide-react';
+import { LayoutGrid, LineChart, CalendarCheck, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp, FlaskConical } from 'lucide-react';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
@@ -13,6 +13,7 @@ import { caseSafe } from './bits.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog.js';
 import { operatorErrorToast } from '@/lib/operator-errors.js';
+import { probeTestAdmin } from '@/features/test-admin/api.js';
 
 type NavItem = { href: string; label: string; icon: typeof LayoutGrid };
 
@@ -103,6 +104,13 @@ export function Shell({ children }: { children: ReactNode }) {
   const [recoveryReviewOpen, setRecoveryReviewOpen] = useState(false);
   const [restoringRecoveryId, setRestoringRecoveryId] = useState<string | null>(null);
   const [leavePage,setLeavePage]=useState<string|null>(null);
+  const [testAdminAvailable, setTestAdminAvailable] = useState(false);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const controller = new AbortController();
+    void probeTestAdmin(controller.signal).then(setTestAdminAvailable);
+    return () => controller.abort();
+  }, [isSignedIn, user?.id]);
   const unsaved = w.dirty || w.editorDirty;
   const otherUnlockedSessions = w.otherSessions.filter(session => session.unlocked);
   const otherDirtySessions = otherUnlockedSessions.filter(session => session.dirty);
@@ -136,7 +144,9 @@ export function Shell({ children }: { children: ReactNode }) {
     return loc===h;
   };
   const isCommand=w.ws.role==='fto_coc';
-  const visibleNav = navFor(w.ws.role);
+  const visibleNav = testAdminAvailable
+    ? [...navFor(w.ws.role), { href: '/test-admin', label: 'Test Admin', icon: FlaskConical }]
+    : navFor(w.ws.role);
   const mobileNav = visibleNav.length > 5
     ? [...visibleNav.slice(0, 4), RESOURCES, ...visibleNav.slice(4).filter(item => item.href !== RESOURCES.href)]
     : visibleNav;
@@ -206,6 +216,11 @@ export function Shell({ children }: { children: ReactNode }) {
       ));
     }
   }
+
+  // The Test Admin page carries its own approved synthetic-staging navigation.
+  // The server probe controls its portal entry; the page independently gates
+  // every data request on the same server authority.
+  if (loc === '/test-admin') return <>{children}</>;
 
   return (
     <div data-app-shell className="portal-frame min-h-[100dvh] flex bg-background" onClickCapture={guardInternalLink}>

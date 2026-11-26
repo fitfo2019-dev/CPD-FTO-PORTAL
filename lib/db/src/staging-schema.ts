@@ -9,16 +9,21 @@ export const syntheticTraining = pgSchema("synthetic_training");
 export const stagingMembers = syntheticTraining.table("members", {
   id: uuid("id").primaryKey(),
   subjectHash: text("subject_hash").notNull().unique(),
-  role: text("role", { enum: ["PO", "FTO", "FTO_COORDINATOR"] }).notNull(),
+  role: text("role", { enum: ["PO", "FTO", "FTO_COORDINATOR", "TEST_ADMIN"] }).notNull(),
   active: boolean("active").notNull().default(false),
   agencyVerified: boolean("agency_verified").notNull().default(false),
   termsAccepted: boolean("terms_accepted").notNull().default(false),
+  fictional: boolean("fictional").notNull().default(false),
+  displayLabel: text("display_label"),
+  badgeLabel: text("badge_label"),
 });
 export const stagingClasses = syntheticTraining.table("classes", {
   id: uuid("id").primaryKey(),
   coordinatorId: uuid("coordinator_id").notNull().references(() => stagingMembers.id),
   active: boolean("active").notNull().default(false),
   phaseActive: boolean("phase_active").notNull().default(false),
+  fictional: boolean("fictional").notNull().default(false),
+  label: text("label"),
 });
 export const stagingAssignments = syntheticTraining.table("assignments", {
   id: uuid("id").primaryKey(),
@@ -29,6 +34,7 @@ export const stagingAssignments = syntheticTraining.table("assignments", {
   startsOn: date("starts_on").notNull(),
   endsOn: date("ends_on").notNull(),
   active: boolean("active").notNull().default(false),
+  fictional: boolean("fictional").notNull().default(false),
 });
 export const stagingRecords = syntheticTraining.table("records", {
   id: uuid("id").primaryKey(),
@@ -49,6 +55,8 @@ export const stagingAuditEvents = syntheticTraining.table("audit_events", {
   action: text("action").notNull(),
   recordId: uuid("record_id"),
   version: integer("version"),
+  targetType: text("target_type", { enum: ["PARTICIPANT", "CLASS", "ASSIGNMENT"] }),
+  targetId: uuid("target_id"),
 });
 export const stagingRecordVersions = syntheticTraining.table("record_versions", {
   recordId: uuid("record_id").notNull().references(() => stagingRecords.id),

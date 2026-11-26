@@ -330,7 +330,7 @@ test('every portal role can find Help Desk on desktop and mobile navigation', ()
   const roleNavEnd = shell.indexOf('const navTestId');
   const roleNavSource = shell.slice(roleNavStart, roleNavEnd);
   assert.equal((roleNavSource.match(/\bRESOURCES\b/g) ?? []).length, 7);
-  assert.match(roleNavSource, /fto_sgt:\s*\[\s*RESOURCES,\s*\]/);
+  assert.match(roleNavSource, /fto_sgt:\s*\[[\s\S]*?RESOURCES,/);
   assert.match(shell, /label: 'Help Desk'/);
   assert.match(shell, /visibleNav\.slice\(0, 4\), RESOURCES/);
   assert.equal((app.match(/<Route path="\/resources" component=\{HelpPage\}/g) ?? []).length, 5);

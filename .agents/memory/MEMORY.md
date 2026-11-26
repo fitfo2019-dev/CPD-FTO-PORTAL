@@ -24,3 +24,5 @@
 - [Portal transfer budget](portal-transfer-budget.md) — preserve separate gzip limits for initial JavaScript and intentionally deferred chunks.
 - [OpenAPI parameter codegen](openapi-parameter-codegen.md) — avoid generated path/query parameter symbol collisions and validate coerced UUID query strings with explicit patterns.
 - [Master system specification](master-system-specification.md) — apply the user's standing portal guardrails for interface copy, data, submission, export, profile, and validation behavior.
+- [Test administrator boundary](test-admin-boundary.md) — synthetic-staging-only role; never an agency claim, never in production, never acknowledges for a PO.
+- [SheetJS advisory ranges](sheetjs-advisory-ranges.md) — use official patched CE releases; npm advisory ranges can falsely flag patched tarballs.

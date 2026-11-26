@@ -62,6 +62,12 @@ import type {
   StagingTrainingInput,
   StagingTrainingUpdate,
   SuccessorAssignmentInput,
+  TestAdminAssignmentInput,
+  TestAdminAuditEnvelope,
+  TestAdminClassInput,
+  TestAdminParticipantInput,
+  TestAdminRecordVersionsEnvelope,
+  TestAdminScenarioEnvelope,
   TrainingPacketAcknowledgmentInput,
   TrainingPacketFinalizationInput,
   TrainingPacketFinalizationReceipt,
@@ -1683,6 +1689,1062 @@ export const useAcknowledgeStagingTrainingRecord = <TError = ErrorType<ApiError>
         TContext
       > => {
       return useMutation(getAcknowledgeStagingTrainingRecordMutationOptions(options), queryClient);
+    }
+
+export const getGetTestAdminScenarioUrl = () => {
+
+
+
+
+  return `/api/v1/staging/test-admin/scenario`
+}
+
+/**
+ * @summary List fictional classes, participants and assignments (test administrator only)
+ */
+export const getTestAdminScenario = async ( options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+  return customFetch<TestAdminScenarioEnvelope>(getGetTestAdminScenarioUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTestAdminScenarioQueryKey = () => {
+    return [
+    `/api/v1/staging/test-admin/scenario`
+    ] as const;
+    }
+
+
+export const getGetTestAdminScenarioQueryOptions = <TData = Awaited<ReturnType<typeof getTestAdminScenario>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTestAdminScenario>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTestAdminScenarioQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTestAdminScenario>>> = ({ signal }) => getTestAdminScenario({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTestAdminScenario>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTestAdminScenarioQueryResult = NonNullable<Awaited<ReturnType<typeof getTestAdminScenario>>>
+export type GetTestAdminScenarioQueryError = ErrorType<ApiError>
+
+
+export function useGetTestAdminScenario<TData = Awaited<ReturnType<typeof getTestAdminScenario>>, TError = ErrorType<ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTestAdminScenario>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTestAdminScenario>>,
+          TError,
+          Awaited<ReturnType<typeof getTestAdminScenario>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTestAdminScenario<TData = Awaited<ReturnType<typeof getTestAdminScenario>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTestAdminScenario>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTestAdminScenario>>,
+          TError,
+          Awaited<ReturnType<typeof getTestAdminScenario>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTestAdminScenario<TData = Awaited<ReturnType<typeof getTestAdminScenario>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTestAdminScenario>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List fictional classes, participants and assignments (test administrator only)
+ */
+
+export function useGetTestAdminScenario<TData = Awaited<ReturnType<typeof getTestAdminScenario>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTestAdminScenario>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTestAdminScenarioQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListTestAdminAuditEventsUrl = () => {
+
+
+
+
+  return `/api/v1/staging/test-admin/audit`
+}
+
+/**
+ * @summary Read-only synthetic audit history (test administrator only)
+ */
+export const listTestAdminAuditEvents = async ( options?: Parameters<typeof customFetch>[1]): Promise<TestAdminAuditEnvelope> => {
+
+  return customFetch<TestAdminAuditEnvelope>(getListTestAdminAuditEventsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTestAdminAuditEventsQueryKey = () => {
+    return [
+    `/api/v1/staging/test-admin/audit`
+    ] as const;
+    }
+
+
+export const getListTestAdminAuditEventsQueryOptions = <TData = Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTestAdminAuditEventsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTestAdminAuditEvents>>> = ({ signal }) => listTestAdminAuditEvents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListTestAdminAuditEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listTestAdminAuditEvents>>>
+export type ListTestAdminAuditEventsQueryError = ErrorType<ApiError>
+
+
+export function useListTestAdminAuditEvents<TData = Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError = ErrorType<ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTestAdminAuditEvents>>,
+          TError,
+          Awaited<ReturnType<typeof listTestAdminAuditEvents>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTestAdminAuditEvents<TData = Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTestAdminAuditEvents>>,
+          TError,
+          Awaited<ReturnType<typeof listTestAdminAuditEvents>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTestAdminAuditEvents<TData = Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read-only synthetic audit history (test administrator only)
+ */
+
+export function useListTestAdminAuditEvents<TData = Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminAuditEvents>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListTestAdminAuditEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListTestAdminTrainingRecordVersionsUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/test-admin/records/${id}/versions`
+}
+
+/**
+ * @summary Read fictional training record versions (test administrator only)
+ */
+export const listTestAdminTrainingRecordVersions = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminRecordVersionsEnvelope> => {
+
+  return customFetch<TestAdminRecordVersionsEnvelope>(getListTestAdminTrainingRecordVersionsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTestAdminTrainingRecordVersionsQueryKey = (id: string,) => {
+    return [
+    `/api/v1/staging/test-admin/records/${id}/versions`
+    ] as const;
+    }
+
+
+export const getListTestAdminTrainingRecordVersionsQueryOptions = <TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTestAdminTrainingRecordVersionsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>> = ({ signal }) => listTestAdminTrainingRecordVersions(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListTestAdminTrainingRecordVersionsQueryResult = NonNullable<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>>
+export type ListTestAdminTrainingRecordVersionsQueryError = ErrorType<ApiError>
+
+
+export function useListTestAdminTrainingRecordVersions<TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>,
+          TError,
+          Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTestAdminTrainingRecordVersions<TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>,
+          TError,
+          Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTestAdminTrainingRecordVersions<TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Read fictional training record versions (test administrator only)
+ */
+
+export function useListTestAdminTrainingRecordVersions<TData = Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTestAdminTrainingRecordVersions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListTestAdminTrainingRecordVersionsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTestAdminParticipantUrl = () => {
+
+
+
+
+  return `/api/v1/staging/test-admin/participants`
+}
+
+/**
+ * @summary Create a fictional participant
+ */
+export const createTestAdminParticipant = async (testAdminParticipantInput: TestAdminParticipantInput, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TestAdminScenarioEnvelope>(getCreateTestAdminParticipantUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(testAdminParticipantInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTestAdminParticipantMutationKey = () => ['createTestAdminParticipant'] as const;
+
+export const getCreateTestAdminParticipantMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestAdminParticipant>>, TError,CreateTestAdminParticipantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTestAdminParticipant>>, TError,CreateTestAdminParticipantMutationVariables, TContext> => {
+
+const mutationKey = getCreateTestAdminParticipantMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTestAdminParticipant>>, CreateTestAdminParticipantMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTestAdminParticipant(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTestAdminParticipantMutationResult = NonNullable<Awaited<ReturnType<typeof createTestAdminParticipant>>>
+    export type CreateTestAdminParticipantMutationBody = BodyType<TestAdminParticipantInput>
+    export type CreateTestAdminParticipantMutationError = ErrorType<ApiError>
+    export type CreateTestAdminParticipantMutationVariables = {data: BodyType<TestAdminParticipantInput>}
+
+    /**
+ * @summary Create a fictional participant
+ */
+export const useCreateTestAdminParticipant = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestAdminParticipant>>, TError,CreateTestAdminParticipantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createTestAdminParticipant>>,
+        TError,
+        CreateTestAdminParticipantMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateTestAdminParticipantMutationOptions(options), queryClient);
+    }
+
+export const getUpdateTestAdminParticipantUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/test-admin/participants/${id}`
+}
+
+/**
+ * @summary Update a fictional participant
+ */
+export const updateTestAdminParticipant = async (id: string,
+    testAdminParticipantInput: TestAdminParticipantInput, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TestAdminScenarioEnvelope>(getUpdateTestAdminParticipantUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(testAdminParticipantInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateTestAdminParticipantMutationKey = () => ['updateTestAdminParticipant'] as const;
+
+export const getUpdateTestAdminParticipantMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestAdminParticipant>>, TError,UpdateTestAdminParticipantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTestAdminParticipant>>, TError,UpdateTestAdminParticipantMutationVariables, TContext> => {
+
+const mutationKey = getUpdateTestAdminParticipantMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTestAdminParticipant>>, UpdateTestAdminParticipantMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateTestAdminParticipant(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTestAdminParticipantMutationResult = NonNullable<Awaited<ReturnType<typeof updateTestAdminParticipant>>>
+    export type UpdateTestAdminParticipantMutationBody = BodyType<TestAdminParticipantInput>
+    export type UpdateTestAdminParticipantMutationError = ErrorType<ApiError>
+    export type UpdateTestAdminParticipantMutationVariables = {id: string;data: BodyType<TestAdminParticipantInput>}
+
+    /**
+ * @summary Update a fictional participant
+ */
+export const useUpdateTestAdminParticipant = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestAdminParticipant>>, TError,UpdateTestAdminParticipantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateTestAdminParticipant>>,
+        TError,
+        UpdateTestAdminParticipantMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateTestAdminParticipantMutationOptions(options), queryClient);
+    }
+
+export const getDeactivateTestAdminParticipantUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/test-admin/participants/${id}/deactivation`
+}
+
+/**
+ * @summary Deactivate a fictional participant (audited; never deleted)
+ */
+export const deactivateTestAdminParticipant = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+  return customFetch<TestAdminScenarioEnvelope>(getDeactivateTestAdminParticipantUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeactivateTestAdminParticipantMutationKey = () => ['deactivateTestAdminParticipant'] as const;
+
+export const getDeactivateTestAdminParticipantMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deactivateTestAdminParticipant>>, TError,DeactivateTestAdminParticipantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deactivateTestAdminParticipant>>, TError,DeactivateTestAdminParticipantMutationVariables, TContext> => {
+
+const mutationKey = getDeactivateTestAdminParticipantMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deactivateTestAdminParticipant>>, DeactivateTestAdminParticipantMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deactivateTestAdminParticipant(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeactivateTestAdminParticipantMutationResult = NonNullable<Awaited<ReturnType<typeof deactivateTestAdminParticipant>>>
+
+    export type DeactivateTestAdminParticipantMutationError = ErrorType<ApiError>
+    export type DeactivateTestAdminParticipantMutationVariables = {id: string}
+
+    /**
+ * @summary Deactivate a fictional participant (audited; never deleted)
+ */
+export const useDeactivateTestAdminParticipant = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deactivateTestAdminParticipant>>, TError,DeactivateTestAdminParticipantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deactivateTestAdminParticipant>>,
+        TError,
+        DeactivateTestAdminParticipantMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeactivateTestAdminParticipantMutationOptions(options), queryClient);
+    }
+
+export const getCreateTestAdminClassUrl = () => {
+
+
+
+
+  return `/api/v1/staging/test-admin/classes`
+}
+
+/**
+ * @summary Create a fictional class
+ */
+export const createTestAdminClass = async (testAdminClassInput: TestAdminClassInput, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TestAdminScenarioEnvelope>(getCreateTestAdminClassUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(testAdminClassInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTestAdminClassMutationKey = () => ['createTestAdminClass'] as const;
+
+export const getCreateTestAdminClassMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestAdminClass>>, TError,CreateTestAdminClassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTestAdminClass>>, TError,CreateTestAdminClassMutationVariables, TContext> => {
+
+const mutationKey = getCreateTestAdminClassMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTestAdminClass>>, CreateTestAdminClassMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTestAdminClass(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTestAdminClassMutationResult = NonNullable<Awaited<ReturnType<typeof createTestAdminClass>>>
+    export type CreateTestAdminClassMutationBody = BodyType<TestAdminClassInput>
+    export type CreateTestAdminClassMutationError = ErrorType<ApiError>
+    export type CreateTestAdminClassMutationVariables = {data: BodyType<TestAdminClassInput>}
+
+    /**
+ * @summary Create a fictional class
+ */
+export const useCreateTestAdminClass = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestAdminClass>>, TError,CreateTestAdminClassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createTestAdminClass>>,
+        TError,
+        CreateTestAdminClassMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateTestAdminClassMutationOptions(options), queryClient);
+    }
+
+export const getUpdateTestAdminClassUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/test-admin/classes/${id}`
+}
+
+/**
+ * @summary Update a fictional class
+ */
+export const updateTestAdminClass = async (id: string,
+    testAdminClassInput: TestAdminClassInput, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TestAdminScenarioEnvelope>(getUpdateTestAdminClassUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(testAdminClassInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateTestAdminClassMutationKey = () => ['updateTestAdminClass'] as const;
+
+export const getUpdateTestAdminClassMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestAdminClass>>, TError,UpdateTestAdminClassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTestAdminClass>>, TError,UpdateTestAdminClassMutationVariables, TContext> => {
+
+const mutationKey = getUpdateTestAdminClassMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTestAdminClass>>, UpdateTestAdminClassMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateTestAdminClass(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTestAdminClassMutationResult = NonNullable<Awaited<ReturnType<typeof updateTestAdminClass>>>
+    export type UpdateTestAdminClassMutationBody = BodyType<TestAdminClassInput>
+    export type UpdateTestAdminClassMutationError = ErrorType<ApiError>
+    export type UpdateTestAdminClassMutationVariables = {id: string;data: BodyType<TestAdminClassInput>}
+
+    /**
+ * @summary Update a fictional class
+ */
+export const useUpdateTestAdminClass = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestAdminClass>>, TError,UpdateTestAdminClassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateTestAdminClass>>,
+        TError,
+        UpdateTestAdminClassMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateTestAdminClassMutationOptions(options), queryClient);
+    }
+
+export const getDeactivateTestAdminClassUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/test-admin/classes/${id}/deactivation`
+}
+
+/**
+ * @summary Deactivate a fictional class (audited; never deleted)
+ */
+export const deactivateTestAdminClass = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+  return customFetch<TestAdminScenarioEnvelope>(getDeactivateTestAdminClassUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeactivateTestAdminClassMutationKey = () => ['deactivateTestAdminClass'] as const;
+
+export const getDeactivateTestAdminClassMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deactivateTestAdminClass>>, TError,DeactivateTestAdminClassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deactivateTestAdminClass>>, TError,DeactivateTestAdminClassMutationVariables, TContext> => {
+
+const mutationKey = getDeactivateTestAdminClassMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deactivateTestAdminClass>>, DeactivateTestAdminClassMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deactivateTestAdminClass(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeactivateTestAdminClassMutationResult = NonNullable<Awaited<ReturnType<typeof deactivateTestAdminClass>>>
+
+    export type DeactivateTestAdminClassMutationError = ErrorType<ApiError>
+    export type DeactivateTestAdminClassMutationVariables = {id: string}
+
+    /**
+ * @summary Deactivate a fictional class (audited; never deleted)
+ */
+export const useDeactivateTestAdminClass = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deactivateTestAdminClass>>, TError,DeactivateTestAdminClassMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deactivateTestAdminClass>>,
+        TError,
+        DeactivateTestAdminClassMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeactivateTestAdminClassMutationOptions(options), queryClient);
+    }
+
+export const getCreateTestAdminAssignmentUrl = () => {
+
+
+
+
+  return `/api/v1/staging/test-admin/assignments`
+}
+
+/**
+ * @summary Create a fictional assignment
+ */
+export const createTestAdminAssignment = async (testAdminAssignmentInput: TestAdminAssignmentInput, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TestAdminScenarioEnvelope>(getCreateTestAdminAssignmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(testAdminAssignmentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTestAdminAssignmentMutationKey = () => ['createTestAdminAssignment'] as const;
+
+export const getCreateTestAdminAssignmentMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestAdminAssignment>>, TError,CreateTestAdminAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTestAdminAssignment>>, TError,CreateTestAdminAssignmentMutationVariables, TContext> => {
+
+const mutationKey = getCreateTestAdminAssignmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTestAdminAssignment>>, CreateTestAdminAssignmentMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTestAdminAssignment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTestAdminAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof createTestAdminAssignment>>>
+    export type CreateTestAdminAssignmentMutationBody = BodyType<TestAdminAssignmentInput>
+    export type CreateTestAdminAssignmentMutationError = ErrorType<ApiError>
+    export type CreateTestAdminAssignmentMutationVariables = {data: BodyType<TestAdminAssignmentInput>}
+
+    /**
+ * @summary Create a fictional assignment
+ */
+export const useCreateTestAdminAssignment = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTestAdminAssignment>>, TError,CreateTestAdminAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createTestAdminAssignment>>,
+        TError,
+        CreateTestAdminAssignmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateTestAdminAssignmentMutationOptions(options), queryClient);
+    }
+
+export const getUpdateTestAdminAssignmentUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/test-admin/assignments/${id}`
+}
+
+/**
+ * @summary Update a fictional assignment
+ */
+export const updateTestAdminAssignment = async (id: string,
+    testAdminAssignmentInput: TestAdminAssignmentInput, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TestAdminScenarioEnvelope>(getUpdateTestAdminAssignmentUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(testAdminAssignmentInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateTestAdminAssignmentMutationKey = () => ['updateTestAdminAssignment'] as const;
+
+export const getUpdateTestAdminAssignmentMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestAdminAssignment>>, TError,UpdateTestAdminAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTestAdminAssignment>>, TError,UpdateTestAdminAssignmentMutationVariables, TContext> => {
+
+const mutationKey = getUpdateTestAdminAssignmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTestAdminAssignment>>, UpdateTestAdminAssignmentMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateTestAdminAssignment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTestAdminAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof updateTestAdminAssignment>>>
+    export type UpdateTestAdminAssignmentMutationBody = BodyType<TestAdminAssignmentInput>
+    export type UpdateTestAdminAssignmentMutationError = ErrorType<ApiError>
+    export type UpdateTestAdminAssignmentMutationVariables = {id: string;data: BodyType<TestAdminAssignmentInput>}
+
+    /**
+ * @summary Update a fictional assignment
+ */
+export const useUpdateTestAdminAssignment = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTestAdminAssignment>>, TError,UpdateTestAdminAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateTestAdminAssignment>>,
+        TError,
+        UpdateTestAdminAssignmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateTestAdminAssignmentMutationOptions(options), queryClient);
+    }
+
+export const getDeactivateTestAdminAssignmentUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/staging/test-admin/assignments/${id}/deactivation`
+}
+
+/**
+ * @summary Deactivate a fictional assignment (audited; never deleted)
+ */
+export const deactivateTestAdminAssignment = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<TestAdminScenarioEnvelope> => {
+
+  return customFetch<TestAdminScenarioEnvelope>(getDeactivateTestAdminAssignmentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeactivateTestAdminAssignmentMutationKey = () => ['deactivateTestAdminAssignment'] as const;
+
+export const getDeactivateTestAdminAssignmentMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deactivateTestAdminAssignment>>, TError,DeactivateTestAdminAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deactivateTestAdminAssignment>>, TError,DeactivateTestAdminAssignmentMutationVariables, TContext> => {
+
+const mutationKey = getDeactivateTestAdminAssignmentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deactivateTestAdminAssignment>>, DeactivateTestAdminAssignmentMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deactivateTestAdminAssignment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeactivateTestAdminAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof deactivateTestAdminAssignment>>>
+
+    export type DeactivateTestAdminAssignmentMutationError = ErrorType<ApiError>
+    export type DeactivateTestAdminAssignmentMutationVariables = {id: string}
+
+    /**
+ * @summary Deactivate a fictional assignment (audited; never deleted)
+ */
+export const useDeactivateTestAdminAssignment = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deactivateTestAdminAssignment>>, TError,DeactivateTestAdminAssignmentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deactivateTestAdminAssignment>>,
+        TError,
+        DeactivateTestAdminAssignmentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeactivateTestAdminAssignmentMutationOptions(options), queryClient);
     }
 
 export const getHealthCheckUrl = () => {

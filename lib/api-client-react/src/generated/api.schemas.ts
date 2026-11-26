@@ -746,6 +746,46 @@ export interface StagingTrainingEnvelope {
   data: StagingTrainingRecord[];
 }
 
+export type TestAdminRecordVersionStatus = typeof TestAdminRecordVersionStatus[keyof typeof TestAdminRecordVersionStatus];
+
+
+export const TestAdminRecordVersionStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
+export interface TestAdminRecordVersion {
+  /** @minimum 1 */
+  version: number;
+  /** @maxLength 4000 */
+  narrative: string;
+  status: TestAdminRecordVersionStatus;
+}
+
+export type TestAdminRecordVersionsEnvelopeStatus = typeof TestAdminRecordVersionsEnvelopeStatus[keyof typeof TestAdminRecordVersionsEnvelopeStatus];
+
+
+export const TestAdminRecordVersionsEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type TestAdminRecordVersionsEnvelopeMetadataEnvironment = typeof TestAdminRecordVersionsEnvelopeMetadataEnvironment[keyof typeof TestAdminRecordVersionsEnvelopeMetadataEnvironment];
+
+
+export const TestAdminRecordVersionsEnvelopeMetadataEnvironment = {
+  SYNTHETIC_STAGING: 'SYNTHETIC_STAGING',
+} as const;
+
+export type TestAdminRecordVersionsEnvelopeMetadata = {
+  environment: TestAdminRecordVersionsEnvelopeMetadataEnvironment;
+};
+
+export interface TestAdminRecordVersionsEnvelope {
+  status: TestAdminRecordVersionsEnvelopeStatus;
+  metadata: TestAdminRecordVersionsEnvelopeMetadata;
+  data: TestAdminRecordVersion[];
+}
+
 export interface TrainingPacketSyncItem {
   operation_id: string;
   /** @minimum 0 */
@@ -1418,6 +1458,177 @@ export interface DispatchEventIngressEnvelope {
   metadata: DispatchEventIngressMetadata;
   /** @maxItems 1 */
   data: DispatchEventPrefill[];
+}
+
+export type TestAdminParticipantInputRole = typeof TestAdminParticipantInputRole[keyof typeof TestAdminParticipantInputRole];
+
+
+export const TestAdminParticipantInputRole = {
+  PO: 'PO',
+  FTO: 'FTO',
+  FTO_COORDINATOR: 'FTO_COORDINATOR',
+} as const;
+
+export interface TestAdminParticipantInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  display_label: string;
+  /**
+     * @minLength 1
+     * @maxLength 20
+     */
+  badge_label: string;
+  role: TestAdminParticipantInputRole;
+}
+
+export interface TestAdminClassInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  label: string;
+  coordinator_id: string;
+}
+
+export interface TestAdminAssignmentInput {
+  class_id: string;
+  po_id: string;
+  fto_id: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  starts_on: string;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  ends_on: string;
+}
+
+export type TestAdminParticipantRole = typeof TestAdminParticipantRole[keyof typeof TestAdminParticipantRole];
+
+
+export const TestAdminParticipantRole = {
+  PO: 'PO',
+  FTO: 'FTO',
+  FTO_COORDINATOR: 'FTO_COORDINATOR',
+} as const;
+
+export interface TestAdminParticipant {
+  id: string;
+  display_label: string;
+  badge_label: string;
+  role: TestAdminParticipantRole;
+  active: boolean;
+}
+
+export interface TestAdminClass {
+  id: string;
+  label: string;
+  coordinator_id: string;
+  active: boolean;
+}
+
+export interface TestAdminAssignment {
+  id: string;
+  class_id: string;
+  po_id: string;
+  fto_id: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  starts_on: string;
+  ends_on: string;
+  active: boolean;
+}
+
+export type TestAdminScenarioEnvelopeStatus = typeof TestAdminScenarioEnvelopeStatus[keyof typeof TestAdminScenarioEnvelopeStatus];
+
+
+export const TestAdminScenarioEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type TestAdminScenarioEnvelopeMetadataEnvironment = typeof TestAdminScenarioEnvelopeMetadataEnvironment[keyof typeof TestAdminScenarioEnvelopeMetadataEnvironment];
+
+
+export const TestAdminScenarioEnvelopeMetadataEnvironment = {
+  SYNTHETIC_STAGING: 'SYNTHETIC_STAGING',
+} as const;
+
+export type TestAdminScenarioEnvelopeMetadata = {
+  environment: TestAdminScenarioEnvelopeMetadataEnvironment;
+};
+
+export type TestAdminScenarioEnvelopeData = {
+  /** @maxItems 500 */
+  participants: TestAdminParticipant[];
+  /** @maxItems 500 */
+  classes: TestAdminClass[];
+  /** @maxItems 500 */
+  assignments: TestAdminAssignment[];
+};
+
+export interface TestAdminScenarioEnvelope {
+  status: TestAdminScenarioEnvelopeStatus;
+  metadata: TestAdminScenarioEnvelopeMetadata;
+  data: TestAdminScenarioEnvelopeData;
+}
+
+/**
+ * @nullable
+ */
+export type TestAdminAuditEventTargetType = typeof TestAdminAuditEventTargetType[keyof typeof TestAdminAuditEventTargetType] | null;
+
+
+export const TestAdminAuditEventTargetType = {
+  PARTICIPANT: 'PARTICIPANT',
+  CLASS: 'CLASS',
+  ASSIGNMENT: 'ASSIGNMENT',
+} as const;
+
+export interface TestAdminAuditEvent {
+  id: string;
+  timestamp: string;
+  role: string;
+  action: string;
+  /** @nullable */
+  target_type: TestAdminAuditEventTargetType;
+  /** @nullable */
+  target_id: string | null;
+  /** @nullable */
+  record_id: string | null;
+  /** @nullable */
+  version: number | null;
+}
+
+export type TestAdminAuditEnvelopeStatus = typeof TestAdminAuditEnvelopeStatus[keyof typeof TestAdminAuditEnvelopeStatus];
+
+
+export const TestAdminAuditEnvelopeStatus = {
+  success: 'success',
+} as const;
+
+export type TestAdminAuditEnvelopeMetadataEnvironment = typeof TestAdminAuditEnvelopeMetadataEnvironment[keyof typeof TestAdminAuditEnvelopeMetadataEnvironment];
+
+
+export const TestAdminAuditEnvelopeMetadataEnvironment = {
+  SYNTHETIC_STAGING: 'SYNTHETIC_STAGING',
+} as const;
+
+export type TestAdminAuditEnvelopeMetadata = {
+  environment: TestAdminAuditEnvelopeMetadataEnvironment;
+};
+
+export interface TestAdminAuditEnvelope {
+  status: TestAdminAuditEnvelopeStatus;
+  metadata: TestAdminAuditEnvelopeMetadata;
+  /** @maxItems 200 */
+  data: TestAdminAuditEvent[];
 }
 
 export type ApiErrorStatus = typeof ApiErrorStatus[keyof typeof ApiErrorStatus];

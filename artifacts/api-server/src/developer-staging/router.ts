@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type RequestHandler } from "express";
 import {
   CreateStagingTrainingRecordBody, UpdateStagingTrainingRecordBody,
   AcknowledgeStagingTrainingRecordBody, GetStagingTrainingRecordParams,
@@ -15,30 +15,13 @@ import { StagingFailure, StagingRepository, type StagingContext } from "./reposi
 export function createStagingRouter(repository: StagingRepository, resolveSession: SessionResolver = resolveClerkSession): IRouter {
   const router = Router();
   const prefix = "/v1/staging/training-records";
-  router.use(prefix, async (req, res, next): Promise<void> => {
-    res.set("Cache-Control", "no-store");
-    if (process.env.NODE_ENV === "production" || process.env.SYNTHETIC_STAGING_ENABLED !== "true") {
-      stagingError(res, 404, "ROUTE_NOT_FOUND", "This endpoint is unavailable.");
-      return;
-    }
-    try {
-      const session = await resolveSession(req);
-      if (!session || !session.recentMfa) {
-        stagingError(res, 401, "AUTHENTICATION_REQUIRED", "An active sign-in with recent MFA is required.");
-        return;
-      }
-      res.locals.stagingContext = {
-        session, requestId: typeof req.id === "string" ? req.id : randomUUID(),
-        clientIp: req.ip || req.socket.remoteAddress || "UNKNOWN",
-      } satisfies StagingContext;
-      next();
-    } catch {
-      stagingError(res, 401, "AUTHENTICATION_REQUIRED", "Sign-in could not be verified.");
-    }
-  });
+  router.use(prefix, stagingGate(resolveSession));
   const context = (res: Parameters<typeof stagingError>[0]): StagingContext => {
     const ctx: StagingContext = res.locals.stagingContext;
     ctx.onPrincipal = (id, role) => {
+      // Test authority is never presented as an agency principal; its actions
+      // are recorded in the synthetic audit table instead.
+      if (role === "TEST_ADMIN") return;
       res.locals.principal = {
         id, role, mfaVerified: true, squad: "",
         authenticatedAt: Date.now(), lastActivityAt: Date.now(),
@@ -91,6 +74,31 @@ export function createStagingRouter(repository: StagingRepository, resolveSessio
     try { send(res, await repository.acknowledge(context(res), params.data.id, parsed.data)); } catch (error) { fail(res, error); }
   });
   return router;
+}
+
+/** Shared fail-closed gate: environment switch, verified session, recent MFA. */
+export function stagingGate(resolveSession: SessionResolver): RequestHandler {
+  return async (req, res, next): Promise<void> => {
+    res.set("Cache-Control", "no-store");
+    if (process.env.NODE_ENV === "production" || process.env.SYNTHETIC_STAGING_ENABLED !== "true") {
+      stagingError(res, 404, "ROUTE_NOT_FOUND", "This endpoint is unavailable.");
+      return;
+    }
+    try {
+      const session = await resolveSession(req);
+      if (!session || !session.recentMfa) {
+        stagingError(res, 401, "AUTHENTICATION_REQUIRED", "An active sign-in with recent MFA is required.");
+        return;
+      }
+      res.locals.stagingContext = {
+        session, requestId: typeof req.id === "string" ? req.id : randomUUID(),
+        clientIp: req.ip || req.socket.remoteAddress || "UNKNOWN",
+      } satisfies StagingContext;
+      next();
+    } catch {
+      stagingError(res, 401, "AUTHENTICATION_REQUIRED", "Sign-in could not be verified.");
+    }
+  };
 }
 
 function validCalendarDate(value: string): boolean {

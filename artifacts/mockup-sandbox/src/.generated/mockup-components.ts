@@ -13,6 +13,7 @@ export const modules: ModuleMap = {
   "./components/mockups/ShellCapitalizationPreview.tsx": () => import("../components/mockups/ShellCapitalizationPreview.tsx"),
   "./components/mockups/SubmissionControlPreview.tsx": () => import("../components/mockups/SubmissionControlPreview.tsx"),
   "./components/mockups/TabOverwriteRecoveryPreview.tsx": () => import("../components/mockups/TabOverwriteRecoveryPreview.tsx"),
+  "./components/mockups/TestAdminRecordVersionHistoryPreview.tsx": () => import("../components/mockups/TestAdminRecordVersionHistoryPreview.tsx"),
   "./components/mockups/assignment-selector/OptionalSidePreview.tsx": () => import("../components/mockups/assignment-selector/OptionalSidePreview.tsx"),
   "./components/mockups/assignment-selector/UniversalAssignmentPreview.tsx": () => import("../components/mockups/assignment-selector/UniversalAssignmentPreview.tsx"),
   "./components/mockups/fto-focused-workflow/ArrestClassificationPreview.tsx": () => import("../components/mockups/fto-focused-workflow/ArrestClassificationPreview.tsx"),
@@ -31,5 +32,6 @@ export const modules: ModuleMap = {
   "./components/mockups/packet-upload/DraftFinalizationPreview.tsx": () => import("../components/mockups/packet-upload/DraftFinalizationPreview.tsx"),
   "./components/mockups/packet-upload/PacketUploadPreview.tsx": () => import("../components/mockups/packet-upload/PacketUploadPreview.tsx"),
   "./components/mockups/resource-library/ResourceLibraryRefined.tsx": () => import("../components/mockups/resource-library/ResourceLibraryRefined.tsx"),
-  "./components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx": () => import("../components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx")
+  "./components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx": () => import("../components/mockups/run-failure-detail/SpecificRunFailurePreview.tsx"),
+  "./components/mockups/test-admin-modern/TestAdminModern.tsx": () => import("../components/mockups/test-admin-modern/TestAdminModern.tsx")
 };

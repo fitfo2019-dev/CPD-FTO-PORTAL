@@ -27,6 +27,7 @@ the developer/DBA; never promote the first registered user automatically.
 | PO | Read own submitted records and acknowledge the exact current version. Cannot edit narrative, date, assignment, or status. |
 | FTO | Read/create/update records for an active assignment and its date window. No class-wide bypass. |
 | FTO Coordinator | Read records only in classes they coordinate. Corrections, assignment management, and exports are not exposed by this prototype. |
+| Test administrator | Read/create/update every synthetic record across all synthetic classes and assignments. Cannot acknowledge (that is the PO's own attestation). Never valid outside synthetic staging. |
 | Other/unprovisioned | No access. |
 
 The authenticated identity is resolved on every request. Database scope is
@@ -65,13 +66,42 @@ and `AUDIT_ID_HMAC_KEY`. Both Clerk and an explicit reviewed directory entry are
 required; the flag is not an auth bypass. The regular portal preview does not
 silently enable this switch.
 
-Routes (same-origin `/api` prefix):
+Training-record routes (same-origin `/api` prefix):
 
 - `GET /v1/staging/training-records`
 - `POST /v1/staging/training-records`
 - `GET /v1/staging/training-records/{id}`
 - `PUT /v1/staging/training-records/{id}`
 - `POST /v1/staging/training-records/{id}/acknowledgement`
+
+Test Admin scenario routes (same-origin `/api` prefix; all require the separate
+Test Admin authority gates above):
+
+- `GET /v1/staging/test-admin/scenario` — list fictional participants, classes
+  and assignments only.
+- `POST` and `PUT /v1/staging/test-admin/participants[/{id}]` — create/update
+  fictional participants.
+- `POST` and `PUT /v1/staging/test-admin/classes[/{id}]` — create/update
+  fictional classes.
+- `POST` and `PUT /v1/staging/test-admin/assignments[/{id}]` — create/update
+  fictional assignments.
+- `POST /v1/staging/test-admin/{participants|classes|assignments}/{id}/deactivation`
+  — audited, non-destructive deactivation. An active class or participant with
+  active assignments must have those assignments deactivated first. Assignment
+  links and phase cannot be changed after training records exist; date changes
+  must continue to include every existing record. Test Admin can still inspect
+  historical records after an assignment is deactivated; new records require an
+  active assignment and active participants.
+- `GET /v1/staging/test-admin/audit` — bounded read-only history; actor and
+  client HMAC values are never returned.
+
+Scenario rows are explicitly marked fictional, have no agency-verified claim,
+and are never eligible for Clerk sign-in. Test Admin's scenario API cannot list
+or deactivate ordinary directory rows. The portal's `/test-admin` entry appears
+only after the server confirms Test Admin authority; loading that route directly
+does not bypass the server check. The page supports scenario setup, synthetic
+record search/create/versioned update, and read-only audit review. Records do
+not gain run counts or reference fields that are absent from the schema.
 
 Only explicitly marked `synthetic: true` narrative records are accepted.
 This flag labels the data; it cannot prove a user has not typed real information.
@@ -83,6 +113,49 @@ content versions and clear outdated acknowledgements. Acknowledgement is not a
 certified electronic signature. Mutations, versions, HMAC audit events and
 receipts commit in one transaction; audit failures roll back the whole operation.
 Read/list audits must commit before records are returned.
+
+## Isolated test administrator
+
+A test administrator exercises administrative workflows against **synthetic
+records only**. It is a separate synthetic directory role (`TEST_ADMIN`), not an
+agency role, and it grants nothing on the agency packet, review, profile or
+assignment APIs, which continue to require verified agency claims.
+
+Test authority is granted only when **all** of these hold on the server:
+
+1. Non-production process, a development build, `SYNTHETIC_STAGING_ENABLED=true`
+   and the separate switch `PORTAL_TEST_ADMIN_ENABLED=true`.
+2. A Clerk-verified active session with a second factor verified in the last
+   15 minutes.
+3. The session does **not** carry the agency-verified claim. Agency accounts
+   cannot be test administrators, and the database refuses a test-administrator
+   entry marked agency-verified.
+4. An active `TEST_ADMIN` directory entry, provisioned by a developer.
+
+Browser input, headers, query strings, request bodies, the role preview, the
+mock-login token and agency role claims cannot grant it. Agency claims that name
+a test role are rejected outright. The API refuses to start in production when
+`PORTAL_TEST_ADMIN_ENABLED` is present with any value, and the agency-release
+build removes the staging router entirely.
+
+Setup (development environment only; no credentials are stored in source):
+
+1. Create or invite the test account through the normal Clerk dashboard process
+   and enroll a second factor. Use a dedicated test account, never an agency one.
+2. Apply the reviewed schema: `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/staging-schema.sql`.
+3. Grant: `pnpm run staging:test-admin -- grant <clerk-user-id>`.
+   The command refuses production, requires `CLERK_SECRET_KEY`,
+   `AUDIT_ID_HMAC_KEY` and `DATABASE_URL` from environment secrets, confirms the
+   account exists with a second factor, and never converts an existing agency
+   directory entry.
+4. Set `SYNTHETIC_STAGING_ENABLED=true` and `PORTAL_TEST_ADMIN_ENABLED=true` as
+   development-only environment variables and restart the API.
+5. Revoke when finished: `pnpm run staging:test-admin -- revoke <clerk-user-id>`,
+   and remove `PORTAL_TEST_ADMIN_ENABLED`.
+
+Test-administrator actions are written to the synthetic audit table with role
+`TEST_ADMIN`; they are not presented to the agency audit stream as an agency
+principal.
 
 ## Production and handover boundary
 

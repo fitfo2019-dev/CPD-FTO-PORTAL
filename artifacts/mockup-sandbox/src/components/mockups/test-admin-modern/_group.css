@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap');
+
+/* Field Training portal tokens with the modern-look (sidebar shell) overrides. */
+.modern-scope {
+  --background: 216 27% 96%;
+  --foreground: 215 28% 15%;
+  --border: 214 22% 87%;
+  --card: 0 0% 100%;
+  --card-foreground: 214 52% 18%;
+  --input: 214 22% 82%;
+  --sidebar: 217 65% 17%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-border: 217 45% 26%;
+  --sidebar-accent: 217 61% 24%;
+  --primary: 217 65% 17%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 10% 92%;
+  --secondary-foreground: 214 55% 20%;
+  --muted: 216 24% 94%;
+  --muted-foreground: 215 12% 40%;
+  --accent: 216 24% 94%;
+  --accent-foreground: 215 28% 15%;
+  --destructive: 4 72% 42%;
+  --ring: 210 100% 36%;
+  --ok: 152 55% 28%;
+  --link: 210 100% 30%;
+  --radius: 0.625rem;
+  font-family: "Public Sans", Arial, Helvetica, sans-serif;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+}
+.modern-scope h1 { font-weight: 800; letter-spacing: -0.01em; }
+.modern-side-link {
+  display: flex; align-items: center; gap: .6rem; min-height: 2.6rem;
+  border-radius: .5rem; padding: .5rem .75rem;
+  font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: rgb(255 255 255 / .85); transition: background-color .15s, color .15s; text-align: left;
+}
+.modern-side-link svg { width: 1rem; height: 1rem; flex-shrink: 0; opacity: .85; }
+.modern-side-link:hover { background: hsl(var(--sidebar-accent)); color: #fff; }
+.modern-side-link:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.modern-side-link.is-active { background: #fff; color: hsl(var(--sidebar)); }
+.modern-crumbs {
+  display: flex; gap: .4rem; font-size: .68rem; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: hsl(var(--muted-foreground));
+}
+.modern-btn { border-radius: .5rem; text-transform: uppercase; letter-spacing: .05em; font-size: .75rem; font-weight: 700; }
+.modern-surface { border-radius: .75rem; border: 1px solid hsl(var(--border)); background: hsl(var(--card)); box-shadow: 0 1px 2px rgb(15 36 70 / .05); }
+.modern-label { font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
