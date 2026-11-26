@@ -76,6 +76,7 @@
 .ap td{padding:8px 12px;border-bottom:1px solid var(--line-2);vertical-align:middle;white-space:nowrap}
 .ap tr:last-child td{border-bottom:0}
 .ap td.data{text-transform:none;white-space:normal;min-width:180px}
+.ap .calc-table th,.ap .calc-table td{padding:6px 8px}.ap .calc-table th{white-space:normal;word-break:normal;overflow-wrap:normal}.ap .calc-table td.data{word-break:normal;overflow-wrap:normal}.ap .calc-table td.data{min-width:9rem}
 .ap .mono{font-family:inherit;font-variant-numeric:tabular-nums}
 .ap .empty{padding:34px 18px;text-align:center;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
 .ap .phase-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
