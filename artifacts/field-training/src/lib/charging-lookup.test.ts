@@ -115,6 +115,18 @@ test('city corrections: placard tampering under 4707.09, 525.23 removed, open bu
   assert.match(group.lead[0].text, /no person shall deface or remove/);
   assert.ok(elementsComplete(group, new Set([group.lead[0].index])));
   assert.deepEqual(penaltySentences(statute), ['CCC 4701.99: A. Whoever violates any provision of this code is guilty of a misdemeanor of the first degree.']);
-  const burning = codes.find(code => code.key === 'CCC:2501.985')!;
-  assert.ok(burning.entries.every(entry => !canCopyWording(entry)));
+  assert.ok(!codes.some(code => code.key === 'CCC:2501.985'));
+  const burning = codes.find(code => code.key === 'CCC:2501.09.1')!;
+  assert.ok(burning.entries.every(entry => !canCopyWording(entry) && entry.text.includes('Section 2501.09.1') && entry.text.includes('2501.01.1')));
+  const fireCode = resolveStatute({ kind: 'CCC', section: '2501.09.1' }, undefined, supplement)!;
+  assert.deepEqual(penaltySentences(fireCode), ['CCC 2501.99: Any violation of the Columbus Fire Prevention Code is a first degree misdemeanor.']);
+});
+
+test('wording corrections: 2919.121 cited correctly, split wording rejoined', () => {
+  const abortion = codes.find(code => code.key === 'ORC:2919.121')!;
+  assert.ok(abortion.entries.every(entry => entry.text.includes('Section 2919.121 ') && !entry.text.includes('2919.12.1')));
+  const bail = codes.find(code => code.key === 'ORC:2927.27')!;
+  assert.ok(bail.entries.every(entry => /in violation of Section 2927\.27\([AB]\)/i.test(entry.text)));
+  const murder = codes.find(code => code.key === 'ORC:2903.01')!;
+  assert.ok(murder.entries.every(entry => !entry.notes.startsWith('–')));
 });
