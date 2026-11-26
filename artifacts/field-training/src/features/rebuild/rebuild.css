@@ -1,4 +1,5 @@
 /* Rebuild screens (Phase Setup, Phase Sign-Up, My PO, PO Progress). Scoped to .ap. */
+.ap .shell-caps{text-transform:uppercase;letter-spacing:.06em}
 .ap{--g:#c6efce;--y:#ffeb84;--o:#ffa94d;--rd:#f8696b;--p:#e4d4f4;--gT:#00501e;--yT:#5c4300;--oT:#5a2a00;--rdT:#4a0008;--pT:#3f1a5c;--pmuted:#5b6675}
 .ap .chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .ap .chip em{font-style:normal;font-weight:600;opacity:.75;text-transform:lowercase}
@@ -20,7 +21,7 @@
 .ap .tile span{font-size:10px;font-weight:800;letter-spacing:.06em;grid-row:1/3;align-self:center;opacity:.8}.ap .tile b{font-size:16px;font-variant-numeric:tabular-nums;line-height:1.1}.ap .tile i{font-style:normal;font-size:11px;font-variant-numeric:tabular-nums}
 .ap .tile.t0{background:var(--g);color:var(--gT)}.ap .tile.t1{background:var(--y);color:var(--yT)}.ap .tile.t2{background:var(--o);color:var(--oT)}.ap .tile.t3{background:var(--rd);color:var(--rdT)}.ap .tile.nrt{background:var(--p);color:var(--pT);border:2px solid #7b4bb0}.ap .tile.fut{background:#f6f8fb;color:var(--pmuted);border:1px dashed #c3ccd8}
 .ap .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:11px;font-weight:700;color:var(--pmuted);text-transform:uppercase;letter-spacing:.05em}
-.ap .legend span{display:inline-flex;align-items:center;gap:6px}.ap .legend .lw{display:inline-block;width:16px;height:16px;border-radius:3px;position:relative}
+.ap .legend>span{display:inline-flex;align-items:center;gap:6px}.ap .legend .lw{display:inline-block;width:16px;height:16px;border-radius:3px;position:relative}
 .ap .lw.u0{background:var(--g)}.ap .lw.u1{background:var(--y)}.ap .lw.u2{background:var(--o)}.ap .lw.u3{background:var(--rd)}.ap .lw.nrt{background:var(--p);border:2px solid #7b4bb0}.ap .lw.lim{background:repeating-linear-gradient(135deg,#e7e9ee 0 4px,#c9ced8 4px 8px);border:1px solid #9aa3b2}.ap .lw.fut{border:1px dashed #c3ccd8;background:#fff}
 .ap .lw.haslim::after{content:"";position:absolute;left:0;top:0;border-top:8px solid #5b6675;border-right:8px solid transparent}
 .ap .limbo-banner{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:14px 18px;border-radius:8px;margin-bottom:18px;background:repeating-linear-gradient(135deg,#eef0f4 0 10px,#e1e4ea 10px 20px);border:2px solid #5b6675;color:#1b2430}
