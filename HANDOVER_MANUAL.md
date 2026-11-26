@@ -373,6 +373,98 @@ The signed-in Field Training Officer Portal has a **Resources** navigation tab. 
 
 The catalog is returned in the standard JSON envelope. Downloads use `GET /api/v1/resources/{resourceId}/download` and are served as attachments from a fixed server-side allowlist through the Clerk-authenticated API; the documents are not placed in the web app's public static directory. The resource archive is included by the standalone API package builder under `resources/`. `RESOURCE_FILES_DIR` may point to an approved mounted directory instead. Uploaded examples may contain personal details or internal contact information. The new victim-safety and domestic-violence training references are training materials only; do not enter case-specific victim information and follow agency handling rules. Clerk sign-in is authentication only: agency-specific role authorization is not configured, so any signed-in user with app access can download the catalog.
 
+### PO Progress standard (PO-STD-1)
+
+**Status:** owner-approved November 25, 2026. Development preview only. In this portal, PO Progress and its Help Desk topic appear only in development builds. The Vercel website shows the same page on sample data. The formula goes live after the owner approves the preview. The owner chose not to hold it for legal review; the recommendation that the Division's legal advisor review the formula remains on record in the decisions log.
+
+**Purpose.** PO Progress gives the FTO Coordinator and FTO Sergeant an early warning based on documented ratings. The status is advisory only. It is not a release, extension or non-release recommendation; those decisions stay with the Field Training Board under the 2026 FTO manual.
+
+**Manual basis.**
+- The FTO manual defines NRT as "a pattern of documented poor/deficient performance in a specific job function, patrol task, and/or paperwork - despite receiving corrective re-training," and requires that "the FTO Coordinators and FTO Sergeant shall be notified when a PO receives an 'NRT' rating."
+- It directs the FTO to "make the PO aware of consistent Unacceptable or NRT ratings in any Performance Category."
+- It requires that a PO's performance "be evaluated against the SEGs and not personal perception" to achieve "a consistent and fair standard of evaluation."
+- The manual sets no numeric group cutoff. The bands below are the owner's program standard.
+
+**Inputs.**
+- Only finalized daily records (`submitted_complete`) count. Drafts (`local_draft_pending`) never affect status.
+- UA's are counted per category per day under the 30-category de-duplication ceiling, so one category can add at most one UA per rated day.
+- NO ratings are excluded.
+- Limbo weeks are not rated and do not count.
+- Late packets are the FTO's paperwork. They never affect a PO's status; they count toward the FTO late score.
+
+**Weekly bands.** Each rated week is placed in one band:
+
+| Week result | Rule |
+| --- | --- |
+| MEETS STANDARD | 0-9 UA's in the week, fewer than 3 in any one category, and no NRT |
+| EMERGING CONCERN | 10-19 UA's in the week |
+| BELOW STANDARD | 20 or more UA's in the week, 3 or more UA's in one category in the week, or an NRT |
+
+The same counts apply to every PO and every schedule (4x10 and 5x8). There is no comparison to the class and no weighting.
+
+**Status movement.** The status is carried across the whole program, week by week:
+1. A week in a worse band raises the status to that band.
+2. Each rated week that meets standard lowers the status one level: BELOW STANDARD to EMERGING CONCERN, then EMERGING CONCERN to MEETS STANDARD.
+3. A week in the same or a lesser flagged band leaves the status unchanged. For example, an EMERGING CONCERN week does not lower BELOW STANDARD.
+4. When a flagged PO returns to MEETS STANDARD, a PREVIOUSLY FLAGGED tag shows the week the flag cleared. It appears in the PO panel and the full profile only.
+
+**Worked examples** (enforced by `standard.test.ts`):
+
+| Rated weeks | Status after the last week |
+| --- | --- |
+| 8 UA's spread across categories | MEETS STANDARD |
+| 10 UA's | EMERGING CONCERN |
+| 20 UA's | BELOW STANDARD |
+| 3 UA's, all in one category | BELOW STANDARD |
+| 1 UA with an NRT | BELOW STANDARD |
+| 20 UA's, then 12 | BELOW STANDARD |
+| 20 UA's, then 4 | EMERGING CONCERN |
+| 20 UA's, then 4, then 2 | MEETS STANDARD, PREVIOUSLY FLAGGED (cleared that week) |
+
+**Screens.**
+- The status chip's hover text gives the rule and ends "Based on documented ratings; not a release recommendation."
+- The 15-week strip colors match the bands: green for 0, light green for 1-9, yellow for 10-19, red for 20+, and purple for an NRT or 3+ in one category.
+- SHOW CALCULATION in the PO panel (Coordinator and FTO Sergeant only) lists every rated week with:
+  - phase;
+  - rated days;
+  - UA's;
+  - the category with the most UA's;
+  - NRT;
+  - week result;
+  - the status after that week.
+- The formula version is printed under the table, so anyone can recompute the status from the Daily Performance Summary packets.
+
+**Defensibility rules.**
+1. One formula with a dated version (`FORMULA_VERSION`, currently `PO-STD-1 · November 25, 2026`).
+2. A change to any threshold or rule requires all of the following:
+   - a new version;
+   - owner approval recorded in the decisions log;
+   - updated worked-example tests;
+   - updates to this manual, the Chain of Command Brief, the Help Desk topic and the role manuals.
+3. A new version is never applied retroactively. Past statuses keep the version that produced them.
+4. Server audit log (planned, not yet built). Every status change will record:
+   - date;
+   - PO;
+   - rated weeks;
+   - UA's by category;
+   - NRT's;
+   - week result;
+   - resulting status;
+   - formula version.
+
+   Coordinators can read the log; nobody can edit it. Keep it under the approved records-retention schedule.
+
+**Source locations.**
+- Rule and worked examples: `artifacts/field-training/src/features/rebuild/lib/po-progress/data.ts` (`weekBand`, `evaluateStandard`, `STATUS_RULE`, `FORMULA_VERSION`) and `standard.test.ts`. The test runs in `pnpm test:field-training:regressions`.
+- Screens: `features/rebuild/po-progress/parts.tsx` (status chip, strip colors, legend) and `po-detail.tsx` (SHOW CALCULATION, PREVIOUSLY FLAGGED).
+- Help Desk topic `po-status` in `src/lib/application-help.ts`.
+- The Vercel website mirrors the same rule in `src/lib/po-progress/data.ts`.
+
+**Not yet built:**
+- PO Progress reads sample data; the server roster and finalized-packet feed are not connected.
+- The server audit log.
+- Export of the calculation.
+
 ## Current Boundaries and Operating Rules
 
 - The secure-records API is mock-first. Live access requires explicitly configured server-side credentials and an approved upstream URL.

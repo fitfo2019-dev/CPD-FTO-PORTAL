@@ -234,7 +234,7 @@ function PacketDetail({ packet, role, locked, onAction }: {
   return <>
     <header className="apr-detail-head">
       <div className="apr-detail-top"><span className="apr-kicker">Immutable packet snapshot</span><span className={`apr-status ${wf}`} data-testid="status-workflow">{WORKFLOW_LABEL[wf]}</span></div>
-      <h2 data-testid="text-packet-title">{text(r.recruitName)} · Daily Performance Log</h2>
+      <h2 data-testid="text-packet-title">{text(r.recruitName)} · Daily Performance Summary</h2>
       <div className="apr-sub">{packet.id} · Source record {text(r.id)} · Hash {packet.content_hash.slice(0, 16)}</div>
       <div className="apr-meta" data-testid="section-server-metadata">
         <div><small>Server workflow state</small><div>{WORKFLOW_LABEL[wf]}</div></div>

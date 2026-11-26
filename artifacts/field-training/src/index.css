@@ -1,10 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700;800&display=swap');
 
 @layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';
 @import '@clerk/themes/shadcn.css';
 @import 'tw-animate-css';
 @import './layout-safety.css';
+@import './modern-shell.css';
 @import './components/operational-profile-history.css';
 @import './components/operational-profile-clear.css';
 @plugin "@tailwindcss/typography";
@@ -1477,6 +1478,21 @@ main button.seg-rating-choice {
     padding: 0 !important;
   }
   body.print-monthly-route .monthly-summary-page > :not(.print-monthly) { display: none !important; }
+  body.print-weekly-packet-route .min-h-screen:has(> [data-app-shell]) { min-height: 0 !important; height: auto !important; }
+  body.print-weekly-packet-route .min-h-screen:has(> [data-app-shell]) > [role="status"] { display: none !important; }
+  body.print-weekly-packet-route [data-app-shell] { min-height: 0 !important; display: block !important; }
+  body.print-weekly-packet-route [data-app-shell] > :not(:has(main)) { display: none !important; }
+  body.print-weekly-packet-route [data-app-shell].portal-frame div:has(> main) { display: block !important; width: 100% !important; min-height: 0 !important; }
+  body.print-weekly-packet-route [data-app-shell].portal-frame div:has(> main) > :not(main) { display: none !important; }
+  body.print-weekly-packet-route [data-app-shell] main { display: block !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  body.print-weekly-packet-route [data-app-shell] main > :not(.weekly-packet-page) { display: none !important; }
+  body.print-weekly-packet-route .weekly-packet-page { display: block !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  body.print-weekly-packet-route .weekly-packet-page > :not(.print-weekly):not(.print-summary):not(.print-weekly-log):not(.print-daily-package) { display: none !important; }
+  body.print-weekly-packet-route .weekly-packet-page > .print-weekly,
+  body.print-weekly-packet-route .weekly-packet-page > .print-summary,
+  body.print-weekly-packet-route .weekly-packet-page > .print-weekly-log,
+  body.print-weekly-packet-route .weekly-packet-page > .print-daily-package { position: static !important; display: block !important; width: 100% !important; break-after: page; page-break-after: always; }
+  body.print-weekly-packet-route .weekly-packet-page > .print-daily-package:last-child { break-after: auto; page-break-after: auto; }
   body.print-daily-route [data-app-shell] {
     min-height: 0 !important;
     display: block !important;
@@ -1598,13 +1614,15 @@ main button.seg-rating-choice {
   .print-monthly { position: static !important; }
   .print-form { font-size: 7pt; page-break-after: always; break-after: page; }
   .print-daily-continuation-text { margin: 20px 0; font-size: 10pt; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-  body:has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] { display: block !important; min-height: 0 !important; }
-  body:has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] > :not(main) { display: none !important; }
-  body:has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] > main,
-  body:has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] > main > div {
+  body:not(.print-weekly-packet-route):has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] { display: block !important; min-height: 0 !important; }
+  body:not(.print-weekly-packet-route):has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] > :not(:has(main)) { display: none !important; }
+  body:not(.print-weekly-packet-route):has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] div:has(> main) { display: block !important; width: 100% !important; min-height: 0 !important; }
+  body:not(.print-weekly-packet-route):has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] div:has(> main) > :not(main) { display: none !important; }
+  body:not(.print-weekly-packet-route):has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] main,
+  body:not(.print-weekly-packet-route):has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] main > div {
     display: block !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important;
   }
-  body:has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] > main > div > :not(.print-summary, .print-weekly-log, .print-weekly) { display: none !important; }
+  body:not(.print-weekly-packet-route):has(.print-summary, .print-weekly-log, .print-weekly) [data-app-shell] main > div > :not(.print-summary, .print-weekly-log, .print-weekly) { display: none !important; }
   .print-summary, .print-weekly-log, .print-weekly { position: static !important; }
   body:has(.print-weekly-log) { page: fieldready-weekly-log; }
   body:has(.print-summary) { page: fieldready-summary; }

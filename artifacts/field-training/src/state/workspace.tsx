@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { OfflineStorage, persistentStorageStatus, requestPersistentStorage, WorkspaceConflictError, type AuthRecoveryField, type LocalChatDraft, type RecoverySnapshot } from '@/lib/offlineStorage.js';
 import { createEmptyWorkspace, createUiPreviewWorkspace } from '@/lib/empty-workspace.js';
-import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type PhaseExtensionRequest, type PhaseWeekRange, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
+import { CATEGORIES, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, emptyReportingForDutyRecord, normalizeDailyActivitySummary, normalizePreviewRole, RATINGS, SHIFTS, type CoverageRequest, type DutyStatus, type FtoPhasePosting, type FtoPhaseSignup, type FtoRosterEntry, type LawReviewRecord, type PhaseCaseFolder, type PhaseExtensionRequest, type PhaseWeekRange, type Rating, type Report, type ReportShift, type Role, type Shift, type Task, type TrainingAssignment, type TrainingRun, type Weekday, type WeeklyPacketAcknowledgement, type WeeklyPerformanceLog, type Week15Recommendation, type NrtReviewRequest, type SubstationOrientationRecord, type Workspace } from '@/lib/model.js';
 import { assignmentFromPrecinctAndDistrict, isValidAssignment } from '@/lib/cpd-geography.js';
 import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
 import { buildTimelineInterpolation, type TimelineInterpolation } from '@/lib/timeline-interpolation.js';
@@ -54,6 +54,7 @@ interface Ctx {
   upsertWeeklyPerformanceLog(log:WeeklyPerformanceLog):void; upsertSubstationOrientation(record:SubstationOrientationRecord):void;
   upsertFtoPhasePosting(posting:FtoPhasePosting):void; upsertFtoPhaseSignup(signup:FtoPhaseSignup):void; upsertCoverageRequest(request:CoverageRequest):void;
   upsertLawReviewRecord(record:LawReviewRecord):void; deleteLawReviewRecord(id:string):void;
+  upsertWeek15Recommendation(record:Week15Recommendation):void; addNrtReviewRequest(request:NrtReviewRequest):void;
   importRoster(ftos: FtoRosterEntry[], assignments: TrainingAssignment[]): void; upsertAssignment(assignment: TrainingAssignment): void;
   loadLocalChatDrafts(): Promise<LocalChatDraft[]>; saveLocalChatDraft(draft: LocalChatDraft): Promise<void>; deleteLocalChatDraft(id: string): Promise<void>;
   intent: VaultIntent; openVault(i: Exclude<VaultIntent, null>): void; closeVault(): void;
@@ -814,13 +815,19 @@ export function WorkspaceProvider({
       ?savedWorkspace.coverageRequests.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&typeof item.startDateTime==='string'&&typeof item.endDateTime==='string'&&['local_unsent','cancelled'].includes(String(item.status)))
       :[];
     const phaseExtensionRequests=normalizePhaseExtensionRequests(savedWorkspace.phaseExtensionRequests);
+    const week15Recommendations=Array.isArray(savedWorkspace.week15Recommendations)
+      ?savedWorkspace.week15Recommendations.filter((item):item is Week15Recommendation=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&['release','not_release'].includes(String(item.choice))&&Array.isArray(item.history))
+      :[];
+    const nrtReviewRequests=Array.isArray(savedWorkspace.nrtReviewRequests)
+      ?savedWorkspace.nrtReviewRequests.filter((item):item is NrtReviewRequest=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&Array.isArray(item.reportIds))
+      :[];
     const lawReviewRecords=Array.isArray(savedWorkspace.lawReviewRecords)
       ?savedWorkspace.lawReviewRecords.filter((item):item is LawReviewRecord=>isRecord(item)&&typeof item.id==='string'&&typeof item.assignmentId==='string'&&typeof item.recruitBadge==='string'&&typeof item.recruitName==='string'&&typeof item.sourceId==='string'&&typeof item.sourceLabel==='string'&&[1,2,3,4].includes(Number(item.phase))&&['assigned','reviewed'].includes(String(item.state)))
       :[];
     const ftoDirectory = Array.isArray(savedWorkspace.ftoDirectory) ? savedWorkspace.ftoDirectory.filter(item=>isRecord(item)&&typeof item.badge==='string'&&typeof item.name==='string') : [];
     const assignments = Array.isArray(savedWorkspace.assignments) ? savedWorkspace.assignments.filter(item=>isRecord(item)&&typeof item.id==='string'&&typeof item.recruitBadge==='string'&&[1,2,3,4].includes(Number(item.phase))) : [];
     const tasks=Array.isArray(savedWorkspace.tasks)?savedWorkspace.tasks.filter(item=>isRecord(item)&&[1,2,3,4].includes(Number(item.phase))):[];
-    const restoredWorkspace={ ...workspaceWithoutChatHistory, packetIndexVersion:CURRENT_PACKET_INDEX_VERSION as Workspace['packetIndexVersion'], role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests };
+    const restoredWorkspace={ ...workspaceWithoutChatHistory, packetIndexVersion:CURRENT_PACKET_INDEX_VERSION as Workspace['packetIndexVersion'], role: normalizePreviewRole(savedWorkspace.role), caseFolder: restoredCaseFolder, phaseFolders, reports: migratedReports, tasks, ftoDirectory, assignments, weeklyAcknowledgements,weeklyPerformanceLogs,substationOrientations,ftoPhasePostings,ftoPhaseSignups,coverageRequests,lawReviewRecords,phaseExtensionRequests,week15Recommendations,nrtReviewRequests };
     const workspaceWithAppliedExtensions=preserveProtectedPackets(restoredWorkspace,applyApprovedPhaseExtensions(restoredWorkspace));
     const requiresSyncReview = await s.recoverySyncReviewRequired();
     recoverySyncReviewRef.current = requiresSyncReview;
@@ -1130,6 +1137,8 @@ export function WorkspaceProvider({
      upsertCoverageRequest:(request)=>mutate(w=>({...w,coverageRequests:(w.coverageRequests??[]).some(item=>item.id===request.id)?w.coverageRequests.map(item=>item.id===request.id?request:item):[request,...(w.coverageRequests??[])]})),
       upsertLawReviewRecord:(record)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).some(item=>item.id===record.id)?w.lawReviewRecords.map(item=>item.id===record.id?record:item):[record,...(w.lawReviewRecords??[])]})),
       deleteLawReviewRecord:(id)=>mutate(w=>({...w,lawReviewRecords:(w.lawReviewRecords??[]).filter(item=>item.id!==id)})),
+      upsertWeek15Recommendation:(record)=>mutate(w=>{const list=w.week15Recommendations??[];return {...w,week15Recommendations:list.some(item=>item.id===record.id)?list.map(item=>item.id===record.id?record:item):[record,...list]};}),
+      addNrtReviewRequest:(request)=>mutate(w=>({...w,nrtReviewRequests:[request,...(w.nrtReviewRequests??[])]})),
     deleteReport: (id) => mutate(w => {
       if (w.reports.some(r => r.id === id && (r.syncStatus === 'synchronized_complete' || r.syncStatus === 'submitted_complete' || r.syncAttemptPending || r.finalizationAttemptPending)))
         throw new Error('Synchronized packets cannot be deleted locally.');

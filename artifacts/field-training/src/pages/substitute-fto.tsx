@@ -23,7 +23,7 @@ export default function SubstituteFtoPage() {
   const isCoordinator=ws.role==='fto_coordinator';
   const requests=[...(ws.coverageRequests??[])].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
 
-  if(!isFto&&!isCoordinator) return <Panel title="FTO coverage"><p className="p-4 text-sm">This page is available to FTOs and the FTO Coordinator.</p></Panel>;
+  if(!isFto&&!isCoordinator) return <Panel title="FTO coverage"><p className="p-4 text-sm">This page is available to FTO’s and the FTO Coordinator.</p></Panel>;
 
   function saveRequest() {
     setError('');
@@ -62,7 +62,7 @@ export default function SubstituteFtoPage() {
     setStartText('');
     setEndText('');
     setReason('');
-    toast({title:'Coverage request saved on this device',description:'No FTOs were notified.'});
+    toast({title:'Coverage request saved on this device',description:'No FTO’s were notified.'});
   }
 
   function cancelLocalRequest(item:CoverageRequest) {
@@ -76,7 +76,7 @@ export default function SubstituteFtoPage() {
 
     <div role="note" className="mb-4 flex items-start gap-3 rounded border-l-4 border-accent bg-accent/5 p-4 text-sm">
       <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-warn"/>
-      <div><b>Coverage request saved on this device only.</b><p className="mt-1 text-muted-foreground">Other FTOs are not notified and cannot accept or decline it here. Do not begin substitute work until a covering FTO has accepted and the Coordinator confirms the assignment.</p></div>
+      <div><b>Coverage request saved on this device only.</b><p className="mt-1 text-muted-foreground">Other FTO’s are not notified and cannot accept or decline it here. Do not begin substitute work until a covering FTO has accepted and the Coordinator confirms the assignment.</p></div>
     </div>
 
     {isFto&&<Panel title="Request a substitute FTO" className="mb-5">

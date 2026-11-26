@@ -43,7 +43,7 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
     if (!preview || preview.errors.length) return;
     const assignments=preview.assignments.map(item=>({...item,id:uid()}));
     importRoster(preview.ftos,assignments);
-    toast({title:'Roster added on this device',description:`${preview.ftos.length} unique FTOs and ${assignments.length} PO assignments. It is not shared with other accounts.${vault==='unlocked'?' Encrypted save is in progress.':' Save locally before leaving to keep it.'}`});
+    toast({title:'Roster added on this device',description:`${preview.ftos.length} unique FTO’s and ${assignments.length} PO assignments. It is not shared with other accounts.${vault==='unlocked'?' Encrypted save is in progress.':' Save locally before leaving to keep it.'}`});
     setPreview(null);setFileName('');
   }
 
@@ -61,7 +61,7 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
   return <Panel title="FTO Coordinator · roster and phase assignments" className="mb-4" data-testid="panel-training-assignments">
     <div className="p-4">
       <div className="mb-3 rounded border border-warn/40 bg-warn/10 p-3 text-sm" role="status">
-        <b>Roster changes are saved on this device only.</b> Importing does not activate phases, invite POs, confirm roles, or make the roster official.
+        <b>Roster changes are saved on this device only.</b> Importing does not activate phases, invite PO’s, confirm roles, or make the roster official.
       </div>
       <p className="text-sm text-muted-foreground">Import one row per PO assignment. Imported names stay on this device.</p>
       <Link href="/resources?topic=roster-import#application-help" className="mt-2 inline-flex text-sm font-semibold text-primary underline underline-offset-2">Roster import help</Link>
@@ -76,7 +76,7 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
       <p className="mt-1 break-all text-xs text-muted-foreground" data-testid="text-roster-columns">Columns: {templateHeaders}</p>
       {parseError&&<p className="mt-3 rounded border border-destructive/40 bg-destructive/5 p-3 text-sm" role="alert">{parseError}</p>}
       {preview&&<div className="mt-3 rounded border bg-muted/30 p-3" data-testid="roster-import-preview">
-        <div className="flex flex-wrap items-center justify-between gap-2"><b className="text-sm">Preview · {fileName}</b><span className="text-xs">{preview.sourceRows} rows · {preview.ftos.length} unique FTOs · {preview.assignments.length} PO assignments</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><b className="text-sm">Preview · {fileName}</b><span className="text-xs">{preview.sourceRows} rows · {preview.ftos.length} unique FTO’s · {preview.assignments.length} PO assignments</span></div>
         {preview.errors.length>0&&<ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-destructive">{preview.errors.map((item,index)=><li key={index}>{item}</li>)}</ul>}
         {preview.warnings.map((item,index)=><p className="mt-2 text-sm text-warn" key={index}>{item}</p>)}
         {preview.assignments.length>0&&<div className="mt-3 max-h-56 overflow-auto rounded border bg-card">
@@ -94,7 +94,7 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
 
     <div className="grid grid-cols-2 gap-2 border-y bg-muted/20 p-4 sm:grid-cols-3">
       <div className="rounded border bg-card p-3"><span className="text-xs text-muted-foreground">Training classes</span><b className="block text-xl">{classCount}</b></div>
-      <div className="rounded border bg-card p-3"><span className="text-xs text-muted-foreground">Unique FTOs</span><b className="block text-xl">{ws.ftoDirectory.length}</b></div>
+      <div className="rounded border bg-card p-3"><span className="text-xs text-muted-foreground">Unique FTO’s</span><b className="block text-xl">{ws.ftoDirectory.length}</b></div>
       <div className="rounded border bg-card p-3"><span className="text-xs text-muted-foreground">PO assignments</span><b className="block text-xl">{ws.assignments.length}</b></div>
     </div>
     <section className="p-4" aria-labelledby="fto-directory-heading">

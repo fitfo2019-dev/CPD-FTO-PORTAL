@@ -24,8 +24,8 @@ test('long daily notes get one sequential training-folder reference per future s
   const packet=buildOperationalPacket(report,{dayReference});
   const continuations=dailyLogContinuations(report);
   const logMarkup=renderToStaticMarkup(createElement(PrintableDailyLog,{report,dayReference,packet}));
-  assertExportCopy('Daily Performance Log print export',logMarkup,[
-    'Probationary Officer Daily Performance Log',
+  assertExportCopy('Daily Performance Summary print export',logMarkup,[
+    'Probationary Officer Daily Performance Summary',
     'For each row, mark one box. Read the rating key below.',
     'Daily Activity Summary',
     'FTO comments / shift narrative',

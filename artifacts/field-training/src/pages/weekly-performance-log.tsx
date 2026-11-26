@@ -54,8 +54,8 @@ export default function WeeklyPerformanceLogPage() {
     if(canEdit&&hasNewUa)upsertWeeklyPerformanceLog(template);
   },[template,stored,upsertWeeklyPerformanceLog,canEdit]);
 
-  if(!canAccess) return <Panel title="Weekly Performance Log access"><p className="p-4">This form is available to FTOs and the FTO Coordinator.</p></Panel>;
-  if(!owner||!selectedWeek||!first||!log) return <Panel title="Weekly Performance Log Supplement"><div className="p-4 text-sm">Save daily performance logs first to generate this week’s supplement. <Link href="/reports" className="font-semibold underline">Open daily records</Link></div></Panel>;
+  if(!canAccess) return <Panel title="Weekly Performance Log access"><p className="p-4">This form is available to FTO’s and the FTO Coordinator.</p></Panel>;
+  if(!owner||!selectedWeek||!first||!log) return <Panel title="Weekly Performance Log Supplement"><div className="p-4 text-sm">Save Daily Performance Summaries first to generate this week’s supplement. <Link href="/reports" className="font-semibold underline">Open daily records</Link></div></Panel>;
 
   const addEntry=(kind:'strength'|'corrective',category:Category,narrative='',sourceReportIds:string[]=[])=>{
     const entry:WeeklyPerformanceLogEntry={id:uid(),kind,category,totalTime:kind==='corrective'?'15 min':'',narrative,sourceReportIds};

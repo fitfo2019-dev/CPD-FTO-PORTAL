@@ -11,6 +11,7 @@ import {
   revisedRowState,
   setRevisedRow,
   partitionRevisedChecklist,
+  documentRunChecklist,
 } from './revised-run-checklists.js';
 
 // Fingerprints independently computed from the uploaded Word document's JSON,
@@ -30,15 +31,17 @@ const forms = { ...primary, arrest_process: supplemental.arrest_process, ovi_pro
 
 test('all 187 grouped rows exactly match the revised document and finalized Traffic Stop', () => {
   let rows = 0;
-  for (const [key, sections] of Object.entries(forms)) {
+  for (const key of Object.keys(forms)) {
+    const sections = documentRunChecklist(key as keyof typeof documentFingerprints);
     const contents = sections.map(section => [section.title, ...section.items.map(item => [item.id, item.label])]);
     const digest = createHash('sha256').update(JSON.stringify(contents)).digest('hex');
     assert.equal(digest, documentFingerprints[key as keyof typeof documentFingerprints], key);
     rows += sections.reduce((count, section) => count + section.items.length, 0);
   }
   assert.equal(rows, 187);
-  assert.ok(!primary.traffic_stop.find(section => section.title === 'Decision')?.items.some(item => item.label.includes('Upload to Matrix')));
-  assert.ok(primary.traffic_stop.find(section => section.title === 'Re-Approach')?.items.some(item => item.label.includes('Upload to Matrix')));
+  const documentStop = documentRunChecklist('traffic_stop');
+  assert.ok(!documentStop.find(section => section.title === 'Decision')?.items.some(item => item.label.includes('Upload to Matrix')));
+  assert.ok(documentStop.find(section => section.title === 'Re-Approach')?.items.some(item => item.label.includes('Upload to Matrix')));
 });
 
 test('Training Only is an unboxed header choice with its unchanged saved offset',()=>{
@@ -109,12 +112,27 @@ test('fixed accessible section and row structure is identical when checked, unch
   const readOnly = render({ 'task-0': false }, true);
   for (const html of [checked, unchecked, mixed, readOnly]) {
     assert.equal((html.match(/<fieldset/g) ?? []).length, 6);
-    assert.equal((html.match(/type="checkbox"/g) ?? []).length, 22);
+    assert.equal((html.match(/type="checkbox"/g) ?? []).length, 21);
     assert.ok(!html.includes('<details'));
     for (const section of sections) assert.ok(html.includes(section.title));
   }
   assert.ok(mixed.includes('aria-checked="mixed"'));
-  assert.ok(mixed.includes('Partly completed'));
-  assert.equal((readOnly.match(/<input[^>]*disabled/g) ?? []).length, 22);
+  assert.ok(mixed.includes('data-state="failed"'));
+  assert.equal((readOnly.match(/<input[^>]*disabled/g) ?? []).length, 21);
   assert.equal((readOnly.match(/<button[^>]*disabled/g) ?? []).length, 6);
+});
+
+test('approved merges keep every saved item exactly once and give each merged box one category and one sentence', () => {
+  const merged: Record<string, number> = {};
+  for (const [form, sections] of Object.entries(forms)) {
+    const original = documentRunChecklist(form as keyof typeof documentFingerprints).flatMap(section => section.items.flatMap(item => item.indices)).sort((a, b) => a - b);
+    const units = sections.flatMap(section => section.items.flatMap(item => item.units));
+    assert.deepEqual(units.flat().sort((a, b) => a - b), original, form);
+    merged[form] = units.filter(unit => unit.length > 1).length;
+  }
+  assert.deepEqual(merged, { call_for_service: 5, self_initiated: 2, domestic_incident: 3, traffic_crash: 4, traffic_stop: 3, high_risk_stop: 1, arrest_process: 0, ovi_process: 1, building_search: 3 });
+  const enroute = primary.call_for_service.flatMap(section => section.items).find(item => item.unitLabels.includes('Enroute/Arrival button'))!;
+  const position = enroute.unitLabels.indexOf('Enroute/Arrival button');
+  assert.equal(enroute.units[position]!.length, 2);
+  assert.equal(enroute.unitSentences[position], 'PO failed to hit the enroute/arrive button.');
 });

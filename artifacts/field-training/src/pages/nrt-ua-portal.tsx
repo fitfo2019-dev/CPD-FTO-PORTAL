@@ -24,7 +24,7 @@ export default function NrtUaPortalPage() {
     .sort((a,b) => b.report.date.localeCompare(a.report.date));
 
   if (ws.role !== 'fto' && ws.role !== 'fto_coordinator') {
-    return <Panel title="NRT / UA Portal unavailable"><p className="p-4 text-sm">This review workspace is limited to FTOs and the FTO Coordinator.</p></Panel>;
+    return <Panel title="NRT / UA Portal unavailable"><p className="p-4 text-sm">This review workspace is limited to FTO’s and the FTO Coordinator.</p></Panel>;
   }
 
   return <div className="mx-auto w-full max-w-5xl">

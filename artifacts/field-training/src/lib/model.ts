@@ -474,6 +474,10 @@ export interface TrainingRun {
   formStatus: 'not_started'|'in_progress'|'complete';
   checklist: Record<string, boolean>;
   checklistFailures?: Record<string, string[]>;
+  /** Unchecked items the FTO marked as not applying to this run (left blank on the form, no UA). */
+  checklistNotApplicable?: Record<string, true>;
+  /** FTO edits to the generated "PO failed to" sentence, keyed by checklist item. */
+  failureStatements?: Record<string, string>;
   directiveReviews?:DirectiveReviews;
   checklistReviewedAt?: string;
   narrative: string;
@@ -691,6 +695,38 @@ export interface WeeklyPacketAcknowledgement {
   status: 'draft'|'recruit_signed'|'fto_signed'|'office_signed';
   createdAt: string;
   updatedAt: string;
+}
+export interface RecordActor { name: string; badge: string; role: Role; }
+export interface Week15RecommendationChange {
+  choice: 'release'|'not_release';
+  at: string;
+  by: RecordActor;
+}
+/** Phase IV FTO pre-selection; inserted verbatim into the Week 15 FTO comments. */
+export interface Week15Recommendation {
+  id: string;
+  className: string;
+  recruitName: string;
+  recruitBadge: string;
+  choice: 'release'|'not_release';
+  statement: string;
+  history: Week15RecommendationChange[];
+  /** Alerts are queued locally until the agency server delivers them. */
+  alertStatus: 'none'|'queued';
+  finalizedAt?: string;
+  updatedAt: string;
+}
+export interface NrtReviewRequest {
+  id: string;
+  className: string;
+  recruitName: string;
+  recruitBadge: string;
+  phase: Phase;
+  reportIds: string[];
+  summary: string;
+  requestedBy: RecordActor;
+  createdAt: string;
+  alertStatus: 'queued';
 }
 export interface WeeklyPerformanceLogEntry {
   id:string;
@@ -928,6 +964,8 @@ export interface Workspace {
   coverageRequests:CoverageRequest[];
   lawReviewRecords:LawReviewRecord[];
   phaseExtensionRequests:PhaseExtensionRequest[];
+  week15Recommendations:Week15Recommendation[];
+  nrtReviewRequests:NrtReviewRequest[];
 }
 
 const PII = [

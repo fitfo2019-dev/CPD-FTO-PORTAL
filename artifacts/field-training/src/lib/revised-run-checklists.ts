@@ -1,5 +1,6 @@
 import { SUBMITTED_PRIMARY_CHECKLISTS, SUBMITTED_SUPPLEMENTAL_CHECKLISTS } from './manual-form-checklists.js';
 import type { PrimaryRunForm, SupplementalRunForm } from './model.js';
+import { resolveApprovedMerges } from './approved-checklist-merges.js';
 
 export type RevisedChecklistRow = {
   id: string;
@@ -7,6 +8,11 @@ export type RevisedChecklistRow = {
   help: string;
   /** Original, persisted task offsets, in the revised document's display order. */
   indices: readonly number[];
+  /** One entry per box: a single offset, or every offset of an approved merge. */
+  units: readonly (readonly number[])[];
+  unitLabels: readonly string[];
+  /** Approved "PO failed to" sentence for merged boxes. */
+  unitSentences: readonly (string | undefined)[];
 };
 export type RevisedChecklistSection = { title: string; items: readonly RevisedChecklistRow[] };
 /** Header choices retain their original saved offsets, but are not task panels. */
@@ -280,7 +286,7 @@ const definitions: Record<ChecklistForm, readonly SectionSpec[]> = {
   ],
 };
 
-function expand(form: ChecklistForm): readonly RevisedChecklistSection[] {
+function expand(form: ChecklistForm, applyMerges = true): readonly RevisedChecklistSection[] {
   const original = form in SUBMITTED_PRIMARY_CHECKLISTS
     ? SUBMITTED_PRIMARY_CHECKLISTS[form as PrimaryRunForm]
     : SUBMITTED_SUPPLEMENTAL_CHECKLISTS[form as SupplementalRunForm];
@@ -290,13 +296,38 @@ function expand(form: ChecklistForm): readonly RevisedChecklistSection[] {
     || indices.some(index => !Number.isInteger(index) || index < 0 || index >= labels.length)) {
     throw new Error(`Revised ${form} checklist must cover every original task exactly once.`);
   }
-  return definitions[form].map(section => ({
+  const segmentText = new Map<number, string>();
+  for (const section of definitions[form]) for (const item of section.items) {
+    const parts = item.label?.split(' / ');
+    item.indices.forEach((index, position) => segmentText.set(index, parts?.length === item.indices.length ? parts[position]! : labels[index]!));
+  }
+  const rows = definitions[form].map(section => section.items.map(item => ({ id: item.id, units: item.indices.map(index => [index] as number[]) })));
+  const resolved = applyMerges ? resolveApprovedMerges(form, labels) : [];
+  for (const merged of resolved) {
+    const [first, ...rest] = merged.indices;
+    for (const sectionRows of rows) for (const item of sectionRows) item.units = item.units.filter(unit => !rest.includes(unit[0]!));
+    const host = rows.flat().find(item => item.units.some(unit => unit[0] === first));
+    if (!host) throw new Error(`Approved merge in ${form} could not be placed.`);
+    host.units = host.units.map(unit => unit[0] === first ? [...merged.indices] : unit);
+  }
+  const mergedLabels = new Map(resolved.map(merged => [merged.indices[0]!, merged.label ?? merged.indices.map(index => segmentText.get(index)).join(' and/or ')]));
+  const mergedSentences = new Map(resolved.map(merged => [merged.indices[0]!, merged.sentence]));
+  return definitions[form].map((section, sectionIndex) => ({
     title: section.title,
-    items: section.items.map(item => {
-      const label = item.label ?? item.indices.map(index => labels[index]).join(' / ');
-      return { ...item, label, help: label };
+    items: rows[sectionIndex]!.filter(item => item.units.length > 0).map(item => {
+      const authored = section.items.find(entry => entry.id === item.id)!;
+      const unitLabels = item.units.map(unit => unit.length > 1 ? mergedLabels.get(unit[0]!)! : segmentText.get(unit[0]!)!);
+      const unchanged = item.units.every(unit => unit.length === 1) && item.units.length === authored.indices.length;
+      const label = unchanged ? authored.label ?? unitLabels.join(' / ') : unitLabels.join(' / ');
+      const unitSentences = item.units.map(unit => unit.length > 1 ? mergedSentences.get(unit[0]!) : undefined);
+      return { id: item.id, indices: item.units.flat(), units: item.units, unitLabels, unitSentences, label, help: label };
     }),
-  }));
+  })).filter(section => section.items.length > 0);
+}
+
+/** The revised document layout before the user-approved merges; kept to verify document fidelity. */
+export function documentRunChecklist(form: ChecklistForm): readonly RevisedChecklistSection[] {
+  return expand(form, false);
 }
 
 export const REVISED_PRIMARY_CHECKLISTS = Object.fromEntries(
@@ -319,4 +350,12 @@ export function setRevisedRow(
   state: Record<string, boolean>, prefix: string, indices: readonly number[], checked: boolean,
 ): Record<string, boolean> {
   return { ...state, ...Object.fromEntries(indices.map(index => [`${prefix}${index}`, checked])) };
+}
+
+/** Display state of one box: failed when any of its items is unchecked and applied; not applicable when all were marked so. */
+export function unitState(state: Record<string, boolean>, prefix: string, unit: readonly number[], notApplicable?: Readonly<Record<string, true>>) {
+  const keys = unit.map(index => `${prefix}${index}`);
+  const unchecked = keys.filter(key => state[key] === false);
+  const na = unchecked.length > 0 && unchecked.every(key => notApplicable?.[key] === true);
+  return { failed: unchecked.length > 0 && !na, notApplicable: na };
 }

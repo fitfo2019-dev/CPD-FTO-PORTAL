@@ -3,12 +3,13 @@ import { useClerk, useUser } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
-import { LayoutGrid, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp } from 'lucide-react';
+import { LayoutGrid, LineChart, CalendarCheck, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp } from 'lucide-react';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
 import { VaultDialog } from './vault-dialog.js';
 import { cn } from '@/lib/utils.js';
+import { caseSafe } from './bits.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog.js';
 import { operatorErrorToast } from '@/lib/operator-errors.js';
@@ -20,16 +21,17 @@ const RESOURCES: NavItem = { href: '/resources', label: 'Help Desk', icon: Circl
 const ROLE_NAV: Record<Role, NavItem[]> = {
   fto: [
     HOME,
-    { href: '/class-overview', label: 'My POs', icon: Users },
+    { href: '/class-overview', label: 'My PO’s', icon: Users },
     { href: '/reports/new', label: 'Shifts & Runs', icon: ClipboardList },
     { href: '/reports', label: 'Daily Records', icon: FileText },
-    { href: '/reports/weekly-summary', label: 'Weekly Packets', icon: ClipboardList },
+    { href: '/reports/weekly-packet', label: 'Weekly Packets', icon: ClipboardList },
     { href: '/agency-packets', label: 'Agency packets', icon: FileText },
     { href: '/packet-submissions', label: 'Packet Submissions', icon: ClipboardList },
     RESOURCES,
     { href: '/settings', label: 'Account Settings', icon: Settings },
   ],
   fto_sgt: [
+    { href: '/reports/weekly-packet', label: 'Packet Monitor', icon: ClipboardList },
     RESOURCES,
   ],
   fto_coordinator: [
@@ -38,7 +40,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/class-overview', label: 'Classes & Rosters', icon: Users },
     { href: '/phase-setup', label: 'Assignments', icon: FolderOpen },
     { href: '/substitute-fto', label: 'Coverage', icon: Users },
-    { href: '/reports/weekly-summary', label: 'Packet Monitor', icon: ClipboardList },
+    { href: '/reports/weekly-packet', label: 'Packet Monitor', icon: ClipboardList },
     { href: '/agency-packets', label: 'Agency packets', icon: FileText },
     RESOURCES,
   ],
@@ -61,6 +63,29 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     { href: '/technical-access', label: 'Technical Access', icon: Settings },
     RESOURCES,
   ],
+};
+
+// Rebuild screens are preview-only until the server roster and sign-up routes are integrated.
+const REBUILD_NAV: Partial<Record<Role, NavItem[]>> = import.meta.env.DEV ? {
+  fto: [
+    { href: '/my-probationary-officer', label: 'My Probationary Officer', icon: UserRound },
+    { href: '/phase-sign-up', label: 'Phase Sign-Up', icon: CalendarCheck },
+  ],
+  fto_coordinator: [
+    { href: '/rebuild-phase-setup', label: 'Phase Setup', icon: FolderOpen },
+    { href: '/po-progress', label: 'PO Progress', icon: LineChart },
+  ],
+  fto_sgt: [
+    { href: '/rebuild-phase-setup', label: 'Phase Setup', icon: FolderOpen },
+    { href: '/po-progress', label: 'PO Progress', icon: LineChart },
+  ],
+} : {};
+const navFor = (role: Role): NavItem[] => {
+  const base = ROLE_NAV[role];
+  const extra = REBUILD_NAV[role] ?? [];
+  if (!extra.length) return base;
+  const at = base[0] === HOME ? 1 : 0;
+  return [...base.slice(0, at), ...extra, ...base.slice(at)];
 };
 
 const navTestId = (href: string) => `link-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`;
@@ -103,15 +128,15 @@ export function Shell({ children }: { children: ReactNode }) {
   };
   const isActive = (h: string) => {
     if(h==='/') return loc==='/';
-    if(h==='/reports/weekly-summary') return loc==='/reports/weekly-summary'||loc==='/reports/weekly-ack';
+    if(h==='/reports/weekly-packet') return loc==='/reports/weekly-packet'||loc==='/reports/weekly-summary'||loc==='/reports/weekly-ack'||loc==='/reports/weekly-log';
     if(h==='/reports/monthly-summary') return loc==='/reports/monthly-summary';
     if(h==='/reports/weekly-log') return loc==='/reports/weekly-log';
     if(h==='/reports/new') return loc==='/reports/new';
-    if(h==='/reports') return loc==='/reports'||(/^\/reports\/[^/]+$/.test(loc)&&!['/reports/new','/reports/weekly-summary','/reports/monthly-summary','/reports/weekly-ack','/reports/weekly-log'].includes(loc));
+    if(h==='/reports') return loc==='/reports'||(/^\/reports\/[^/]+$/.test(loc)&&!['/reports/new','/reports/weekly-packet','/reports/weekly-summary','/reports/monthly-summary','/reports/weekly-ack','/reports/weekly-log'].includes(loc));
     return loc===h;
   };
   const isCommand=w.ws.role==='fto_coc';
-  const visibleNav = ROLE_NAV[w.ws.role];
+  const visibleNav = navFor(w.ws.role);
   const mobileNav = visibleNav.length > 5
     ? [...visibleNav.slice(0, 4), RESOURCES, ...visibleNav.slice(4).filter(item => item.href !== RESOURCES.href)]
     : visibleNav;
@@ -183,15 +208,10 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div data-app-shell className="min-h-[100dvh] flex flex-col bg-background" onClickCapture={guardInternalLink}>
-      <div role="note" data-testid="banner-operational-status" className="sticky top-0 z-40 border-t-[3px] border-accent bg-[#f1f3f5] px-3 py-2 text-center text-xs sm:text-sm font-semibold text-[#202934]">
-        <span className="mr-2 inline-block h-2 w-2 rounded-full bg-accent align-middle" />{w.previewOnly
-          ? `Fictional ${w.previewLabel} · no operational identifiers · changes clear on refresh.`
-          : 'Patrol View and report submission unavailable · No operational identifiers · Local drafts are not submitted or server-confirmed.'}
-      </div>
-      <header className="bg-sidebar text-sidebar-foreground shadow-sm">
-        <div className="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <div className="portal-masthead">
+    <div data-app-shell className="portal-frame min-h-[100dvh] flex bg-background" onClickCapture={guardInternalLink}>
+      <aside className="portal-sidebar" aria-label="Portal">
+        <div className="portal-side-brand">
+          <div className="portal-masthead portal-side-masthead">
             <div className="portal-masthead-logos">
               <div className="portal-masthead-city" aria-label="City of Columbus">
                 <span role="img" aria-label="The City of Columbus" className="city-wordmark block w-full" data-testid="img-columbus-logo" dangerouslySetInnerHTML={{__html:night?columbusLogoSvg.replaceAll('#E10012','#0070c0'):columbusLogoSvg}} />
@@ -212,16 +232,19 @@ export function Shell({ children }: { children: ReactNode }) {
               </div>
             </div>
           </div>
-          <nav aria-label="Main navigation" className="hidden min-h-12 flex-wrap items-stretch gap-x-4 gap-y-2 border-t border-white/15 py-2 md:flex" data-testid="nav-desktop">
+        </div>
+        <nav aria-label="Main navigation" className="portal-side-nav" data-testid="nav-desktop">
             {visibleNav.map(n => (
-              <Link key={n.href} href={n.href} data-testid={navTestId(n.href)} aria-current={isActive(n.href) ? 'page' : undefined} className={cn('flex min-h-11 items-center gap-2 border-b-[3px] px-1 pt-1 text-sm font-semibold transition-colors', isActive(n.href) ? 'border-accent text-white' : 'border-transparent text-white/80 hover:text-white')}>
-                <n.icon className="h-4 w-4" />{n.label}
+              <Link key={n.href} href={n.href} data-testid={navTestId(n.href)} aria-current={isActive(n.href) ? 'page' : undefined} className={cn('portal-side-link', isActive(n.href) && 'is-active')}>
+                <n.icon className="h-4 w-4" />{caseSafe(n.label)}
               </Link>
             ))}
-            <div className="ml-auto flex items-center gap-2">
+        </nav>
+        <div className="portal-side-foot">
+            <div className="portal-side-account">
               {!w.previewOnly && isLoaded && isSignedIn ? (
                 <>
-                  <span className="hidden max-w-48 break-words text-[0.65rem] font-semibold text-white/80 xl:inline" title="Signed-in account">
+                  <span className="block break-words text-[0.7rem] font-semibold text-white/80" title="Signed-in account">
                     {user?.fullName || user?.primaryEmailAddress?.emailAddress}
                   </span>
                   <button type="button" onClick={() => void onSignOut()} className="h-8 rounded-sm border border-white/30 px-2 text-xs font-semibold text-white hover:bg-white/10">Sign out</button>
@@ -229,18 +252,27 @@ export function Shell({ children }: { children: ReactNode }) {
               ) : !w.previewOnly ? (
                 <Link href="/sign-in" className="h-8 rounded-sm border border-white/30 px-2 py-1.5 text-xs font-semibold text-white hover:bg-white/10">Sign in</Link>
               ) : null}
-              {w.previewOnly && <label className="flex items-center gap-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-white/70">
+              {w.previewOnly && <label className="flex flex-col gap-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-white/70">
                 <span>Preview role</span>
-                <select aria-label="Fictional role preview" data-testid="select-role-desktop" className="h-8 min-w-44 max-w-56 rounded-sm border border-white/30 bg-white px-2 text-xs font-semibold normal-case tracking-normal text-[#172b46]" value={w.ws.role} onChange={e => selectPreviewRole(e.target.value as Role)}>
+                <select aria-label="Fictional role preview" data-testid="select-role-desktop" className="h-9 w-full rounded-md border border-white/30 bg-white px-2 text-xs font-semibold normal-case tracking-normal text-[#172b46]" value={w.ws.role} onChange={e => selectPreviewRole(e.target.value as Role)}>
                   {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]} · fictional</option>)}
                 </select>
               </label>}
             </div>
-          </nav>
         </div>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col">
+      <div role="note" data-testid="banner-operational-status" className="sticky top-0 z-40 border-t-[3px] border-accent bg-[#f1f3f5] px-3 py-2 text-center text-xs sm:text-sm font-semibold text-[#202934]">
+        <span className="mr-2 inline-block h-2 w-2 rounded-full bg-accent align-middle" />{w.previewOnly
+          ? `Fictional ${w.previewLabel} · no operational identifiers · changes clear on refresh.`
+          : 'Patrol View and report submission unavailable · No operational identifiers · Local drafts are not submitted or server-confirmed.'}
+      </div>
+      <header className="portal-mobilebar md:hidden">
+        <span role="img" aria-label="The City of Columbus" className="city-wordmark portal-mobilebar-wordmark" dangerouslySetInnerHTML={{__html:columbusLogoSvg}} />
+        <span className="portal-mobilebar-title">Field Training Officer Portal</span>
       </header>
-      <div className="border-b border-border bg-card shadow-sm">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-2 px-4 py-2.5 sm:px-6">
+      <div className="portal-toolbar">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-2 px-4 py-2.5 sm:px-8">
           <div data-testid="status-connection" aria-live="polite" className={cn('flex items-center gap-2 rounded-sm border px-3 py-1.5 text-xs font-semibold', w.online ? 'border-border bg-background' : 'border-accent bg-accent/10')}>
             {w.online ? <Wifi className="h-3.5 w-3.5 text-primary" /> : <WifiOff className="h-3.5 w-3.5 text-accent" />}
             {w.previewOnly
@@ -306,10 +338,10 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </div>
       {w.saveError && (
-        <div role="alert" data-testid="notice-save-error" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive"><ShieldAlert className="h-4 w-4" /><span className="flex-1"><b>Local save failed.</b> Changes on screen are not stored. Keep this page open and retry.</span><button className="font-semibold underline" onClick={onSave} data-testid="button-retry-save">Retry save</button></div>
+        <div role="alert" data-testid="notice-save-error" className="mx-auto mt-3 flex w-full max-w-[1240px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive"><ShieldAlert className="h-4 w-4" /><span className="flex-1"><b>Local save failed.</b> Changes on screen are not stored. Keep this page open and retry.</span><button className="font-semibold underline" onClick={onSave} data-testid="button-retry-save">Retry save</button></div>
       )}
       {w.overwrittenElsewhere && (
-        <div role="alert" data-testid="notice-workspace-overwritten" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+        <div role="alert" data-testid="notice-workspace-overwritten" className="mx-auto mt-3 flex w-full max-w-[1240px] flex-wrap items-center gap-3 rounded-sm border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
           <ShieldAlert className="h-4 w-4" />
           <span className="flex-1"><b>This workspace was replaced in another tab.</b> This tab is locked to protect the newer save. Unlock it or review a recovery copy; copies expire after 7 days or after restoration.</span>
           <button className="font-semibold underline" onClick={() => w.openVault('restore')} data-testid="button-restore-overwritten-workspace">Unlock latest saved work</button>
@@ -317,7 +349,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
       {w.recoverySnapshots.length > 0 && (
-        <div role="note" data-testid="notice-recovery-snapshot" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-[#bad6ed] bg-[#f2f8fd] p-3 text-sm text-[#233b51]">
+        <div role="note" data-testid="notice-recovery-snapshot" className="mx-auto mt-3 flex w-full max-w-[1240px] flex-wrap items-center gap-3 rounded-sm border border-[#bad6ed] bg-[#f2f8fd] p-3 text-sm text-[#233b51]">
           <FileClock className="h-5 w-5 shrink-0 text-[#075a9c]" />
           <span className="min-w-0 flex-1">
             <b>{w.recoverySnapshots.length} encrypted recovery {w.recoverySnapshots.length === 1 ? 'copy is' : 'copies are'} available.</b>
@@ -329,7 +361,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
       {w.recoverySyncReviewRequired && (
-        <div role="alert" data-testid="notice-recovery-sync-review" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-[#b77912] bg-[#fff8e8] p-3 text-sm text-[#382b14]">
+        <div role="alert" data-testid="notice-recovery-sync-review" className="mx-auto mt-3 flex w-full max-w-[1240px] flex-wrap items-center gap-3 rounded-sm border border-[#b77912] bg-[#fff8e8] p-3 text-sm text-[#382b14]">
           <ShieldAlert className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1"><b>Restored work is saved only on this device.</b> Packet sync is paused until you save this version locally, so existing agency-sync operations remain unchanged.</span>
           <button type="button" onClick={() => void onSave()} data-testid="button-save-restored-workspace" className="min-h-9 rounded-sm border border-[#8a5a00] px-3 font-semibold underline">
@@ -338,7 +370,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
       {showSessionConflict && (
-        <div role="alert" aria-live="polite" data-testid="notice-session-conflict" className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-[#b77912] bg-[#fff8e8] p-3 text-sm text-[#382b14]">
+        <div role="alert" aria-live="polite" data-testid="notice-session-conflict" className="mx-auto mt-3 flex w-full max-w-[1240px] flex-wrap items-center gap-3 rounded-sm border border-[#b77912] bg-[#fff8e8] p-3 text-sm text-[#382b14]">
           <AlertTriangle className="h-5 w-5 shrink-0 text-[#8a5a00]" />
           <span className="min-w-0 flex-1">
             <b>{unsaved && otherDirtySessions.length ? 'Two sessions have unsaved changes.' : otherDirtySessions.length ? 'Another session has unsaved changes.' : 'This workspace is open in another session.'}</b>
@@ -353,20 +385,21 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
       {w.lockedNotice && (
-        <div className="mx-auto mt-3 flex w-full max-w-[1180px] flex-wrap items-center gap-3 rounded-sm border border-accent bg-accent/10 p-3 text-sm" data-testid="notice-locked">
+        <div className="mx-auto mt-3 flex w-full max-w-[1240px] flex-wrap items-center gap-3 rounded-sm border border-accent bg-accent/10 p-3 text-sm" data-testid="notice-locked">
           <Lock className="h-4 w-4" /><span className="flex-1">{w.lockedWithUnsaved ? 'Locked after 15 minutes. Unsaved edits may be lost; unlock saved work to continue.' : 'Locked after 15 minutes. Your saved work is hidden; unlock to continue.'}</span>
           <button className="font-semibold underline" onClick={() => w.openVault('restore')} data-testid="button-notice-unlock">Unlock saved work</button>
           <button className="text-muted-foreground" onClick={w.dismissLockedNotice} data-testid="button-notice-dismiss">Dismiss</button>
         </div>
       )}
-      <main className="mx-auto w-full max-w-[1180px] flex-1 px-4 py-5 pb-24 sm:px-6 md:pb-8">
-        <nav aria-label="Breadcrumb" className="mb-5 flex flex-wrap items-center gap-2 bg-primary px-4 py-3 text-sm text-primary-foreground">
+      <main className="mx-auto w-full max-w-[1240px] flex-1 px-4 py-6 pb-24 sm:px-8 md:pb-10">
+        <nav aria-label="Breadcrumb" className="portal-crumbs">
           <Link href="/" className="underline-offset-4 hover:underline">Home</Link>
           <span aria-hidden>/</span>
           <span aria-current="page" className="font-bold">{currentPage}</span>
         </nav>
         {children}
       </main>
+      </div>
       <nav aria-label="Mobile navigation" data-testid="nav-mobile" className="fixed inset-x-0 bottom-0 z-40 flex overflow-x-auto border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] text-sidebar-foreground md:hidden">
         {mobileNav.map(item => (
           <MobileLink key={item.href} {...item} active={isActive(item.href)} />
@@ -465,6 +498,6 @@ export function Shell({ children }: { children: ReactNode }) {
 function MobileLink({ href, label, icon: Icon, active }: { href: string; label: string; icon: typeof LayoutGrid; active: boolean }) {
   const shortLabel = label;
   return <Link href={href} data-testid={`link-mobile-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`} aria-current={active ? 'page' : undefined} className={cn('flex min-h-16 min-w-[76px] shrink-0 flex-col items-center justify-center gap-1 px-2 py-2 text-center text-[0.65rem] font-semibold leading-tight', active ? 'text-sidebar-primary' : 'opacity-80')}>
-    <Icon className="h-5 w-5 shrink-0" /><span>{shortLabel}</span>
+    <Icon className="h-5 w-5 shrink-0" /><span>{caseSafe(shortLabel)}</span>
   </Link>;
 }

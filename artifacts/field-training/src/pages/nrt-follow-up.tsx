@@ -27,7 +27,7 @@ export default function NrtFollowUpPage() {
     : [], [ws.reports, report?.id, report?.recruitBadge, report?.date, category]);
 
   if (!report || !category || !entry) {
-    return <Panel title="NRT follow-up unavailable"><p className="p-4 text-sm">Open this page from an NRT rating on a saved PO Daily Performance Log.</p><Link href="/reports" className="m-4 inline-flex items-center gap-1 font-semibold underline"><ArrowLeft className="h-4 w-4"/>Daily Performance Logs</Link></Panel>;
+    return <Panel title="NRT follow-up unavailable"><p className="p-4 text-sm">Open this page from an NRT rating on a saved PO Daily Performance Summary.</p><Link href="/reports" className="m-4 inline-flex items-center gap-1 font-semibold underline"><ArrowLeft className="h-4 w-4"/>Daily Performance Summaries</Link></Panel>;
   }
 
   const saveEntry = (patch: Partial<RatingEntry>) => {
