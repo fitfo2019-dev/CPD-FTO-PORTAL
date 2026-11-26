@@ -12,6 +12,26 @@ export type ApplicationHelpTopic = {
   recovery: string;
 };
 
+// PO Progress is a development preview; its status definitions ship with it.
+const PO_PROGRESS_TOPICS: readonly ApplicationHelpTopic[] = [
+  {
+    id: 'po-status',
+    title: "Read a PO's progress status",
+    roles: ['fto_coordinator', 'fto_sgt'],
+    keywords: 'PO Progress status below standard emerging concern meets standard NRT UA previously flagged',
+    steps: [
+      "Each rated week is banded by the UA's on the signed daily records.",
+      "MEETS STANDARD: 0-9 UA's in the week.",
+      "EMERGING CONCERN: 10-19 UA's in the week.",
+      "BELOW STANDARD: 20 or more UA's, 3 or more UA's in one category, or an NRT in the week.",
+      'A worse week raises the status to that band. Each rated week that meets standard lowers it one level. A flag can last the whole program.',
+      'Limbo weeks are not rated and do not count. Late packets count toward the FTO, not the PO.',
+    ],
+    expectedResult: 'SHOW CALCULATION in the PO panel lists every rated week, its band and the status after it, with the formula version. A PO who cleared a flag shows a PREVIOUSLY FLAGGED tag with the week it cleared. Status is based on documented ratings; it is not a release recommendation.',
+    recovery: 'If a status looks wrong, open the PO and check the week strip and the category ratings for each rated week.',
+  },
+];
+
 export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
   {
     id: 'local-save',
@@ -117,6 +137,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
     expectedResult: 'A request saved on this device is not submitted. Awaiting Coordinator review means the request was submitted.',
     recovery: 'If submission is not confirmed, keep the local draft and use Send saved request. Check the request status again before retrying.',
   },
+  ...(import.meta.env?.DEV ? PO_PROGRESS_TOPICS : []),
 ];
 
 export function getApplicationHelpTopicsForRole(role: Role): readonly ApplicationHelpTopic[] {
