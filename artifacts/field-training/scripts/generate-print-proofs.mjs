@@ -118,7 +118,7 @@ try {
     renderToStaticMarkup(React.createElement(PrintableOrientationContinuations,{
       record:{...orientation,narrative:continuationSample},pageReferences:['W1D1P2'],
     })),'orientation');
-  await writeProof('daily-performance-log', 'Daily Performance Log · U-10.174',
+  await writeProof('daily-performance-log', 'Daily Performance Summary · U-10.174',
     renderToStaticMarkup(React.createElement(PrintableDailyLog, { report, packet })), 'log');
   const dailyContinuationReport={...report,narrative:continuationSample};
   const dailyContinuationMarkup=renderToStaticMarkup(React.createElement(PrintableDailyLog,{

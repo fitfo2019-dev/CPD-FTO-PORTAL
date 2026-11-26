@@ -74,7 +74,7 @@ export default function Dashboard() {
 
     <div className="mb-4 rounded border-l-4 border-primary bg-card p-4">
       <p className="font-semibold">Daily paperwork, in one place</p>
-      <p className="mt-1 text-sm text-muted-foreground">For each training day, the Daily Performance Log holds activity totals and reviewed SEG ratings. Reporting for Duty, run forms, and the narrative are in the same shift workspace. The Weekly Performance Log Supplement gathers the week’s UA articulations and corrective-training time.</p>
+      <p className="mt-1 text-sm text-muted-foreground">For each training day, the Daily Performance Summary holds activity totals and reviewed SEG ratings. Reporting for Duty, run forms, and the narrative are in the same shift workspace. The Weekly Performance Log Supplement gathers the week’s UA articulations and corrective-training time.</p>
     </div>
 
     {!isCoordinator&&<section aria-label="Shift paperwork steps" className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

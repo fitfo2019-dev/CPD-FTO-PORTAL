@@ -182,7 +182,7 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
       part: index + 1,
     }));
   }
-  append({ id: 'daily-summary', kind: 'daily_summary', title: 'Daily Performance Log' });
+  append({ id: 'daily-summary', kind: 'daily_summary', title: 'Daily Performance Summary' });
   dailyLogContinuations(report).forEach((continuation, index) => append({
     id: `daily-continuation:${index + 1}`,
     kind: 'daily_continuation',

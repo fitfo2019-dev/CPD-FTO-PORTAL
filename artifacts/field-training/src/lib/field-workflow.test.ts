@@ -557,7 +557,7 @@ test('Excel round trip includes all current SEGs, weekly forms, phase totals, co
   const formIndex=rows('Form Index');
   const formReference=(name:string)=>formIndex.find(row=>row[0]===name)?.[1];
   assert.equal(formReference('Arrest Process'),'U-10.188');
-  assert.equal(formReference('Daily Performance Log'),'U-10.174');
+  assert.equal(formReference('Daily Performance Summary'),'U-10.174');
   assert.equal(formReference('Weekly Performance Summary'),'U-10.173');
   assert.equal(formReference('Weekly Performance Log Supplement'),'U-10.174S');
   assert.ok(formIndex.some(row=>String(row[1]).includes('U-10.173')));
