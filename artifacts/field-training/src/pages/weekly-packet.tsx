@@ -19,7 +19,7 @@ import { mergeReviewedUaEntries } from '@/lib/weekly-performance-log.js';
 import { hasReviewedCorrectiveSource } from '@/lib/weekly-log-layout.js';
 import { resolveOperationalPacket } from '@/lib/operational-state-machine.js';
 import { week15Statement, week15StartDate, week15Window, weeklyPacketDueDate, weeklyPacketDueState, type DueState, type Week15Choice } from '@/lib/weekly-packet.js';
-import { buildTimelineInterpolation } from '@/lib/timeline-interpolation.js';
+import { buildTimelineInterpolation, TIMELINE_DRAFT_PREAMBLE_PATTERN } from '@/lib/timeline-interpolation.js';
 import { useWorkspace } from '@/state/workspace.js';
 
 type Tone = 'ok' | 'warn' | 'bad' | 'mut';
@@ -129,7 +129,8 @@ function FtoWeeklyPacket() {
   const timeline = useMemo(() => buildTimelineInterpolation(ws.reports, week?.start, owner?.badge, owner?.className), [ws.reports, week?.start, owner?.badge, owner?.className]);
   const recommendation = owner ? ws.week15Recommendations.find(item => ownerKey(item) === owner.key) : undefined;
   const isWeek15 = week?.programWeek === 15;
-  const draftComment = isWeek15 && recommendation ? `${timeline.text}${timeline.text ? '\n\n' : ''}${recommendation.statement}` : timeline.text;
+  const timelineText = timeline.text.replace(TIMELINE_DRAFT_PREAMBLE_PATTERN, '');
+  const draftComment = isWeek15 && recommendation ? `${timelineText}${timelineText ? '\n\n' : ''}${recommendation.statement}` : timelineText;
   const [ftoComments, setFtoComments] = useState<string | null>(null);
   useEffect(() => setFtoComments(null), [week?.start, owner?.key]);
   const comments = ftoComments ?? storedAck?.ftoComments ?? draftComment;
@@ -226,7 +227,7 @@ function FtoWeeklyPacket() {
           {owners.length > 1 && <SearchableSelect aria-label="Probationary Officer" className="h-10 rounded-sm border bg-card px-3 text-sm" value={owner.key} onChange={event => { setOwnerChoice(event.target.value); setWeekChoice(''); }} data-testid="select-packet-po">
             {owners.map(item => <option key={item.key} value={item.key}>{item.name} · {item.badge}</option>)}
           </SearchableSelect>}
-          <SearchableSelect aria-label="Training week" className="h-10 rounded-sm border bg-card px-3 text-sm" value={week.start} onChange={event => setWeekChoice(event.target.value)} data-testid="select-packet-week">
+          <SearchableSelect aria-label="Training week" containerClassName="w-80 max-w-full" className="h-10 w-full rounded-sm border bg-card px-3 text-sm" value={week.start} onChange={event => setWeekChoice(event.target.value)} data-testid="select-packet-week">
             {weeks.map(item => <option key={item.start} value={item.start}>{item.programWeek ? `Week ${item.programWeek} · ` : ''}{formatDateDMY(item.start)}–{formatDateDMY(item.end)}</option>)}
           </SearchableSelect>
           <span className="text-muted-foreground">Sunday {formatDateDMY(week.start)} through Saturday {formatDateDMY(week.end)}</span>
@@ -251,7 +252,7 @@ function FtoWeeklyPacket() {
             </tr>)}</tbody>
           </table>
         </div>
-        {missingDays.length > 0 && <div className="border-t px-4 py-2 text-xs text-destructive" data-testid="missing-dor-days">{missingDays.map(shortDate).join(' · ')}</div>}
+        {missingDays.length > 0 && <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2 text-xs" data-testid="missing-dor-days"><span className="label-caps text-destructive">{caseSafe("Missing DOR's")}</span>{missingDays.map(date => <Link key={date} href={`/reports/new?date=${date}`} className="inline-flex min-h-8 items-center rounded border bg-card px-2 font-semibold" data-testid={`link-packet-missing-dor-${date}`}>{shortDate(date)}</Link>)}</div>}
       </Panel>
 
       {showWeek15 && <Panel title="Week 15 recommendation" className="mt-4">
