@@ -1,10 +1,10 @@
 import { Link } from 'wouter';
-import type { MouseEvent, ReactNode } from 'react';
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { ArrowRight, ClipboardList, FolderOpen, UsersRound, CalendarClock, CalendarDays, FileCheck2, BookOpen } from 'lucide-react';
 import { useWorkspace } from '@/state/workspace.js';
 import { CATEGORIES, CATEGORY_LABEL, canViewClass, evaluationProgress, needsJustification, phaseAssignmentLabel, ROLE_LABEL } from '@/lib/model.js';
 import { formatDateDMY, localISODate } from '@/lib/training-calendar.js';
-import { PageHead, Panel, RatingChip, Stat, StatusPill } from '@/components/bits.js';
+import { PageHead, Panel, RatingChip, Stat, StatusPill, caseSafe } from '@/components/bits.js';
 import { NrtAdminReviewPanel } from '@/components/nrt-admin-review-panel.js';
 import { PhaseExtensionPanel } from '@/components/phase-extension-panel.js';
 import { activityTotals } from '@/lib/run-activity.js';
@@ -76,7 +76,8 @@ export default function Dashboard() {
       <WorkflowCard step="5" title="Class and phase sign-up" status="Review Coordinator-posted dates" href="/fto-classes" action="See phase dates"/>
     </section>}
 
-    {isCoordinator&&<section aria-label="Coordinator work areas" className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    {isCoordinator&&<section aria-label="Coordinator work areas" className={`mb-4 grid gap-3 sm:grid-cols-2 ${import.meta.env.DEV?'lg:grid-cols-3 xl:grid-cols-5':'lg:grid-cols-4'}`}>
+      {import.meta.env.DEV&&<PoReviewCard/>}
       <WorkflowCard step="1" title="Classes and rosters" status={`${ws.assignments.length} saved roster assignments`} href="/class-overview" action="Open classes"/>
       <WorkflowCard step="2" title="Post class phases" status="Set dates and review FTO interest" href="/fto-classes" action="Open phase posts"/>
       <WorkflowCard step="3" title="Coverage" status="Requests are saved on this device only" href="/substitute-fto" action="Open coverage"/>
@@ -119,6 +120,17 @@ export default function Dashboard() {
       </div>
     </div>
   </div>;
+}
+
+/** Preview count from the PO Progress sample; loads only in development builds, like the PO Progress route. */
+function PoReviewCard() {
+  const [count,setCount]=useState<number|null>(null);
+  useEffect(()=>{let live=true;import('@/features/rebuild/lib/po-progress/data').then(m=>{if(live)setCount(m.PROGRESS.pos.filter(p=>m.inSampleGroup(p)&&p.status==='BELOW STANDARD').length);});return()=>{live=false;};},[]);
+  return <Link href="/po-progress?show=below-standard" className={`flex min-h-36 flex-col rounded border bg-card p-4 transition-colors hover:border-primary ${count?'border-l-4 border-l-destructive':''}`} data-testid="workflow-po-review">
+    <span className="label-caps">{caseSafe('PO’s Below Standard')}</span>
+    <b className={`mt-2 text-3xl font-extrabold tabular-nums ${count?'text-destructive':''}`}>{count??'–'}</b>
+    <span className="mt-auto inline-flex items-center gap-1 pt-3 text-sm font-semibold">Open PO Progress<ArrowRight className="h-4 w-4"/></span>
+  </Link>;
 }
 
 function WorkflowCard({step,title,status,href,action,primary,disabled}:{step:string;title:string;status:string;href:string;action:string;primary?:boolean;disabled?:boolean}) {
