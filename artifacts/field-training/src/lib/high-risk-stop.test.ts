@@ -9,8 +9,11 @@ import {buildRunNarrativeDraft} from './run-narrative-draft.js';
 import {getRunWorkflowSteps} from './run-workflow.js';
 import {suggestRunTypeFromDispatchedCode} from './radio-codes.js';
 import {buildClassWorkbook} from './exportWorkbook.js';
-import {PrintableDailyForms} from '../components/printable-daily-forms.js';
 import {seedReports} from './seed.js';
+import {registerPrintAssetHooks} from './print-asset-test-hooks.js';
+
+registerPrintAssetHooks();
+const {PrintableDailyForms}=await import('../components/printable-daily-forms.js');
 
 const run:TrainingRun={
   id:'TEST-STOP',runKind:'traffic_stop',occurredAt:'2026-11-23T14:00:00Z',

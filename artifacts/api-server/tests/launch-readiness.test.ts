@@ -3,9 +3,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import express from "express";
 import type pg from "pg";
-import { createTrainingPacketsRouter } from "../src/routes/training-packets.js";
-import { createAgencyPacketStore, PacketError } from "../src/lib/agency-packet-store.js";
-import { hashUserIdentifier } from "../src/utils/cryptoUtils.js";
+
+// Test-only key: the audit hasher reads it when its module loads, so set it before the dynamic imports.
+process.env.AUDIT_ID_HMAC_KEY ??= "test-only-audit-hmac-key-with-at-least-32-bytes";
+const { createTrainingPacketsRouter } = await import("../src/routes/training-packets.js");
+const { createAgencyPacketStore, PacketError } = await import("../src/lib/agency-packet-store.js");
+const { hashUserIdentifier } = await import("../src/utils/cryptoUtils.js");
 import { CATEGORIES, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord } from "../../field-training/src/lib/model.js";
 
 const identity = { id: "SYNTHETIC-READINESS-FTO", badge: "TEST-FTO", role: "FTO" as const };

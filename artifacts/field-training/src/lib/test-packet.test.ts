@@ -3,9 +3,6 @@ import test from 'node:test';
 import * as XLSX from 'xlsx';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PrintableDailyForms } from '../components/printable-daily-forms.js';
-import { PrintableDailyLog } from '../components/printable-daily-log.js';
-import { PrintableWeeklyPerformanceLog } from '../components/printable-extended-forms.js';
 import { createEmptyWorkspace, createUiPreviewWorkspace } from './empty-workspace.js';
 import { buildOperationalPacket, resolveOperationalPacket } from './operational-state-machine.js';
 import { dailyLogContinuations, splitNarrativeContinuation } from './narrative-continuation.js';
@@ -15,6 +12,12 @@ import { scanPII, validateReport } from './model.js';
 import { FTO_PACKET_STRESS_CLASS, FTO_PACKET_STRESS_COUNT, FTO_TEST_PACKET_CLASS,
   createFtoPacketStressWorkspace, createFtoTestPacketWorkspace } from './test-packet.js';
 import { parseRosterRows, ROSTER_CSV_TEMPLATE } from './assignment-import.js';
+import { registerPrintAssetHooks } from './print-asset-test-hooks.js';
+
+registerPrintAssetHooks();
+const { PrintableDailyForms } = await import('../components/printable-daily-forms.js');
+const { PrintableDailyLog } = await import('../components/printable-daily-log.js');
+const { PrintableWeeklyPerformanceLog } = await import('../components/printable-extended-forms.js');
 
 test('fictional FTO packet is stable, spans every phase, and stays separate from empty and UI-preview workspaces', () => {
   const workspace = createFtoTestPacketWorkspace();

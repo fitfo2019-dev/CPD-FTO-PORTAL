@@ -1,26 +1,11 @@
 import assert from 'node:assert/strict';
-import { registerHooks, type LoadHookSync } from 'node:module';
 import test from 'node:test';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CATEGORIES, type WeeklyPerformanceLog } from './model.js';
+import { registerPrintAssetHooks } from './print-asset-test-hooks.js';
 
-const mockedSvgModule = `export default ${JSON.stringify('<svg xmlns="http://www.w3.org/2000/svg"></svg>')};`;
-const testLoadHook: LoadHookSync = function load(url, context, next) {
-  const parsed = new URL(url);
-  if (parsed.pathname.endsWith("/columbus-logo.svg") && parsed.searchParams.has("raw")) {
-    return { format: "module", shortCircuit: true, source: mockedSvgModule };
-  }
-  const loaded = next(url, context);
-  if (
-    !parsed.pathname.endsWith("/printable-columbus-header.tsx") &&
-    !parsed.pathname.endsWith("/printable-columbus-header.js")
-  ) return loaded;
-  if (loaded.source === undefined) return loaded;
-  const source = typeof loaded.source === "string" ? loaded.source : new TextDecoder().decode(loaded.source);
-  return { ...loaded, source: source.replaceAll("import.meta.env.BASE_URL", JSON.stringify("/")) };
-};
-registerHooks({ load: testLoadHook });
+registerPrintAssetHooks();
 
 test('weekly log print preview uses paper columns, source references, and independent print-page numbers',async()=>{
   const narrative='The PO completed a detailed corrective review and then repeated the procedure. '.repeat(48);
