@@ -5,6 +5,7 @@ import {
   FinalizeTrainingPacketResponse,
   GetAssignmentTransitionContextResponse,
   GetAssignmentTransitionHistoryResponse,
+  GetTestAdminScenarioResponse,
 } from "@workspace/api-zod";
 import { OperationalIdentitySnapshot } from "@workspace/api-zod/operational-profile";
 
@@ -33,6 +34,10 @@ export function objectResponseContract(method: string, pathname: string): Respon
     case "PUT /api/v1/packet-review/coordinator": return UpdatePacketCoordinatorResponse;
     case "GET /api/v1/packet-review/submissions": return ListPacketSubmissionsResponse;
   }
+  // Synthetic staging scenario: every read and write returns the scenario snapshot.
+  if (/^\/api\/v1\/staging\/test-admin\/(scenario|(participants|classes|assignments)(\/[0-9a-f-]{36}(\/deactivation)?)?)$/i.test(pathname)
+    && (method === "GET" || method === "POST" || method === "PUT"))
+    return GetTestAdminScenarioResponse.strict();
   if (/^\/api\/v1\/packet-review\/submissions\/[0-9a-f-]{36}$/i.test(pathname)) {
     if (method === "GET") return GetPacketSubmissionResponse;
     if (method === "POST") return ActOnPacketSubmissionResponse;

@@ -14,7 +14,7 @@ export class StagingFailure extends Error {
     super(code);
   }
 }
-type Member = { id: string; role: "PO" | "FTO" | "FTO_COORDINATOR" | "TEST_ADMIN" };
+export type Member = { id: string; role: "PO" | "FTO" | "FTO_COORDINATOR" | "TEST_ADMIN" };
 type Assignment = { id: string; phase: number };
 export type SyntheticRecord = StagingTrainingRecord;
 export type StagingEnvelope = StagingTrainingEnvelope;
@@ -34,10 +34,10 @@ const recordColumns = `r.id, r.assignment_id, to_char(r.record_date,'YYYY-MM-DD'
 // Scope is enforced INSIDE SQL for lists and object lookups, not in the browser.
 const scopeSql = `
  a.active AND c.active AND c.phase_active
- AND po.active AND po.agency_verified AND po.terms_accepted AND po.role='PO'
- AND fto.active AND fto.agency_verified AND fto.terms_accepted AND fto.role='FTO'
- AND coordinator.active AND coordinator.agency_verified AND coordinator.terms_accepted
- AND coordinator.role='FTO_COORDINATOR'
+ AND po.active AND (po.agency_verified OR po.fictional) AND po.terms_accepted AND po.role='PO'
+ AND fto.active AND (fto.agency_verified OR fto.fictional) AND fto.terms_accepted AND fto.role='FTO'
+ AND coordinator.active AND (coordinator.agency_verified OR coordinator.fictional)
+ AND coordinator.terms_accepted AND coordinator.role='FTO_COORDINATOR'
  AND (
    -- TEST_ADMIN spans the synthetic schema only; real agency data is never here.
    $1='TEST_ADMIN'
@@ -56,9 +56,9 @@ const assignmentJoin = `
  * schema. No upload/import transport, delete API or unrestricted SQL interface.
  */
 export class StagingRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(protected readonly pool: Pool) {}
 
-  private async transaction<T>(ctx: StagingContext, work: (tx: PoolClient, member: Member) => Promise<T>): Promise<T> {
+  protected async transaction<T>(ctx: StagingContext, work: (tx: PoolClient, member: Member) => Promise<T>): Promise<T> {
     if (!ctx.session.recentMfa) throw new StagingFailure(401, "MFA_REQUIRED");
     const tx = await this.pool.connect();
     try {
@@ -66,7 +66,7 @@ export class StagingRepository {
       await tx.query("SET LOCAL statement_timeout = '5s'");
       const membership = await tx.query<Member>(
         `SELECT id,role FROM synthetic_training.members
-         WHERE subject_hash=$1 AND active AND terms_accepted
+         WHERE subject_hash=$1 AND active AND terms_accepted AND NOT fictional
          AND ((role<>'TEST_ADMIN' AND agency_verified) OR (role='TEST_ADMIN' AND NOT agency_verified))
          FOR SHARE`,
         [hashUserIdentifier(ctx.session.subject)],

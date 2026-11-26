@@ -69,3 +69,23 @@ CREATE TABLE IF NOT EXISTS synthetic_training.receipts (
   response jsonb NOT NULL,
   UNIQUE (actor_hash, operation_id)
 );
+-- Test Admin scenario setup (idempotent). Fictional participants have a random
+-- subject hash, can never sign in, can never be TEST_ADMIN, and are never
+-- agency-verified. Only fictional rows are managed by the Test Admin API.
+ALTER TABLE synthetic_training.members ADD COLUMN IF NOT EXISTS fictional boolean NOT NULL DEFAULT false;
+ALTER TABLE synthetic_training.members ADD COLUMN IF NOT EXISTS display_label text;
+ALTER TABLE synthetic_training.members ADD COLUMN IF NOT EXISTS badge_label text;
+ALTER TABLE synthetic_training.members DROP CONSTRAINT IF EXISTS members_fictional_check;
+ALTER TABLE synthetic_training.members ADD CONSTRAINT members_fictional_check
+  CHECK (NOT fictional OR (role <> 'TEST_ADMIN' AND NOT agency_verified
+    AND display_label IS NOT NULL AND length(display_label) BETWEEN 1 AND 80
+    AND badge_label IS NOT NULL AND length(badge_label) BETWEEN 1 AND 20));
+ALTER TABLE synthetic_training.classes ADD COLUMN IF NOT EXISTS fictional boolean NOT NULL DEFAULT false;
+ALTER TABLE synthetic_training.classes ADD COLUMN IF NOT EXISTS label text;
+ALTER TABLE synthetic_training.classes DROP CONSTRAINT IF EXISTS classes_fictional_check;
+ALTER TABLE synthetic_training.classes ADD CONSTRAINT classes_fictional_check
+  CHECK (NOT fictional OR (label IS NOT NULL AND length(label) BETWEEN 1 AND 80));
+ALTER TABLE synthetic_training.assignments ADD COLUMN IF NOT EXISTS fictional boolean NOT NULL DEFAULT false;
+ALTER TABLE synthetic_training.audit_events ADD COLUMN IF NOT EXISTS target_type text
+  CHECK (target_type IS NULL OR target_type IN ('PARTICIPANT','CLASS','ASSIGNMENT'));
+ALTER TABLE synthetic_training.audit_events ADD COLUMN IF NOT EXISTS target_id uuid;

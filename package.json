@@ -13,7 +13,7 @@
     "export:executive-brief": "node scripts/src/export-executive-brief.mjs",
     "test:executive-brief-export": "node --test scripts/src/export-executive-brief.test.mjs",
     "smoke:production-package": "node scripts/src/smoke-production-package.mjs",
-    "test:staging": "pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/src/developer-staging/staging.test.ts ../artifacts/api-server/test/test-authority.test.ts",
+    "test:staging": "pnpm --filter @workspace/scripts exec tsx --test ../artifacts/api-server/src/developer-staging/staging.test.ts ../artifacts/api-server/src/developer-staging/test-admin.test.ts ../artifacts/api-server/test/test-authority.test.ts",
     "staging:test-admin": "pnpm --filter @workspace/scripts exec tsx ../artifacts/api-server/src/developer-staging/provision-test-admin.ts",
     "bundle:production": "pnpm run build:api && pnpm --filter @workspace/scripts run bundle-package",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",

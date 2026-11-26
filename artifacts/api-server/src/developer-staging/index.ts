@@ -1,6 +1,9 @@
+import { Router } from "express";
 import pg from "pg";
 import { createStagingRouter } from "./router.js";
 import { StagingRepository } from "./repository.js";
+import { createTestAdminRouter } from "./test-admin-router.js";
+import { TestAdminRepository } from "./test-admin-repository.js";
 
 // This module is omitted from agency-release builds. Even in a developer
 // build, activating it in production is forbidden.
@@ -10,4 +13,7 @@ const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL, max: 4,
   connectionTimeoutMillis: 3000, idleTimeoutMillis: 10_000,
 });
-export default createStagingRouter(new StagingRepository(pool));
+const stagingRouter = Router();
+stagingRouter.use(createStagingRouter(new StagingRepository(pool)));
+stagingRouter.use(createTestAdminRouter(new TestAdminRepository(pool)));
+export default stagingRouter;

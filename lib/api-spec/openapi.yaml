@@ -321,6 +321,231 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/scenario:
+    get:
+      operationId: getTestAdminScenario
+      summary: List fictional classes, participants and assignments (test administrator only)
+      responses:
+        "200":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/audit:
+    get:
+      operationId: listTestAdminAuditEvents
+      summary: Read-only synthetic audit history (test administrator only)
+      responses:
+        "200":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminAuditEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/participants:
+    post:
+      operationId: createTestAdminParticipant
+      summary: Create a fictional participant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TestAdminParticipantInput" }
+      responses:
+        "201":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/participants/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: updateTestAdminParticipant
+      summary: Update a fictional participant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TestAdminParticipantInput" }
+      responses:
+        "200":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/participants/{id}/deactivation:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: deactivateTestAdminParticipant
+      summary: Deactivate a fictional participant (audited; never deleted)
+      responses:
+        "200":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/classes:
+    post:
+      operationId: createTestAdminClass
+      summary: Create a fictional class
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TestAdminClassInput" }
+      responses:
+        "201":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/classes/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: updateTestAdminClass
+      summary: Update a fictional class
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TestAdminClassInput" }
+      responses:
+        "200":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/classes/{id}/deactivation:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: deactivateTestAdminClass
+      summary: Deactivate a fictional class (audited; never deleted)
+      responses:
+        "200":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/assignments:
+    post:
+      operationId: createTestAdminAssignment
+      summary: Create a fictional assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TestAdminAssignmentInput" }
+      responses:
+        "201":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/assignments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: updateTestAdminAssignment
+      summary: Update a fictional assignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TestAdminAssignmentInput" }
+      responses:
+        "200":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+  /v1/staging/test-admin/assignments/{id}/deactivation:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: deactivateTestAdminAssignment
+      summary: Deactivate a fictional assignment (audited; never deleted)
+      responses:
+        "200":
+          description: Synthetic staging result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestAdminScenarioEnvelope" }
+        default:
+          description: Fail-closed error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
   /healthz:
     get:
       operationId: healthCheck
@@ -1881,6 +2106,122 @@ components:
           maxItems: 1
           items:
             $ref: "#/components/schemas/DispatchEventPrefill"
+    TestAdminParticipantInput:
+      type: object
+      additionalProperties: false
+      required: [display_label, badge_label, role]
+      properties:
+        display_label: { type: string, minLength: 1, maxLength: 80 }
+        badge_label: { type: string, minLength: 1, maxLength: 20 }
+        role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+    TestAdminClassInput:
+      type: object
+      additionalProperties: false
+      required: [label, coordinator_id]
+      properties:
+        label: { type: string, minLength: 1, maxLength: 80 }
+        coordinator_id: { type: string, format: uuid }
+    TestAdminAssignmentInput:
+      type: object
+      additionalProperties: false
+      required: [class_id, po_id, fto_id, phase, starts_on, ends_on]
+      properties:
+        class_id: { type: string, format: uuid }
+        po_id: { type: string, format: uuid }
+        fto_id: { type: string, format: uuid }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        starts_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        ends_on: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+    TestAdminParticipant:
+      type: object
+      additionalProperties: false
+      required: [id, display_label, badge_label, role, active]
+      properties:
+        id: { type: string, format: uuid }
+        display_label: { type: string }
+        badge_label: { type: string }
+        role: { type: string, enum: [PO, FTO, FTO_COORDINATOR] }
+        active: { type: boolean }
+    TestAdminClass:
+      type: object
+      additionalProperties: false
+      required: [id, label, coordinator_id, active]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        coordinator_id: { type: string, format: uuid }
+        active: { type: boolean }
+    TestAdminAssignment:
+      type: object
+      additionalProperties: false
+      required: [id, class_id, po_id, fto_id, phase, starts_on, ends_on, active]
+      properties:
+        id: { type: string, format: uuid }
+        class_id: { type: string, format: uuid }
+        po_id: { type: string, format: uuid }
+        fto_id: { type: string, format: uuid }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        starts_on: { type: string }
+        ends_on: { type: string }
+        active: { type: boolean }
+    TestAdminScenarioEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [environment]
+          properties:
+            environment: { type: string, enum: [SYNTHETIC_STAGING] }
+        data:
+          type: object
+          additionalProperties: false
+          required: [participants, classes, assignments]
+          properties:
+            participants:
+              type: array
+              maxItems: 500
+              items: { $ref: "#/components/schemas/TestAdminParticipant" }
+            classes:
+              type: array
+              maxItems: 500
+              items: { $ref: "#/components/schemas/TestAdminClass" }
+            assignments:
+              type: array
+              maxItems: 500
+              items: { $ref: "#/components/schemas/TestAdminAssignment" }
+    TestAdminAuditEvent:
+      type: object
+      additionalProperties: false
+      required: [id, timestamp, role, action, target_type, target_id, record_id, version]
+      properties:
+        id: { type: string, format: uuid }
+        timestamp: { type: string }
+        role: { type: string }
+        action: { type: string }
+        target_type: { type: [string, "null"], enum: [PARTICIPANT, CLASS, ASSIGNMENT, null] }
+        target_id: { type: [string, "null"] }
+        record_id: { type: [string, "null"] }
+        version: { type: [integer, "null"] }
+    TestAdminAuditEnvelope:
+      type: object
+      additionalProperties: false
+      required: [status, metadata, data]
+      properties:
+        status: { type: string, enum: [success] }
+        metadata:
+          type: object
+          additionalProperties: false
+          required: [environment]
+          properties:
+            environment: { type: string, enum: [SYNTHETIC_STAGING] }
+        data:
+          type: array
+          maxItems: 200
+          items: { $ref: "#/components/schemas/TestAdminAuditEvent" }
     ApiError:
       type: object
       required: [status, error_code, message]
