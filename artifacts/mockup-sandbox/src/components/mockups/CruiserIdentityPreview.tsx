@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { AlertCircle, CheckCircle2, Info, Save, ShieldCheck } from "lucide-react";
 
 type OperationalRole = "FTO" | "PO";
@@ -24,7 +24,7 @@ export default function CruiserIdentityPreview() {
     setSaveMessage(null);
   };
 
-  const saveProfile = (event: FormEvent<HTMLFormElement>) => {
+  const saveProfile = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAttemptedSave(true);
     setSaveMessage(null);

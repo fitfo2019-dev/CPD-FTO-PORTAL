@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { register } from 'node:module';
+import { registerHooks } from 'node:module';
 import { seedReports } from './seed.js';
 import { dailyLogContinuations } from './narrative-continuation.js';
 import { buildOperationalPacket } from './operational-state-machine.js';
 import { assertExportCopy } from '../../test-support/export-copy-boundaries.js';
 
-register("data:text/javascript,"+encodeURIComponent(
-  "export async function load(url,ctx,next){if(url.includes('/components/printable-columbus-header.tsx'))return {format:'module',shortCircuit:true,source:'export function PrintableColumbusHeader(){return null} export function PrintableColumbusFooterMarks(){return null}'};return next(url,ctx)}"
-),import.meta.url);
+registerHooks({
+  load(url,ctx,next){if(url.includes('/components/printable-columbus-header.tsx'))return {format:'module',shortCircuit:true,source:'export function PrintableColumbusHeader(){return null} export function PrintableColumbusFooterMarks(){return null}'};return next(url,ctx)},
+});
 
 test('long daily notes get one sequential training-folder reference per future sheet',async()=>{
   const [{PrintableDailyForms},{PrintableDailyLog}]=await Promise.all([

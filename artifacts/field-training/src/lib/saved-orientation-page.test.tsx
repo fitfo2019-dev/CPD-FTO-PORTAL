@@ -1,15 +1,15 @@
 import 'fake-indexeddb/auto';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { register } from 'node:module';
+import { registerHooks } from 'node:module';
 import React, { act, createElement } from 'react';
 import { JSDOM } from 'jsdom';
 import { createFtoTestPacketWorkspace } from './test-packet.js';
 import type { Workspace } from './model.js';
 
-register('data:text/javascript,' + encodeURIComponent(
-  "export async function load(url,ctx,next){if(/printable-extended-forms\\.(tsx|js)$/.test(new URL(url).pathname))return {format:'module',shortCircuit:true,source:'export const PrintableSubstationOrientation=()=>null'};return next(url,ctx)}",
-), import.meta.url);
+registerHooks({
+  load(url,ctx,next){if(/printable-extended-forms\.(tsx|js)$/.test(new URL(url).pathname))return {format:'module',shortCircuit:true,source:'export const PrintableSubstationOrientation=()=>null'};return next(url,ctx)},
+});
 
 test('historical phase links mount saved answers while Phase I remains active', async () => {
   const dom = new JSDOM('<div id="root"></div>', {
