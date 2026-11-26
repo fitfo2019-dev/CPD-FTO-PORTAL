@@ -86,7 +86,7 @@ export function week15Window(
  * Working days (per Phase Setup off days) from the phase start through yesterday
  * that have no daily record for this PO and phase. Shown to the FTO on the next working day.
  */
-export function missingDorDates(
+export function missingDailySummaryDates(
   folder: Pick<PhaseCaseFolder, 'phase' | 'phaseStartDate' | 'daysOff' | 'recruitBadge' | 'className' | 'scheduledWeeks' | 'phaseWeekRanges'>,
   reports: readonly { date: string; phase: number; recruitBadge: string; className?: string }[],
   today: string,

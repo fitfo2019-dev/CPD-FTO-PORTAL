@@ -11,7 +11,7 @@ portal remains a device-local draft application.
 | Portal | React, TypeScript, and Vite single-page web app. |
 | Sign-in | Replit-managed Clerk is present. A Clerk session proves only that a user signed in; it does not prove department employment, app role, class membership, or required MFA. |
 | API | Express 5 service is configured under `/api`; only the health route is mounted. The field-training API service has no production database connection. |
-| Database | A PostgreSQL/Drizzle package exists and requires `DATABASE_URL`, but no database has been provisioned or connected. `001_field_training.sql` is an unapplied legacy foundation; it has obsolete roles, an extra phase, and a DOR schema that does not match the current forms. Do not apply it to a department database. |
+| Database | A PostgreSQL/Drizzle package exists and requires `DATABASE_URL`, but no database has been provisioned or connected. `001_field_training.sql` is an unapplied legacy foundation; it has obsolete roles, an extra phase, and a Daily Performance Summary schema that does not match the current forms. Do not apply it to a department database. |
 | Structured training data | Daily logs, runs, ratings, daily statistics, narratives, weekly logs, acknowledgements, phase folders, local assignments, roster, orientation records, and coverage requests are stored together in one encrypted `workspace` record in browser IndexedDB. It is not shared storage. |
 | Local queue | Encrypted IndexedDB `sync_queue` operations are retained on the device. There is no authenticated upload transport. |
 | Chat | Encrypted `local_drafts` IndexedDB store, excluded from sync. It is device-local and unsent. |

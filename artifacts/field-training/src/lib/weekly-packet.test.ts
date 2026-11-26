@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { missingDorDates, week15StartDate, week15Statement, week15Window, weeklyPacketDueDate, weeklyPacketDueState } from './weekly-packet.js';
+import { missingDailySummaryDates, week15StartDate, week15Statement, week15Window, weeklyPacketDueDate, weeklyPacketDueState } from './weekly-packet.js';
 
 test('due date is the end of the first working day after the Saturday week end', () => {
   // Week ends Saturday 2026-11-21. Off Sun/Mon/Tue -> due Wednesday 11/25.
@@ -39,14 +39,14 @@ test('Week 15 pre-selection is due before Phase IV week 3 begins', () => {
   assert.equal(week15Window({ phase: 3 as const, phaseStartDate: '2026-11-01' }, '2026-11-10', false), 'not_phase_four');
 });
 
-test('missing DOR dates skip off days and days with records', () => {
+test('missing Daily Performance Summary dates skip off days and days with records', () => {
   const folder = { phase: 2 as const, phaseStartDate: '2026-11-15', daysOff: [0, 6] as (0 | 6)[], recruitBadge: '4821', className: '135' };
   const reports = [
     { date: '2026-11-16', phase: 2, recruitBadge: '4821', className: '135' },
     { date: '2026-11-18', phase: 2, recruitBadge: '4821', className: '135' },
     { date: '2026-11-17', phase: 2, recruitBadge: '9999', className: '135' },
   ];
-  assert.deepEqual(missingDorDates(folder, reports, '2026-11-20'), ['2026-11-17', '2026-11-19']);
+  assert.deepEqual(missingDailySummaryDates(folder, reports, '2026-11-20'), ['2026-11-17', '2026-11-19']);
 });
 
 test('weekly packet FTO draft removes the review notice from form content', async () => {

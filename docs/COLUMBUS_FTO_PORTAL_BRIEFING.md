@@ -131,7 +131,7 @@ PO Progress gives the FTO Coordinator and FTO Sergeant an early warning for each
 2. A PO who clears a flag shows a "previously flagged" tag with the week it cleared.
 3. Limbo weeks are not rated and do not count. Late packets are the FTO's responsibility and never affect a PO's status.
 4. The same counts apply to every PO and schedule, with no comparison to classmates and no hidden weighting.
-5. A "show calculation" table lists every rated week, its result and the status after it, with the formula version. A reviewer can recompute any status by hand from the signed DOR packets.
+5. A "show calculation" table lists every rated week, its result and the status after it, with the formula version. A reviewer can recompute any status by hand from the signed Daily Performance Summary packets.
 6. Any change to the rule receives a new dated version, owner approval and updated tests. It is never applied to past weeks.
 7. A server audit log recording each status change, its inputs and the formula version is planned but not built.
 

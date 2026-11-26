@@ -201,12 +201,12 @@ function FtoWeeklyPacket() {
   const locked = !!recommendation?.finalizedAt;
 
   const parts: { n: number; name: string; source: string; chip: { tone: Tone; label: string }; href: string; action: string }[] = [
-    { n: 1, name: 'Weekly Comment/Signature', source: storedAck ? `Last saved ${formatDateDMY(storedAck.updatedAt.slice(0, 10))}` : "FTO comment drafted from this week's DOR's",
+    { n: 1, name: 'Weekly Comment/Signature', source: storedAck ? `Last saved ${formatDateDMY(storedAck.updatedAt.slice(0, 10))}` : "FTO comment drafted from this week's Daily Performance Summaries",
       chip: storedAck?.signatures.ftoOffice ? { tone: 'ok', label: 'Complete' } : storedAck?.signatures.recruit ? { tone: 'warn', label: 'Awaiting FTO Office' } : storedAck?.signatures.fto ? { tone: 'warn', label: 'Awaiting PO' } : { tone: 'warn', label: 'FTO comment needed' },
       href: '#weekly-comment', action: 'Open' },
-    { n: 2, name: 'Weekly Performance Summary', source: `Rating counts from ${reviewed.length} reviewed DOR's`,
+    { n: 2, name: 'Weekly Performance Summary', source: `Rating counts from ${reviewed.length} reviewed Daily Performance Summaries`,
       chip: unreviewed ? { tone: 'warn', label: `Needs review · ${unreviewed}` } : { tone: 'ok', label: 'Ready' }, href: '/reports/weekly-summary', action: 'Review' },
-    { n: 3, name: 'Weekly Performance Log', source: `${log.entries.length} entr${log.entries.length === 1 ? 'y' : 'ies'} merged from DOR's`,
+    { n: 3, name: 'Weekly Performance Log', source: `${log.entries.length} entr${log.entries.length === 1 ? 'y' : 'ies'} merged from Daily Performance Summaries`,
       chip: logNeedsReview ? { tone: 'warn', label: `Needs review · ${logNeedsReview}` } : { tone: 'ok', label: 'Ready' }, href: '/reports/weekly-log', action: 'Edit' },
     { n: 4, name: 'Daily Performance Summaries', source: week.reports.map(report => shortDate(report.date)).join(' · '),
       chip: missingDays.length ? { tone: 'bad', label: `Missing · ${missingDays.length}` } : finalized.length === week.reports.length ? { tone: 'ok', label: `${finalized.length} of ${week.reports.length} finalized` } : { tone: 'warn', label: `${finalized.length} of ${week.reports.length} finalized` },
@@ -252,7 +252,7 @@ function FtoWeeklyPacket() {
             </tr>)}</tbody>
           </table>
         </div>
-        {missingDays.length > 0 && <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2 text-xs" data-testid="missing-dor-days"><span className="label-caps text-destructive">{caseSafe("Missing DOR's")}</span>{missingDays.map(date => <Link key={date} href={`/reports/new?date=${date}`} className="inline-flex min-h-8 items-center rounded border bg-card px-2 font-semibold" data-testid={`link-packet-missing-dor-${date}`}>{shortDate(date)}</Link>)}</div>}
+        {missingDays.length > 0 && <div className="flex flex-wrap items-center gap-2 border-t px-4 py-2 text-xs" data-testid="missing-daily-summary-days"><span className="label-caps text-destructive">{caseSafe('Missing Daily Performance Summaries')}</span>{missingDays.map(date => <Link key={date} href={`/reports/new?date=${date}`} className="inline-flex min-h-8 items-center rounded border bg-card px-2 font-semibold" data-testid={`link-packet-missing-daily-summary-${date}`}>{shortDate(date)}</Link>)}</div>}
       </Panel>
 
       {showWeek15 && <Panel title="Week 15 recommendation" className="mt-4">
@@ -325,7 +325,7 @@ function NrtReviewDialog({ open, onOpenChange, reports, onSubmit }: { open: bool
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-w-xl" data-testid="dialog-nrt-review">
       <DialogTitle className="text-xs font-extrabold uppercase tracking-wider">NRT review request</DialogTitle>
-      <div className="label-caps">{caseSafe("Supporting DOR's")}</div>
+      <div className="label-caps">{caseSafe('Supporting Daily Performance Summaries')}</div>
       <div className="max-h-64 overflow-y-auto rounded-sm border">
         {candidates.map(item => <label key={item.report.id} className="flex items-center gap-2 border-b p-2 text-sm last:border-0">
           <input type="checkbox" checked={selected.includes(item.report.id)} onChange={event => setSelected(current => event.target.checked ? [...current, item.report.id] : current.filter(id => id !== item.report.id))} />
@@ -346,8 +346,8 @@ function OfficeWeeklyPackets() {
   const today = localISODate();
   const alerts = [
     ...ws.week15Recommendations.filter(item => item.choice === 'not_release').map(item => ({ key: item.id, tone: 'bad' as Tone, label: 'Not release', who: `PO ${item.recruitName} #${item.recruitBadge}`, detail: item.history[0] ? `${item.history[0].by.name} #${item.history[0].by.badge} · Phase IV` : 'Phase IV', at: item.updatedAt })),
-    ...ws.nrtReviewRequests.map(item => ({ key: item.id, tone: 'bad' as Tone, label: 'NRT review request', who: `PO ${item.recruitName} #${item.recruitBadge}`, detail: `${item.reportIds.length} DOR's linked · Phase ${['', 'I', 'II', 'III', 'IV'][item.phase]}`, at: item.createdAt })),
-    ...ws.reports.filter(report => isFinalized(report) && !report.limboDay).flatMap(report => CATEGORIES.filter(category => report.ratings[category]?.rating === 'NRT').map(category => ({ key: `${report.id}-${category}`, tone: 'bad' as Tone, label: 'NRT', who: `PO ${report.recruitName} #${report.recruitBadge}`, detail: `${CATEGORY_LABEL[category]} · DOR ${formatDateDMY(report.date)}`, at: report.updatedAt ?? report.date }))),
+    ...ws.nrtReviewRequests.map(item => ({ key: item.id, tone: 'bad' as Tone, label: 'NRT review request', who: `PO ${item.recruitName} #${item.recruitBadge}`, detail: `${item.reportIds.length} Daily Performance Summaries linked · Phase ${['', 'I', 'II', 'III', 'IV'][item.phase]}`, at: item.createdAt })),
+    ...ws.reports.filter(report => isFinalized(report) && !report.limboDay).flatMap(report => CATEGORIES.filter(category => report.ratings[category]?.rating === 'NRT').map(category => ({ key: `${report.id}-${category}`, tone: 'bad' as Tone, label: 'NRT', who: `PO ${report.recruitName} #${report.recruitBadge}`, detail: `${CATEGORY_LABEL[category]} · Daily Performance Summary ${formatDateDMY(report.date)}`, at: report.updatedAt ?? report.date }))),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
   const rows = ws.phaseFolders.map(folder => {
