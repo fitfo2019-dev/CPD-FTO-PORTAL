@@ -265,3 +265,6 @@ function groupByCategory(observations: readonly RatingObservation[]) {
   }
   return groups;
 }
+
+/** Leading review notice on the weekly draft; removed where the text becomes form content. */
+export const TIMELINE_DRAFT_PREAMBLE_PATTERN = /^System-generated weekly record draft:[^\n]*\n*/;

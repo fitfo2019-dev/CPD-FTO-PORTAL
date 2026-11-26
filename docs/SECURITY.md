@@ -37,7 +37,7 @@ compliance attestation.
   prefilled assignment email opens the user's external mail composer only after
   a click; the portal does not send it. Assignment chat is local to this
   workspace/device and does not reach another account.
-- PostgreSQL migration with roles, assignments, Daily Performance Logs, evaluations, signatures,
+- PostgreSQL migration with roles, assignments, Daily Performance Summaries, evaluations, signatures,
   competencies, idempotent-sync receipts, and append-only audit constraints.
 - Server authorization policy and append-only audit repository building blocks.
 - `/api/v1/secure-records` mock mode, selected unless `USE_REAL_API=true`, returns
@@ -90,7 +90,7 @@ audit sink, retention policy, and monitoring before operational use.
   and the distinct audit events for activation and Phase I/class confirmation.
   A Clerk-authenticated session alone does not verify a department role or class
   assignment; unassigned accounts must have no server access to training records.
-- Live database-backed Daily Performance Log routes, server-enforced assignment queries, audited
+- Live database-backed Daily Performance Summary routes, server-enforced assignment queries, audited
   reads/writes/exports/logins, validated cryptographic signature attestations.
   The append-only database audit repository is not mounted to this route.
 - Durable forensic audit retention: the secure-records route's hashed access

@@ -53,7 +53,7 @@ New account registration is invitation-only in the portal. The sign-in flow and 
 - **Phase setup:** A phase folder holds PO, FTO, class, phase dates, shift/company, patrol zone, precinct, cruiser district, assignment code, and days off. A Coordinator can import and edit local class/assignment data; an FTO can use an assigned folder. Saving changes affects the current folder, while previously saved daily records retain their snapshots.
 - **Patrol-assignment choices:** Phase setup now uses a shared, validated catalog to generate and check FTO assignment choices by precinct and watch. This is training-roster assignment data, not the physical Cruiser field or a live CAD profile; browser selections do not create trusted server roster authority.
 - **Substation orientation:** A first-day orientation checklist and printable record support shift setup. The first FTO shift is directed through orientation when a matching record is not present.
-- **Daily Performance Log:** A staged editor covers shift, Reporting for Duty, run forms, activity totals, SEG ratings, and narrative/comments. It validates required review steps and fields before final submission.
+- **Daily Performance Summary:** A staged editor covers shift, Reporting for Duty, run forms, activity totals, SEG ratings, and narrative/comments. It validates required review steps and fields before final submission.
 - **Run forms:** The workflow organizes primary and conditional supplemental forms, checklists, incident details, and narrative. Certain totals and categories are derived from reviewed run information, while manual activity totals remain in the daily record. The FTO reviews and confirms the forms; the portal is not a dispatch-entry system.
 - **Follow-up:** Dashboard and class views surface UA/NRT selections and missing follow-up details. These views help locate work but do not prove that a person was notified or that a policy decision was completed.
 - **Weekly and monthly outputs:** Weekly views summarize reviewed daily ratings and activity totals; a weekly performance-log supplement gathers relevant UA articulations and corrective-training time. Monthly summaries calculate counts and support local print/PDF and Excel export. The monthly Excel export has a four-week-range limit and reports an error rather than silently generating an incomplete workbook.
@@ -131,7 +131,7 @@ PO Progress gives the FTO Coordinator and FTO Sergeant an early warning for each
 2. A PO who clears a flag shows a "previously flagged" tag with the week it cleared.
 3. Limbo weeks are not rated and do not count. Late packets are the FTO's responsibility and never affect a PO's status.
 4. The same counts apply to every PO and schedule, with no comparison to classmates and no hidden weighting.
-5. A "show calculation" table lists every rated week, its result and the status after it, with the formula version. A reviewer can recompute any status by hand from the signed DOR packets.
+5. A "show calculation" table lists every rated week, its result and the status after it, with the formula version. A reviewer can recompute any status by hand from the signed Daily Performance Summary packets.
 6. Any change to the rule receives a new dated version, owner approval and updated tests. It is never applied to past weeks.
 7. A server audit log recording each status change, its inputs and the formula version is planned but not built.
 

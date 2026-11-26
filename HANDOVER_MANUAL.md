@@ -396,7 +396,7 @@ The same counts apply to every PO and every schedule (4x10 and 5x8). There is no
   - NRT;
   - week result;
   - the status after that week.
-- The formula version is printed under the table, so anyone can recompute the status from the DOR packets.
+- The formula version is printed under the table, so anyone can recompute the status from the Daily Performance Summary packets.
 
 **Defensibility rules.**
 1. One formula with a dated version (`FORMULA_VERSION`, currently `PO-STD-1 · November 25, 2026`).

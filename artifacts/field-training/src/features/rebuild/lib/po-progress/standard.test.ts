@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { evaluateStandard, FORMULA_VERSION, type Week } from './data';
 
-// Worked examples for the PO Progress standard (PO-STD-1). Each case can be checked by hand from a DOR packet.
+// Worked examples for the PO Progress standard (PO-STD-1). Each case can be checked by hand from a Daily Performance Summary packet.
 const wk = (w: number, uaByCat: Record<number, number>, nrt = 0): Week => {
   const UA = Object.values(uaByCat).reduce((a, b) => a + b, 0);
   return { w, kind: 'rated', ph: 1, lim: 0, rated: 5, A: 130 - UA, UA, RT: 0, NO: 20, nrt, uaByCat, late: false };

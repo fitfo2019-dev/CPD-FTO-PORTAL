@@ -85,6 +85,11 @@ export default function ReportEditor() {
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
   const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket, previewOnly } = useWorkspace();
+  const requestedReportDate = (folder: NonNullable<typeof ws.caseFolder>, reports: typeof ws.reports) => {
+    const value = isNew ? new URLSearchParams(window.location.search).get('date') : null;
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value < folder.phaseStartDate) return undefined;
+    return reports.some(report => report.date === value && report.phase === folder.phase && report.recruitBadge === folder.recruitBadge) ? undefined : value;
+  };
   const [, nav] = useLocation();
   const { toast } = useToast();
   useEffect(() => {
@@ -92,7 +97,7 @@ export default function ReportEditor() {
     return () => document.body.classList.remove('print-daily-route');
   }, []);
   const existing = isNew ? undefined : ws.reports.find(r => r.id === params.id);
-  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict, ws.caseFolder.shift) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? createDailyReportDraft(ws.caseFolder,getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0],activeFtoIdentity(profile,ws.caseFolder)) : undefined);
+  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict, ws.caseFolder.shift) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? createDailyReportDraft(ws.caseFolder,requestedReportDate(ws.caseFolder,ws.reports)??getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0],activeFtoIdentity(profile,ws.caseFolder)) : undefined);
   const operationalPacket = useOperationalStateMachine(r);
   const [initialReport] = useState(()=>authoredReportSnapshot(r));
   const [dateText, setDateText] = useState(() => r ? formatDateDMY(r.date) : '');
@@ -772,7 +777,7 @@ export default function ReportEditor() {
     <div className="report-editor-page max-w-5xl">
       <DeficiencyDialog group={deficiencyEditor.active} onNarrative={deficiencyEditor.setNarrative} onOverride={deficiencyEditor.override} onClose={deficiencyEditor.close}/>
       <Link href="/reports" className="text-sm font-semibold inline-flex items-center gap-1 mb-2 hover:underline" data-testid="link-back"><ArrowLeft className="h-4 w-4" />Saved records</Link>
-      <PageHead kicker="Shift workspace · Daily Performance Log · U-10.174" title={r.recruitName ? `PO ${r.recruitName} #${r.recruitBadge}` : 'Probationary Officer shift'}>
+      <PageHead kicker="Shift workspace · Daily Performance Summary · U-10.174" title={r.recruitName ? `PO ${r.recruitName} #${r.recruitBadge}` : 'Probationary Officer shift'}>
         <StatusPill s={r.status} />
         <button type="button" data-testid="button-print-daily-log" onClick={() => { if(operationalPacket?.blockingIssues.length){toast({title:'Complete the phase-start packet',description:operationalPacket.blockingIssues.join(' '),variant:'destructive'});return;} window.print(); }} className="h-10 px-3 rounded border bg-card text-sm font-bold inline-flex items-center gap-1.5"><Printer className="h-4 w-4" />Print all forms / PDF</button>
         {r.phase===1&&<Link href="/substation-orientation" className="inline-flex h-10 items-center rounded border bg-card px-3 text-sm font-bold">Substation Orientation</Link>}
@@ -873,7 +878,7 @@ export default function ReportEditor() {
             <p>Record each training run and its required paperwork. Incident number and location are optional run metadata shared with its supplemental forms and narrative continuation pages.</p>
             <p className="mt-1"><b className="text-foreground">Fictional preview · no operational data.</b> Saved workspace records are encrypted on this device; printed forms and Excel exports are plain text.</p>
             <Link href="/resources?topic=local-save#application-help" className="mt-2 inline-flex text-sm font-semibold text-primary underline underline-offset-2">Save and reopen help</Link>
-           <p className="mt-1"><b className="text-foreground">Daily requirements:</b> Reporting for Duty is tracked separately above; this Daily Performance Log is completed once per tour.</p>
+           <p className="mt-1"><b className="text-foreground">Daily requirements:</b> Reporting for Duty is tracked separately above; this Daily Performance Summary is completed once per tour.</p>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
           <span className="text-sm text-muted-foreground">One run at a time. Each run opens as a packet of sheets: details, the primary form, attached forms, then narrative.</span>

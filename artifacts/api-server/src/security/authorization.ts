@@ -156,7 +156,7 @@ export function canDeleteTrainingRecord(
 }
 
 /** Fail-closed middleware ready for a verified session adapter. Not mounted
- * until identity setup is implemented; no public Daily Performance Log API exists in this build. */
+ * until identity setup is implemented; no public Daily Performance Summary API exists in this build. */
 export function requireSession(
   resolve: (opaqueCookie: string | undefined) => Promise<Principal | null>,
 ): RequestHandler {

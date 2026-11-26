@@ -41,8 +41,8 @@ export function PrintableDailyLog({ report, dayReference, packet:providedPacket 
       <header className="print-form-header">
         <div>
           <PrintableColumbusHeader formId="U-10.174" />
-          <h1>Probationary Officer Daily Performance Log</h1>
-          <p className="print-form-number">Daily Performance Log · U-10.174</p>
+          <h1>Probationary Officer Daily Performance Summary</h1>
+          <p className="print-form-number">Daily Performance Summary · U-10.174</p>
         </div>
         <div className="print-reference">
           <span>Phase {report.phase}</span>
@@ -140,7 +140,7 @@ export function PrintableDailyLog({ report, dayReference, packet:providedPacket 
     {continuations.map((page,index)=>{
       const reference=continuationPages[index]?.reference;
       return <PrintDocument key={index} className="print-form print-daily-narrative-continuation">
-        <header className="print-form-header"><div><PrintableColumbusHeader formId="U-10.174" /><p>Daily Performance Log · U-10.174 · Narrative continuation</p><h1>{page.label}</h1></div><b data-training-folder-page={reference}>{reference}</b></header>
+        <header className="print-form-header"><div><PrintableColumbusHeader formId="U-10.174" /><p>Daily Performance Summary · U-10.174 · Narrative continuation</p><h1>{page.label}</h1></div><b data-training-folder-page={reference}>{reference}</b></header>
         <p>{report.recruitName} · {report.recruitBadge} · {formatDateDMY(report.date)} · FTO {report.ftoName} · {report.ftoBadge}</p>
         <p className="print-daily-continuation-text">{page.text}</p>
         <footer className="print-form-footer">Continuation {page.part} of {page.total} · Local copy · Not server-confirmed<PrintableColumbusFooterMarks /></footer>
