@@ -213,7 +213,7 @@ export function elementsComplete(group: ElementGroup, checked: ReadonlySet<numbe
 export function penaltySentences(statute: StatuteClauses): string[] {
   return statute.penaltyIndexes
     .map(index => statute.clauses[index]?.replace(/\s+/g, ' ').trim() ?? '')
-    .filter(text => /\bguilty of\b|\b(felony|misdemeanor) of the \w+ degree\b|\bminor misdemeanor\b|\bunclassified (felony|misdemeanor)\b/i.test(text));
+    .filter(text => /\bguilty of\b|\b(felony|misdemeanor) of the \w+ degree\b|\b(first|second|third|fourth|fifth) degree (felony|misdemeanor)\b|\bminor misdemeanor\b|\bunclassified (felony|misdemeanor)\b/i.test(text));
 }
 
 export function canCopyWording(entry: ComplaintEntry): boolean {
