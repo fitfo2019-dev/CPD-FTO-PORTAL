@@ -1,5 +1,6 @@
 
 import { useRef } from "react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { CATEGORIES } from "@/features/rebuild/config/categories";
@@ -85,6 +86,11 @@ export function PoDetail({ po, onClose }: { po: ProgressPO | null; onClose: () =
               <SheetDescription>
                 Badge {po.badge} · FTO {po.fto} · Badge {po.ftob} · {po.sched}
               </SheetDescription>
+              <div>
+                <Button asChild variant="outline" size="sm" className="shell-caps mt-1 font-bold" data-testid="button-open-full-profile">
+                  <Link href={`/class-overview?officer=${encodeURIComponent(`${po.badge}:${po.name}`)}`}>Open Full Profile</Link>
+                </Button>
+              </div>
             </div>
             <div className="grid gap-6 px-4 pb-6">
               <section>
