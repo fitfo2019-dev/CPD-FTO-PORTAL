@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type SubmitEvent } from "react";
 import { tokens } from "@workspace/fto-law-library-schema/tokens";
 import "./_clear-assignment.css";
 
@@ -76,7 +76,7 @@ export function ClearAssignmentPreview() {
     requestAnimationFrame(() => clearButtonRef.current?.focus());
   }
 
-  function handleSave(event: FormEvent<HTMLFormElement>) {
+  function handleSave(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setMessage("");
@@ -94,7 +94,7 @@ export function ClearAssignmentPreview() {
     setMessage(savedToken ? "Saved assignment reloaded." : "No saved vehicle assignment is on file.");
   }
 
-  function confirmClear(event: FormEvent<HTMLFormElement>) {
+  function confirmClear(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!confirmed || !hasSavedIdentity || dirty) return;
     setSavedToken(null);

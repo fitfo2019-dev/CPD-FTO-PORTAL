@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, type FormEvent } from "react";
+import React, { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { Save, RotateCw } from "lucide-react";
 import { OperationalAssignmentToken, parseOperationalIdentity } from "@workspace/api-zod/operational-profile";
 import type { OperationalProfileContext } from "@workspace/api-client-react";
@@ -94,7 +94,7 @@ function ProfileEditor({ profile, save, clear, refresh, unavailable, successfulR
     setToken(value); setBaseToken(value); setVersion(saved.version); setRequiresReload(false);
     setError(""); setRefreshError(undefined);
   };
-  async function submit(event: FormEvent) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setRefreshError(undefined); setMessage("");
     if (unavailable || pending || requiresReload || confirmVersion !== undefined || profile.version !== version) return;
     if (!valid) { setError("Use four district digits, an uppercase shift letter, and optional side -1 or -2, for example 9150E or 9150E-1."); return; }

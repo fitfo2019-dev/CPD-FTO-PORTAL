@@ -219,7 +219,7 @@ export function PhaseExtensionPanel() {
     return 'sent';
   }
 
-  async function submit(event:React.FormEvent<HTMLFormElement>) {
+  async function submit(event:React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if(remotePending||localDraft)return;
     const valid=phaseExtensionRequestInputSchema.safeParse({extensionType,requestedWeeks,justification});

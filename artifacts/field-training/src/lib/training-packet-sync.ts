@@ -12,7 +12,7 @@ export type { PacketHistoryFilters, SharedPacketHistory } from "./packet-history
 // Generated schemas otherwise strip complete-report fields such as signatures.
 const packetRecordSchema = ListTrainingPacketsResponse.shape.data.element;
 const fullReportSchema = z.union([
-  packetRecordSchema.shape.report.options[0].passthrough(),
+  packetRecordSchema.shape.report.options[0].loose(),
   z.null(),
 ]);
 const sharedPacketsSchema = ListTrainingPacketsResponse.extend({

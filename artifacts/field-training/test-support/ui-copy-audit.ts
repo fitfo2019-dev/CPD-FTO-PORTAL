@@ -37,7 +37,7 @@ function parse(file: string, source: string) {
 function runtimeImports(source: ts.SourceFile): string[] {
   const imports: string[] = [];
   function visit(node: ts.Node) {
-    if (ts.isImportDeclaration(node) && !node.importClause?.isTypeOnly) {
+    if (ts.isImportDeclaration(node) && node.importClause?.phaseModifier !== ts.SyntaxKind.TypeKeyword) {
       const bindings = node.importClause?.namedBindings;
       const onlyTypes = !node.importClause?.name && bindings && ts.isNamedImports(bindings)
         && bindings.elements.length > 0 && bindings.elements.every(element => element.isTypeOnly);

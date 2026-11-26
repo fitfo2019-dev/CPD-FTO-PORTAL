@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 
 const packetRecordSchema = ListTrainingPacketsResponse.shape.data.element;
 const fullReportSchema = z.union([
-  packetRecordSchema.shape.report.options[0].passthrough(),
+  packetRecordSchema.shape.report.options[0].loose(),
   z.null(),
 ]);
 const schema = ListTrainingPacketsResponse.extend({

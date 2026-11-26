@@ -8,7 +8,7 @@ import { AuthenticationRequiredError, isAuthenticationRejection } from "./auth-s
 // Preserve complete uploaded snapshots, not just the generated summary fields.
 const packetRecordSchema = ListTrainingPacketsResponse.shape.data.element;
 const fullReportSchema = z.union([
-  packetRecordSchema.shape.report.options[0].passthrough(),
+  packetRecordSchema.shape.report.options[0].loose(),
   z.null(),
 ]);
 export const agencyPacketsEnvelope = ListTrainingPacketsResponse.extend({

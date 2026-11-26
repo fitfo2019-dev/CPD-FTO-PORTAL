@@ -3,21 +3,21 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import React, { act, createElement } from "react";
 import { JSDOM } from "jsdom";
-import { register } from "node:module";
+import { registerHooks } from "node:module";
 import { createDailyReportDraft } from "./daily-report-draft.js";
 import { createUiPreviewWorkspace } from "./empty-workspace.js";
 import { createFtoTestPacketWorkspace } from "./test-packet.js";
 
-register("data:text/javascript," + encodeURIComponent(
-  `export async function load(url,ctx,next){
+registerHooks({
+  load(url,ctx,next){
     const path=new URL(url).pathname;
-    if(/\\.(css|svg|png)$/.test(path))return {format:'module',shortCircuit:true,source:'export default ""'};
-    const loaded=await next(url,ctx);
+    if(/\.(css|svg|png)$/.test(path))return {format:'module',shortCircuit:true,source:'export default ""'};
+    const loaded=next(url,ctx);
     if(path.endsWith('/printable-columbus-header.tsx'))return {...loaded,
       source:String(loaded.source).replaceAll('import.meta.env.BASE_URL',JSON.stringify('/'))};
     return loaded;
-  }`,
-), import.meta.url);
+  },
+});
 
 test("saved run search keeps incident details and edit actions, and has a clear no-match state", async () => {
   const dom = new JSDOM("<!doctype html><div id='root'></div>", {

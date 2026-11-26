@@ -6,7 +6,7 @@ import { OperationalIdentitySnapshot } from "@workspace/api-zod/operational-prof
 // summary. Recursive bounds and required structure are checked by the router.
 export const CompletePacketReport = SyncTrainingPacketsBody.shape.packets.element.shape.report.extend({
   operationalIdentity: OperationalIdentitySnapshot.optional(),
-}).passthrough();
+}).loose();
 export const CompletePacketInput = SyncTrainingPacketsBody.extend({
   packets: SyncTrainingPacketsBody.shape.packets.element.extend({
     report: CompletePacketReport,

@@ -2,17 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { act, createElement } from 'react';
 import { JSDOM } from 'jsdom';
-import { register } from 'node:module';
+import { registerHooks } from 'node:module';
 import { seedReports } from './seed.js';
 import { createFtoTestPacketWorkspace } from './test-packet.js';
 
-register('data:text/javascript,' + encodeURIComponent(
-  `export async function load(url,ctx,next){
+registerHooks({
+  load(url,ctx,next){
     const path=new URL(url).pathname;
-    if(/\\.(css|svg|png)$/.test(path))return {format:'module',shortCircuit:true,source:'export default ""'};
+    if(/\.(css|svg|png)$/.test(path))return {format:'module',shortCircuit:true,source:'export default ""'};
     return next(url,ctx);
-  }`,
-), import.meta.url);
+  },
+});
 
 test('saved incident search links each cross-day result to its exact run without edit controls', async () => {
   const dom = new JSDOM('<!doctype html><div id="root"></div>', {

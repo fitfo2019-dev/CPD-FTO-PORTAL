@@ -24,7 +24,7 @@ export const GetOperationalProfileResponse = zod.object({
   "subject": zod.string(),
   "role": zod.enum(['FTO', 'PO']),
   "badge": zod.string(),
-  "version": zod.number().int().min(getOperationalProfileResponseVersionMin),
+  "version": zod.int().min(getOperationalProfileResponseVersionMin),
   "identity": zod.union([zod.object({
   "assignmentToken": zod.string().regex(getOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(getOperationalProfileResponseIdentityOneCruiserNumberRegExp).optional().describe('Legacy snapshot only; not a physical fleet number.'),
@@ -48,7 +48,7 @@ export const updateOperationalProfileBodyExpectedVersionMax = 2147483646;
 
 export const UpdateOperationalProfileBody = zod.object({
   "assignmentToken": zod.string().regex(updateOperationalProfileBodyAssignmentTokenRegExp),
-  "expectedVersion": zod.number().int().min(updateOperationalProfileBodyExpectedVersionMin).max(updateOperationalProfileBodyExpectedVersionMax)
+  "expectedVersion": zod.int().min(updateOperationalProfileBodyExpectedVersionMin).max(updateOperationalProfileBodyExpectedVersionMax)
 })
 
 export const updateOperationalProfileResponseVersionMin = 0;
@@ -64,7 +64,7 @@ export const UpdateOperationalProfileResponse = zod.object({
   "subject": zod.string(),
   "role": zod.enum(['FTO', 'PO']),
   "badge": zod.string(),
-  "version": zod.number().int().min(updateOperationalProfileResponseVersionMin),
+  "version": zod.int().min(updateOperationalProfileResponseVersionMin),
   "identity": zod.union([zod.object({
   "assignmentToken": zod.string().regex(updateOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(updateOperationalProfileResponseIdentityOneCruiserNumberRegExp).optional().describe('Legacy snapshot only; not a physical fleet number.'),
@@ -98,14 +98,14 @@ export const getOperationalProfileHistoryResponseEntriesMax = 50;
 export const GetOperationalProfileHistoryResponse = zod.object({
   "subject": zod.string(),
   "entries": zod.array(zod.object({
-  "version": zod.number().int().min(1),
+  "version": zod.int().min(1),
   "oldToken": zod.string().nullable(),
   "newToken": zod.string().nullable(),
   "recordedAt": zod.coerce.date(),
   "actor": zod.enum(['self', 'agency_migration']),
   "event": zod.enum(['created', 'changed', 'baseline', 'cleared'])
 })).max(getOperationalProfileHistoryResponseEntriesMax),
-  "nextBeforeVersion": zod.number().int().min(1).nullable()
+  "nextBeforeVersion": zod.int().min(1).nullable()
 })
 
 
@@ -115,7 +115,7 @@ export const clearOperationalProfileBodyExpectedVersionMax = 2147483646;
 
 
 export const ClearOperationalProfileBody = zod.object({
-  "expectedVersion": zod.number().int().min(clearOperationalProfileBodyExpectedVersionMin).max(clearOperationalProfileBodyExpectedVersionMax),
+  "expectedVersion": zod.int().min(clearOperationalProfileBodyExpectedVersionMin).max(clearOperationalProfileBodyExpectedVersionMax),
   "confirmedNoVehicle": zod.literal(true)
 })
 
@@ -132,7 +132,7 @@ export const ClearOperationalProfileResponse = zod.object({
   "subject": zod.string(),
   "role": zod.enum(['FTO', 'PO']),
   "badge": zod.string(),
-  "version": zod.number().int().min(clearOperationalProfileResponseVersionMin),
+  "version": zod.int().min(clearOperationalProfileResponseVersionMin),
   "identity": zod.union([zod.object({
   "assignmentToken": zod.string().regex(clearOperationalProfileResponseIdentityOneAssignmentTokenRegExp),
   "cruiserNumber": zod.string().regex(clearOperationalProfileResponseIdentityOneCruiserNumberRegExp).optional().describe('Legacy snapshot only; not a physical fleet number.'),
@@ -163,13 +163,13 @@ export const GetPacketReviewContextResponse = zod.object({
   "po_id": zod.string(),
   "po_badge": zod.string(),
   "coordinator_id": zod.string(),
-  "revision": zod.number().int().min(1)
+  "revision": zod.int().min(1)
 })),
-  "pending_count": zod.number().int().min(getPacketReviewContextResponsePendingCountMin),
+  "pending_count": zod.int().min(getPacketReviewContextResponsePendingCountMin),
   "pending": zod.union([zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "packet_id": zod.string(),
-  "packet_version": zod.number().int().min(1),
+  "packet_version": zod.int().min(1),
   "coordinator_id": zod.string(),
   "coordinator_name": zod.string(),
   "state": zod.enum(['submitted', 'acknowledged', 'approved', 'correction_requested', 'withdrawn']),
@@ -200,7 +200,7 @@ export const updatePacketCoordinatorBodyExpectedRevisionMin = 0;
 export const UpdatePacketCoordinatorBody = zod.object({
   "po_id": zod.string().min(1).max(updatePacketCoordinatorBodyPoIdMax),
   "coordinator_id": zod.string().min(1).max(updatePacketCoordinatorBodyCoordinatorIdMax),
-  "expected_revision": zod.number().int().min(updatePacketCoordinatorBodyExpectedRevisionMin)
+  "expected_revision": zod.int().min(updatePacketCoordinatorBodyExpectedRevisionMin)
 })
 
 
@@ -210,7 +210,7 @@ export const UpdatePacketCoordinatorResponse = zod.object({
   "po_id": zod.string(),
   "po_badge": zod.string(),
   "coordinator_id": zod.string(),
-  "revision": zod.number().int().min(1)
+  "revision": zod.int().min(1)
 })
 
 
@@ -230,9 +230,9 @@ export const listPacketSubmissionsResponseNextOffsetMin = 0;
 
 export const ListPacketSubmissionsResponse = zod.object({
   "items": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "packet_id": zod.string(),
-  "packet_version": zod.number().int().min(1),
+  "packet_version": zod.int().min(1),
   "coordinator_id": zod.string(),
   "coordinator_name": zod.string(),
   "state": zod.enum(['submitted', 'acknowledged', 'approved', 'correction_requested', 'withdrawn']),
@@ -250,12 +250,12 @@ export const ListPacketSubmissionsResponse = zod.object({
   "po_acknowledged_at": zod.string().nullable()
 })),
   "has_more": zod.boolean(),
-  "next_offset": zod.number().int().min(listPacketSubmissionsResponseNextOffsetMin)
+  "next_offset": zod.int().min(listPacketSubmissionsResponseNextOffsetMin)
 })
 
 
 export const GetPacketSubmissionParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 
@@ -370,9 +370,9 @@ export const getPacketSubmissionResponsePoTotalsOneUnacceptableDetailsMax = 1000
 
 export const GetPacketSubmissionResponse = zod.object({
   "submission": zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "packet_id": zod.string(),
-  "packet_version": zod.number().int().min(1),
+  "packet_version": zod.int().min(1),
   "coordinator_id": zod.string(),
   "coordinator_name": zod.string(),
   "state": zod.enum(['submitted', 'acknowledged', 'approved', 'correction_requested', 'withdrawn']),
@@ -392,14 +392,14 @@ export const GetPacketSubmissionResponse = zod.object({
   "report": zod.union([zod.object({
   "id": zod.string().min(1).max(getPacketSubmissionResponseReportOneIdMax).regex(getPacketSubmissionResponseReportOneIdRegExp),
   "date": zod.string().regex(getPacketSubmissionResponseReportOneDateRegExp),
-  "phase": zod.number().int().min(1).max(getPacketSubmissionResponseReportOnePhaseMax),
+  "phase": zod.int().min(1).max(getPacketSubmissionResponseReportOnePhaseMax),
   "className": zod.string().max(getPacketSubmissionResponseReportOneClassNameMax),
   "recruitName": zod.string().min(1).max(getPacketSubmissionResponseReportOneRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(getPacketSubmissionResponseReportOneRecruitBadgeMax),
   "ftoName": zod.string().min(1).max(getPacketSubmissionResponseReportOneFtoNameMax),
   "ftoBadge": zod.string().min(1).max(getPacketSubmissionResponseReportOneFtoBadgeMax),
   "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(getPacketSubmissionResponseReportOneRunsMax),
-  "activity": zod.record(zod.string(), zod.number().int().min(getPacketSubmissionResponseReportOneActivityMinOne)),
+  "activity": zod.record(zod.string(), zod.int().min(getPacketSubmissionResponseReportOneActivityMinOne)),
   "reportingForDuty": zod.record(zod.string(), zod.unknown()),
   "ratings": zod.record(zod.string(), zod.unknown()),
   "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
@@ -419,50 +419,50 @@ export const GetPacketSubmissionResponse = zod.object({
   "daily": zod.object({
   "start_date": zod.string().regex(getPacketSubmissionResponsePoTotalsOneDailyStartDateRegExp),
   "end_date": zod.string().regex(getPacketSubmissionResponsePoTotalsOneDailyEndDateRegExp),
-  "log_count": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyActivityMinOne)),
+  "log_count": zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyLogCountMin),
+  "reviewed_log_count": zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsNOMin),
-  "A": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsAMin),
-  "RT": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsRTMin),
-  "UA": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsUAMin),
-  "NRT": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsNRTMin)
+  "NO": zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsNOMin),
+  "A": zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsAMin),
+  "RT": zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsRTMin),
+  "UA": zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsUAMin),
+  "NRT": zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneDailyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(getPacketSubmissionResponsePoTotalsOneDailyTotalRunsMin)
 }),
   "weekly": zod.object({
   "start_date": zod.string().regex(getPacketSubmissionResponsePoTotalsOneWeeklyStartDateRegExp),
   "end_date": zod.string().regex(getPacketSubmissionResponsePoTotalsOneWeeklyEndDateRegExp),
-  "log_count": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyActivityMinOne)),
+  "log_count": zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyLogCountMin),
+  "reviewed_log_count": zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsNOMin),
-  "A": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsAMin),
-  "RT": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsRTMin),
-  "UA": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsUAMin),
-  "NRT": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsNRTMin)
+  "NO": zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsNOMin),
+  "A": zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsAMin),
+  "RT": zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsRTMin),
+  "UA": zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsUAMin),
+  "NRT": zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneWeeklyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(getPacketSubmissionResponsePoTotalsOneWeeklyTotalRunsMin)
 }),
   "monthly": zod.object({
   "start_date": zod.string().regex(getPacketSubmissionResponsePoTotalsOneMonthlyStartDateRegExp),
   "end_date": zod.string().regex(getPacketSubmissionResponsePoTotalsOneMonthlyEndDateRegExp),
-  "log_count": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyActivityMinOne)),
+  "log_count": zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyLogCountMin),
+  "reviewed_log_count": zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsNOMin),
-  "A": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsAMin),
-  "RT": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsRTMin),
-  "UA": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsUAMin),
-  "NRT": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsNRTMin)
+  "NO": zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsNOMin),
+  "A": zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsAMin),
+  "RT": zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsRTMin),
+  "UA": zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsUAMin),
+  "NRT": zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(getPacketSubmissionResponsePoTotalsOneMonthlyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(getPacketSubmissionResponsePoTotalsOneMonthlyTotalRunsMin)
 }),
   "unacceptable_details": zod.array(zod.object({
   "record_date": zod.string().regex(getPacketSubmissionResponsePoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
@@ -480,7 +480,7 @@ export const GetPacketSubmissionResponse = zod.object({
 
 
 export const ActOnPacketSubmissionParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 export const actOnPacketSubmissionBodyNoteMax = 5000;
@@ -488,7 +488,7 @@ export const actOnPacketSubmissionBodyNoteMax = 5000;
 
 
 export const ActOnPacketSubmissionBody = zod.object({
-  "operation_id": zod.string().uuid(),
+  "operation_id": zod.uuid(),
   "action": zod.enum(['review_totals', 'acknowledge', 'approve', 'return']),
   "note": zod.string().max(actOnPacketSubmissionBodyNoteMax)
 })
@@ -497,9 +497,9 @@ export const ActOnPacketSubmissionBody = zod.object({
 
 
 export const ActOnPacketSubmissionResponse = zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "packet_id": zod.string(),
-  "packet_version": zod.number().int().min(1),
+  "packet_version": zod.int().min(1),
   "coordinator_id": zod.string(),
   "coordinator_name": zod.string(),
   "state": zod.enum(['submitted', 'acknowledged', 'approved', 'correction_requested', 'withdrawn']),
@@ -535,9 +535,9 @@ export const GetAssignmentTransitionContextResponse = zod.object({
   "available": zod.boolean(),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR']),
   "assignments": zod.array(zod.object({
-  "id": zod.string().uuid(),
+  "id": zod.uuid(),
   "class_name": zod.string(),
-  "phase": zod.number().int().min(1).max(getAssignmentTransitionContextResponseAssignmentsItemPhaseMax),
+  "phase": zod.int().min(1).max(getAssignmentTransitionContextResponseAssignmentsItemPhaseMax),
   "fto_name": zod.string(),
   "fto_badge": zod.string(),
   "po_name": zod.string(),
@@ -552,15 +552,15 @@ export const GetAssignmentTransitionContextResponse = zod.object({
   "fto_badge": zod.string()
 })),
   "transitions": zod.array(zod.object({
-  "operation_id": zod.string().uuid(),
+  "operation_id": zod.uuid(),
   "occurred_at": zod.coerce.date(),
   "class_name": zod.string(),
   "po_name": zod.string(),
   "po_badge": zod.string(),
-  "previous_assignment_id": zod.string().uuid(),
-  "successor_assignment_id": zod.string().uuid(),
-  "previous_phase": zod.number().int().min(1).max(getAssignmentTransitionContextResponseTransitionsItemPreviousPhaseMax),
-  "successor_phase": zod.number().int().min(1).max(getAssignmentTransitionContextResponseTransitionsItemSuccessorPhaseMax),
+  "previous_assignment_id": zod.uuid(),
+  "successor_assignment_id": zod.uuid(),
+  "previous_phase": zod.int().min(1).max(getAssignmentTransitionContextResponseTransitionsItemPreviousPhaseMax),
+  "successor_phase": zod.int().min(1).max(getAssignmentTransitionContextResponseTransitionsItemSuccessorPhaseMax),
   "previous_fto_name": zod.string(),
   "previous_fto_badge": zod.string(),
   "successor_fto_name": zod.string(),
@@ -603,15 +603,15 @@ export const getAssignmentTransitionHistoryResponseNextCursorMax = 256;
 
 export const GetAssignmentTransitionHistoryResponse = zod.object({
   "transitions": zod.array(zod.object({
-  "operation_id": zod.string().uuid(),
+  "operation_id": zod.uuid(),
   "occurred_at": zod.coerce.date(),
   "class_name": zod.string(),
   "po_name": zod.string(),
   "po_badge": zod.string(),
-  "previous_assignment_id": zod.string().uuid(),
-  "successor_assignment_id": zod.string().uuid(),
-  "previous_phase": zod.number().int().min(1).max(getAssignmentTransitionHistoryResponseTransitionsItemPreviousPhaseMax),
-  "successor_phase": zod.number().int().min(1).max(getAssignmentTransitionHistoryResponseTransitionsItemSuccessorPhaseMax),
+  "previous_assignment_id": zod.uuid(),
+  "successor_assignment_id": zod.uuid(),
+  "previous_phase": zod.int().min(1).max(getAssignmentTransitionHistoryResponseTransitionsItemPreviousPhaseMax),
+  "successor_phase": zod.int().min(1).max(getAssignmentTransitionHistoryResponseTransitionsItemSuccessorPhaseMax),
   "previous_fto_name": zod.string(),
   "previous_fto_badge": zod.string(),
   "successor_fto_name": zod.string(),
@@ -633,10 +633,10 @@ export const createSuccessorAssignmentBodyEndsOnRegExp = new RegExp('^\\d{4}-\\d
 
 
 export const CreateSuccessorAssignmentBody = zod.object({
-  "operation_id": zod.string().uuid(),
-  "previous_assignment_id": zod.string().uuid(),
+  "operation_id": zod.uuid(),
+  "previous_assignment_id": zod.uuid(),
   "fto_id": zod.string().min(1).max(createSuccessorAssignmentBodyFtoIdMax),
-  "phase": zod.number().int().min(1).max(createSuccessorAssignmentBodyPhaseMax),
+  "phase": zod.int().min(1).max(createSuccessorAssignmentBodyPhaseMax),
   "starts_on": zod.string().regex(createSuccessorAssignmentBodyStartsOnRegExp),
   "ends_on": zod.string().regex(createSuccessorAssignmentBodyEndsOnRegExp)
 })
@@ -659,15 +659,15 @@ export const CreateSuccessorAssignmentResponse = zod.object({
   "role": zod.enum(['FTO_COORDINATOR'])
 }),
   "data": zod.array(zod.object({
-  "operation_id": zod.string().uuid(),
+  "operation_id": zod.uuid(),
   "occurred_at": zod.coerce.date(),
   "class_name": zod.string(),
   "po_name": zod.string(),
   "po_badge": zod.string(),
-  "previous_assignment_id": zod.string().uuid(),
-  "successor_assignment_id": zod.string().uuid(),
-  "previous_phase": zod.number().int().min(1).max(createSuccessorAssignmentResponseDataItemPreviousPhaseMax),
-  "successor_phase": zod.number().int().min(1).max(createSuccessorAssignmentResponseDataItemSuccessorPhaseMax),
+  "previous_assignment_id": zod.uuid(),
+  "successor_assignment_id": zod.uuid(),
+  "previous_phase": zod.int().min(1).max(createSuccessorAssignmentResponseDataItemPreviousPhaseMax),
+  "successor_phase": zod.int().min(1).max(createSuccessorAssignmentResponseDataItemSuccessorPhaseMax),
   "previous_fto_name": zod.string(),
   "previous_fto_badge": zod.string(),
   "successor_fto_name": zod.string(),
@@ -699,18 +699,18 @@ export const listStagingTrainingRecordsResponseDataMax = 100;
 export const ListStagingTrainingRecordsResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(listStagingTrainingRecordsResponseMetadataTotalRecordsMin).max(listStagingTrainingRecordsResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(listStagingTrainingRecordsResponseMetadataTotalRecordsMin).max(listStagingTrainingRecordsResponseMetadataTotalRecordsMax),
   "environment": zod.enum(['SYNTHETIC_STAGING'])
 }),
   "data": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "assignment_id": zod.string().uuid(),
+  "id": zod.uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string(),
-  "phase": zod.number().int().min(1).max(listStagingTrainingRecordsResponseDataItemPhaseMax),
+  "phase": zod.int().min(1).max(listStagingTrainingRecordsResponseDataItemPhaseMax),
   "narrative": zod.string().max(listStagingTrainingRecordsResponseDataItemNarrativeMax),
   "status": zod.enum(['draft', 'submitted']),
-  "version": zod.number().int().min(1),
-  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "version": zod.int().min(1),
+  "acknowledged_version": zod.int().min(1).nullable(),
   "synthetic": zod.literal(true)
 })).max(listStagingTrainingRecordsResponseDataMax)
 })
@@ -725,8 +725,8 @@ export const createStagingTrainingRecordBodyNarrativeMax = 4000;
 
 
 export const CreateStagingTrainingRecordBody = zod.object({
-  "operation_id": zod.string().uuid(),
-  "assignment_id": zod.string().uuid(),
+  "operation_id": zod.uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string().regex(createStagingTrainingRecordBodyRecordDateRegExp),
   "narrative": zod.string().max(createStagingTrainingRecordBodyNarrativeMax),
   "status": zod.enum(['draft', 'submitted']),
@@ -749,18 +749,18 @@ export const createStagingTrainingRecordResponseDataMax = 100;
 export const CreateStagingTrainingRecordResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(createStagingTrainingRecordResponseMetadataTotalRecordsMin).max(createStagingTrainingRecordResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(createStagingTrainingRecordResponseMetadataTotalRecordsMin).max(createStagingTrainingRecordResponseMetadataTotalRecordsMax),
   "environment": zod.enum(['SYNTHETIC_STAGING'])
 }),
   "data": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "assignment_id": zod.string().uuid(),
+  "id": zod.uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string(),
-  "phase": zod.number().int().min(1).max(createStagingTrainingRecordResponseDataItemPhaseMax),
+  "phase": zod.int().min(1).max(createStagingTrainingRecordResponseDataItemPhaseMax),
   "narrative": zod.string().max(createStagingTrainingRecordResponseDataItemNarrativeMax),
   "status": zod.enum(['draft', 'submitted']),
-  "version": zod.number().int().min(1),
-  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "version": zod.int().min(1),
+  "acknowledged_version": zod.int().min(1).nullable(),
   "synthetic": zod.literal(true)
 })).max(createStagingTrainingRecordResponseDataMax)
 })
@@ -770,7 +770,7 @@ export const CreateStagingTrainingRecordResponse = zod.object({
  * @summary Read one authorized synthetic record
  */
 export const GetStagingTrainingRecordParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 export const getStagingTrainingRecordResponseMetadataTotalRecordsMin = 0;
@@ -789,18 +789,18 @@ export const getStagingTrainingRecordResponseDataMax = 100;
 export const GetStagingTrainingRecordResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(getStagingTrainingRecordResponseMetadataTotalRecordsMin).max(getStagingTrainingRecordResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(getStagingTrainingRecordResponseMetadataTotalRecordsMin).max(getStagingTrainingRecordResponseMetadataTotalRecordsMax),
   "environment": zod.enum(['SYNTHETIC_STAGING'])
 }),
   "data": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "assignment_id": zod.string().uuid(),
+  "id": zod.uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string(),
-  "phase": zod.number().int().min(1).max(getStagingTrainingRecordResponseDataItemPhaseMax),
+  "phase": zod.int().min(1).max(getStagingTrainingRecordResponseDataItemPhaseMax),
   "narrative": zod.string().max(getStagingTrainingRecordResponseDataItemNarrativeMax),
   "status": zod.enum(['draft', 'submitted']),
-  "version": zod.number().int().min(1),
-  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "version": zod.int().min(1),
+  "acknowledged_version": zod.int().min(1).nullable(),
   "synthetic": zod.literal(true)
 })).max(getStagingTrainingRecordResponseDataMax)
 })
@@ -810,7 +810,7 @@ export const GetStagingTrainingRecordResponse = zod.object({
  * @summary Version-checked FTO synthetic record update
  */
 export const UpdateStagingTrainingRecordParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 
@@ -819,8 +819,8 @@ export const updateStagingTrainingRecordBodyNarrativeMax = 4000;
 
 
 export const UpdateStagingTrainingRecordBody = zod.object({
-  "operation_id": zod.string().uuid(),
-  "base_version": zod.number().int().min(1),
+  "operation_id": zod.uuid(),
+  "base_version": zod.int().min(1),
   "narrative": zod.string().max(updateStagingTrainingRecordBodyNarrativeMax),
   "status": zod.enum(['draft', 'submitted']),
   "synthetic": zod.literal(true)
@@ -842,18 +842,18 @@ export const updateStagingTrainingRecordResponseDataMax = 100;
 export const UpdateStagingTrainingRecordResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(updateStagingTrainingRecordResponseMetadataTotalRecordsMin).max(updateStagingTrainingRecordResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(updateStagingTrainingRecordResponseMetadataTotalRecordsMin).max(updateStagingTrainingRecordResponseMetadataTotalRecordsMax),
   "environment": zod.enum(['SYNTHETIC_STAGING'])
 }),
   "data": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "assignment_id": zod.string().uuid(),
+  "id": zod.uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string(),
-  "phase": zod.number().int().min(1).max(updateStagingTrainingRecordResponseDataItemPhaseMax),
+  "phase": zod.int().min(1).max(updateStagingTrainingRecordResponseDataItemPhaseMax),
   "narrative": zod.string().max(updateStagingTrainingRecordResponseDataItemNarrativeMax),
   "status": zod.enum(['draft', 'submitted']),
-  "version": zod.number().int().min(1),
-  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "version": zod.int().min(1),
+  "acknowledged_version": zod.int().min(1).nullable(),
   "synthetic": zod.literal(true)
 })).max(updateStagingTrainingRecordResponseDataMax)
 })
@@ -863,15 +863,15 @@ export const UpdateStagingTrainingRecordResponse = zod.object({
  * @summary PO acknowledges their own submitted synthetic record version
  */
 export const AcknowledgeStagingTrainingRecordParams = zod.object({
-  "id": zod.string().uuid()
+  "id": zod.uuid()
 })
 
 
 
 
 export const AcknowledgeStagingTrainingRecordBody = zod.object({
-  "operation_id": zod.string().uuid(),
-  "base_version": zod.number().int().min(1),
+  "operation_id": zod.uuid(),
+  "base_version": zod.int().min(1),
   "acknowledged": zod.literal(true)
 })
 
@@ -891,18 +891,18 @@ export const acknowledgeStagingTrainingRecordResponseDataMax = 100;
 export const AcknowledgeStagingTrainingRecordResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(acknowledgeStagingTrainingRecordResponseMetadataTotalRecordsMin).max(acknowledgeStagingTrainingRecordResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(acknowledgeStagingTrainingRecordResponseMetadataTotalRecordsMin).max(acknowledgeStagingTrainingRecordResponseMetadataTotalRecordsMax),
   "environment": zod.enum(['SYNTHETIC_STAGING'])
 }),
   "data": zod.array(zod.object({
-  "id": zod.string().uuid(),
-  "assignment_id": zod.string().uuid(),
+  "id": zod.uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string(),
-  "phase": zod.number().int().min(1).max(acknowledgeStagingTrainingRecordResponseDataItemPhaseMax),
+  "phase": zod.int().min(1).max(acknowledgeStagingTrainingRecordResponseDataItemPhaseMax),
   "narrative": zod.string().max(acknowledgeStagingTrainingRecordResponseDataItemNarrativeMax),
   "status": zod.enum(['draft', 'submitted']),
-  "version": zod.number().int().min(1),
-  "acknowledged_version": zod.number().int().min(1).nullable(),
+  "version": zod.int().min(1),
+  "acknowledged_version": zod.int().min(1).nullable(),
   "synthetic": zod.literal(true)
 })).max(acknowledgeStagingTrainingRecordResponseDataMax)
 })
@@ -1579,7 +1579,7 @@ export const listSecureRecordsResponseDataMax = 1000;
 export const ListSecureRecordsResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(listSecureRecordsResponseMetadataTotalRecordsMin)
+  "total_records": zod.int().min(listSecureRecordsResponseMetadataTotalRecordsMin)
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(listSecureRecordsResponseDataItemIdMax).regex(listSecureRecordsResponseDataItemIdRegExp),
@@ -1737,30 +1737,30 @@ export const listTrainingPacketsResponseDataMax = 100;
 export const ListTrainingPacketsResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(listTrainingPacketsResponseMetadataTotalRecordsMin).max(listTrainingPacketsResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(listTrainingPacketsResponseMetadataTotalRecordsMin).max(listTrainingPacketsResponseMetadataTotalRecordsMax),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(listTrainingPacketsResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(listTrainingPacketsResponseDataItemIdMax),
-  "assignment_id": zod.string().uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string().regex(listTrainingPacketsResponseDataItemRecordDateRegExp),
-  "phase": zod.number().int().min(1).max(listTrainingPacketsResponseDataItemPhaseMax),
-  "server_version": zod.number().int().min(1),
+  "phase": zod.int().min(1).max(listTrainingPacketsResponseDataItemPhaseMax),
+  "server_version": zod.int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "handoff_status": zod.enum(['draft', 'awaiting_po_totals_review', 'awaiting_coordinator_receipt', 'coordinator_review', 'correction_requested', 'awaiting_po_release', 'awaiting_po_acknowledgment', 'po_acknowledged', 'withdrawn']),
   "report": zod.union([zod.object({
   "id": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportOneIdMax).regex(listTrainingPacketsResponseDataItemReportOneIdRegExp),
   "date": zod.string().regex(listTrainingPacketsResponseDataItemReportOneDateRegExp),
-  "phase": zod.number().int().min(1).max(listTrainingPacketsResponseDataItemReportOnePhaseMax),
+  "phase": zod.int().min(1).max(listTrainingPacketsResponseDataItemReportOnePhaseMax),
   "className": zod.string().max(listTrainingPacketsResponseDataItemReportOneClassNameMax),
   "recruitName": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportOneRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportOneRecruitBadgeMax),
   "ftoName": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportOneFtoNameMax),
   "ftoBadge": zod.string().min(1).max(listTrainingPacketsResponseDataItemReportOneFtoBadgeMax),
   "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(listTrainingPacketsResponseDataItemReportOneRunsMax),
-  "activity": zod.record(zod.string(), zod.number().int().min(listTrainingPacketsResponseDataItemReportOneActivityMinOne)),
+  "activity": zod.record(zod.string(), zod.int().min(listTrainingPacketsResponseDataItemReportOneActivityMinOne)),
   "reportingForDuty": zod.record(zod.string(), zod.unknown()),
   "ratings": zod.record(zod.string(), zod.unknown()),
   "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
@@ -1780,50 +1780,50 @@ export const ListTrainingPacketsResponse = zod.object({
   "daily": zod.object({
   "start_date": zod.string().regex(listTrainingPacketsResponseDataItemPoTotalsOneDailyStartDateRegExp),
   "end_date": zod.string().regex(listTrainingPacketsResponseDataItemPoTotalsOneDailyEndDateRegExp),
-  "log_count": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyActivityMinOne)),
+  "log_count": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyLogCountMin),
+  "reviewed_log_count": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
-  "A": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsAMin),
-  "RT": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
-  "UA": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
-  "NRT": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
+  "NO": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
+  "A": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsAMin),
+  "RT": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
+  "UA": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
+  "NRT": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneDailyTotalRunsMin)
 }),
   "weekly": zod.object({
   "start_date": zod.string().regex(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyStartDateRegExp),
   "end_date": zod.string().regex(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyEndDateRegExp),
-  "log_count": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
+  "log_count": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyLogCountMin),
+  "reviewed_log_count": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
-  "A": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
-  "RT": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
-  "UA": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
-  "NRT": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
+  "NO": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
+  "A": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
+  "RT": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
+  "UA": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
+  "NRT": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
 }),
   "monthly": zod.object({
   "start_date": zod.string().regex(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyStartDateRegExp),
   "end_date": zod.string().regex(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyEndDateRegExp),
-  "log_count": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
+  "log_count": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyLogCountMin),
+  "reviewed_log_count": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
-  "A": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
-  "RT": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
-  "UA": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
-  "NRT": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
+  "NO": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
+  "A": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
+  "RT": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
+  "UA": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
+  "NRT": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(listTrainingPacketsResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
 }),
   "unacceptable_details": zod.array(zod.object({
   "record_date": zod.string().regex(listTrainingPacketsResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
@@ -1917,21 +1917,21 @@ export const syncTrainingPacketsBodyPacketsMax = 100;
 
 export const SyncTrainingPacketsBody = zod.object({
   "packets": zod.array(zod.object({
-  "operation_id": zod.string().uuid(),
-  "base_version": zod.number().int().min(syncTrainingPacketsBodyPacketsItemBaseVersionMin),
+  "operation_id": zod.uuid(),
+  "base_version": zod.int().min(syncTrainingPacketsBodyPacketsItemBaseVersionMin),
   "amendment_of": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemAmendmentOfMax).regex(syncTrainingPacketsBodyPacketsItemAmendmentOfRegExp).optional(),
   "amendment_reason": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemAmendmentReasonMax).optional(),
   "report": zod.object({
   "id": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportIdMax).regex(syncTrainingPacketsBodyPacketsItemReportIdRegExp),
   "date": zod.string().regex(syncTrainingPacketsBodyPacketsItemReportDateRegExp),
-  "phase": zod.number().int().min(1).max(syncTrainingPacketsBodyPacketsItemReportPhaseMax),
+  "phase": zod.int().min(1).max(syncTrainingPacketsBodyPacketsItemReportPhaseMax),
   "className": zod.string().max(syncTrainingPacketsBodyPacketsItemReportClassNameMax),
   "recruitName": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportRecruitBadgeMax),
   "ftoName": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportFtoNameMax),
   "ftoBadge": zod.string().min(1).max(syncTrainingPacketsBodyPacketsItemReportFtoBadgeMax),
   "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(syncTrainingPacketsBodyPacketsItemReportRunsMax),
-  "activity": zod.record(zod.string(), zod.number().int().min(syncTrainingPacketsBodyPacketsItemReportActivityMinOne)),
+  "activity": zod.record(zod.string(), zod.int().min(syncTrainingPacketsBodyPacketsItemReportActivityMinOne)),
   "reportingForDuty": zod.record(zod.string(), zod.unknown()),
   "ratings": zod.record(zod.string(), zod.unknown()),
   "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
@@ -1964,13 +1964,13 @@ export const syncTrainingPacketsResponseDataMax = 100;
 export const SyncTrainingPacketsResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(syncTrainingPacketsResponseMetadataTotalRecordsMin).max(syncTrainingPacketsResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(syncTrainingPacketsResponseMetadataTotalRecordsMin).max(syncTrainingPacketsResponseMetadataTotalRecordsMax),
   "role": zod.enum(['FTO'])
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(syncTrainingPacketsResponseDataItemIdMax),
-  "operation_id": zod.string().uuid(),
-  "server_version": zod.number().int().min(1),
+  "operation_id": zod.uuid(),
+  "server_version": zod.int().min(1),
   "sync_status": zod.enum(['local_draft_pending']),
   "content_hash": zod.string().regex(syncTrainingPacketsResponseDataItemContentHashRegExp)
 })).max(syncTrainingPacketsResponseDataMax)
@@ -1994,7 +1994,7 @@ export const releaseTrainingPacketBodyContentHashRegExp = new RegExp('^[a-f0-9]{
 
 
 export const ReleaseTrainingPacketBody = zod.object({
-  "operation_id": zod.string().uuid(),
+  "operation_id": zod.uuid(),
   "content_hash": zod.string().regex(releaseTrainingPacketBodyContentHashRegExp),
   "review_confirmed": zod.literal(true)
 })
@@ -2128,30 +2128,30 @@ export const releaseTrainingPacketResponseDataMax = 100;
 export const ReleaseTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(releaseTrainingPacketResponseMetadataTotalRecordsMin).max(releaseTrainingPacketResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(releaseTrainingPacketResponseMetadataTotalRecordsMin).max(releaseTrainingPacketResponseMetadataTotalRecordsMax),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(releaseTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(releaseTrainingPacketResponseDataItemIdMax),
-  "assignment_id": zod.string().uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string().regex(releaseTrainingPacketResponseDataItemRecordDateRegExp),
-  "phase": zod.number().int().min(1).max(releaseTrainingPacketResponseDataItemPhaseMax),
-  "server_version": zod.number().int().min(1),
+  "phase": zod.int().min(1).max(releaseTrainingPacketResponseDataItemPhaseMax),
+  "server_version": zod.int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "handoff_status": zod.enum(['draft', 'awaiting_po_totals_review', 'awaiting_coordinator_receipt', 'coordinator_review', 'correction_requested', 'awaiting_po_release', 'awaiting_po_acknowledgment', 'po_acknowledged', 'withdrawn']),
   "report": zod.union([zod.object({
   "id": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportOneIdMax).regex(releaseTrainingPacketResponseDataItemReportOneIdRegExp),
   "date": zod.string().regex(releaseTrainingPacketResponseDataItemReportOneDateRegExp),
-  "phase": zod.number().int().min(1).max(releaseTrainingPacketResponseDataItemReportOnePhaseMax),
+  "phase": zod.int().min(1).max(releaseTrainingPacketResponseDataItemReportOnePhaseMax),
   "className": zod.string().max(releaseTrainingPacketResponseDataItemReportOneClassNameMax),
   "recruitName": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportOneRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportOneRecruitBadgeMax),
   "ftoName": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportOneFtoNameMax),
   "ftoBadge": zod.string().min(1).max(releaseTrainingPacketResponseDataItemReportOneFtoBadgeMax),
   "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(releaseTrainingPacketResponseDataItemReportOneRunsMax),
-  "activity": zod.record(zod.string(), zod.number().int().min(releaseTrainingPacketResponseDataItemReportOneActivityMinOne)),
+  "activity": zod.record(zod.string(), zod.int().min(releaseTrainingPacketResponseDataItemReportOneActivityMinOne)),
   "reportingForDuty": zod.record(zod.string(), zod.unknown()),
   "ratings": zod.record(zod.string(), zod.unknown()),
   "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
@@ -2171,50 +2171,50 @@ export const ReleaseTrainingPacketResponse = zod.object({
   "daily": zod.object({
   "start_date": zod.string().regex(releaseTrainingPacketResponseDataItemPoTotalsOneDailyStartDateRegExp),
   "end_date": zod.string().regex(releaseTrainingPacketResponseDataItemPoTotalsOneDailyEndDateRegExp),
-  "log_count": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyActivityMinOne)),
+  "log_count": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyLogCountMin),
+  "reviewed_log_count": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
-  "A": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsAMin),
-  "RT": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
-  "UA": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
-  "NRT": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
+  "NO": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
+  "A": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsAMin),
+  "RT": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
+  "UA": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
+  "NRT": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneDailyTotalRunsMin)
 }),
   "weekly": zod.object({
   "start_date": zod.string().regex(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyStartDateRegExp),
   "end_date": zod.string().regex(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyEndDateRegExp),
-  "log_count": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
+  "log_count": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyLogCountMin),
+  "reviewed_log_count": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
-  "A": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
-  "RT": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
-  "UA": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
-  "NRT": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
+  "NO": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
+  "A": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
+  "RT": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
+  "UA": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
+  "NRT": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
 }),
   "monthly": zod.object({
   "start_date": zod.string().regex(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyStartDateRegExp),
   "end_date": zod.string().regex(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyEndDateRegExp),
-  "log_count": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
+  "log_count": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyLogCountMin),
+  "reviewed_log_count": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
-  "A": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
-  "RT": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
-  "UA": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
-  "NRT": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
+  "NO": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
+  "A": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
+  "RT": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
+  "UA": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
+  "NRT": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(releaseTrainingPacketResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
 }),
   "unacceptable_details": zod.array(zod.object({
   "record_date": zod.string().regex(releaseTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
@@ -2258,7 +2258,7 @@ export const acknowledgeTrainingPacketBodyCommentsMax = 4000;
 
 
 export const AcknowledgeTrainingPacketBody = zod.object({
-  "operation_id": zod.string().uuid(),
+  "operation_id": zod.uuid(),
   "content_hash": zod.string().regex(acknowledgeTrainingPacketBodyContentHashRegExp),
   "review_confirmed": zod.literal(true),
   "comments": zod.string().max(acknowledgeTrainingPacketBodyCommentsMax).optional()
@@ -2393,30 +2393,30 @@ export const acknowledgeTrainingPacketResponseDataMax = 100;
 export const AcknowledgeTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(acknowledgeTrainingPacketResponseMetadataTotalRecordsMin).max(acknowledgeTrainingPacketResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(acknowledgeTrainingPacketResponseMetadataTotalRecordsMin).max(acknowledgeTrainingPacketResponseMetadataTotalRecordsMax),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(acknowledgeTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemIdMax),
-  "assignment_id": zod.string().uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemRecordDateRegExp),
-  "phase": zod.number().int().min(1).max(acknowledgeTrainingPacketResponseDataItemPhaseMax),
-  "server_version": zod.number().int().min(1),
+  "phase": zod.int().min(1).max(acknowledgeTrainingPacketResponseDataItemPhaseMax),
+  "server_version": zod.int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "handoff_status": zod.enum(['draft', 'awaiting_po_totals_review', 'awaiting_coordinator_receipt', 'coordinator_review', 'correction_requested', 'awaiting_po_release', 'awaiting_po_acknowledgment', 'po_acknowledged', 'withdrawn']),
   "report": zod.union([zod.object({
   "id": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportOneIdMax).regex(acknowledgeTrainingPacketResponseDataItemReportOneIdRegExp),
   "date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemReportOneDateRegExp),
-  "phase": zod.number().int().min(1).max(acknowledgeTrainingPacketResponseDataItemReportOnePhaseMax),
+  "phase": zod.int().min(1).max(acknowledgeTrainingPacketResponseDataItemReportOnePhaseMax),
   "className": zod.string().max(acknowledgeTrainingPacketResponseDataItemReportOneClassNameMax),
   "recruitName": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportOneRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportOneRecruitBadgeMax),
   "ftoName": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportOneFtoNameMax),
   "ftoBadge": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemReportOneFtoBadgeMax),
   "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(acknowledgeTrainingPacketResponseDataItemReportOneRunsMax),
-  "activity": zod.record(zod.string(), zod.number().int().min(acknowledgeTrainingPacketResponseDataItemReportOneActivityMinOne)),
+  "activity": zod.record(zod.string(), zod.int().min(acknowledgeTrainingPacketResponseDataItemReportOneActivityMinOne)),
   "reportingForDuty": zod.record(zod.string(), zod.unknown()),
   "ratings": zod.record(zod.string(), zod.unknown()),
   "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
@@ -2436,50 +2436,50 @@ export const AcknowledgeTrainingPacketResponse = zod.object({
   "daily": zod.object({
   "start_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyStartDateRegExp),
   "end_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyEndDateRegExp),
-  "log_count": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyActivityMinOne)),
+  "log_count": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyLogCountMin),
+  "reviewed_log_count": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
-  "A": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsAMin),
-  "RT": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
-  "UA": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
-  "NRT": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
+  "NO": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
+  "A": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsAMin),
+  "RT": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
+  "UA": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
+  "NRT": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneDailyTotalRunsMin)
 }),
   "weekly": zod.object({
   "start_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyStartDateRegExp),
   "end_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyEndDateRegExp),
-  "log_count": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
+  "log_count": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyLogCountMin),
+  "reviewed_log_count": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
-  "A": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
-  "RT": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
-  "UA": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
-  "NRT": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
+  "NO": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
+  "A": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
+  "RT": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
+  "UA": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
+  "NRT": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
 }),
   "monthly": zod.object({
   "start_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyStartDateRegExp),
   "end_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyEndDateRegExp),
-  "log_count": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
+  "log_count": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyLogCountMin),
+  "reviewed_log_count": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
-  "A": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
-  "RT": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
-  "UA": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
-  "NRT": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
+  "NO": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
+  "A": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
+  "RT": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
+  "UA": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
+  "NRT": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(acknowledgeTrainingPacketResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
 }),
   "unacceptable_details": zod.array(zod.object({
   "record_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
@@ -2523,7 +2523,7 @@ export const withdrawTrainingPacketBodyReasonMax = 4000;
 
 
 export const WithdrawTrainingPacketBody = zod.object({
-  "operation_id": zod.string().uuid(),
+  "operation_id": zod.uuid(),
   "content_hash": zod.string().regex(withdrawTrainingPacketBodyContentHashRegExp),
   "reason": zod.string().min(1).max(withdrawTrainingPacketBodyReasonMax)
 })
@@ -2657,30 +2657,30 @@ export const withdrawTrainingPacketResponseDataMax = 100;
 export const WithdrawTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(withdrawTrainingPacketResponseMetadataTotalRecordsMin).max(withdrawTrainingPacketResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(withdrawTrainingPacketResponseMetadataTotalRecordsMin).max(withdrawTrainingPacketResponseMetadataTotalRecordsMax),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(withdrawTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemIdMax),
-  "assignment_id": zod.string().uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string().regex(withdrawTrainingPacketResponseDataItemRecordDateRegExp),
-  "phase": zod.number().int().min(1).max(withdrawTrainingPacketResponseDataItemPhaseMax),
-  "server_version": zod.number().int().min(1),
+  "phase": zod.int().min(1).max(withdrawTrainingPacketResponseDataItemPhaseMax),
+  "server_version": zod.int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "handoff_status": zod.enum(['draft', 'awaiting_po_totals_review', 'awaiting_coordinator_receipt', 'coordinator_review', 'correction_requested', 'awaiting_po_release', 'awaiting_po_acknowledgment', 'po_acknowledged', 'withdrawn']),
   "report": zod.union([zod.object({
   "id": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportOneIdMax).regex(withdrawTrainingPacketResponseDataItemReportOneIdRegExp),
   "date": zod.string().regex(withdrawTrainingPacketResponseDataItemReportOneDateRegExp),
-  "phase": zod.number().int().min(1).max(withdrawTrainingPacketResponseDataItemReportOnePhaseMax),
+  "phase": zod.int().min(1).max(withdrawTrainingPacketResponseDataItemReportOnePhaseMax),
   "className": zod.string().max(withdrawTrainingPacketResponseDataItemReportOneClassNameMax),
   "recruitName": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportOneRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportOneRecruitBadgeMax),
   "ftoName": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportOneFtoNameMax),
   "ftoBadge": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemReportOneFtoBadgeMax),
   "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(withdrawTrainingPacketResponseDataItemReportOneRunsMax),
-  "activity": zod.record(zod.string(), zod.number().int().min(withdrawTrainingPacketResponseDataItemReportOneActivityMinOne)),
+  "activity": zod.record(zod.string(), zod.int().min(withdrawTrainingPacketResponseDataItemReportOneActivityMinOne)),
   "reportingForDuty": zod.record(zod.string(), zod.unknown()),
   "ratings": zod.record(zod.string(), zod.unknown()),
   "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
@@ -2700,50 +2700,50 @@ export const WithdrawTrainingPacketResponse = zod.object({
   "daily": zod.object({
   "start_date": zod.string().regex(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyStartDateRegExp),
   "end_date": zod.string().regex(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyEndDateRegExp),
-  "log_count": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyActivityMinOne)),
+  "log_count": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyLogCountMin),
+  "reviewed_log_count": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
-  "A": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsAMin),
-  "RT": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
-  "UA": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
-  "NRT": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
+  "NO": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
+  "A": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsAMin),
+  "RT": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
+  "UA": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
+  "NRT": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneDailyTotalRunsMin)
 }),
   "weekly": zod.object({
   "start_date": zod.string().regex(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyStartDateRegExp),
   "end_date": zod.string().regex(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyEndDateRegExp),
-  "log_count": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
+  "log_count": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyLogCountMin),
+  "reviewed_log_count": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
-  "A": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
-  "RT": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
-  "UA": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
-  "NRT": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
+  "NO": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
+  "A": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
+  "RT": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
+  "UA": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
+  "NRT": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
 }),
   "monthly": zod.object({
   "start_date": zod.string().regex(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyStartDateRegExp),
   "end_date": zod.string().regex(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyEndDateRegExp),
-  "log_count": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
+  "log_count": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyLogCountMin),
+  "reviewed_log_count": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
-  "A": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
-  "RT": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
-  "UA": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
-  "NRT": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
+  "NO": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
+  "A": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
+  "RT": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
+  "UA": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
+  "NRT": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(withdrawTrainingPacketResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
 }),
   "unacceptable_details": zod.array(zod.object({
   "record_date": zod.string().regex(withdrawTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
@@ -2787,8 +2787,8 @@ export const finalizeTrainingPacketBodyContentHashRegExp = new RegExp('^[a-f0-9]
 
 
 export const FinalizeTrainingPacketBody = zod.object({
-  "operation_id": zod.string().uuid(),
-  "base_version": zod.number().int().min(1),
+  "operation_id": zod.uuid(),
+  "base_version": zod.int().min(1),
   "content_hash": zod.string().regex(finalizeTrainingPacketBodyContentHashRegExp)
 })
 
@@ -2800,8 +2800,8 @@ export const finalizeTrainingPacketResponseContentHashRegExp = new RegExp('^[a-f
 
 export const FinalizeTrainingPacketResponse = zod.object({
   "id": zod.string().min(1).max(finalizeTrainingPacketResponseIdMax),
-  "operation_id": zod.string().uuid(),
-  "server_version": zod.number().int().min(1),
+  "operation_id": zod.uuid(),
+  "server_version": zod.int().min(1),
   "sync_status": zod.enum(['submitted_complete']),
   "content_hash": zod.string().regex(finalizeTrainingPacketResponseContentHashRegExp)
 })
@@ -2949,30 +2949,30 @@ export const getTrainingPacketResponseDataMax = 100;
 export const GetTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(getTrainingPacketResponseMetadataTotalRecordsMin).max(getTrainingPacketResponseMetadataTotalRecordsMax),
+  "total_records": zod.int().min(getTrainingPacketResponseMetadataTotalRecordsMin).max(getTrainingPacketResponseMetadataTotalRecordsMax),
   "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(getTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
   "data": zod.array(zod.object({
   "id": zod.string().min(1).max(getTrainingPacketResponseDataItemIdMax),
-  "assignment_id": zod.string().uuid(),
+  "assignment_id": zod.uuid(),
   "record_date": zod.string().regex(getTrainingPacketResponseDataItemRecordDateRegExp),
-  "phase": zod.number().int().min(1).max(getTrainingPacketResponseDataItemPhaseMax),
-  "server_version": zod.number().int().min(1),
+  "phase": zod.int().min(1).max(getTrainingPacketResponseDataItemPhaseMax),
+  "server_version": zod.int().min(1),
   "sync_status": zod.enum(['local_draft_pending', 'submitted_complete']),
   "handoff_status": zod.enum(['draft', 'awaiting_po_totals_review', 'awaiting_coordinator_receipt', 'coordinator_review', 'correction_requested', 'awaiting_po_release', 'awaiting_po_acknowledgment', 'po_acknowledged', 'withdrawn']),
   "report": zod.union([zod.object({
   "id": zod.string().min(1).max(getTrainingPacketResponseDataItemReportOneIdMax).regex(getTrainingPacketResponseDataItemReportOneIdRegExp),
   "date": zod.string().regex(getTrainingPacketResponseDataItemReportOneDateRegExp),
-  "phase": zod.number().int().min(1).max(getTrainingPacketResponseDataItemReportOnePhaseMax),
+  "phase": zod.int().min(1).max(getTrainingPacketResponseDataItemReportOnePhaseMax),
   "className": zod.string().max(getTrainingPacketResponseDataItemReportOneClassNameMax),
   "recruitName": zod.string().min(1).max(getTrainingPacketResponseDataItemReportOneRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(getTrainingPacketResponseDataItemReportOneRecruitBadgeMax),
   "ftoName": zod.string().min(1).max(getTrainingPacketResponseDataItemReportOneFtoNameMax),
   "ftoBadge": zod.string().min(1).max(getTrainingPacketResponseDataItemReportOneFtoBadgeMax),
   "runs": zod.array(zod.record(zod.string(), zod.unknown())).max(getTrainingPacketResponseDataItemReportOneRunsMax),
-  "activity": zod.record(zod.string(), zod.number().int().min(getTrainingPacketResponseDataItemReportOneActivityMinOne)),
+  "activity": zod.record(zod.string(), zod.int().min(getTrainingPacketResponseDataItemReportOneActivityMinOne)),
   "reportingForDuty": zod.record(zod.string(), zod.unknown()),
   "ratings": zod.record(zod.string(), zod.unknown()),
   "status": zod.enum(['draft', 'fto_signed', 'recruit_signed', 'locked']),
@@ -2992,50 +2992,50 @@ export const GetTrainingPacketResponse = zod.object({
   "daily": zod.object({
   "start_date": zod.string().regex(getTrainingPacketResponseDataItemPoTotalsOneDailyStartDateRegExp),
   "end_date": zod.string().regex(getTrainingPacketResponseDataItemPoTotalsOneDailyEndDateRegExp),
-  "log_count": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyActivityMinOne)),
+  "log_count": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyLogCountMin),
+  "reviewed_log_count": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
-  "A": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsAMin),
-  "RT": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
-  "UA": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
-  "NRT": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
+  "NO": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNOMin),
+  "A": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsAMin),
+  "RT": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsRTMin),
+  "UA": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsUAMin),
+  "NRT": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneDailyTotalRunsMin)
 }),
   "weekly": zod.object({
   "start_date": zod.string().regex(getTrainingPacketResponseDataItemPoTotalsOneWeeklyStartDateRegExp),
   "end_date": zod.string().regex(getTrainingPacketResponseDataItemPoTotalsOneWeeklyEndDateRegExp),
-  "log_count": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
+  "log_count": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyLogCountMin),
+  "reviewed_log_count": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
-  "A": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
-  "RT": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
-  "UA": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
-  "NRT": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
+  "NO": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNOMin),
+  "A": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsAMin),
+  "RT": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsRTMin),
+  "UA": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsUAMin),
+  "NRT": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneWeeklyTotalRunsMin)
 }),
   "monthly": zod.object({
   "start_date": zod.string().regex(getTrainingPacketResponseDataItemPoTotalsOneMonthlyStartDateRegExp),
   "end_date": zod.string().regex(getTrainingPacketResponseDataItemPoTotalsOneMonthlyEndDateRegExp),
-  "log_count": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyLogCountMin),
-  "reviewed_log_count": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
-  "activity": zod.record(zod.string(), zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
+  "log_count": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyLogCountMin),
+  "reviewed_log_count": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedLogCountMin),
+  "activity": zod.record(zod.string(), zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyActivityMinOne)),
   "rating_counts": zod.object({
-  "NO": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
-  "A": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
-  "RT": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
-  "UA": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
-  "NRT": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
+  "NO": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNOMin),
+  "A": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsAMin),
+  "RT": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsRTMin),
+  "UA": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsUAMin),
+  "NRT": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyRatingCountsNRTMin)
 }),
-  "reviewed_run_checklists": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
-  "total_runs": zod.number().int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
+  "reviewed_run_checklists": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyReviewedRunChecklistsMin),
+  "total_runs": zod.int().min(getTrainingPacketResponseDataItemPoTotalsOneMonthlyTotalRunsMin)
 }),
   "unacceptable_details": zod.array(zod.object({
   "record_date": zod.string().regex(getTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
@@ -3096,7 +3096,7 @@ export const listAuditLogsResponseDataMax = 100;
 export const ListAuditLogsResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(listAuditLogsResponseMetadataTotalRecordsMin),
+  "total_records": zod.int().min(listAuditLogsResponseMetadataTotalRecordsMin),
   "environment": zod.enum(['MOCK_DEVELOPMENT'])
 }),
   "data": zod.array(zod.object({
@@ -3113,8 +3113,8 @@ export const ListAuditLogsResponse = zod.object({
   "event": zod.object({
   "http_method": zod.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']),
   "endpoint": zod.string().min(1).max(listAuditLogsResponseDataItemEventEndpointMax),
-  "payload_bytes": zod.number().int().min(listAuditLogsResponseDataItemEventPayloadBytesMin),
-  "status_code": zod.number().int().min(listAuditLogsResponseDataItemEventStatusCodeMin).max(listAuditLogsResponseDataItemEventStatusCodeMax),
+  "payload_bytes": zod.int().min(listAuditLogsResponseDataItemEventPayloadBytesMin),
+  "status_code": zod.int().min(listAuditLogsResponseDataItemEventStatusCodeMin).max(listAuditLogsResponseDataItemEventStatusCodeMax),
   "success": zod.boolean(),
   "disposition": zod.enum(['SUCCESS', 'FAILURE']),
   "error_message": zod.string().max(listAuditLogsResponseDataItemEventErrorMessageMax).optional()
@@ -3169,7 +3169,7 @@ export const dispatchIncidentLookupResponseDataMax = 100;
 export const DispatchIncidentLookupResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(dispatchIncidentLookupResponseMetadataTotalRecordsMin).max(dispatchIncidentLookupResponseMetadataTotalRecordsMax)
+  "total_records": zod.int().min(dispatchIncidentLookupResponseMetadataTotalRecordsMin).max(dispatchIncidentLookupResponseMetadataTotalRecordsMax)
 }),
   "data": zod.array(zod.object({
   "incidentNumber": zod.string().min(1).max(dispatchIncidentLookupResponseDataItemIncidentNumberMax),
@@ -3238,7 +3238,7 @@ export const dispatchEventIngressResponseDataMax = 1;
 export const DispatchEventIngressResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(dispatchEventIngressResponseMetadataTotalRecordsMin).max(dispatchEventIngressResponseMetadataTotalRecordsMax)
+  "total_records": zod.int().min(dispatchEventIngressResponseMetadataTotalRecordsMin).max(dispatchEventIngressResponseMetadataTotalRecordsMax)
 }),
   "data": zod.array(zod.object({
   "eventDate": zod.coerce.date().optional(),
@@ -3274,7 +3274,7 @@ export const listResourcesResponseDataItemHandlingNoteMax = 240;
 export const ListResourcesResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(listResourcesResponseMetadataTotalRecordsMin)
+  "total_records": zod.int().min(listResourcesResponseMetadataTotalRecordsMin)
 }),
   "data": zod.array(zod.object({
   "id": zod.enum(['amys-law-factors', 'bmv-2255-urine-0-bac', 'bmv2255-example', 'domestic-violence-protocol', 'drug-possession-weights', 'dv-3-3-domestic-violence', 'dv-cpo-vs-tpo', 'dv-family-household-member-relationships', 'dv-feti-model', 'i-40-115-domestic-violence-lethality-screen', 'dv-power-and-control-wheel', 'dv-safety-plan-victims-page-1', 'dv-safety-plan-victims-page-2', 'dv-strangulation-assessment-card-v4', 'dv-strangulation-checklist', 'dv-strangulation-physiological-consequences', 'dv-types-of-abuse-worksheet-1', 'dv-strangulation-diagram', 'key-criminal-law-issues-2024', 'ohio-constitutional-opinions', 'ohio-supreme-court-felony-quick-reference', 'police-phone-directory', 'prior-offenses-constituting-wud']),
@@ -3331,7 +3331,7 @@ export const listPhaseExtensionRequestsResponseDataItemTwoDenialExplanationMax =
 export const ListPhaseExtensionRequestsResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(listPhaseExtensionRequestsResponseMetadataTotalRecordsMin),
+  "total_records": zod.int().min(listPhaseExtensionRequestsResponseMetadataTotalRecordsMin),
   "role": zod.enum(['FTO', 'FTO_COORDINATOR'])
 }),
   "data": zod.array(zod.object({
@@ -3339,12 +3339,12 @@ export const ListPhaseExtensionRequestsResponse = zod.object({
   "className": zod.string().max(listPhaseExtensionRequestsResponseDataItemOneClassNameMax),
   "recruitName": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRecruitBadgeMax),
-  "phase": zod.number().int().min(1).max(listPhaseExtensionRequestsResponseDataItemOnePhaseMax),
+  "phase": zod.int().min(1).max(listPhaseExtensionRequestsResponseDataItemOnePhaseMax),
   "phaseStartDate": zod.string().regex(listPhaseExtensionRequestsResponseDataItemOnePhaseStartDateRegExp),
   "requestingFtoName": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRequestingFtoNameMax),
   "requestingFtoBadge": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRequestingFtoBadgeMax),
   "extensionType": zod.enum(['training_weeks', 'limbo_period']),
-  "requestedWeeks": zod.number().int().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRequestedWeeksMax),
+  "requestedWeeks": zod.int().min(1).max(listPhaseExtensionRequestsResponseDataItemOneRequestedWeeksMax),
   "justification": zod.string().min(1).max(listPhaseExtensionRequestsResponseDataItemOneJustificationMax)
 }).and(zod.object({
   "status": zod.enum(['pending', 'approved', 'denied']),
@@ -3387,12 +3387,12 @@ export const SubmitPhaseExtensionRequestBody = zod.object({
   "className": zod.string().max(submitPhaseExtensionRequestBodyClassNameMax),
   "recruitName": zod.string().min(1).max(submitPhaseExtensionRequestBodyRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(submitPhaseExtensionRequestBodyRecruitBadgeMax),
-  "phase": zod.number().int().min(1).max(submitPhaseExtensionRequestBodyPhaseMax),
+  "phase": zod.int().min(1).max(submitPhaseExtensionRequestBodyPhaseMax),
   "phaseStartDate": zod.string().regex(submitPhaseExtensionRequestBodyPhaseStartDateRegExp),
   "requestingFtoName": zod.string().min(1).max(submitPhaseExtensionRequestBodyRequestingFtoNameMax),
   "requestingFtoBadge": zod.string().min(1).max(submitPhaseExtensionRequestBodyRequestingFtoBadgeMax),
   "extensionType": zod.enum(['training_weeks', 'limbo_period']),
-  "requestedWeeks": zod.number().int().min(1).max(submitPhaseExtensionRequestBodyRequestedWeeksMax),
+  "requestedWeeks": zod.int().min(1).max(submitPhaseExtensionRequestBodyRequestedWeeksMax),
   "justification": zod.string().min(1).max(submitPhaseExtensionRequestBodyJustificationMax)
 })
 
@@ -3426,7 +3426,7 @@ export const submitPhaseExtensionRequestResponseDataItemTwoDenialExplanationMax 
 export const SubmitPhaseExtensionRequestResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(submitPhaseExtensionRequestResponseMetadataTotalRecordsMin),
+  "total_records": zod.int().min(submitPhaseExtensionRequestResponseMetadataTotalRecordsMin),
   "role": zod.enum(['FTO', 'FTO_COORDINATOR'])
 }),
   "data": zod.array(zod.object({
@@ -3434,12 +3434,12 @@ export const SubmitPhaseExtensionRequestResponse = zod.object({
   "className": zod.string().max(submitPhaseExtensionRequestResponseDataItemOneClassNameMax),
   "recruitName": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRecruitBadgeMax),
-  "phase": zod.number().int().min(1).max(submitPhaseExtensionRequestResponseDataItemOnePhaseMax),
+  "phase": zod.int().min(1).max(submitPhaseExtensionRequestResponseDataItemOnePhaseMax),
   "phaseStartDate": zod.string().regex(submitPhaseExtensionRequestResponseDataItemOnePhaseStartDateRegExp),
   "requestingFtoName": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRequestingFtoNameMax),
   "requestingFtoBadge": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRequestingFtoBadgeMax),
   "extensionType": zod.enum(['training_weeks', 'limbo_period']),
-  "requestedWeeks": zod.number().int().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax),
+  "requestedWeeks": zod.int().min(1).max(submitPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax),
   "justification": zod.string().min(1).max(submitPhaseExtensionRequestResponseDataItemOneJustificationMax)
 }).and(zod.object({
   "status": zod.enum(['pending', 'approved', 'denied']),
@@ -3503,7 +3503,7 @@ export const reviewPhaseExtensionRequestResponseDataItemTwoDenialExplanationMax 
 export const ReviewPhaseExtensionRequestResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
-  "total_records": zod.number().int().min(reviewPhaseExtensionRequestResponseMetadataTotalRecordsMin),
+  "total_records": zod.int().min(reviewPhaseExtensionRequestResponseMetadataTotalRecordsMin),
   "role": zod.enum(['FTO', 'FTO_COORDINATOR'])
 }),
   "data": zod.array(zod.object({
@@ -3511,12 +3511,12 @@ export const ReviewPhaseExtensionRequestResponse = zod.object({
   "className": zod.string().max(reviewPhaseExtensionRequestResponseDataItemOneClassNameMax),
   "recruitName": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRecruitNameMax),
   "recruitBadge": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRecruitBadgeMax),
-  "phase": zod.number().int().min(1).max(reviewPhaseExtensionRequestResponseDataItemOnePhaseMax),
+  "phase": zod.int().min(1).max(reviewPhaseExtensionRequestResponseDataItemOnePhaseMax),
   "phaseStartDate": zod.string().regex(reviewPhaseExtensionRequestResponseDataItemOnePhaseStartDateRegExp),
   "requestingFtoName": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRequestingFtoNameMax),
   "requestingFtoBadge": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRequestingFtoBadgeMax),
   "extensionType": zod.enum(['training_weeks', 'limbo_period']),
-  "requestedWeeks": zod.number().int().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax),
+  "requestedWeeks": zod.int().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneRequestedWeeksMax),
   "justification": zod.string().min(1).max(reviewPhaseExtensionRequestResponseDataItemOneJustificationMax)
 }).and(zod.object({
   "status": zod.enum(['pending', 'approved', 'denied']),

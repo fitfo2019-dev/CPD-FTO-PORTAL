@@ -3,15 +3,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { act, createElement } from "react";
 import { JSDOM } from "jsdom";
-import { register } from "node:module";
+import { registerHooks } from "node:module";
 import { createDailyReportDraft } from "./daily-report-draft.js";
 import { createUiPreviewWorkspace } from "./empty-workspace.js";
 import { createFtoTestPacketWorkspace } from "./test-packet.js";
 import { buildClassWorkbook } from "./exportWorkbook.js";
 
-register("data:text/javascript," + encodeURIComponent(
-  "export async function load(url,ctx,next){if(url.endsWith('.css'))return {format:'module',shortCircuit:true,source:'export default {}'};return next(url,ctx)}",
-), import.meta.url);
+registerHooks({
+  load(url,ctx,next){if(url.endsWith('.css'))return {format:'module',shortCircuit:true,source:'export default {}'};return next(url,ctx)},
+});
 
 test("mounted editor attaches a supplement, records a failure, detaches and saves an exportable run", async () => {
   const dom = new JSDOM("<!doctype html><div id='root'></div>", {

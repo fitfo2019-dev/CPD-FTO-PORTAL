@@ -32,7 +32,7 @@ const signatureSchema = z.object({
   method: z.enum(['demo', 'account', 'acrobat']).optional(),
   accountId: z.string().optional(),
   contentSha256: z.string().optional(),
-}).passthrough();
+}).loose();
 
 const ratingEntrySchema = z.object({
   rating: ratingSchema,
@@ -49,7 +49,7 @@ const ratingEntrySchema = z.object({
   nrtOfficeResponse: z.string().optional(),
   nrtOfficeSubmittedAt: z.string().optional(),
   nrtOfficeRespondedAt: z.string().optional(),
-}).passthrough();
+}).loose();
 
 const categorySchema = z.enum(CATEGORIES);
 const activityKeySchema = z.enum(DAILY_ACTIVITY_FIELDS.map(field => field.key));
@@ -113,7 +113,7 @@ const trainingRunSchema = z.object({
   ).optional(),
   checklistReviewedAt: z.string().optional(),
   narrative: z.string(),
-}).passthrough().superRefine((run,context)=>{
+}).loose().superRefine((run,context)=>{
   for (const [itemKey, selected] of Object.entries(run.checklistFailures ?? {})) {
     let sourceForm: typeof run.runKind | typeof SUPPLEMENTAL_RUN_FORMS[number]['key'] | undefined;
     let sourceLabel: string | undefined;
@@ -161,7 +161,7 @@ const dutyRecordSchema = z.object({
   notApplicable: booleanRecordSchema.optional(),
   notes: z.string(),
   reviewedAt: z.string().optional(),
-}).passthrough();
+}).loose();
 
 const reportSchema = z.object({
   deficiencyAutomationEnabled:z.boolean().optional(),
@@ -225,7 +225,7 @@ const reportSchema = z.object({
   }),
   createdAt: z.string(),
   updatedAt: z.string(),
-}).passthrough().superRefine((value,context)=>{
+}).loose().superRefine((value,context)=>{
   if(!requiresTacticalAssignmentMetadata(value)) return;
   const metadata=PatrolAssignmentMetadataSchema.safeParse(value);
   if(!metadata.success) metadata.error.issues.forEach(issue=>context.addIssue({...issue,code:'custom'}));
@@ -255,7 +255,7 @@ const acknowledgementSchema = z.object({
   status: z.enum(['draft', 'recruit_signed', 'fto_signed', 'office_signed']),
   createdAt: z.string(),
   updatedAt: z.string(),
-}).passthrough();
+}).loose();
 
 const weeklyLogSchema = z.object({
   id: z.string(),
@@ -283,9 +283,9 @@ const weeklyLogSchema = z.object({
     autoSourceNarrative:z.string().optional(),
     autoSourceGroup:z.string().optional(),
     sourceEvidenceActive:z.boolean().optional(),
-  }).passthrough()),
+  }).loose()),
   updatedAt: z.string(),
-}).passthrough();
+}).loose();
 
 const orientationSchema = z.object({
   id: z.string(),
@@ -303,7 +303,7 @@ const orientationSchema = z.object({
   directivesReview: z.string(),
   narrative: z.string(),
   updatedAt: z.string(),
-}).passthrough();
+}).loose();
 
 function parseOrThrow<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import React, { act } from "react";
-import { register } from "node:module";
+import { registerHooks } from "node:module";
 import { JSDOM } from "jsdom";
 import { createEmptyWorkspace } from "./empty-workspace.js";
 import {
@@ -9,15 +9,13 @@ import {
   ftoCruiserDistrictsForShift,
 } from "./cpd-geography.js";
 
-register(
-  "data:text/javascript," +
-    encodeURIComponent(`export async function load(url,ctx,next){
+registerHooks({
+  load(url,ctx,next){
       const path=new URL(url).pathname;
-      if(/\\.(css|svg|png)$/.test(path))return {format:'module',shortCircuit:true,source:'export default ""'};
+      if(/\.(css|svg|png)$/.test(path))return {format:'module',shortCircuit:true,source:'export default ""'};
       return next(url,ctx);
-    }`),
-  import.meta.url,
-);
+  },
+});
 
 test("phase setup renders shared assignment choices for representative zones and watches", async () => {
   const dom = new JSDOM("<div id='root'></div>", {

@@ -3,16 +3,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {act,createElement} from "react";
 import {JSDOM} from "jsdom";
-import {register} from "node:module";
+import { registerHooks } from "node:module";
 import {createDailyReportDraft} from "./daily-report-draft.js";
 import {createUiPreviewWorkspace} from "./empty-workspace.js";
 import {OfflineStorage} from "./offlineStorage.js";
 import {createFtoTestPacketWorkspace} from "./test-packet.js";
 import {CATEGORIES,type Workspace} from "./model.js";
 
-register("data:text/javascript,"+encodeURIComponent(
-  "export async function load(url,ctx,next){if(url.endsWith('.css'))return {format:'module',shortCircuit:true,source:'export default {}'};if(url.includes('/components/printable-columbus-header.tsx'))return {format:'module',shortCircuit:true,source:'export function PrintableColumbusHeader(){return null} export function PrintableColumbusFooterMarks(){return null}'};return next(url,ctx)}"
-),import.meta.url);
+registerHooks({
+  load(url,ctx,next){if(url.endsWith('.css'))return {format:'module',shortCircuit:true,source:'export default {}'};if(url.includes('/components/printable-columbus-header.tsx'))return {format:'module',shortCircuit:true,source:'export function PrintableColumbusHeader(){return null} export function PrintableColumbusFooterMarks(){return null}'};return next(url,ctx)},
+});
 
 test("a deferred automatic sync preserves the mounted editor and saves newly typed narrative and run edits",async t=>{
   const dom=new JSDOM("<!doctype html><div id='root'></div>",{

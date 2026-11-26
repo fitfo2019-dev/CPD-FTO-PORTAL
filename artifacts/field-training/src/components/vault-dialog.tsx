@@ -16,7 +16,7 @@ export function VaultDialog() {
   const setup = intent === 'save';
   const valid = setup ? pass.length >= 12 && pass === confirm && ack : pass.length > 0;
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault(); if (!valid || busy) return;
     setBusy(true); setErr('');
     try {

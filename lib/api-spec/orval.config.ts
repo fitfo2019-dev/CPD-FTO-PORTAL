@@ -59,9 +59,9 @@ export default defineConfig({
       override: {
         zod: {
           // Orval resolves `auto` from lib/api-spec/package.json, which has no
-          // zod dependency, so orval >= 8.23 falls back to Zod 4 syntax while
-          // the catalog installs zod 3. Pin to match the catalog.
-          version: 3,
+          // zod dependency. Pin to the Zod 4 catalog version so generated
+          // validators use the current top-level format APIs.
+          version: 4,
           coerce: {
             query: ["boolean", "number", "string"],
             // URL path strings already arrive as strings. Coercion creates a

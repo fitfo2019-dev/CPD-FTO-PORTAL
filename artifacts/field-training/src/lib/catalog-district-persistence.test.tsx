@@ -3,20 +3,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import React, { act, createElement } from "react";
 import { JSDOM } from "jsdom";
-import { register } from "node:module";
+import { registerHooks } from "node:module";
 import { createUiPreviewWorkspace } from "./empty-workspace.js";
 import { createDailyReportDraft } from "./daily-report-draft.js";
 
-register("data:text/javascript," + encodeURIComponent(
-  `export async function load(url,ctx,next){
+registerHooks({
+  load(url,ctx,next){
     const path=new URL(url).pathname;
-    if(/\\.(css|svg|png)$/.test(path))return {format:'module',shortCircuit:true,source:'export default ""'};
-    const loaded=await next(url,ctx);
+    if(/\.(css|svg|png)$/.test(path))return {format:'module',shortCircuit:true,source:'export default ""'};
+    const loaded=next(url,ctx);
     if(path.endsWith('/printable-columbus-header.tsx'))return {...loaded,
       source:String(loaded.source).replaceAll('import.meta.env.BASE_URL',JSON.stringify('/'))};
     return loaded;
-  }`
-), import.meta.url);
+  },
+});
 
 test("catalog-only district survives encrypted restoration and opens a new daily report", async () => {
   const dom = new JSDOM("<div id='root'></div>", {

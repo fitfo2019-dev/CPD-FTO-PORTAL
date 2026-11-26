@@ -92,7 +92,7 @@ function autosize(workbook: XLSX.WorkBook) {
       };
     }
     if (name === 'Weekly Totals' || name === 'Phase Totals') {
-      const ratingColumns = RATINGS.map((rating, index) => {
+      const ratingColumns = RATINGS.map(rating => {
         const header = Array.from({ length: range.e.c + 1 }, (_, column) =>
           current[XLSX.utils.encode_cell({ r: 0, c: column })]?.v === rating ? column : -1,
         ).find(column => column >= 0);
