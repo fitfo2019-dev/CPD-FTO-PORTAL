@@ -135,6 +135,10 @@ test("test administrator builds, edits and deactivates a fictional scenario with
   });
   assert.equal(rec.status, 201);
   const recordId = (rec.data as StagingTrainingEnvelope).data[0].id;
+  assert.equal((await call(records, asAdmin(), "POST", {
+    operation_id: randomUUID(), assignment_id: assignmentId, record_date: "2026-11-10",
+    narrative: "Duplicate fictional date.", status: "draft", synthetic: true,
+  })).status, 409);
   // Version conflicts are reported, not overwritten.
   assert.equal((await call(`${records}/${recordId}`, asAdmin(), "PUT", {
     operation_id: randomUUID(), base_version: 2, narrative: "Stale", status: "draft", synthetic: true,
@@ -144,9 +148,11 @@ test("test administrator builds, edits and deactivates a fictional scenario with
     operation_id: randomUUID(), base_version: 1, acknowledged: true,
   })).status, 403);
 
-  // Assignment dates cannot be narrowed past existing records.
+  // Historical records pin assignment identity and phase, but permit safe date
+  // changes that continue to contain every existing record.
+  assert.equal((await call(`${admin}/assignments/${assignmentId}`, asAdmin(), "PUT", { ...assignmentInput, phase: 2 })).status, 409);
   assert.equal((await call(`${admin}/assignments/${assignmentId}`, asAdmin(), "PUT", { ...assignmentInput, starts_on: "2026-11-15" })).status, 409);
-  assert.equal((await call(`${admin}/assignments/${assignmentId}`, asAdmin(), "PUT", { ...assignmentInput, phase: 2 })).status, 200);
+  assert.equal((await call(`${admin}/assignments/${assignmentId}`, asAdmin(), "PUT", { ...assignmentInput, starts_on: "2026-11-03" })).status, 200);
   // Role changes and forged fields are rejected.
   assert.equal((await call(`${admin}/participants/${people.po}`, asAdmin(), "PUT", { display_label: tag("Renamed"), badge_label: "T-4101", role: "FTO" })).status, 409);
   assert.equal((await call(`${admin}/participants`, asAdmin(), "POST", { display_label: "X", badge_label: "1", role: "TEST_ADMIN" })).status, 422);
@@ -155,9 +161,12 @@ test("test administrator builds, edits and deactivates a fictional scenario with
   assert.equal(renamed.status, 200);
 
   // Deactivation is audited, idempotency-safe, and never deletes.
+  assert.equal((await call(`${admin}/classes/${classId}/deactivation`, asAdmin(), "POST", {})).status, 409);
+  assert.equal((await call(`${admin}/participants/${people.po}/deactivation`, asAdmin(), "POST", {})).status, 409);
   const off = await call(`${admin}/assignments/${assignmentId}/deactivation`, asAdmin(), "POST", {});
   assert.equal(off.status, 200);
   assert.equal((off.data as TestAdminScenarioEnvelope).data.assignments.find(a => a.id === assignmentId)!.active, false);
+  assert.equal((await call(`${records}/${recordId}`, asAdmin())).status, 200);
   assert.equal((await call(`${admin}/assignments/${assignmentId}/deactivation`, asAdmin(), "POST", {})).status, 409);
   const stillThere = await pool.query("SELECT count(*)::int AS n FROM synthetic_training.records WHERE id=$1", [recordId]);
   assert.equal(stillThere.rows[0].n, 1);

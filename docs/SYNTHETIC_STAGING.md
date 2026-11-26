@@ -66,13 +66,42 @@ and `AUDIT_ID_HMAC_KEY`. Both Clerk and an explicit reviewed directory entry are
 required; the flag is not an auth bypass. The regular portal preview does not
 silently enable this switch.
 
-Routes (same-origin `/api` prefix):
+Training-record routes (same-origin `/api` prefix):
 
 - `GET /v1/staging/training-records`
 - `POST /v1/staging/training-records`
 - `GET /v1/staging/training-records/{id}`
 - `PUT /v1/staging/training-records/{id}`
 - `POST /v1/staging/training-records/{id}/acknowledgement`
+
+Test Admin scenario routes (same-origin `/api` prefix; all require the separate
+Test Admin authority gates above):
+
+- `GET /v1/staging/test-admin/scenario` — list fictional participants, classes
+  and assignments only.
+- `POST` and `PUT /v1/staging/test-admin/participants[/{id}]` — create/update
+  fictional participants.
+- `POST` and `PUT /v1/staging/test-admin/classes[/{id}]` — create/update
+  fictional classes.
+- `POST` and `PUT /v1/staging/test-admin/assignments[/{id}]` — create/update
+  fictional assignments.
+- `POST /v1/staging/test-admin/{participants|classes|assignments}/{id}/deactivation`
+  — audited, non-destructive deactivation. An active class or participant with
+  active assignments must have those assignments deactivated first. Assignment
+  links and phase cannot be changed after training records exist; date changes
+must continue to include every existing record. Test Admin can still inspect
+historical records after an assignment is deactivated; new records require an
+active assignment and active participants.
+- `GET /v1/staging/test-admin/audit` — bounded read-only history; actor and
+  client HMAC values are never returned.
+
+Scenario rows are explicitly marked fictional, have no agency-verified claim,
+and are never eligible for Clerk sign-in. Test Admin's scenario API cannot list
+or deactivate ordinary directory rows. The portal's `/test-admin` entry appears
+only after the server confirms Test Admin authority; loading that route directly
+does not bypass the server check. The page supports scenario setup, synthetic
+record search/create/versioned update, and read-only audit review. Records do
+not gain run counts or reference fields that are absent from the schema.
 
 Only explicitly marked `synthetic: true` narrative records are accepted.
 This flag labels the data; it cannot prove a user has not typed real information.

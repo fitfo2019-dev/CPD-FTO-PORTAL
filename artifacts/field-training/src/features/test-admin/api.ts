@@ -40,12 +40,16 @@ const MESSAGES: Record<string, string> = {
   OPERATION_CONFLICT: "This record changed since it was opened. Reload and try again.",
   ROLE_CHANGE_NOT_ALLOWED: "A participant's role cannot be changed.",
   RECORDS_OUTSIDE_DATES: "Training records already exist outside those dates.",
+  ASSIGNMENT_HAS_RECORDS: "This assignment has training history and its people, class and phase cannot be changed.",
+  CLASS_HAS_ACTIVE_ASSIGNMENTS: "Deactivate the class's active assignments before deactivating the class.",
+  PARTICIPANT_HAS_ACTIVE_ASSIGNMENTS: "Deactivate this participant's active assignments before deactivation.",
   ALREADY_DEACTIVATED: "This item is already deactivated.",
   PARTICIPANT_NOT_AVAILABLE: "Select active participants with the matching role.",
   CLASS_NOT_AVAILABLE: "Select an active class.",
   INVALID_ASSIGNMENT_DATES: "Enter valid dates. The end date cannot be before the start date.",
   ASSIGNMENT_NOT_FOUND: "The date must fall inside an active assignment.",
   RECORD_NOT_FOUND: "This record is no longer available.",
+  RECORD_ALREADY_EXISTS: "A training record already exists for that assignment and date.",
 };
 
 /** Maps server failures to reviewed operator messages; never raw server text. */

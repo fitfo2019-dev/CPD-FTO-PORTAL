@@ -45,6 +45,9 @@ import { createFtoTestPacketWorkspace } from '@/lib/test-packet.js';
 import { OperationalProfileProvider, useOperationalProfile } from '@/state/operational-profile.js';
 import { DaisyStatusNotice } from '@/components/daisy-status-notice.js';
 import type { ClerkSessionIdentity, ValidateClerkSession } from '@/lib/auth-session.js';
+const TestAdminPage = import.meta.env.DEV
+  ? lazy(() => import('@/features/test-admin/TestAdminPage.js'))
+  : null;
 
 const queryClient = new QueryClient();
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -218,6 +221,10 @@ function RebuildRoute({ page: Page }: { page: ComponentType | null }) {
 function WorkspaceRoutes() {
   const { epoch, ws } = useWorkspace();
   const [path]=useLocation();
+  if (path === '/test-admin') {
+    if (!TestAdminPage) return <NotFound />;
+    return <RoutedErrorBoundary><Suspense fallback={<div role="status" className="p-8 text-sm">Loading Test Admin…</div>}><TestAdminPage /></Suspense></RoutedErrorBoundary>;
+  }
   // FTO Sergeant previews expose role-appropriate Help Desk guidance only.
   // Assignment authority remains a separate server-side capability.
   if (ws.role === 'fto_sgt') return <RoutedErrorBoundary><Switch>

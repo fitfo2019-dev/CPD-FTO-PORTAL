@@ -36,15 +36,13 @@ export class TestAdminRepository extends StagingRepository {
   }
 
   private async snapshot(tx: PoolClient): Promise<TestAdminScenarioEnvelope> {
-    const [participants, classes, assignments] = await Promise.all([
-      tx.query(`SELECT id, display_label, badge_label, role, active FROM synthetic_training.members
-        WHERE fictional ORDER BY active DESC, role, display_label LIMIT 500`),
-      tx.query(`SELECT id, label, coordinator_id, active FROM synthetic_training.classes
-        WHERE fictional ORDER BY active DESC, label LIMIT 500`),
-      tx.query(`SELECT id, class_id, po_id, fto_id, phase, to_char(starts_on,'YYYY-MM-DD') AS starts_on,
-        to_char(ends_on,'YYYY-MM-DD') AS ends_on, active FROM synthetic_training.assignments
-        WHERE fictional ORDER BY active DESC, starts_on DESC LIMIT 500`),
-    ]);
+    const participants = await tx.query(`SELECT id, display_label, badge_label, role, active FROM synthetic_training.members
+      WHERE fictional ORDER BY active DESC, role, display_label LIMIT 500`);
+    const classes = await tx.query(`SELECT id, label, coordinator_id, active FROM synthetic_training.classes
+      WHERE fictional ORDER BY active DESC, label LIMIT 500`);
+    const assignments = await tx.query(`SELECT id, class_id, po_id, fto_id, phase, to_char(starts_on,'YYYY-MM-DD') AS starts_on,
+      to_char(ends_on,'YYYY-MM-DD') AS ends_on, active FROM synthetic_training.assignments
+      WHERE fictional ORDER BY active DESC, starts_on DESC LIMIT 500`);
     return GetTestAdminScenarioResponse.parse({
       status: "success", metadata: { environment: "SYNTHETIC_STAGING" },
       data: { participants: participants.rows, classes: classes.rows, assignments: assignments.rows },
@@ -178,6 +176,17 @@ export class TestAdminRepository extends StagingRepository {
     return this.admin(ctx, async (tx, member) => {
       await this.lockTarget(tx, "assignments", id);
       await this.validateAssignment(tx, input);
+      const existing = await tx.query<{ class_id: string; po_id: string; fto_id: string; phase: number }>(
+        "SELECT class_id, po_id, fto_id, phase FROM synthetic_training.assignments WHERE id=$1 FOR UPDATE", [id],
+      );
+      const recordCount = await tx.query<{ count: number }>(
+        "SELECT count(*)::int AS count FROM synthetic_training.records WHERE assignment_id=$1", [id],
+      );
+      if (Number(recordCount.rows[0]?.count) > 0 && existing.rows[0] &&
+          (existing.rows[0].class_id !== input.class_id || existing.rows[0].po_id !== input.po_id ||
+           existing.rows[0].fto_id !== input.fto_id || existing.rows[0].phase !== input.phase)) {
+        throw new StagingFailure(409, "ASSIGNMENT_HAS_RECORDS");
+      }
       // Existing records must stay inside the assignment's date window.
       const outside = await tx.query(
         `SELECT 1 FROM synthetic_training.records WHERE assignment_id=$1
@@ -199,6 +208,18 @@ export class TestAdminRepository extends StagingRepository {
     return this.admin(ctx, async (tx, member) => {
       const current = await this.lockTarget(tx, table, id);
       if (!current.active) throw new StagingFailure(409, "ALREADY_DEACTIVATED");
+      if (type === "CLASS") {
+        const linked = await tx.query(
+          "SELECT 1 FROM synthetic_training.assignments WHERE class_id=$1 AND active LIMIT 1", [id],
+        );
+        if (linked.rows[0]) throw new StagingFailure(409, "CLASS_HAS_ACTIVE_ASSIGNMENTS");
+      } else if (type === "PARTICIPANT") {
+        const linked = await tx.query(
+          "SELECT 1 FROM synthetic_training.assignments WHERE active AND (po_id=$1 OR fto_id=$1 OR class_id IN (SELECT id FROM synthetic_training.classes WHERE coordinator_id=$1)) LIMIT 1",
+          [id],
+        );
+        if (linked.rows[0]) throw new StagingFailure(409, "PARTICIPANT_HAS_ACTIVE_ASSIGNMENTS");
+      }
       await tx.query(`UPDATE synthetic_training.${table} SET active=false WHERE id=$1`, [id]);
       await this.auditTarget(tx, ctx, member, `DEACTIVATE_${type}`, type, id);
       return this.snapshot(tx);

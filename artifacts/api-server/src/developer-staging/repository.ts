@@ -33,17 +33,22 @@ const recordColumns = `r.id, r.assignment_id, to_char(r.record_date,'YYYY-MM-DD'
  a.phase, r.narrative, r.status, r.version, r.acknowledged_version, true AS synthetic`;
 // Scope is enforced INSIDE SQL for lists and object lookups, not in the browser.
 const scopeSql = `
- a.active AND c.active AND c.phase_active
- AND po.active AND (po.agency_verified OR po.fictional) AND po.terms_accepted AND po.role='PO'
- AND fto.active AND (fto.agency_verified OR fto.fictional) AND fto.terms_accepted AND fto.role='FTO'
- AND coordinator.active AND (coordinator.agency_verified OR coordinator.fictional)
- AND coordinator.terms_accepted AND coordinator.role='FTO_COORDINATOR'
- AND (
-   -- TEST_ADMIN spans the synthetic schema only; real agency data is never here.
+ (
+   -- TEST_ADMIN is confined to this synthetic schema; retain its historical
+   -- records even after a scenario item is deactivated.
    $1='TEST_ADMIN'
-   OR ($1='FTO' AND a.fto_id=$2)
-   OR ($1='PO' AND a.po_id=$2)
-   OR ($1='FTO_COORDINATOR' AND c.coordinator_id=$2)
+   OR (
+     a.active AND c.active AND c.phase_active
+     AND po.active AND (po.agency_verified OR po.fictional) AND po.terms_accepted AND po.role='PO'
+     AND fto.active AND (fto.agency_verified OR fto.fictional) AND fto.terms_accepted AND fto.role='FTO'
+     AND coordinator.active AND (coordinator.agency_verified OR coordinator.fictional)
+     AND coordinator.terms_accepted AND coordinator.role='FTO_COORDINATOR'
+     AND (
+       ($1='FTO' AND a.fto_id=$2)
+       OR ($1='PO' AND a.po_id=$2)
+       OR ($1='FTO_COORDINATOR' AND c.coordinator_id=$2)
+     )
+   )
  )`;
 const assignmentJoin = `
  JOIN synthetic_training.classes c ON c.id=a.class_id
@@ -170,17 +175,23 @@ export class StagingRepository {
       if (member.role !== "FTO" && member.role !== "TEST_ADMIN") throw new StagingFailure(403, "RECORD_EDIT_DENIED");
       const scope = await tx.query<Assignment>(
         `SELECT a.id,a.phase FROM synthetic_training.assignments a ${assignmentJoin}
-         WHERE ${scopeSql} AND a.id=$3 AND $4::date BETWEEN a.starts_on AND a.ends_on
+         WHERE ${scopeSql} AND a.active AND c.active AND c.phase_active
+         AND po.active AND fto.active AND coordinator.active
+         AND po.role='PO' AND fto.role='FTO' AND coordinator.role='FTO_COORDINATOR'
+         AND a.id=$3 AND $4::date BETWEEN a.starts_on AND a.ends_on
          FOR SHARE OF a,c,po,fto,coordinator`,
         [member.role, member.id, input.assignment_id, input.record_date],
       );
       if (!scope.rows[0]) throw new StagingFailure(404, "ASSIGNMENT_NOT_FOUND");
       return this.once(tx, ctx, input.operation_id, ["CREATE", input], async () => {
         const id = randomUUID();
-        await tx.query(
+        const inserted = await tx.query(
           `INSERT INTO synthetic_training.records(id,assignment_id,record_date,narrative,status)
-           VALUES ($1,$2,$3,$4,$5)`, [id, input.assignment_id, input.record_date, input.narrative, input.status],
+           VALUES ($1,$2,$3,$4,$5)
+           ON CONFLICT (assignment_id,record_date) DO NOTHING RETURNING id`,
+          [id, input.assignment_id, input.record_date, input.narrative, input.status],
         );
+        if (!inserted.rows[0]) throw new StagingFailure(409, "RECORD_ALREADY_EXISTS");
         const record = await this.getScoped(tx, member, id, true);
         await this.retainVersion(tx, record);
         await this.audit(tx, ctx, member, "CREATE", record);
