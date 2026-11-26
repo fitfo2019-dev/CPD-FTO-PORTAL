@@ -2,7 +2,7 @@
 ## City of Columbus stakeholder briefing
 
 **Prepared:** November 25, 2026
-**Evidence cutoff:** Baseline source and handover review through November 24, 2026; own-account cruiser history and shared patrol-assignment catalog source reviewed November 25, 2026
+**Evidence cutoff:** Baseline source and handover review through November 24, 2026; own-account cruiser history and shared patrol-assignment catalog source and PO Progress standard (PO-STD-1) reviewed November 25, 2026
 **Purpose:** Explain the current portal, its workflows, integration readiness, and a practical way to measure a City-approved pilot.
 **Update policy:** This briefing is maintained as material changes reach the main workspace, through verified live production publication and formal handover. The evidence cutoff above marks the latest review; planned or unverified work is not presented as implemented.
 
@@ -115,6 +115,26 @@ The daily shared packet workflow is not the same as the weekly paper/manual ackn
 4. Use the packet submission inbox only when the server identity, database, roster, and Coordinator assignment are configured. A shared inbox failure is shown as unavailable, not as a successful empty queue.
 5. Export class-level workbooks only from the local records available to that workspace. The export is not proof that all City records were retrieved.
 
+### 6. PO Progress standard
+
+**Readiness:** Partially prepared. The rule, screens and worked-example tests exist; the page runs on sample data in a development preview. It is not connected to finalized packets, and its audit log is not built.
+
+PO Progress gives the FTO Coordinator and FTO Sergeant an early warning for each Probationary Officer, based only on finalized, documented daily ratings. It is advisory. It is not a release, extension or non-release recommendation; those decisions remain with the Field Training Board under the 2026 FTO manual. The manual sets no numeric cutoff. It requires evaluation "against the SEGs and not personal perception" and notification of the FTO Coordinators and FTO Sergeant on any NRT. The owner set the following program standard (version PO-STD-1, November 25, 2026).
+
+| Week result | Rule for one rated week |
+| --- | --- |
+| **Meets standard** | 0-9 UA's, fewer than 3 in any one category, and no NRT |
+| **Emerging concern** | 10-19 UA's |
+| **Below standard** | 20 or more UA's, 3 or more UA's in one category, or an NRT |
+
+1. A worse week raises the PO's status to that band. Each rated week that meets standard lowers it one level, so a flag can last the whole program but improves with improvement.
+2. A PO who clears a flag shows a "previously flagged" tag with the week it cleared.
+3. Limbo weeks are not rated and do not count. Late packets are the FTO's responsibility and never affect a PO's status.
+4. The same counts apply to every PO and schedule, with no comparison to classmates and no hidden weighting.
+5. A "show calculation" table lists every rated week, its result and the status after it, with the formula version. A reviewer can recompute any status by hand from the signed DOR packets.
+6. Any change to the rule receives a new dated version, owner approval and updated tests. It is never applied to past weeks.
+7. A server audit log recording each status change, its inputs and the formula version is planned but not built.
+
 ## Integration-readiness inventory
 
 | Surface | Readiness label | What exists in current source | City handoff and what remains unverified |
@@ -209,7 +229,7 @@ The following decisions belong to Columbus and should be recorded with an owner,
 1. **Identity and access:** approved SSO/Clerk relationship; staff verification; MFA assurance; stable identity and badge mapping; invitation and activation; role/class/phase assignment; session revocation; account deprovisioning; and access for substitutes and former assignments.
 2. **Record authority and workflow:** which store is the official record; what draft sync means; which event constitutes submission; how Coordinator receipt, review, approval, PO release, PO acknowledgment, and weekly signatures relate; how corrections and withdrawn versions are retained.
 3. **Roster administration:** trusted source, responsible provisioning operator, class and date scope, active/inactive changes, Coordinator directory, substitute coverage, audit, conflict handling, and historical access. Browser import alone is not that process.
-4. **Policy and forms:** accepted daily/weekly/monthly forms, SEG labels and rating rules, manual/derived activity definitions, Limbo and phase durations, NRT/UA follow-up, signatures, extension approvals, and workbook overflow. The Nov. 23 assessment records unresolved policy/source contradictions; current generated output is not City approval.
+4. **Policy and forms:** accepted daily/weekly/monthly forms, SEG labels and rating rules, manual/derived activity definitions, Limbo and phase durations, NRT/UA follow-up, the PO Progress standard (PO-STD-1) and its legal review, signatures, extension approvals, and workbook overflow. The Nov. 23 assessment records unresolved policy/source contradictions; current generated output is not City approval.
 5. **Dispatch and records integration:** system owner, approved endpoint and credentials, data fields and semantics, allowed-user scope, network boundary, service limits, audit, manual fallback, and support. Each is an independent optional integration decision.
 6. **Hosting and operations:** approved portal/API hosts, region, public origin, proxy/routing, TLS, CSP/security headers, database and secret management, least-privilege grants, monitoring/on-call, release/rollback, patching, capacity, and support ownership.
 7. **Privacy, retention, and recovery:** record classification; permitted use of sensitive fields; printed/exported file handling; retention and legal holds; audit retention; backup and restoration; key/device loss; numerical recovery-point and recovery-time objectives; and local-draft import policy.

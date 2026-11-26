@@ -1,14 +1,15 @@
 /* Rebuild screens (Phase Setup, Phase Sign-Up, My PO, PO Progress). Scoped to .ap. */
 .ap .shell-caps{text-transform:uppercase;letter-spacing:.06em}
-.ap{--g:#c6efce;--y:#ffeb84;--o:#ffa94d;--rd:#f8696b;--p:#e4d4f4;--gT:#00501e;--yT:#5c4300;--oT:#5a2a00;--rdT:#4a0008;--pT:#3f1a5c;--pmuted:#5b6675}
+.ap{--g0:#8fd19e;--g:#d9f2df;--y:#ffeb84;--o:#ffa94d;--rd:#f8696b;--p:#e4d4f4;--gT:#00501e;--yT:#5c4300;--oT:#5a2a00;--rdT:#4a0008;--pT:#3f1a5c;--pmuted:#5b6675}
 .ap .chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .ap .chip em{font-style:normal;font-weight:600;opacity:.75;text-transform:lowercase}
 .ap .c-red{background:#fde2e4;color:#8b0012;border:1px solid #f3a3ab}.ap .c-yel{background:#fff3c4;color:#5c4300;border:1px solid #ecd27a}.ap .c-grn{background:#dcf3e3;color:#00501e;border:1px solid #9fd8b2}
 .ap .c-redo{background:#fff;color:#8b0012;border:1px solid #f3a3ab}.ap .c-grno{background:#fff;color:#00501e;border:1px solid #9fd8b2}
+.ap .c-gry{background:#eef0f3;color:#3b4350;border:1px solid #c9ced6}
 .ap .c-lim{background:repeating-linear-gradient(135deg,#e7e9ee 0 6px,#d3d7df 6px 12px);color:#2a2f3a;border:1px solid #9aa3b2}
 .ap .c-amb{background:#fff1dc;color:#6b3a00;border:1px solid #f0b766}
 .ap .wk{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:4px;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;border:1px solid rgba(0,0,0,.08);position:relative}
-.ap .wk.u0{background:var(--g);color:var(--gT)}.ap .wk.u1{background:var(--y);color:var(--yT)}.ap .wk.u2{background:var(--o);color:var(--oT)}.ap .wk.u3{background:var(--rd);color:var(--rdT)}
+.ap .wk.u0{background:var(--g0);color:var(--gT)}.ap .wk.u1{background:var(--g);color:var(--gT)}.ap .wk.u2{background:var(--y);color:var(--yT)}.ap .wk.u3{background:var(--rd);color:var(--rdT)}
 .ap .wk.nrt{background:var(--p);color:var(--pT);border:2px solid #7b4bb0}
 .ap .wk.lim{background:repeating-linear-gradient(135deg,#e7e9ee 0 4px,#c9ced8 4px 8px);color:#2a2f3a;border:1px solid #9aa3b2}
 .ap .wk.fut{background:#fff;border:1px dashed #c3ccd8}
@@ -22,7 +23,7 @@
 .ap .tile.t0{background:var(--g);color:var(--gT)}.ap .tile.t1{background:var(--y);color:var(--yT)}.ap .tile.t2{background:var(--o);color:var(--oT)}.ap .tile.t3{background:var(--rd);color:var(--rdT)}.ap .tile.nrt{background:var(--p);color:var(--pT);border:2px solid #7b4bb0}.ap .tile.fut{background:#f6f8fb;color:var(--pmuted);border:1px dashed #c3ccd8}
 .ap .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:11px;font-weight:700;color:var(--pmuted);text-transform:uppercase;letter-spacing:.05em}
 .ap .legend>span{display:inline-flex;align-items:center;gap:6px}.ap .legend .lw{display:inline-block;width:16px;height:16px;border-radius:3px;position:relative}
-.ap .lw.u0{background:var(--g)}.ap .lw.u1{background:var(--y)}.ap .lw.u2{background:var(--o)}.ap .lw.u3{background:var(--rd)}.ap .lw.nrt{background:var(--p);border:2px solid #7b4bb0}.ap .lw.lim{background:repeating-linear-gradient(135deg,#e7e9ee 0 4px,#c9ced8 4px 8px);border:1px solid #9aa3b2}.ap .lw.fut{border:1px dashed #c3ccd8;background:#fff}
+.ap .lw.u0{background:var(--g0)}.ap .lw.u1{background:var(--g)}.ap .lw.u2{background:var(--y)}.ap .lw.u3{background:var(--rd)}.ap .lw.nrt{background:var(--p);border:2px solid #7b4bb0}.ap .lw.lim{background:repeating-linear-gradient(135deg,#e7e9ee 0 4px,#c9ced8 4px 8px);border:1px solid #9aa3b2}.ap .lw.fut{border:1px dashed #c3ccd8;background:#fff}
 .ap .lw.haslim::after{content:"";position:absolute;left:0;top:0;border-top:8px solid #5b6675;border-right:8px solid transparent}
 .ap .limbo-banner{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:14px 18px;border-radius:8px;margin-bottom:18px;background:repeating-linear-gradient(135deg,#eef0f4 0 10px,#e1e4ea 10px 20px);border:2px solid #5b6675;color:#1b2430}
 .ap .limbo-banner.ovr{background:#fff1dc;border-color:#c77700}
