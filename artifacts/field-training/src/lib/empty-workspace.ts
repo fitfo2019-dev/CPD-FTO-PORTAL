@@ -21,6 +21,8 @@ export function createEmptyWorkspace(): Workspace {
     coverageRequests: [],
     lawReviewRecords: [],
     phaseExtensionRequests: [],
+    week15Recommendations: [],
+    nrtReviewRequests: [],
   };
 }
 

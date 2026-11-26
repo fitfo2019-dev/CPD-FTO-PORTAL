@@ -691,6 +691,38 @@ export interface WeeklyPacketAcknowledgement {
   createdAt: string;
   updatedAt: string;
 }
+export interface RecordActor { name: string; badge: string; role: Role; }
+export interface Week15RecommendationChange {
+  choice: 'release'|'not_release';
+  at: string;
+  by: RecordActor;
+}
+/** Phase IV FTO pre-selection; inserted verbatim into the Week 15 FTO comments. */
+export interface Week15Recommendation {
+  id: string;
+  className: string;
+  recruitName: string;
+  recruitBadge: string;
+  choice: 'release'|'not_release';
+  statement: string;
+  history: Week15RecommendationChange[];
+  /** Alerts are queued locally until the agency server delivers them. */
+  alertStatus: 'none'|'queued';
+  finalizedAt?: string;
+  updatedAt: string;
+}
+export interface NrtReviewRequest {
+  id: string;
+  className: string;
+  recruitName: string;
+  recruitBadge: string;
+  phase: Phase;
+  reportIds: string[];
+  summary: string;
+  requestedBy: RecordActor;
+  createdAt: string;
+  alertStatus: 'queued';
+}
 export interface WeeklyPerformanceLogEntry {
   id:string;
   kind:'strength'|'corrective';
@@ -927,6 +959,8 @@ export interface Workspace {
   coverageRequests:CoverageRequest[];
   lawReviewRecords:LawReviewRecord[];
   phaseExtensionRequests:PhaseExtensionRequest[];
+  week15Recommendations:Week15Recommendation[];
+  nrtReviewRequests:NrtReviewRequest[];
 }
 
 const PII = [
