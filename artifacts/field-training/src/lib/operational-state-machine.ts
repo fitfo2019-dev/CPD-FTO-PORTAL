@@ -20,6 +20,7 @@ import {
 } from './training-calendar.js';
 import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from './narrative-continuation.js';
 import { orientationPrintLayout } from './orientation-print-layout.js';
+import { trafficDataCollectionNotApplicable } from './traffic-data-collection.js';
 import { runFailureActionChoices } from './run-checklist-failures.js';
 
 export const CURRENT_PACKET_INDEX_VERSION = 2;
@@ -136,7 +137,7 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
       for (const section of sections) {
         for (const item of section.items) {
           const key = `${prefix}${index++}`;
-          if (run.checklist[key] === false && run.checklistNotApplicable?.[key] !== true) {
+          if (run.checklist[key] === false && run.checklistNotApplicable?.[key] !== true && !(prefix === 'task-' && trafficDataCollectionNotApplicable(run, key))) {
             const failureActions=run.checklistFailures?.[key];
             if(failureActions) {
               const form=page.kind==='supplement'?(page.supplement??run.runKind):run.runKind;

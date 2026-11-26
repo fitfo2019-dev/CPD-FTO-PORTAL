@@ -40,6 +40,7 @@ import { RunChecklistFailureDialog } from '@/components/run-checklist-failure-di
 import { formatTimeEntry24H } from '@/lib/training-calendar.js';
 import { runFailureActionChoices, runChecklistFailureSummaries, type RunChecklistSourceForm } from '@/lib/run-checklist-failures.js';
 import { RunChecklistUncheckedDialog, type UncheckedChoice, type UncheckedItem } from '@/components/run-checklist-unchecked-dialog.js';
+import { applyTrafficDataCollectionRule } from '@/lib/traffic-data-collection.js';
 import { activeFailureStatementEdits, activeNotApplicable, runFailureStatements } from '@/lib/run-failure-statements.js';
 import { SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
 import '@/components/run-sheet-workflow.css';
@@ -239,6 +240,12 @@ export default function ReportEditor() {
   const supplementCheckItems = RUN_SUPPLEMENT_CHECKLIST_ITEMS;
   const isLimboDay=!!r?.limboDay;
   const citationSummonsRecorded=isEligibleCitationSummons({runKind,clearanceCode});
+  useEffect(()=>{
+    if(runKind!=='traffic_stop')return;
+    const next=applyTrafficDataCollectionRule({runKind,isDispatched:runDispatched,checklist:runChecklist,checklistNotApplicable:runChecklistNA,activityFlags});
+    if(next.checklist!==runChecklist)setRunChecklistState(next.checklist);
+    if(next.checklistNotApplicable!==runChecklistNA)setRunChecklistNAState(next.checklistNotApplicable);
+  },[runKind,runDispatched,activityFlags.solveCitationSummons,runChecklist,runChecklistNA]);
 
   const baseline = useMemo(() => authoredReportSnapshot(existing), [existing]);
   useEffect(()=>{
