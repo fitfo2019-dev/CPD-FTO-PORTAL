@@ -8,6 +8,7 @@ import { PageHead, Panel, RatingChip, Stat, StatusPill, caseSafe } from '@/compo
 import { NrtAdminReviewPanel } from '@/components/nrt-admin-review-panel.js';
 import { PhaseExtensionPanel } from '@/components/phase-extension-panel.js';
 import { activityTotals } from '@/lib/run-activity.js';
+import { missingDorDates } from '@/lib/weekly-packet.js';
 
 export default function Dashboard() {
   const {ws}=useWorkspace();
@@ -28,6 +29,7 @@ export default function Dashboard() {
     return rating==='UA'||rating==='NRT';
   }).map(category=>({report,category})));
   const phaseLabel=folder?`Phase ${folder.phase}`:'Not set';
+  const missingDors=folder&&ws.role==='fto'?missingDorDates(folder,reports,localISODate()):[];
 
   return <div className="mx-auto max-w-7xl">
     <PageHead kicker={`Field training · ${ROLE_LABEL[ws.role]}`} title={isCoordinator?'Training office':'My work'}>
@@ -40,6 +42,13 @@ export default function Dashboard() {
 
     <PhaseExtensionPanel/>
 
+    {missingDors.length>0&&<section aria-label="Missing DOR's" data-testid="card-missing-dor" className="mb-5 rounded border border-amber-500/50 bg-amber-50 p-4 dark:bg-amber-950/30">
+      <p className="label-caps text-amber-800 dark:text-amber-300">{caseSafe("Missing DOR's")}</p>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {missingDors.map(date=><li key={date}><Link href={`/reports/new?date=${date}`} data-testid={`link-missing-dor-${date}`} className="inline-flex min-h-10 items-center rounded border bg-card px-3 text-sm font-semibold">{formatDateDMY(date)}</Link></li>)}
+      </ul>
+    </section>}
+
     <section aria-label="Your next steps" className="mb-5 rounded border border-primary/20 bg-primary/[0.035] p-4 sm:p-5">
       <p className="label-caps">{isCoordinator?'FTO Coordinator starting point':'FTO starting point'}</p>
       <h2 className="mt-1 text-xl font-bold">{isCoordinator?'Choose what you need to manage':'Start with your next shift'}</h2>
@@ -49,7 +58,7 @@ export default function Dashboard() {
           <ActionLink href="/class-overview" icon={<UsersRound className="h-4 w-4"/>} title="Manage classes and rosters" detail={`${ws.assignments.length} saved roster assignments`} testId="action-manage-classes"/>
           <ActionLink href="/fto-classes" icon={<CalendarDays className="h-4 w-4"/>} title="Post class phases" detail="Set phase dates and review FTO interest" testId="action-post-class-phases"/>
           <ActionLink href="/substitute-fto" icon={<CalendarClock className="h-4 w-4"/>} title="Manage coverage" detail="Open the coverage workspace" testId="action-manage-coverage"/>
-          <ActionLink href="/reports/weekly-summary" icon={<FileCheck2 className="h-4 w-4"/>} title="Review weekly packets" detail={acknowledgementsInProgress?`${acknowledgementsInProgress} need attention`:'Open weekly packet summary'} testId="action-review-packets"/>
+          <ActionLink href="/reports/weekly-packet" icon={<FileCheck2 className="h-4 w-4"/>} title="Review weekly packets" detail={acknowledgementsInProgress?`${acknowledgementsInProgress} need attention`:'Open weekly packet summary'} testId="action-review-packets"/>
           <ActionLink href="/reports" icon={<ClipboardList className="h-4 w-4"/>} title="Find daily paperwork" detail="Open saved shift records" testId="action-find-paperwork"/>
           <ActionLink href="/resources" icon={<BookOpen className="h-4 w-4"/>} title="Training resources" detail="Open law library and reference files" testId="action-training-resources"/>
         </>:<>
@@ -71,7 +80,7 @@ export default function Dashboard() {
     {!isCoordinator&&<section aria-label="Shift paperwork steps" className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <WorkflowCard step="1" title="Phase setup" status={folder?`${folder.recruitName} · ${phaseLabel}`:'Needs PO and phase details'} href="/phase-setup" action={folder?'Review or correct':'Enter case folder'}/>
       <WorkflowCard step="2" title="Shift and run forms" status={!folder?'Finish phase setup before starting a shift':currentDraft?'Draft ready to continue':todayReport?'Today’s record is saved; the next scheduled shift is ready':'One daily record for duty, runs, and evaluation'} href={shiftHref} action={shiftLabel} primary/>
-      <WorkflowCard step="3" title="Weekly packet" status="Builds from completed, reviewed daily records" href="/reports/weekly-summary" action="Open weekly summary"/>
+      <WorkflowCard step="3" title="Weekly packet" status="Builds from completed, reviewed daily records" href="/reports/weekly-packet" action="Open weekly packet"/>
       <WorkflowCard step="4" title="Class reports" status={`${ws.assignments.length} roster assignments · FTO and Coordinator access`} href="/class-overview" action="View class" disabled={!canViewClass(ws.role)}/>
       <WorkflowCard step="5" title="Class and phase sign-up" status="Review Coordinator-posted dates" href="/fto-classes" action="See phase dates"/>
     </section>}

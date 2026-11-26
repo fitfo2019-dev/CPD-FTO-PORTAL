@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'wouter';
-import { Printer, Save, ShieldAlert } from 'lucide-react';
+import { Printer, Save } from 'lucide-react';
 import { useUser } from '@clerk/react';
 import { PageHead, Panel } from '@/components/bits.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
@@ -192,21 +192,16 @@ export default function WeeklyAcknowledgementPage() {
         </label>
       </div>
 
-      <div role="note" className="mb-4 flex gap-2 rounded-sm border border-accent bg-accent/10 p-3 text-sm">
-        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-        <p>The manual’s signature order is Probationary Officer → FTO → Field Training Office. This draft has no verified signatures and is not an approved packet.</p>
-      </div>
-
       <Panel title="Weekly Packet Acknowledgement">
         <div className="grid gap-4 p-4">
           <div className="grid gap-3 sm:grid-cols-2">
               <PersonField title="Probationary Officer" name={ack.recruitName} badge={ack.recruitBadge} assignment={assignment} fieldClass={fieldClass} />
               <PersonField title="Field Training Officer" name={ack.ftoName} badge={ack.ftoBadge} assignment={assignment} fieldClass={fieldClass} />
           </div>
-          <CommentField label="Probationary Officer Comments" value={ack.recruitComments} onChange={value => update('recruitComments', value)} />
-          <SignatureStatus label="Probationary Officer signature" signed={ack.signatures.recruit} />
           <CommentField label="FTO Comments" value={ack.ftoComments} onChange={value => update('ftoComments', value)} />
           <SignatureStatus label="FTO signature" signed={ack.signatures.fto} />
+          <CommentField label="Probationary Officer Comments" value={ack.recruitComments} onChange={value => update('recruitComments', value)} />
+          <SignatureStatus label="Probationary Officer signature" signed={ack.signatures.recruit} />
           <CommentField label="Field Training Office Comments" value={ack.officeComments} onChange={value => update('officeComments', value)} />
           <SignatureStatus label="Field Training Office signature" signed={ack.signatures.ftoOffice} />
         </div>

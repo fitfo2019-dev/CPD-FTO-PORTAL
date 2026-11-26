@@ -81,3 +81,30 @@ export function week15Window(
   if (today < start) return 'open';
   return selected ? 'final_week' : 'overdue';
 }
+
+/**
+ * Working days (per Phase Setup off days) from the phase start through yesterday
+ * that have no daily record for this PO and phase. Shown to the FTO on the next working day.
+ */
+export function missingDorDates(
+  folder: Pick<PhaseCaseFolder, 'phase' | 'phaseStartDate' | 'daysOff' | 'recruitBadge' | 'className' | 'scheduledWeeks' | 'phaseWeekRanges'>,
+  reports: readonly { date: string; phase: number; recruitBadge: string; className?: string }[],
+  today: string,
+  lookbackDays = 14,
+): string[] {
+  const ranges = getCaseFolderWeekRanges(folder);
+  const phaseEnd = ranges.at(-1)?.endDate;
+  const off = new Set(folder.daysOff ?? []);
+  const have = new Set(reports
+    .filter(report => report.phase === folder.phase && report.recruitBadge === folder.recruitBadge && (report.className ?? '') === (folder.className ?? ''))
+    .map(report => report.date));
+  const earliest = addDays(today, -lookbackDays);
+  const start = folder.phaseStartDate > earliest ? folder.phaseStartDate : earliest;
+  const missing: string[] = [];
+  for (let date = start; date < today; date = addDays(date, 1)) {
+    if (phaseEnd && date > phaseEnd) break;
+    if (off.has(weekdayOf(date))) continue;
+    if (!have.has(date)) missing.push(date);
+  }
+  return missing;
+}

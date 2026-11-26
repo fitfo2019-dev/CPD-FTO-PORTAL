@@ -85,6 +85,11 @@ export default function ReportEditor() {
   const params = useParams<{ id?: string }>();
   const isNew = !params.id || params.id === 'new';
   const { ws, upsertReport, deleteReport, setEditorDirty, getOperationalPacket, previewOnly } = useWorkspace();
+  const requestedReportDate = (folder: NonNullable<typeof ws.caseFolder>, reports: typeof ws.reports) => {
+    const value = isNew ? new URLSearchParams(window.location.search).get('date') : null;
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value < folder.phaseStartDate) return undefined;
+    return reports.some(report => report.date === value && report.phase === folder.phase && report.recruitBadge === folder.recruitBadge) ? undefined : value;
+  };
   const [, nav] = useLocation();
   const { toast } = useToast();
   useEffect(() => {
@@ -92,7 +97,7 @@ export default function ReportEditor() {
     return () => document.body.classList.remove('print-daily-route');
   }, []);
   const existing = isNew ? undefined : ws.reports.find(r => r.id === params.id);
-  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict, ws.caseFolder.shift) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? createDailyReportDraft(ws.caseFolder,getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0],activeFtoIdentity(profile,ws.caseFolder)) : undefined);
+  const [r, setR] = useState<Report | undefined>(() => existing ? structuredClone(existing) : isNew && ws.caseFolder && !!ws.caseFolder.ftoAssignment && isValidAssignment(ws.caseFolder.zone, ws.caseFolder.precinct, ws.caseFolder.cruiserDistrict, ws.caseFolder.shift) && (ws.caseFolder.daysOff?.length ?? 0) === requiredDaysOff(ws.caseFolder.shift) ? createDailyReportDraft(ws.caseFolder,requestedReportDate(ws.caseFolder,ws.reports)??getNextReportDate(ws.caseFolder,ws.reports),ws.reports.filter(report=>report.phase===ws.caseFolder?.phase&&report.recruitBadge===ws.caseFolder.recruitBadge&&(report.className??'')===(ws.caseFolder.className??'')).sort((a,b)=>b.date.localeCompare(a.date))[0],activeFtoIdentity(profile,ws.caseFolder)) : undefined);
   const operationalPacket = useOperationalStateMachine(r);
   const [initialReport] = useState(()=>authoredReportSnapshot(r));
   const [dateText, setDateText] = useState(() => r ? formatDateDMY(r.date) : '');
