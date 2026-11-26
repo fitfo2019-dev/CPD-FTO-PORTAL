@@ -19,8 +19,8 @@ test('generated exports reject developer commentary and report the export and of
     );
   }
   assert.doesNotThrow(()=>assertExportCopy('Daily print export',
-    'Probationary Officer Daily Performance Log · Local draft · Not server-confirmed',
-    ['Probationary Officer Daily Performance Log','Local draft · Not server-confirmed']));
+    'Probationary Officer Daily Performance Summary · Local draft · Not server-confirmed',
+    ['Probationary Officer Daily Performance Summary','Local draft · Not server-confirmed']));
 });
 test('the closed traffic-stop prompt renders no inline question or routing commentary',()=>{
   for(const kind of ['traffic_stop','high_risk_stop'] as const){

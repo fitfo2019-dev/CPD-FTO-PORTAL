@@ -115,7 +115,7 @@ export default function MonthlySummaryPage() {
       {exportMessage && <p role="status" className="mb-4 rounded-sm border bg-card p-3 text-sm">{exportMessage}</p>}
 
       {!reports.length ? (
-        <Panel><p className="p-6 text-center text-sm text-muted-foreground">Create and save a daily performance log to build this month’s summary.</p></Panel>
+        <Panel><p className="p-6 text-center text-sm text-muted-foreground">Create and save a Daily Performance Summary to build this month’s summary.</p></Panel>
       ) : <>
         <Panel title="Monthly rating counts by SEG category" className="mb-4">
           <div className="flex flex-wrap gap-x-5 gap-y-2 border-b px-4 py-3 text-sm">

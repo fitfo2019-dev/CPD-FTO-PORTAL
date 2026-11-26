@@ -18,7 +18,7 @@ export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XL
     ['FTO', safe(first.ftoName), 'Phase', first.phase, 'Week of', week ? formatDateDMY(week.start) : '', 'FTO Assignment', safe(phaseAssignmentLabel(first.ftoAssignment,first.shift,first.cruiserDistrict))],
     ['Phase week', first.phaseWeek ?? 'Not confirmed', 'FTO week', first.ftoWeek ?? 'Not confirmed'],
     ['Source daily logs', reports.map(report=>safe(report.id)).join(', ')],
-    ['Rating counts', `${ratingReports.length} daily performance logs reviewed; unreviewed ratings excluded`],
+    ['Rating counts', `${ratingReports.length} Daily Performance Summaries reviewed; unreviewed ratings excluded`],
     [],
   ];
   const blocks = [

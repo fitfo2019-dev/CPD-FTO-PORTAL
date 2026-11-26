@@ -414,7 +414,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
     ['Rating', 'Definition'],
     ...RATING_LEGEND.map(item => [item.code, item.label]),
     ['Interpretation', 'Counts only. Ratings are descriptive and are not scores or averages.'],
-    ['Form scope', 'Daily Performance Log (U-10.174): once per training day. Run forms: complete the applicable primary checklist and any required supplements.'],
+    ['Form scope', 'Daily Performance Summary (U-10.174): once per training day. Run forms: complete the applicable primary checklist and any required supplements.'],
     ['Data boundary', 'This export contains local workspace records only. It is not a verified Patrol View import or server-synced class roster.'],
     ['Default ratings', 'Most categories default to Acceptable. EVO, Initiating Arrests, Handling Prisoners, Vehicle Stops, Building Search, Pat Down/Searches, High Stress Situations, and Arrest Situations default to Not Observed. Unreviewed defaults are not a verified FTO assessment.'],
     ['10-code descriptions', 'Code descriptions are included for convenient lookup.'],
@@ -448,7 +448,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
   const formIndexRows:(string|number)[][]=[
     ['Manual form / record','Reference','Excel worksheet(s)','PDF export'],
     ['Reporting for Duty Form','Form number not verified in the attached manual','Reporting for Duty','Daily print packet'],
-    ['Daily Performance Log','U-10.174','Daily Summary Index; SEG Ratings; Daily Activity; Daily Narratives; UA NRT Follow-up','Daily Performance Log + duty and run forms'],
+    ['Daily Performance Summary','U-10.174','Daily Summary Index; SEG Ratings; Daily Activity; Daily Narratives; UA NRT Follow-up','Daily Performance Summary + duty and run forms'],
     ['Weekly Performance Summary','U-10.173','Weekly Totals; Weekly Form tabs','Weekly Performance Summary print view'],
     ['Selected missed actions','Saved specific run-checklist action selections','Selected Missed Actions','Workbook export only; one row per selected action occurrence'],
     ['Weekly Performance Log Supplement','U-10.174S','Weekly Log Supplement','Weekly Performance Log Supplement print view'],

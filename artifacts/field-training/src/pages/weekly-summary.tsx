@@ -115,7 +115,7 @@ export default function WeeklySummaryPage() {
   const weekEnd = week?.end ?? '';
 
   if (!week) {
-    return <div className="py-20 text-center text-sm">Create a daily performance log to generate a weekly summary.</div>;
+    return <div className="py-20 text-center text-sm">Create a Daily Performance Summary to generate a weekly summary.</div>;
   }
 
   return (
@@ -154,7 +154,7 @@ export default function WeeklySummaryPage() {
       </div>
 
       <div role="note" className="mb-4 min-w-0 break-words rounded-sm border bg-muted/60 p-3 text-sm">
-        The weekly form counts how often each descriptive rating was selected on reviewed daily performance logs ({reviewedReports.length} of {reports.length} saved logs reviewed). Counts are not numerical performance scores. Run checklist totals below include only completed, reviewed forms ({completedRuns.length} this week). Activity totals come from saved daily logs on this device. Week numbering requires a phase start date from the case folder.
+        The weekly form counts how often each descriptive rating was selected on reviewed Daily Performance Summaries ({reviewedReports.length} of {reports.length} saved summaries reviewed). Counts are not numerical performance scores. Run checklist totals below include only completed, reviewed forms ({completedRuns.length} this week). Activity totals come from saved daily logs on this device. Week numbering requires a phase start date from the case folder.
       </div>
       <div role="note" className="mb-4 min-w-0 break-words rounded-sm border border-primary/30 bg-primary/5 p-3 text-sm">
         Faster entry: the case folder fills each day’s PO, FTO, phase, shift, and patrol assignment; the next draft advances to that PO’s next scheduled workday. Required run supplements appear from the run selections. New run checklist items start checked; review exceptions and confirm before adding the run. No prior run results or ratings are copied forward.
