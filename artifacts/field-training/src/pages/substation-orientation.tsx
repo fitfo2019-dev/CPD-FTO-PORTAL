@@ -111,17 +111,14 @@ export default function SubstationOrientationPage() {
      <PageHead kicker={`Phase ${folder.phase} · first scheduled day`} title="Substation Orientation · U-10.181">
       <button type="button" onClick={()=>window.print()} className="inline-flex min-h-11 items-center gap-2 rounded border border-primary/25 bg-card px-3 text-sm font-semibold shadow-sm transition-colors hover:bg-muted" data-testid="button-print-orientation"><Printer className="h-4 w-4"/>Print / PDF</button>
     </PageHead>
-    <div className="orientation-guidance mb-4 rounded border p-3 text-sm">
-        Complete this before the first shift of each phase. The form is dated for the phase’s first scheduled workday. Every checklist item starts checked for quick review; clear anything not completed during the walkthrough, then confirm the review before saving. {previewOnly?'Test values remain in memory and clear when the preview refreshes.':'Values stay in this device’s local workspace.'}
-    </div>
     {!canEdit&&<div className="mb-4 rounded border bg-muted/30 p-3 text-sm">FTO Coordinator view is read-only. The assigned FTO completes and saves this orientation.</div>}
     <Panel title="PO, FTO, substation, and date" className="orientation-panel">
       <div className="orientation-fields grid gap-3 p-4 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-semibold">Probationary Officer<input value={`${record.recruitName} · ${record.recruitBadge}`} readOnly className="h-11 rounded border bg-muted px-3 font-normal"/></label>
         <label className="grid gap-1 text-sm font-semibold">Field Training Officer<input value={`${record.ftoName} · ${record.ftoBadge}`} readOnly className="h-11 rounded border bg-muted px-3 font-normal"/></label>
         <label className="grid gap-1 text-sm font-semibold">Substation
-          <input disabled={!canEdit} value={substationText} inputMode="numeric" onChange={event=>{setSubstationText(event.target.value);setSubstationError('');if(record.substation)update('substation','');}} onBlur={commitSubstation} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitSubstation();}}} aria-invalid={!!substationError} aria-describedby="orientation-substation-help" className="h-11 w-full rounded border bg-card px-3 font-normal" data-testid="input-orientation-substation"/>
-          <span id="orientation-substation-help" className={`text-xs font-normal ${substationError?'text-destructive':'text-muted-foreground'}`}>{substationError||'Enter the substation number, then press Tab or Enter to show its details.'}</span>
+          <input disabled={!canEdit} value={substationText} inputMode="numeric" onChange={event=>{setSubstationText(event.target.value);setSubstationError('');if(record.substation)update('substation','');}} onBlur={commitSubstation} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();commitSubstation();}}} aria-invalid={!!substationError} aria-describedby={substationError?"orientation-substation-help":undefined} className="h-11 w-full rounded border bg-card px-3 font-normal" data-testid="input-orientation-substation"/>
+          {substationError&&<span id="orientation-substation-help" className="text-xs font-normal text-destructive">{substationError}</span>}
         </label>
         <label className="orientation-field grid gap-1 text-sm font-semibold">Date and time · MM/DD/YYYY HH:MM<input disabled={!canEdit} value={dateTimeText} onChange={event=>setDateTimeText(formatDateTimeEntryMDY(event.target.value))} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'datetime',setDateTimeText,formatDateDMY(firstDay))} maxLength={16} placeholder="MM/DD/YYYY HH:MM" className="h-11 rounded border bg-card px-3 font-normal" data-testid="input-orientation-datetime"/><span className="text-xs font-normal text-muted-foreground">Enter ? then press Tab for the current date and time. Saving still requires the first scheduled training day.</span></label>
         {selectedSubstation&&<div className="orientation-location rounded border bg-muted/30 p-3 text-sm sm:col-span-2" data-testid="substation-location-details">
@@ -136,12 +133,12 @@ export default function SubstationOrientationPage() {
     </Panel>
     <Panel title={`Walkthrough checklist · ${checked} of ${SUBSTATION_ORIENTATION_KEYS.length} original tasks covered · ${coveredCategories} of ${totalCategories} categories · ${checklistReviewed?'reviewed':'review required'}`} className="orientation-panel mt-4">
       <div className="orientation-checklist-tools flex flex-wrap items-center justify-between gap-3 border-b p-4">
-        <p className="text-sm text-muted-foreground">FTO / PO walkthrough record, not a performance rating. Check a category only when every listed task was covered; a dashed box means some of its tasks are still open.</p>
+        <span/>
         {canEdit&&<button type="button" onClick={()=>updateChecklist(checked===SUBSTATION_ORIENTATION_KEYS.length?Object.fromEntries(SUBSTATION_ORIENTATION_KEYS.map(key=>[key,false])):defaultSubstationOrientationChecklist())} className={`inline-flex min-h-11 items-center rounded border px-4 text-sm font-bold transition-colors hover:bg-muted ${checked===SUBSTATION_ORIENTATION_KEYS.length?'border-destructive/50 text-destructive':'border-primary/25'}`} data-testid="button-toggle-all-orientation">{checked===SUBSTATION_ORIENTATION_KEYS.length?'Deselect all':'Select all'}</button>}
       </div>
       <div className="orientation-category-grid grid gap-2 p-3 sm:grid-cols-2" role="group" aria-label="Walkthrough checklist categories">{SUBSTATION_ORIENTATION_CATEGORIES.map(category=><GroupCheck key={category.id} id={category.id} keys={category.keys} label={category.label} categoryName={category.categoryName} checklist={record.checklist} disabled={!canEdit} onToggle={toggleGroup}/>)}</div>
       <div className="orientation-review-bar flex flex-wrap items-center justify-between gap-3 p-4">
-        <p className="text-sm" data-testid="text-orientation-review-status">{checklistReviewed?'Review confirmed. Any further edit clears this confirmation.':'After walking through every category with the PO, confirm the review below the list.'}</p>
+        <p className="text-sm" data-testid="text-orientation-review-status">{checklistReviewed?'Review confirmed':'Review required'}</p>
         {canEdit&&<button type="button" onClick={confirmChecklistReview} disabled={checklistReviewed} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-60" data-testid="button-confirm-orientation-review"><CheckCheck className="h-4 w-4"/>{checklistReviewed?'Review confirmed':'Confirm checklist review'}</button>}
       </div>
     </Panel>

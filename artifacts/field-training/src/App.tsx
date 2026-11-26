@@ -14,6 +14,8 @@ import { PacketReviewGate } from '@/components/packet-review/gate.js';
 import PacketSubmissionsPage from '@/pages/packet-submissions.js';
 import { Shell } from '@/components/shell.js';
 import Dashboard from '@/pages/dashboard.js';
+import SergeantHome from '@/pages/sergeant-home.js';
+import FtoDirectoryPage from '@/pages/fto-directory.js';
 import Reports from '@/pages/reports.js';
 import ReportEditor from '@/pages/report-editor.js';
 import Training from '@/pages/training.js';
@@ -225,7 +227,7 @@ function WorkspaceRoutes() {
     if (!TestAdminPage) return <NotFound />;
     return <RoutedErrorBoundary><Suspense fallback={<div role="status" className="p-8 text-sm">Loading Test Admin…</div>}><TestAdminPage /></Suspense></RoutedErrorBoundary>;
   }
-  // FTO Sergeant previews expose role-appropriate Help Desk guidance only.
+  // FTO Sergeant home: open NRT, non-release and withdrawal alerts first, then PO Progress cards.
   // Assignment authority remains a separate server-side capability.
   if (ws.role === 'fto_sgt') return <RoutedErrorBoundary><Switch>
     {RebuildPhaseSetup && <Route path="/rebuild-phase-setup">{() => <RebuildRoute page={RebuildPhaseSetup}/>}</Route>}
@@ -233,7 +235,8 @@ function WorkspaceRoutes() {
     <Route path="/reports/weekly-packet" component={WeeklyPacketPage}/>
     <Route path="/resources" component={HelpPage}/>
     <Route path="/help"><Redirect to="/resources"/></Route>
-    <Route>{() => <Redirect to="/resources"/>}</Route>
+    <Route path="/" component={SergeantHome}/>
+    <Route>{() => <Redirect to="/"/>}</Route>
   </Switch></RoutedErrorBoundary>;
   // This route authorizes through the signed server role, never the local role preview.
   if(path==='/packet-submissions') return <RoutedErrorBoundary><PacketSubmissionsPage/></RoutedErrorBoundary>;
@@ -279,6 +282,7 @@ function WorkspaceRoutes() {
         <Route path="/reports/weekly-ack" component={WeeklyAcknowledgementPage} />
         <Route path="/nrt-ua" component={NrtUaPortalPage} />
         <Route path="/class-overview" component={ClassOverview} />
+        <Route path="/fto-directory" component={FtoDirectoryPage} />
         <Route path="/substitute-fto" component={SubstituteFtoPage} />
          <Route path="/fto-classes" component={FtoClassesPage} />
         <Route path="/reports/:id/nrt-follow-up" component={NrtFollowUpPage} />

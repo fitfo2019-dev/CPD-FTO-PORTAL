@@ -3,7 +3,7 @@ import { useClerk, useUser } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
-import { LayoutGrid, LineChart, CalendarCheck, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp, FlaskConical } from 'lucide-react';
+import { LayoutGrid, LineChart, CalendarCheck, CalendarClock, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp, FlaskConical } from 'lucide-react';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
@@ -15,46 +15,60 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { operatorErrorToast } from '@/lib/operator-errors.js';
 import { probeTestAdmin } from '@/features/test-admin/api.js';
 
-type NavItem = { href: string; label: string; icon: typeof LayoutGrid };
+type NavItem = { href: string; label: string; icon: typeof LayoutGrid; devOnly?: boolean };
 
-const HOME: NavItem = { href: '/', label: 'Home', icon: LayoutGrid };
 const RESOURCES: NavItem = { href: '/resources', label: 'Help Desk', icon: CircleHelp };
+const SETTINGS: NavItem = { href: '/settings', label: 'Account Settings', icon: Settings };
+// Vercel names and order first, then the Replit-only pages. Items marked devOnly are
+// rebuild screens that stay preview-only until their server routes are integrated.
 const ROLE_NAV: Record<Role, NavItem[]> = {
   fto: [
-    HOME,
+    { href: '/', label: 'Daily Packet', icon: LayoutGrid },
+    { href: '/phase-sign-up', label: 'Phase Sign-Up', icon: CalendarCheck, devOnly: true },
+    { href: '/substitute-fto', label: 'Day-Off Coverage', icon: CalendarClock },
+    { href: '/my-probationary-officer', label: 'My Probationary Officer', icon: UserRound, devOnly: true },
     { href: '/class-overview', label: 'My PO’s', icon: Users },
     { href: '/reports/new', label: 'Shifts & Runs', icon: ClipboardList },
     { href: '/reports', label: 'Daily Records', icon: FileText },
     { href: '/reports/weekly-packet', label: 'Weekly Packets', icon: ClipboardList },
-    { href: '/agency-packets', label: 'Agency packets', icon: FileText },
+    { href: '/agency-packets', label: 'Agency Packets', icon: FileText },
     { href: '/packet-submissions', label: 'Packet Submissions', icon: ClipboardList },
     RESOURCES,
-    { href: '/settings', label: 'Account Settings', icon: Settings },
+    SETTINGS,
   ],
   fto_sgt: [
-    { href: '/reports/weekly-packet', label: 'Packet Monitor', icon: ClipboardList },
+    { href: '/', label: 'Sergeant Dashboard', icon: LayoutGrid },
+    { href: '/rebuild-phase-setup', label: 'Phase Setup', icon: FolderOpen, devOnly: true },
+    { href: '/po-progress', label: 'PO Progress', icon: LineChart, devOnly: true },
+    { href: '/reports/weekly-packet', label: 'Weekly Packets', icon: ClipboardList },
     RESOURCES,
   ],
   fto_coordinator: [
-    HOME,
-    { href: '/packet-submissions', label: 'Packet Submission Inbox', icon: ClipboardList },
-    { href: '/class-overview', label: 'Classes & Rosters', icon: Users },
+    { href: '/', label: 'Coordinator Dashboard', icon: LayoutGrid },
+    { href: '/packet-submissions', label: 'Review Desk', icon: ClipboardList },
+    { href: '/rebuild-phase-setup', label: 'Phase Setup', icon: FolderOpen, devOnly: true },
+    { href: '/po-progress', label: 'PO Progress', icon: LineChart, devOnly: true },
+    { href: '/class-overview', label: 'Probationary Officers', icon: Users },
+    { href: '/fto-directory', label: 'FTO Directory', icon: UserRound },
+    { href: '/reports/monthly-summary', label: 'Monthly Reports', icon: FileClock },
     { href: '/phase-setup', label: 'Assignments', icon: FolderOpen },
-    { href: '/substitute-fto', label: 'Coverage', icon: Users },
-    { href: '/reports/weekly-packet', label: 'Packet Monitor', icon: ClipboardList },
-    { href: '/agency-packets', label: 'Agency packets', icon: FileText },
+    { href: '/fto-classes', label: 'Phase Postings', icon: CalendarCheck },
+    { href: '/substitute-fto', label: 'Coverage', icon: CalendarClock },
+    { href: '/reports/weekly-packet', label: 'Weekly Packets', icon: ClipboardList },
+    { href: '/agency-packets', label: 'Agency Packets', icon: FileText },
     RESOURCES,
+    SETTINGS,
   ],
   fto_coc: [
     { href: '/command-review', label: 'Submitted Packets', icon: ClipboardList },
     RESOURCES,
   ],
   po: [
-    { href: '/agency-packets', label: 'Agency packets', icon: FileText },
+    { href: '/agency-packets', label: 'Agency Packets', icon: FileText },
     { href: '/packet-submissions', label: 'Packet Status', icon: ClipboardList },
     { href: '/role-access', label: 'Account Access', icon: Lock },
     RESOURCES,
-    { href: '/settings', label: 'Account Settings', icon: Settings },
+    SETTINGS,
   ],
   policenet: [
     { href: '/technical-access', label: 'Technical Access', icon: Settings },
@@ -65,29 +79,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     RESOURCES,
   ],
 };
-
-// Rebuild screens are preview-only until the server roster and sign-up routes are integrated.
-const REBUILD_NAV: Partial<Record<Role, NavItem[]>> = import.meta.env.DEV ? {
-  fto: [
-    { href: '/my-probationary-officer', label: 'My Probationary Officer', icon: UserRound },
-    { href: '/phase-sign-up', label: 'Phase Sign-Up', icon: CalendarCheck },
-  ],
-  fto_coordinator: [
-    { href: '/rebuild-phase-setup', label: 'Phase Setup', icon: FolderOpen },
-    { href: '/po-progress', label: 'PO Progress', icon: LineChart },
-  ],
-  fto_sgt: [
-    { href: '/rebuild-phase-setup', label: 'Phase Setup', icon: FolderOpen },
-    { href: '/po-progress', label: 'PO Progress', icon: LineChart },
-  ],
-} : {};
-const navFor = (role: Role): NavItem[] => {
-  const base = ROLE_NAV[role];
-  const extra = REBUILD_NAV[role] ?? [];
-  if (!extra.length) return base;
-  const at = base[0] === HOME ? 1 : 0;
-  return [...base.slice(0, at), ...extra, ...base.slice(at)];
-};
+const navFor = (role: Role): NavItem[] => ROLE_NAV[role].filter(item => !item.devOnly || import.meta.env.DEV);
 
 const navTestId = (href: string) => `link-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`;
 
@@ -164,7 +156,7 @@ export function Shell({ children }: { children: ReactNode }) {
     setLocation(role === 'fto_coc'
       ? '/command-review'
       : role === 'fto_sgt'
-        ? '/resources'
+        ? '/'
       : role === 'po'
         ? '/role-access'
         : isTechnicalRole(role)

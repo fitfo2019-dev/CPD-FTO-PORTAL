@@ -1,4 +1,4 @@
-import { ExternalLink, MapPinned, ShieldCheck } from 'lucide-react';
+import { ExternalLink, MapPinned } from 'lucide-react';
 import './geography-map-panel.css';
 
 export const COLUMBUS_MAP_VIEWER_URL = 'https://www.google.com/maps/d/u/0/viewer?mid=10NvwFmOwuUJTVQGQ2Jh1EIboXP0&ll=39.95032723201076%2C-82.92253150906822&z=11';
@@ -13,7 +13,6 @@ export function GeographyMapPanel() {
           <div>
             <p className="geography-map-eyebrow">GEOGRAPHY REFERENCE</p>
             <h2 id="geography-map-title" data-testid="text-geography-map-title">Columbus Police Geography Map</h2>
-            <p className="geography-map-description">Explore the supplied map in an interactive view.</p>
           </div>
         </div>
         <a className="geography-map-link" href={COLUMBUS_MAP_VIEWER_URL} target="_blank" rel="noopener noreferrer" data-testid="link-open-original-map">
@@ -30,10 +29,6 @@ export function GeographyMapPanel() {
           data-testid="frame-columbus-geography-map"
         />
       </div>
-      <footer className="geography-map-foot">
-        <ShieldCheck size={15} aria-hidden="true" />
-        <p>If the embedded map does not load, use “Open Original Map.” Confirm current geography and assignments through official agency sources.</p>
-      </footer>
     </section>
   );
 }

@@ -117,15 +117,14 @@ export default function ClassOverview() {
       <button type="button" onClick={clearFilters} className="h-10 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-clear-class-filters"><Filter className="mr-1 inline h-4 w-4" />Clear</button>
     </div>
     <Panel title={ws.role==='fto'?'My assigned PO’s':'Class roster · FTO and Coordinator coverage'} className="mb-4">
-       <p className="border-b p-3 text-sm text-muted-foreground">{ws.role==='fto'?'Only PO’s assigned to the signed-in department email appear. Substitute access is unavailable until a shared coverage service confirms it.':'The roster lists PO’s even when they have no daily logs yet. Substitute coverage creates a new day without changing the regular FTO assignment.'}</p>
-      {ws.role==='fto'&&!signedInFto&&<p className="border-b bg-accent/10 p-3 text-sm" role="status" data-testid="status-fto-roster-unavailable">No FTO directory entry matches the signed-in department email. No class or PO records are shown.</p>}
+      {ws.role==='fto'&&!signedInFto&&<p className="border-b bg-accent/10 p-3 text-sm" role="status" data-testid="status-fto-roster-unavailable">No matching FTO directory entry</p>}
       {roster.length ? <ul className="divide-y">{roster.map(assignment=>{
         const fto=ws.ftoDirectory.find(item=>item.badge.toLowerCase()===assignment.ftoBadge.toLowerCase());
         return <li key={assignment.id} className="flex flex-wrap items-center justify-between gap-3 p-4" data-testid={`row-class-assignment-${assignment.id}`}>
           <div><p className="font-bold">PO {assignment.recruitName} #{assignment.recruitBadge}</p><p className="text-sm text-muted-foreground">{assignment.className} · Phase {assignment.phase} · FTO {fto?.name??'Not found in directory'} #{assignment.ftoBadge}</p></div>
           {(ws.role==='fto'||ws.role==='fto_coordinator')&&<Link href={`/substitute-fto?assignment=${encodeURIComponent(assignment.id)}`} className="inline-flex min-h-11 items-center rounded border bg-card px-4 text-sm font-bold" data-testid={`link-sub-for-${assignment.id}`}>{ws.role==='fto_coordinator'?'Manage coverage':'Sub in for this FTO'}</Link>}
         </li>;
-      })}</ul> : <p className="p-4 text-sm text-muted-foreground">No imported class roster matches this filter. The FTO Coordinator must import the roster first.</p>}
+      })}</ul> : <p className="p-4 text-sm text-muted-foreground">None</p>}
     </Panel>
     <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
       <div className="rounded border bg-card p-4"><div className="label-caps">Saved reports</div><div className="mono mt-1 text-2xl font-bold" data-testid="status-class-report-count">{selectedReports.length}</div></div>
@@ -133,7 +132,7 @@ export default function ClassOverview() {
       <div className="rounded border bg-card p-4"><div className="label-caps">Training runs recorded</div><div className="mono mt-1 text-2xl font-bold" data-testid="status-class-run-count">{selectedReports.reduce((sum,report)=>sum+(report.runs?.length ?? 0),0)}</div></div>
       <div className="rounded border bg-card p-4"><div className="label-caps">UA / NRT entries</div><div className="mono mt-1 text-2xl font-bold text-warn" data-testid="status-class-follow-up-count">{followUps.length}</div></div>
     </div>
-    {selectedReports.length === 0 ? <Panel><div className="flex flex-col items-center p-10 text-center" data-testid="text-class-empty"><Users className="mb-3 h-7 w-7 text-muted-foreground" /><h2 className="font-bold">{ws.reports.length ? 'No saved records match these filters' : 'No daily logs yet'}</h2><p className="mt-1 max-w-md text-sm text-muted-foreground">Open a phase case folder, set its training class, and save daily logs to populate this local overview.</p><Link href="/" className="mt-4 font-semibold underline" data-testid="link-open-case-folder">Open phase case folder</Link></div></Panel> :
+    {selectedReports.length === 0 ? <Panel><div className="flex flex-col items-center p-10 text-center" data-testid="text-class-empty"><Users className="mb-3 h-7 w-7 text-muted-foreground" /><h2 className="font-bold">{ws.reports.length ? 'No saved records match these filters' : 'No daily logs yet'}</h2><Link href="/" className="mt-4 font-semibold underline" data-testid="link-open-case-folder">Open phase case folder</Link></div></Panel> :
       <div className="space-y-4">
         {buckets.map(group=><Panel key={group.className} title={group.className} action={<span className="mono text-xs text-muted-foreground">{group.probationers.reduce((sum,person)=>sum+person.reports.length,0)} saved reports</span>}>
           <div className="divide-y">{group.probationers.map(person=>{
@@ -168,11 +167,10 @@ export default function ClassOverview() {
         </Panel>)}
       </div>}
     <Panel className="mt-4" title="UA / NRT follow-up">
-      {followUps.length === 0 ? <p className="p-4 text-sm text-muted-foreground" data-testid="text-no-class-follow-up">No Unacceptable or Not Responding to Training selections in the filtered reports.</p> : <ul className="divide-y" data-testid="list-class-follow-up">{followUps.map(({report,category,rating,missing,justification})=><li key={`${report.id}-${category}`} className="flex flex-wrap items-start gap-3 p-3" data-testid={`row-class-follow-up-${report.id}-${category}`}>
+      {followUps.length === 0 ? <p className="p-4 text-sm text-muted-foreground" data-testid="text-no-class-follow-up">None</p> : <ul className="divide-y" data-testid="list-class-follow-up">{followUps.map(({report,category,rating,missing,justification})=><li key={`${report.id}-${category}`} className="flex flex-wrap items-start gap-3 p-3" data-testid={`row-class-follow-up-${report.id}-${category}`}>
         <RatingChip r={rating} /><div className="min-w-0 flex-1"><div className="font-semibold">{report.recruitName} · {CATEGORY_LABEL[category]} <span className="text-xs font-normal text-muted-foreground">· {formatDateDMY(report.date)}</span></div><p className="mt-1 text-sm text-muted-foreground">{justification || 'Performance and training documentation still needed.'}</p>{missing.length>0 && <p className="mt-1 text-xs font-semibold text-warn">NRT follow-up not confirmed: {missing.join('; ')}.</p>}</div><Link href={`/reports/${report.id}`} className="text-sm font-semibold underline" data-testid={`link-follow-up-report-${report.id}-${category}`}>Review report</Link>
       </li>)}</ul>}
     </Panel>
     {exportError && <p role="alert" className="mt-3 text-sm font-semibold text-destructive" data-testid="text-export-error">{exportError}</p>}
-    <p className="mt-4 text-xs text-muted-foreground" data-testid="text-export-note">Workbook export uses only the currently filtered local reports. Export does not transmit records to a server.</p>
   </div>;
 }

@@ -14,7 +14,6 @@ import {
   SearchControls,
   type LibraryResource,
 } from '@workspace/fto-law-library-schema/components/library';
-import { GeographyMapPanel } from '@/components/geography-map-panel.js';
 import {
   DIRECTIVE_PDF_INDEX_SOURCE,
   DIRECTIVE_PDF_INDEX_VERIFIED_ON,
@@ -196,12 +195,8 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
       <header className="resources-preview-heading">
         <div>
           <p className="resources-preview-eyebrow">Field Training Officer Portal · Columbus</p>
-          <h1 id="resources-library-title">Resources library</h1>
-          <p className="resources-preview-lede">
-            A focused catalog of signed-in uploaded files, official division directive PDFs, and the geography map.
-          </p>
+          <h1 id="resources-library-title" className="page-title">Resources Library</h1>
         </div>
-        <p className="resources-preview-scope">Catalog results include only the sources listed here.</p>
       </header>
 
       <div className="resources-preview-layout">
@@ -283,10 +278,6 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
             )}
           </div>
         </section>
-      </div>
-
-      <div className="resources-preview-map" id="resources-preview-map" tabIndex={-1} data-testid="section-map-embed">
-        <GeographyMapPanel />
       </div>
 
       {selected && (

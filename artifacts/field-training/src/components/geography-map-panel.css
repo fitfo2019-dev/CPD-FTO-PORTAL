@@ -103,3 +103,19 @@
   .geography-map-frame-wrap { height: min(64dvh, 540px); min-height: 370px; }
   .geography-map-foot { padding: 12px 14px; font-size: 11px; }
 }
+.law-handbook-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.law-handbook-tabs button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--geo-line);
+  border-radius: 6px;
+  background: var(--geo-surface);
+  color: var(--geo-navy);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.law-handbook-tabs button.is-active { border-color: var(--geo-navy); background: var(--geo-navy); color: var(--geo-surface); }
+.law-handbook-tabs button:focus-visible { outline: 3px solid var(--geo-blue); outline-offset: 2px; }
+.law-handbook-frame-wrap { height: clamp(560px, 75vh, 900px); background: #faf9f7; }

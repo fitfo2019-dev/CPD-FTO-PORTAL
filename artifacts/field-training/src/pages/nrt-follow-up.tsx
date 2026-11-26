@@ -52,7 +52,7 @@ export default function NrtFollowUpPage() {
 
   return <div className="mx-auto w-full max-w-4xl">
     <Link href={`/reports/${report.id}`} className="mb-2 inline-flex items-center gap-1 text-sm font-semibold hover:underline"><ArrowLeft className="h-4 w-4"/>Return to daily summary</Link>
-    <PageHead kicker="NRT follow-up" title={`PO ${report.recruitName} #${report.recruitBadge}`}>
+    <PageHead kicker="NRT follow-up" title={`PO ${report.recruitName} #${report.recruitBadge}`} titleIsData>
       <span className="rounded border bg-card px-3 py-2 text-sm font-semibold">{nrtReference(report,ws.assignments,ws.caseFolder)}</span>
     </PageHead>
     <div role="note" className="mb-4 rounded border border-warn/60 bg-warn/10 p-3 text-sm">

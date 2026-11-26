@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'wouter';
 import {
   getApplicationHelpTopicForRole,
   getApplicationHelpTopicsForRole,
@@ -132,12 +131,6 @@ export function ApplicationHelpDesk({ role }: { role: Role }) {
                   <p className="text-sm leading-relaxed">{selected.recovery}</p>
                 </section>
               </div>
-              <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-                Operational requirements belong to official agency sources. Browse the available references in{' '}
-                <Link href="/resources#resources-library" className="font-semibold text-primary underline">
-                  Resources
-                </Link>.
-              </p>
             </>
           ) : (
             <div className="grid min-h-40 place-content-center justify-items-start gap-2 py-6 text-sm text-muted-foreground" role="status">

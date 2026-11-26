@@ -127,17 +127,12 @@ export default function PacketSubmissions() {
   const live=!previewOnly&&!!context?.available;
   const list=useListPacketSubmissions({offset},{query:{enabled:live,queryKey:[...getListPacketSubmissionsQueryKey({offset}),context?.account_id],refetchInterval:5000,retry:false}});
   const items=list.data?.items??[];
-  const scope=context?.role==='FTO_COORDINATOR'?'Packets enter your inbox only after the PO reviews their own UA details and counts. Receipt is separate from approval and release.'
-    :context?.role==='PO'?'Review only your own UA details and daily, weekly, and monthly counts before Coordinator routing.'
-    :context?.role==='FTO'?'Read packets in your assigned classes; only your own returned packets can be corrected.'
-    :'Read-only submitted packets for classes assigned to your verified account.';
   return <div className="space-y-4 pb-8">
     <header className="border border-border border-t-4 border-t-primary bg-card p-4">
       <p className="library-eyebrow">Packet Submissions</p>
-      <h1 className="text-2xl text-foreground">Daily Packet Status</h1>
-      <p className="text-sm text-muted-foreground">{scope}</p>
+      <h1 className="page-title text-2xl">Daily Packet Status</h1>
     </header>
-    {previewOnly?<p role="status" className="border border-dashed border-border p-4 text-sm">Packet submissions are not loaded in UI previews. No shared records are shown.</p>
+    {previewOnly?<p role="status" className="border border-dashed border-border p-4 text-sm">Not loaded</p>
     :loading?<Skeleton/>
     :error||!context?<div role="alert" className="flex items-center justify-between gap-2 border border-destructive bg-card p-4 text-sm text-destructive">{error??'Packet service unavailable.'}<Button variant="outline" onClick={()=>void refresh().catch(()=>{})}>RETRY</Button></div>
     :!context.available?<p role="status" className="border border-dashed border-border bg-card p-4 text-sm">Agency packet storage is not configured or unavailable. Local drafting remains available.</p>

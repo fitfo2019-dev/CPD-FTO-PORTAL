@@ -74,10 +74,6 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
   const roleMissing = !unavailable && !loading && role === null;
   const blocked = Boolean(unavailable) || roleMissing;
 
-  const subtitle = role === "FTO_COORDINATOR" ? "Review PO-screened packets, acknowledge receipt, approve, then release separately."
-    : role === "PO" ? "Review only your own UA details and period counts; acknowledge receipt after Coordinator release."
-    : role === "FTO" ? "Read packets in your assigned classes. You can correct only your own returned packets."
-    : "Read-only packets for classes assigned to your verified account.";
   const listTitle = role === "FTO_COORDINATOR" ? "Authorized class packets" : role === "PO" ? "Your released packets" : "Assigned class packets";
   const listSub = role === "FTO_COORDINATOR" ? "Scoped by the agency server to your authorized training classes."
     : role === "PO" ? "Only packets the server released to you are shown."
@@ -87,7 +83,7 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
     <div className="apr" data-testid="page-agency-packets">
       <div className="apr-crumb"><span>Training records</span><ChevronRight size={11} /><span>Agency packets</span></div>
       <div className="apr-title-row">
-        <div><h1>Agency packets</h1><p>{subtitle}</p></div>
+        <div><h1 className="page-title">Agency Packets</h1></div>
         <div className="apr-title-actions">
           <button type="button" className="apr-refresh" onClick={onRefresh} disabled={!canRefresh || busy || refreshing} data-testid="button-refresh-packets">
             <RefreshCw size={13} className={refreshing ? "apr-spin" : undefined} />{refreshing ? "Refreshing" : "Refresh"}
@@ -134,11 +130,10 @@ export function AgencyPacketReview(props: AgencyPacketReviewProps) {
                 <h3>{role === "PO" ? "No released packets yet" : "No packets in your assigned classes"}</h3>
                 <p>{role === "PO" ? "When your Coordinator releases a packet, your own summary will appear here. Draft and withdrawn packets remain hidden."
                   : "Submitted daily records for your authorized classes will appear here. Read access does not grant another role’s actions."}</p></div>}
-          <div className="apr-list-foot"><LockKeyhole size={11} /><span>Access is scoped by the agency server. Role shown here comes only from the server response.</span></div>
         </section>
 
         <section className="apr-detail" aria-label="Packet snapshot">
-          {unavailable ? <div className="apr-empty" role="alert"><div className="apr-empty-icon err"><AlertCircle size={17} /></div><h3>Packet snapshot unavailable</h3><p>No record details are shown. No packet state has been changed.</p></div>
+          {unavailable ? <div className="apr-empty" role="alert"><div className="apr-empty-icon err"><AlertCircle size={17} /></div><h3>Packet snapshot unavailable</h3></div>
             : loading ? <div className="apr-snapshot" aria-busy="true">{[0, 1, 2, 3].map(i => <div className="apr-skel" key={i} style={{ border: 0 }}><i style={{ width: "35%" }} /><i /><i style={{ width: "80%" }} /></div>)}</div>
             : roleMissing ? <div className="apr-empty"><div className="apr-empty-icon err"><LockKeyhole size={17} /></div><h3>No access confirmed</h3><p>Sign in again or contact your training coordinator if this continues.</p></div>
             : selected && role ? role === "PO"

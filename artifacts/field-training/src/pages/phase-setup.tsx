@@ -266,7 +266,6 @@ export default function PhaseSetupPage() {
                 }} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'date',value=>{const next=[...phaseWeekRanges];next[index]={...next[index],endDate:value};form.setValue('phaseWeekRanges',next,{shouldDirty:true,shouldValidate:true});})} data-testid={`input-phase-week-${index+1}-end`}/></Field>
               </div>)}
               {fieldError('phaseWeekRanges')&&<p className="text-sm text-destructive" role="alert">{fieldError('phaseWeekRanges')}</p>}
-              <p className="text-xs text-muted-foreground">The date ranges set the workbook’s phase-week tabs. Extra approved weeks are included with Week 4 in Excel.</p>
             </fieldset>
             <Field label="Patrol zone" error={fieldError('zone')}>{canManageAssignment?<SearchableSelect {...form.register('zone')} value={zone} className={selectInput} onChange={event=>{form.setValue('zone',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('precinct','',{shouldDirty:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});form.setValue('cruiserDistrict','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-zone"><option value="">Select zone</option>{CPD_GEOGRAPHY.map(item=><option key={item.zone} value={item.zone}>Zone {item.zone}</option>)}</SearchableSelect>:<input {...form.register('zone')} className={textInput} readOnly data-testid="select-zone"/>}</Field>
             <Field label="Precinct" error={fieldError('precinct')}>{canManageAssignment?<SearchableSelect {...form.register('precinct')} value={precinct} className={selectInput} disabled={!zone} onChange={event=>{form.setValue('precinct',event.target.value,{shouldDirty:true,shouldValidate:true});form.setValue('ftoAssignment','',{shouldDirty:true,shouldValidate:true});form.setValue('cruiserDistrict','',{shouldDirty:true,shouldValidate:true});}} data-testid="select-precinct"><option value="">Select precinct</option>{cpdPrecinctsForZone(zone).map(item=><option key={item.precinct} value={item.precinct}>Precinct {item.precinct}</option>)}</SearchableSelect>:<input {...form.register('precinct')} className={textInput} readOnly data-testid="select-precinct"/>}</Field>
@@ -279,13 +278,13 @@ export default function PhaseSetupPage() {
                   const mappedDistrict=universal?undefined:cruiserDistrictForFtoAssignment(zone,precinct,value,shift);
                   const isWagon=!!mappedDistrict&&mappedDistrict===`${precinct}8`;
                   const detail=universal
-                    ?'User-requested option · not established by the SOP'
+                    ?''
                     :isWagon
                       ?`Precinct ${precinct} wagon · ${SHIFT_LABEL[shift as Shift]}`
                       :`Mapped cruiser district ${mappedDistrict}`;
                   return <label key={value} className={`flex min-h-12 items-center gap-3 rounded border p-3 text-sm ${ftoAssignment===value?'border-primary bg-primary/5 ring-1 ring-primary':'bg-card'} ${!canManageAssignment?'opacity-80':''}`}>
                     <input {...form.register('ftoAssignment')} type="radio" value={value} checked={ftoAssignment===value} disabled={!canManageAssignment} onChange={()=>selectFtoAssignment(value)} data-testid={`radio-fto-assignment-${value}`}/>
-                    <span className="min-w-0"><b className="block">{value}</b><span className="text-xs text-muted-foreground">{detail}</span></span>
+                    <span className="min-w-0"><b className="block">{value}</b>{detail&&<span className="text-xs text-muted-foreground">{detail}</span>}</span>
                     {universal&&<span className="ml-auto shrink-0 rounded border border-destructive/30 px-2 py-1 text-[10px] font-bold uppercase text-destructive">User request</span>}
                   </label>;
                 })}
@@ -304,7 +303,7 @@ export default function PhaseSetupPage() {
             </fieldset>}
           </div>
         </Panel>
-         {ws.caseFolder&&<p className="mt-4 text-xs text-muted-foreground">Saved phase setup opened {formatDateTimeMDY(ws.caseFolder.openedAt)}. Editing this form updates the current case-folder values; saved reports remain unchanged.</p>}
+         {ws.caseFolder&&<p className="mt-4 text-xs text-muted-foreground">Saved phase setup opened {formatDateTimeMDY(ws.caseFolder.openedAt)}</p>}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="submit" disabled={form.formState.isSubmitting} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-save-phase-setup">{ws.caseFolder?'Save phase setup changes':'Save and open phase folder'}</button>
           {ws.caseFolder&&<Link href="/reports/new" className="inline-flex min-h-11 items-center gap-2 rounded border bg-card px-4 text-sm font-bold" data-testid="link-start-shift-after-setup"><ArrowRight className="h-4 w-4"/>Start shift</Link>}

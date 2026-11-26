@@ -170,7 +170,7 @@ export default function WeeklyAcknowledgementPage() {
   const fieldClass = 'h-10 w-full rounded-sm border border-input bg-card px-3 text-sm';
   return (
     <div className="max-w-5xl">
-      <PageHead kicker="Weekly Packet Acknowledgement · manual example page 48" title={ack.recruitName || 'Weekly packet'}>
+      <PageHead kicker="Weekly Packet Acknowledgement · manual example page 48" title={ack.recruitName || 'Weekly packet'} titleIsData>
         <button type="button" onClick={() => window.print()} className="inline-flex h-10 items-center gap-2 rounded-sm border px-4 text-sm font-bold">
           <Printer className="h-4 w-4" />Print / save PDF
         </button>

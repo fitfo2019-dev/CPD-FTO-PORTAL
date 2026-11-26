@@ -21,11 +21,8 @@ export function NrtAdminReviewPanel() {
   }));
   if (ws.role!=='fto_coordinator') return null;
   return <Panel title="NRT review inbox · FTO Coordinator" className="mb-4">
-    <div className="border-b bg-warn/10 p-3 text-sm">
-      No alert has been sent to the FTO for these requests.
-    </div>
     {pending.length===0
-      ? <p className="p-4 text-sm text-muted-foreground" data-testid="text-nrt-review-empty">No NRT review requests are waiting in this local workspace.</p>
+      ? <p className="p-4 text-sm text-muted-foreground" data-testid="text-nrt-review-empty">None</p>
       : <ul className="divide-y">{pending.map(({report,category,entry})=><ReviewCard key={`${report.id}-${category}`} report={report} category={category} entry={entry} references={(entry.nrtPriorUnacceptableIds??[]).map(id=>{const prior=ws.reports.find(item=>item.id===id);return prior?`${nrtReference(prior,ws.assignments,ws.caseFolder)} · ${formatDateDMY(prior.date)}`:'Linked record unavailable';})} onSave={(patch)=>{
         const updated: Report={...report,updatedAt:new Date().toISOString(),ratings:{...report.ratings,[category]:{...entry,...patch,nrtOfficeReviewStatus:'responded',nrtOfficeRespondedAt:new Date().toISOString()}}};
         upsertReport(updated);

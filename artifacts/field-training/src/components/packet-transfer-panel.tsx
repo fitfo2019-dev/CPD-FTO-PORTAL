@@ -221,12 +221,11 @@ export function PacketTransferPanel() {
       <p className="pp-access-boundary">This Selector Shows Guidance Only. It Does Not Detect, Establish, or Authorize a Network Connection.</p>
     </section>
     <section className="pp-local">
-      <div><h3><Save size={18} />On This Device</h3><p>Save Locally Writes to the Encrypted Device Vault. When Online, a Separate Draft Sync May Follow; Saving Never Submits or Finalizes a Packet.</p></div>
+      <div><h3><Save size={18} />On This Device</h3></div>
       <button type="button" data-testid="button-save-packets-locally" className="pp-button pp-primary" disabled={busy || w.previewOnly} onClick={() => void save()}><Save size={16} />Save Locally</button>
     </section>
     <section className="pp-card" aria-labelledby="packet-upload-title">
-      <div className="pp-section-heading"><div><h3 id="packet-upload-title"><CloudUpload size={20} />Sync Editable Drafts</h3><p>Server Drafts Stay Outside Coordinator and PO Review Until Finalized.</p></div><span className="pp-count">{pending.length} Pending Sync</span></div>
-      <p className="pp-note">Only the Assigned, Server-Verified FTO May Synchronize or Finalize a Packet. Draft Sync Stays Editable and Is Not a Submission, Signature, Approval, or PO Release.</p>
+      <div className="pp-section-heading"><div><h3 id="packet-upload-title"><CloudUpload size={20} />Sync Editable Drafts</h3></div><span className="pp-count">{pending.length} Pending Sync</span></div>
       <button type="button" data-testid="button-check-agency-access" className="pp-button pp-secondary" disabled={disabledReads} onClick={() => void checkAccess()}>
         {service === 'checking' ? <Loader2 size={15} className="pp-spin" /> : <ShieldCheck size={15} />}{service === 'checking' ? 'Checking…' : 'Check Agency Access'}</button>
       <ul className="pp-packets" data-testid="list-packet-status" aria-label="Packet Draft and Submission Status">{w.ws.reports.map(report => {
@@ -275,7 +274,6 @@ export function PacketTransferPanel() {
     <section className="pp-card" aria-labelledby="packet-shared-title">
       <div className="pp-section-heading"><div><h3 id="packet-shared-title"><RefreshCw size={19} />Shared Records</h3><p>Read-Only Agency Copies, Separate from Device Drafts.</p></div>
         <button type="button" data-testid="button-refresh-shared-packets" className="pp-button pp-secondary" disabled={disabledReads} onClick={() => void refresh()}><RefreshCw size={15} className={refreshing ? 'pp-spin' : ''} />{refreshing ? 'Refreshing…' : 'Refresh Shared Records'}</button></div>
-      <p className="pp-note">Refresh Never Uploads, Replaces, or Merges Local Drafts. The Server Checks Your Authorized Roster on Every Page and Returns at Most 100 Records at a Time.</p>
       <div className="pp-history-filters" aria-label="Filter shared packet history">
         <label className="pp-history-recruit"><span>Recruit name or badge</span>
           <input data-testid="input-packet-history-recruit" value={recruitFilter}
@@ -296,14 +294,12 @@ export function PacketTransferPanel() {
             }}>Clear</button>
         </div>
       </div>
-      <p className="pp-history-filter-hint">Dates include both endpoints. Applying filters starts a new search from the newest matching packet.</p>
       {shared !== null && <p className="pp-history-scope" data-testid="text-packet-history-scope">
         Showing {shared.length} authorized record{shared.length === 1 ? '' : 's'}
         {appliedFilters.recruit ? ` matching “${appliedFilters.recruit}”` : ''}
         {appliedFilters.dateFrom || appliedFilters.dateTo
           ? ` · ${appliedFilters.dateFrom ?? 'Any date'} to ${appliedFilters.dateTo ?? 'Any date'}` : ''}
       </p>}
-      {w.previewOnly && <p className="pp-warning">UI Preview Only. Agency Reads and Uploads Are Disabled.</p>}
       {w.vault !== 'unlocked' && <p className="pp-warning">Unlock Saved Work to Read Shared Records.</p>}
       {!w.online && <p className="pp-warning">Offline. Previously Loaded Copies May Be Stale.</p>}
       {readError && <div role="alert" className="pp-warning"><AlertTriangle size={16} /><div className="pp-read-error">
@@ -314,7 +310,7 @@ export function PacketTransferPanel() {
         </button>}
       </div></div>}
       <div className="pp-shared-content" aria-busy={refreshing} aria-live="polite">
-        {shared === null ? refreshing ? <p>Loading Authorized Records…</p> : <p>Not Loaded. Choose Refresh Shared Records to Request Authorized Copies.</p>
+        {shared === null ? refreshing ? <p>Loading Authorized Records…</p> : <p>Not Loaded</p>
           : !shared.length && refreshing ? <p>Loading Authorized Records…</p>
           : !shared.length ? <p>No Shared Packets Were Returned for This Account’s Authorized Scope. Local Drafts Are Unchanged.</p>
           : <><ul>{shared.map(packet => <li key={packet.id} data-testid={`row-shared-packet-${packet.id}`}><CheckCircle2 size={16} /><strong>{formatDateDMY(packet.record_date)} · {w.ws.role === 'po' ? 'Your Daily Packet' : packet.report?.recruitName ?? 'Packet snapshot unavailable'}</strong>

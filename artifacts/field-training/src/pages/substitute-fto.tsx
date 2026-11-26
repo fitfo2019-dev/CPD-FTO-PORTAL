@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
-import { CalendarClock, CircleAlert, ClipboardList, X } from 'lucide-react';
+import { CalendarClock, ClipboardList, X } from 'lucide-react';
 import { PageHead, Panel } from '@/components/bits.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { useWorkspace } from '@/state/workspace.js';
@@ -74,11 +74,6 @@ export default function SubstituteFtoPage() {
       <Link href="/fto-classes" className="inline-flex min-h-11 items-center gap-2 rounded border bg-card px-3 text-sm font-semibold"><CalendarClock className="h-4 w-4"/>Class and phase sign-up</Link>
     </PageHead>
 
-    <div role="note" className="mb-4 flex items-start gap-3 rounded border-l-4 border-accent bg-accent/5 p-4 text-sm">
-      <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-warn"/>
-      <div><b>Coverage request saved on this device only.</b><p className="mt-1 text-muted-foreground">Other FTO’s are not notified and cannot accept or decline it here. Do not begin substitute work until a covering FTO has accepted and the Coordinator confirms the assignment.</p></div>
-    </div>
-
     {isFto&&<Panel title="Request a substitute FTO" className="mb-5">
       {!folder?<div className="p-4 text-sm"><p>Open the PO’s phase folder first. The PO, class, phase, and requesting FTO will fill in automatically.</p><Link href="/phase-setup" className="mt-3 inline-flex min-h-10 items-center font-semibold underline">Open phase setup</Link></div>:
       <div className="grid gap-3 p-4 sm:grid-cols-2">
@@ -105,12 +100,11 @@ export default function SubstituteFtoPage() {
     {isCoordinator&&<Panel title="Incoming coverage responses" className="mb-5">
       <div className="p-4 text-sm" role="status" data-testid="coverage-response-unavailable">
         <p className="font-semibold">Accepting or declining shared requests is unavailable.</p>
-        <p className="mt-1 text-muted-foreground">A request must be delivered to the FTO team before anyone can respond. No response buttons are shown for requests that have not been sent.</p>
       </div>
     </Panel>}
 
     <Panel title={isCoordinator?'Local coverage requests':'My coverage requests'}>
-      {requests.length===0?<p className="p-4 text-sm text-muted-foreground">{isCoordinator?'No local requests are saved on this device.':'You have no saved coverage request drafts.'}</p>:
+      {requests.length===0?<p className="p-4 text-sm text-muted-foreground">None</p>:
       <ul className="divide-y">{requests.map(item=><li key={item.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start" data-testid={`coverage-request-${item.id}`}>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2"><b className="break-words">{item.recruitName} · #{item.recruitBadge}</b><span className="rounded border px-2 py-0.5 text-xs font-semibold">{item.status==='cancelled'?'Cancelled':'Not sent'}</span></div>

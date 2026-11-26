@@ -9,8 +9,9 @@ export function caseSafe(text: ReactNode): ReactNode {
   return <span>{parts.map((part, index) => /^[’']s$/.test(part) ? <span key={index} className="normal-case">{part}</span> : part)}</span>;
 }
 
-export function PageHead({ kicker, title, children }: { kicker: string; title: string; children?: ReactNode }) {
-  return <div className="page-head flex flex-wrap items-end gap-3 mb-5 rise"><div className="mr-auto min-w-0"><div className="label-caps">{caseSafe(kicker)}</div><h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h1></div>{children && <div className="page-head-actions">{children}</div>}</div>;
+/** Page titles use shell casing; set titleIsData when the title shows a person's name so it keeps its exact case. */
+export function PageHead({ kicker, title, children, titleIsData = false }: { kicker: string; title: string; children?: ReactNode; titleIsData?: boolean }) {
+  return <div className="page-head flex flex-wrap items-end gap-3 mb-5 rise"><div className="mr-auto min-w-0"><div className="label-caps">{caseSafe(kicker)}</div><h1 className={cn('page-title text-2xl sm:text-3xl font-extrabold tracking-tight', titleIsData && 'page-title-data')}>{titleIsData ? title : caseSafe(title)}</h1></div>{children && <div className="page-head-actions">{children}</div>}</div>;
 }
 export function Panel({ title, action, children, className, id }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return <section id={id} className={cn('min-w-0 rounded-md border bg-card rise', className)}>{title && <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b"><h2 className="label-caps min-w-0 text-foreground mr-auto">{caseSafe(title)}</h2>{action}</div>}{children}</section>;

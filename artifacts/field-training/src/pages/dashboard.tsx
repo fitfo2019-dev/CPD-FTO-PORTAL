@@ -1,158 +1,228 @@
 import { Link } from 'wouter';
-import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
-import { ArrowRight, ClipboardList, FolderOpen, UsersRound, CalendarClock, CalendarDays, FileCheck2, BookOpen } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ArrowRight, ClipboardList, FolderOpen } from 'lucide-react';
 import { useWorkspace } from '@/state/workspace.js';
-import { CATEGORIES, CATEGORY_LABEL, canViewClass, evaluationProgress, needsJustification, phaseAssignmentLabel, ROLE_LABEL } from '@/lib/model.js';
-import { formatDateDMY, localISODate } from '@/lib/training-calendar.js';
-import { PageHead, Panel, RatingChip, Stat, StatusPill, caseSafe } from '@/components/bits.js';
+import { CATEGORIES, CATEGORY_LABEL, evaluationProgress, needsJustification, phaseAssignmentLabel, type Workspace } from '@/lib/model.js';
+import { formatDateDMY, getPhaseEndDate, localISODate } from '@/lib/training-calendar.js';
+import { PageHead, Panel, RatingChip, StatusPill, caseSafe } from '@/components/bits.js';
 import { NrtAdminReviewPanel } from '@/components/nrt-admin-review-panel.js';
 import { PhaseExtensionPanel } from '@/components/phase-extension-panel.js';
-import { activityTotals } from '@/lib/run-activity.js';
 import { missingDailySummaryDates } from '@/lib/weekly-packet.js';
+import { cn } from '@/lib/utils.js';
 
 export default function Dashboard() {
-  const {ws}=useWorkspace();
-  const isCoordinator=ws.role==='fto_coordinator';
-  const reports=ws.reports;
-  const sorted=[...reports].sort((a,b)=>b.date.localeCompare(a.date));
-  const folder=ws.caseFolder;
-  const currentDraft=folder&&sorted.find(report=>report.status==='draft'&&report.recruitBadge===folder.recruitBadge&&report.phase===folder.phase);
-  const todayReport=folder&&sorted.find(report=>report.date===localISODate()&&report.recruitBadge===folder.recruitBadge&&report.phase===folder.phase);
-  const shiftHref=folder?(currentDraft?`/reports/${currentDraft.id}`:'/reports/new'):'/phase-setup';
-  const shiftLabel=folder?(currentDraft?'Continue shift':todayReport?'Start next shift':'Start shift'):'Complete phase setup first';
-  const acknowledgementsInProgress=ws.weeklyAcknowledgements.filter(item=>item.status!=='office_signed').length;
-  const locked=reports.filter(report=>report.status==='locked').length;
-  const activityCounts=reports.reduce((total,report)=>total+Object.values(activityTotals(report)).reduce((sum,count)=>sum+count,0),0);
-  const evaluationsComplete=reports.filter(report=>evaluationProgress(report)==='Complete').length;
-  const flags=reports.flatMap(report=>CATEGORIES.filter(category=>{
-    const rating=report.ratings[category].rating;
-    return rating==='UA'||rating==='NRT';
-  }).map(category=>({report,category})));
-  const phaseLabel=folder?`Phase ${folder.phase}`:'Not set';
-  const missingDailySummaries=folder&&ws.role==='fto'?missingDailySummaryDates(folder,reports,localISODate()):[];
+  const { ws } = useWorkspace();
+  if (ws.role === 'fto_coordinator') return <CoordinatorDashboard />;
+  return <FtoDailyPacketHome />;
+}
 
-  return <div className="mx-auto max-w-7xl">
-    <PageHead kicker={`Field training · ${ROLE_LABEL[ws.role]}`} title={isCoordinator?'Training office':'My work'}>
-      {folder&&ws.role==='fto'
-        ?<Link href={shiftHref} data-testid="link-start-shift" className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground"><ClipboardList className="h-4 w-4"/>{shiftLabel}</Link>
-        :<Link href="/phase-setup" data-testid="link-phase-setup" className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground"><FolderOpen className="h-4 w-4"/>{folder?'Review phase setup':'Set up phase folder'}</Link>}
-      {canViewClass(ws.role)&&<Link href="/class-overview" data-testid="link-class-overview" className="inline-flex min-h-11 items-center gap-2 rounded border bg-card px-4 text-sm font-bold"><UsersRound className="h-4 w-4"/>{isCoordinator?'Open classes and rosters':'Open class records'}</Link>}
-      {(ws.role==='fto'||ws.role==='fto_coordinator')&&<Link href="/substitute-fto" data-testid="link-substitute-fto" className="inline-flex min-h-11 items-center gap-2 rounded border bg-card px-4 text-sm font-bold"><CalendarClock className="h-4 w-4"/>{isCoordinator?'Manage coverage':'Request or provide coverage'}</Link>}
-    </PageHead>
+/* ---------- Shared pieces ---------- */
 
-    <PhaseExtensionPanel/>
+export function CountTile({ label, value, alert, href, testId }: { label: string; value: ReactNode; alert?: boolean; href?: string; testId: string }) {
+  const body = <>
+    <span className="count-tile-label">{caseSafe(label)}</span>
+    <b className="count-tile-value">{value}</b>
+  </>;
+  const cls = cn('count-tile', alert && 'is-alert', href && 'is-link');
+  return href
+    ? <Link href={href} className={cls} data-testid={testId}>{body}</Link>
+    : <div className={cls} data-testid={testId}>{body}</div>;
+}
 
-    {missingDailySummaries.length>0&&<section aria-label="Missing Daily Performance Summaries" data-testid="card-missing-daily-summary" className="mb-5 rounded border border-amber-500/50 bg-amber-50 p-4 dark:bg-amber-950/30">
-      <p className="label-caps text-amber-800 dark:text-amber-300">{caseSafe('Missing Daily Performance Summaries')}</p>
-      <ul className="mt-2 flex flex-wrap gap-2">
-        {missingDailySummaries.map(date=><li key={date}><Link href={`/reports/new?date=${date}`} data-testid={`link-missing-daily-summary-${date}`} className="inline-flex min-h-10 items-center rounded border bg-card px-3 text-sm font-semibold">{formatDateDMY(date)}</Link></li>)}
-      </ul>
-    </section>}
+function todayLabel() {
+  return <span className="mono text-xs text-muted-foreground" data-testid="text-today">{formatDateDMY(localISODate())}</span>;
+}
 
-    <section aria-label="Your next steps" className="mb-5 rounded border border-primary/20 bg-primary/[0.035] p-4 sm:p-5">
-      <p className="label-caps">{isCoordinator?'FTO Coordinator starting point':'FTO starting point'}</p>
-      <h2 className="mt-1 text-xl font-bold">{isCoordinator?'Choose what you need to manage':'Start with your next shift'}</h2>
-      <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{isCoordinator?'Open a class to manage its roster and assignments, arrange coverage, or check the weekly packet queue. These links open the existing local workspace screens.':'Set up the phase folder if it is missing. Then start your shift and finish the daily paperwork in that shift record.'}</p>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-        {isCoordinator?<>
-          <ActionLink href="/class-overview" icon={<UsersRound className="h-4 w-4"/>} title="Manage classes and rosters" detail={`${ws.assignments.length} saved roster assignments`} testId="action-manage-classes"/>
-          <ActionLink href="/fto-classes" icon={<CalendarDays className="h-4 w-4"/>} title="Post class phases" detail="Set phase dates and review FTO interest" testId="action-post-class-phases"/>
-          <ActionLink href="/substitute-fto" icon={<CalendarClock className="h-4 w-4"/>} title="Manage coverage" detail="Open the coverage workspace" testId="action-manage-coverage"/>
-          <ActionLink href="/reports/weekly-packet" icon={<FileCheck2 className="h-4 w-4"/>} title="Review weekly packets" detail={acknowledgementsInProgress?`${acknowledgementsInProgress} need attention`:'Open weekly packet summary'} testId="action-review-packets"/>
-          <ActionLink href="/reports" icon={<ClipboardList className="h-4 w-4"/>} title="Find daily paperwork" detail="Open saved shift records" testId="action-find-paperwork"/>
-          <ActionLink href="/resources" icon={<BookOpen className="h-4 w-4"/>} title="Training resources" detail="Open law library and reference files" testId="action-training-resources"/>
-        </>:<>
-          <ActionLink href={shiftHref} icon={<ClipboardList className="h-4 w-4"/>} title={shiftLabel} detail={folder?currentDraft?'Continue the draft record':'Open today’s shift paperwork':'Set up the phase folder first'} primary testId="action-start-shift"/>
-          <ActionLink href="/phase-setup" icon={<FolderOpen className="h-4 w-4"/>} title={folder?'Check phase setup':'Set up the phase folder'} detail="Confirm the PO, class, and phase" testId="action-phase-setup"/>
-          <ActionLink href="/substitute-fto" icon={<CalendarClock className="h-4 w-4"/>} title="Request or provide coverage" detail="Other FTO’s are not notified" testId="action-fto-coverage"/>
-          <ActionLink href="/fto-classes" icon={<CalendarDays className="h-4 w-4"/>} title="Sign up for a class phase" detail="See Coordinator-posted phase dates" testId="action-fto-class-signup"/>
-          <ActionLink href="/class-overview" icon={<UsersRound className="h-4 w-4"/>} title="Open class records" detail="View class and roster information" testId="action-fto-class" disabled={!canViewClass(ws.role)}/>
-          <ActionLink href="/resources" icon={<BookOpen className="h-4 w-4"/>} title="Training resources" detail="Open law library and reference files" testId="action-training-resources"/>
-        </>}
-      </div>
-    </section>
+/** One FTO may hold only one PO per class phase; extra pairings are conflicts. */
+export function assignmentConflicts(ws: Workspace) {
+  const seen = new Map<string, number>();
+  for (const a of ws.assignments) {
+    const key = `${a.className}|${a.phase}|${a.ftoBadge.toLowerCase()}`;
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+  }
+  return ws.assignments.filter(a => (seen.get(`${a.className}|${a.phase}|${a.ftoBadge.toLowerCase()}`) ?? 0) > 1);
+}
 
-    <div className="mb-4 rounded border-l-4 border-primary bg-card p-4">
-      <p className="font-semibold">Daily paperwork, in one place</p>
-      <p className="mt-1 text-sm text-muted-foreground">For each training day, the Daily Performance Summary holds activity totals and reviewed SEG ratings. Reporting for Duty, run forms, and the narrative are in the same shift workspace. The Weekly Performance Log Supplement gathers the week’s UA articulations and corrective-training time.</p>
-    </div>
-
-    {!isCoordinator&&<section aria-label="Shift paperwork steps" className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <WorkflowCard step="1" title="Phase setup" status={folder?`${folder.recruitName} · ${phaseLabel}`:'Needs PO and phase details'} href="/phase-setup" action={folder?'Review or correct':'Enter case folder'}/>
-      <WorkflowCard step="2" title="Shift and run forms" status={!folder?'Finish phase setup before starting a shift':currentDraft?'Draft ready to continue':todayReport?'Today’s record is saved; the next scheduled shift is ready':'One daily record for duty, runs, and evaluation'} href={shiftHref} action={shiftLabel} primary/>
-      <WorkflowCard step="3" title="Weekly packet" status="Builds from completed, reviewed daily records" href="/reports/weekly-packet" action="Open weekly packet"/>
-      <WorkflowCard step="4" title="Class reports" status={`${ws.assignments.length} roster assignments · FTO and Coordinator access`} href="/class-overview" action="View class" disabled={!canViewClass(ws.role)}/>
-      <WorkflowCard step="5" title="Class and phase sign-up" status="Review Coordinator-posted dates" href="/fto-classes" action="See phase dates"/>
-    </section>}
-
-    {isCoordinator&&<section aria-label="Coordinator work areas" className={`mb-4 grid gap-3 sm:grid-cols-2 ${import.meta.env.DEV?'lg:grid-cols-3 xl:grid-cols-5':'lg:grid-cols-4'}`}>
-      {import.meta.env.DEV&&<PoReviewCard/>}
-      <WorkflowCard step="1" title="Classes and rosters" status={`${ws.assignments.length} saved roster assignments`} href="/class-overview" action="Open classes"/>
-      <WorkflowCard step="2" title="Post class phases" status="Set dates and review FTO interest" href="/fto-classes" action="Open phase posts"/>
-      <WorkflowCard step="3" title="Coverage" status="Requests are saved on this device only" href="/substitute-fto" action="Open coverage"/>
-      <WorkflowCard step="4" title="Packet queue" status={`${acknowledgementsInProgress} weekly packet${acknowledgementsInProgress===1?'':'s'} need completion or review`} href="/reports/weekly-ack" action="Open acknowledgements"/>
-    </section>}
-
-    {folder&&<Panel title="Current phase folder" action={<Link href="/phase-setup" className="inline-flex min-h-9 items-center gap-1 text-sm font-semibold underline">Edit setup <ArrowRight className="h-3.5 w-3.5"/></Link>} className="mb-4">
-      <div className="grid gap-3 p-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div><span className="label-caps">Probationary Officer</span><b className="mt-1 block break-words">{folder.recruitName} · #{folder.recruitBadge}</b></div>
-        <div><span className="label-caps">Class and phase</span><b className="mt-1 block break-words">{folder.className} · {phaseLabel}</b></div>
-        <div><span className="label-caps">Assigned FTO</span><b className="mt-1 block break-words">{folder.ftoName} · #{folder.ftoBadge}</b></div>
-        <div><span className="label-caps">FTO assignment</span><b className="mt-1 block break-words">{phaseAssignmentLabel(folder.ftoAssignment,folder.shift,folder.cruiserDistrict)}</b></div>
-      </div>
-    </Panel>}
-
-    {acknowledgementsInProgress>0&&<div className="mb-4 flex flex-wrap items-center gap-2 rounded border-l-4 border-accent bg-card p-3 text-sm" data-testid="text-weekly-ack-queue"><b>{acknowledgementsInProgress} weekly packet{acknowledgementsInProgress===1?'':'s'}</b> awaiting completion or review.<Link href="/reports/weekly-ack" className="ml-auto font-semibold underline">Open acknowledgements</Link></div>}
-
-    <Panel className="mb-4 grid grid-cols-2 divide-x divide-y sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
-      <Stat label="Daily records" value={reports.length} sub={`${locked} finalized`}/>
-      <Stat label="Current phase" value={folder?.phase??'—'} sub={folder?`PO ${folder.recruitBadge}`:'Set up a phase folder'}/>
-      <Stat label="Activity counts" value={activityCounts} sub="entered across saved shifts"/>
-      <Stat label="Evaluations complete" value={evaluationsComplete} sub={`${reports.length} daily records`}/>
-      <Stat label="Weekly packets" value={ws.weeklyAcknowledgements.length} sub={`${acknowledgementsInProgress} need action`} tone="warn"/>
-    </Panel>
-
-    <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-      <Panel title="Recent shift records" action={<Link href="/reports" className="inline-flex items-center gap-1 text-sm font-semibold hover:underline" data-testid="link-all-reports">Saved records <ArrowRight className="h-3.5 w-3.5"/></Link>}>
-        {sorted.length===0?<div className="p-6 text-sm text-muted-foreground">No daily records yet. Set up the phase folder, then start the shift workspace.</div>:
-          <ul className="divide-y">{sorted.slice(0,6).map(report=><li key={report.id}><Link href={`/reports/${report.id}`} data-testid={`row-recent-${report.id}`} className="flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60">
-            <div className="min-w-0 flex-1 text-sm"><b className="block truncate">{report.recruitName} · #{report.recruitBadge}</b><span className="text-xs text-muted-foreground">{formatDateDMY(report.date)} · {phaseAssignmentLabel(report.ftoAssignment,report.shift,report.cruiserDistrict)}</span></div>
-            <span className="hidden text-xs text-muted-foreground md:block">{evaluationProgress(report)}</span><StatusPill s={report.status}/><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground"/>
-          </Link></li>)}</ul>}
-      </Panel>
-      <div className="space-y-4">
-        <Panel title="Unacceptable / NRT follow-up">
-          {flags.length===0?<p className="p-4 text-sm text-muted-foreground">No Unacceptable or NRT selections in saved records.</p>:
-            <ul className="divide-y text-sm">{flags.map(({report,category})=><li key={report.id+category} className="flex items-start gap-3 px-4 py-3"><RatingChip r={report.ratings[category].rating}/><div className="min-w-0"><b className="block">{CATEGORY_LABEL[category]}</b><Link href={`/reports/${report.id}`} className="underline">{report.recruitName} · {formatDateDMY(report.date)}</Link>{needsJustification(report.ratings[category].rating)&&<p className="mt-1 line-clamp-2 text-muted-foreground">{report.ratings[category].justification||'Justification missing'}</p>}</div></li>)}</ul>}
-        </Panel>
-        <NrtAdminReviewPanel/>
-      </div>
-    </div>
-  </div>;
+export function ratingFlags(ws: Workspace) {
+  return ws.reports.flatMap(report => CATEGORIES.filter(category => {
+    const rating = report.ratings[category].rating;
+    return rating === 'UA' || rating === 'NRT';
+  }).map(category => ({ report, category })));
 }
 
 /** Preview count from the PO Progress sample; loads only in development builds, like the PO Progress route. */
-function PoReviewCard() {
-  const [count,setCount]=useState<number|null>(null);
-  useEffect(()=>{let live=true;import('@/features/rebuild/lib/po-progress/data').then(m=>{if(live)setCount(m.PROGRESS.pos.filter(p=>m.inSampleGroup(p)&&p.status==='BELOW STANDARD').length);});return()=>{live=false;};},[]);
-  return <Link href="/po-progress?show=below-standard" className={`flex min-h-36 flex-col rounded border bg-card p-4 transition-colors hover:border-primary ${count?'border-l-4 border-l-destructive':''}`} data-testid="workflow-po-review">
-    <span className="label-caps">{caseSafe('PO’s Below Standard')}</span>
-    <b className={`mt-2 text-3xl font-extrabold tabular-nums ${count?'text-destructive':''}`}>{count??'–'}</b>
-    <span className="mt-auto inline-flex items-center gap-1 pt-3 text-sm font-semibold">Open PO Progress<ArrowRight className="h-4 w-4"/></span>
-  </Link>;
+function useBelowStandardCount() {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    let live = true;
+    void import('@/features/rebuild/lib/po-progress/data').then(m => {
+      if (live) setCount(m.PROGRESS.pos.filter(p => m.inSampleGroup(p) && p.status === 'BELOW STANDARD').length);
+    });
+    return () => { live = false; };
+  }, []);
+  return count;
 }
 
-function WorkflowCard({step,title,status,href,action,primary,disabled}:{step:string;title:string;status:string;href:string;action:string;primary?:boolean;disabled?:boolean}) {
-  return <Link href={disabled?'#':href} aria-disabled={disabled} onClick={(event:MouseEvent<HTMLAnchorElement>)=>{if(disabled)event.preventDefault();}} className={`flex min-h-36 flex-col rounded border bg-card p-4 transition-colors ${disabled?'cursor-not-allowed opacity-50':'hover:border-primary'} ${primary?'border-primary/60':''}`} data-testid={`workflow-${title.toLowerCase().replaceAll(' ','-')}`}>
-    <div className="flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-full bg-muted text-sm font-bold">{step}</span><b>{title}</b></div>
-    <p className="mt-3 flex-1 text-sm text-muted-foreground">{status}</p>
-    <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold">{action}<ArrowRight className="h-4 w-4"/></span>
-  </Link>;
+/* ---------- Coordinator Dashboard ---------- */
+
+function CoordinatorDashboard() {
+  const { ws } = useWorkspace();
+  const today = localISODate();
+  const belowStandard = useBelowStandardCount();
+  const poCount = new Set(ws.assignments.map(a => a.recruitBadge.toLowerCase())).size;
+  const awaiting = ws.weeklyAcknowledgements.filter(item => item.status !== 'office_signed');
+  const withdrawn = ws.ftoPhaseSignups.filter(item => item.status === 'withdrawn');
+  const conflicts = assignmentConflicts(ws);
+  const flags = ratingFlags(ws);
+
+  const classes = useMemo(() => {
+    const byClass = new Map<string, typeof ws.assignments>();
+    for (const a of ws.assignments) byClass.set(a.className, [...(byClass.get(a.className) ?? []), a]);
+    return [...byClass.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([className, rows]) => {
+      const pos = new Set(rows.map(r => r.recruitBadge.toLowerCase())).size;
+      const started = rows.filter(r => r.phaseStartDate && r.phaseStartDate <= today);
+      const current = started.reduce<typeof rows[number] | undefined>((best, r) => !best || r.phase > best.phase ? r : best, undefined);
+      const first = rows.reduce<string | undefined>((min, r) => r.phaseStartDate && (!min || r.phaseStartDate < min) ? r.phaseStartDate : min, undefined);
+      const finalPhase = rows.find(r => r.phase === 4 && r.phaseStartDate);
+      const completion = finalPhase ? getPhaseEndDate(4, finalPhase.phaseStartDate) : undefined;
+      const currentEnd = current ? getPhaseEndDate(current.phase, current.phaseStartDate) : undefined;
+      const active = !!current && !!currentEnd && today <= currentEnd;
+      return { className, pos, first, current, currentEnd, completion, active };
+    });
+  }, [ws.assignments, today]);
+
+  const attention = [
+    ...conflicts.map(a => ({ key: `c-${a.id}`, tag: 'Conflict', text: `${a.className} · Phase ${a.phase} · FTO #${a.ftoBadge} · PO ${a.recruitName} #${a.recruitBadge}`, href: '/phase-setup' })),
+    ...withdrawn.map(s => ({ key: `w-${s.id}`, tag: 'Withdrawn', text: `FTO ${s.ftoName} #${s.ftoBadge}`, href: '/fto-classes' })),
+    ...awaiting.map(a => ({ key: `p-${a.id}`, tag: 'Packet', text: `${a.recruitName || 'Weekly packet'}`, href: '/reports/weekly-ack' })),
+  ];
+
+  return <div className="mx-auto max-w-7xl">
+    <PageHead kicker="Coordinator" title="Coordinator Dashboard">{todayLabel()}</PageHead>
+
+    <div className="count-tiles" data-testid="coordinator-count-tiles">
+      {import.meta.env.DEV && <CountTile label="PO’s Below Standard" value={belowStandard ?? '–'} alert={!!belowStandard} href="/po-progress?show=below-standard" testId="stat-po-review" />}
+      <CountTile label="PO’s in Field Training" value={poCount} testId="stat-pos-in-training" />
+      <CountTile label="Packets Awaiting Review" value={awaiting.length} alert={awaiting.length > 0} href="/reports/weekly-ack" testId="stat-packets-awaiting" />
+      <CountTile label="Withdrawn" value={withdrawn.length} alert={withdrawn.length > 0} href="/fto-classes" testId="stat-withdrawn" />
+      <CountTile label="Conflicts" value={conflicts.length} alert={conflicts.length > 0} href="/phase-setup" testId="stat-conflicts" />
+    </div>
+
+    <Panel title="Classes" className="mb-4">
+      <div className="overflow-x-auto">
+        <table className="portal-table" data-testid="table-classes">
+          <thead><tr><th>Class</th><th>{caseSafe('PO’s')}</th><th>Start</th><th>Current Phase</th><th>Projected Completion</th><th>Status</th><th /></tr></thead>
+          <tbody>
+            {classes.length === 0
+              ? <tr><td colSpan={7} className="portal-table-empty">No classes</td></tr>
+              : classes.map(c => <tr key={c.className} data-testid={`row-class-${c.className}`}>
+                <td><b>{c.className}</b></td>
+                <td className="mono">{c.pos}</td>
+                <td className="mono">{c.first ? formatDateDMY(c.first) : '—'}</td>
+                <td>{c.current ? `Phase ${c.current.phase} · ${formatDateDMY(c.current.phaseStartDate)}${c.currentEnd ? ` – ${formatDateDMY(c.currentEnd)}` : ''}` : '—'}</td>
+                <td className="mono">{c.completion ? formatDateDMY(c.completion) : '—'}</td>
+                <td><span className={cn('portal-tag', c.active && 'is-ok')}>{c.active ? `Phase ${c.current!.phase} Active` : c.current ? 'Between Phases' : 'Not Started'}</span></td>
+                <td className="text-right"><Link href="/class-overview" className="portal-ghost-button">Open</Link></td>
+              </tr>)}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+
+    <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <Panel title="Needs Attention" action={attention.length ? <span className="portal-tag is-alert">{attention.length}</span> : undefined}>
+        {attention.length === 0
+          ? <p className="p-4 text-sm text-muted-foreground">None</p>
+          : <ul className="divide-y text-sm" data-testid="list-needs-attention">{attention.map(item => <li key={item.key}>
+            <Link href={item.href} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/60">
+              <span className="portal-tag is-alert">{item.tag}</span><span className="min-w-0 flex-1 break-words">{item.text}</span><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </Link>
+          </li>)}</ul>}
+      </Panel>
+      <div className="space-y-4">
+        <RatingFlagsPanel flags={flags} />
+        <NrtAdminReviewPanel />
+      </div>
+    </div>
+
+    <div className="mt-4"><PhaseExtensionPanel /></div>
+  </div>;
 }
 
-function ActionLink({href,icon,title,detail,primary,disabled,testId}:{href:string;icon:ReactNode;title:string;detail:string;primary?:boolean;disabled?:boolean;testId:string}) {
-  return <Link href={disabled?'#':href} aria-disabled={disabled} onClick={(event:MouseEvent<HTMLAnchorElement>)=>{if(disabled)event.preventDefault();}} data-testid={testId} className={`flex min-h-[6.5rem] items-start gap-3 rounded border p-3 transition-colors ${disabled?'cursor-not-allowed opacity-50':'hover:border-primary'} ${primary?'border-primary bg-card':'border-border bg-card'}`}>
-    <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded bg-primary/10 text-primary">{icon}</span>
-    <span className="min-w-0"><b className="block text-sm leading-snug">{title}</b><span className="mt-1 block text-xs text-muted-foreground">{detail}</span></span>
-  </Link>;
+function RatingFlagsPanel({ flags }: { flags: ReturnType<typeof ratingFlags> }) {
+  return <Panel title="Unacceptable / NRT Follow-Up">
+    {flags.length === 0
+      ? <p className="p-4 text-sm text-muted-foreground">None</p>
+      : <ul className="divide-y text-sm">{flags.map(({ report, category }) => <li key={report.id + category} className="flex items-start gap-3 px-4 py-3">
+        <RatingChip r={report.ratings[category].rating} />
+        <div className="min-w-0"><b className="block">{CATEGORY_LABEL[category]}</b><Link href={`/reports/${report.id}`} className="underline">{report.recruitName} · {formatDateDMY(report.date)}</Link>{needsJustification(report.ratings[category].rating) && <p className="mt-1 line-clamp-2 text-muted-foreground">{report.ratings[category].justification || 'Justification missing'}</p>}</div>
+      </li>)}</ul>}
+  </Panel>;
+}
+
+/* ---------- FTO Daily Packet home ---------- */
+
+function FtoDailyPacketHome() {
+  const { ws } = useWorkspace();
+  const reports = ws.reports;
+  const sorted = [...reports].sort((a, b) => b.date.localeCompare(a.date));
+  const folder = ws.caseFolder;
+  const currentDraft = folder && sorted.find(report => report.status === 'draft' && report.recruitBadge === folder.recruitBadge && report.phase === folder.phase);
+  const todayReport = folder && sorted.find(report => report.date === localISODate() && report.recruitBadge === folder.recruitBadge && report.phase === folder.phase);
+  const shiftHref = folder ? (currentDraft ? `/reports/${currentDraft.id}` : '/reports/new') : '/phase-setup';
+  const shiftLabel = folder ? (currentDraft ? 'Continue Shift' : todayReport ? 'Start Next Shift' : 'Start Shift') : 'Set Up Phase Folder';
+  const weeklyOpen = ws.weeklyAcknowledgements.filter(item => item.status !== 'office_signed').length;
+  const finalized = reports.filter(report => report.status === 'locked').length;
+  const evaluationsComplete = reports.filter(report => evaluationProgress(report) === 'Complete').length;
+  const missing = folder && ws.role === 'fto' ? missingDailySummaryDates(folder, reports, localISODate()) : [];
+  const flags = ratingFlags(ws);
+
+  return <div className="mx-auto max-w-7xl">
+    <PageHead kicker="FTO" title="Daily Packet">
+      <Link href={shiftHref} data-testid={folder ? 'link-start-shift' : 'link-phase-setup'} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-4 text-sm font-bold text-primary-foreground">
+        {folder ? <ClipboardList className="h-4 w-4" /> : <FolderOpen className="h-4 w-4" />}{shiftLabel}
+      </Link>
+    </PageHead>
+
+    <PhaseExtensionPanel />
+
+    {missing.length > 0 && <section aria-label="Missing Daily Performance Summaries" data-testid="card-missing-daily-summary" className="mb-4 rounded-lg border border-amber-500/50 bg-amber-50 p-4 dark:bg-amber-950/30">
+      <p className="label-caps text-amber-800 dark:text-amber-300">{caseSafe('Missing Daily Performance Summaries')}</p>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {missing.map(date => <li key={date}><Link href={`/reports/new?date=${date}`} data-testid={`link-missing-daily-summary-${date}`} className="inline-flex min-h-10 items-center rounded border bg-card px-3 text-sm font-semibold">{formatDateDMY(date)}</Link></li>)}
+      </ul>
+    </section>}
+
+    <div className="count-tiles" data-testid="fto-count-tiles">
+      <CountTile label="Daily Records" value={reports.length} href="/reports" testId="stat-daily-records" />
+      <CountTile label="Finalized" value={finalized} testId="stat-finalized" />
+      <CountTile label="Evaluations Complete" value={evaluationsComplete} testId="stat-evaluations" />
+      <CountTile label="Weekly Packets Open" value={weeklyOpen} alert={weeklyOpen > 0} href="/reports/weekly-packet" testId="stat-weekly-open" />
+      <CountTile label="UA / NRT Ratings" value={flags.length} alert={flags.length > 0} testId="stat-flags" />
+    </div>
+
+    {folder && <Panel title="Current Phase Folder" action={<Link href="/phase-setup" className="portal-ghost-button">Edit Setup</Link>} className="mb-4">
+      <div className="grid gap-3 p-4 text-sm sm:grid-cols-2 lg:grid-cols-4" data-testid="panel-current-folder">
+        <div><span className="label-caps">Probationary Officer</span><b className="mt-1 block break-words">{folder.recruitName} · #{folder.recruitBadge}</b></div>
+        <div><span className="label-caps">Class and Phase</span><b className="mt-1 block break-words">{folder.className} · Phase {folder.phase}</b></div>
+        <div><span className="label-caps">Assigned FTO</span><b className="mt-1 block break-words">{folder.ftoName} · #{folder.ftoBadge}</b></div>
+        <div><span className="label-caps">FTO Assignment</span><b className="mt-1 block break-words">{phaseAssignmentLabel(folder.ftoAssignment, folder.shift, folder.cruiserDistrict)}</b></div>
+      </div>
+    </Panel>}
+
+    <div className="grid items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
+      <Panel title="Recent Shift Records" action={<Link href="/reports" className="portal-ghost-button" data-testid="link-all-reports">Daily Records</Link>}>
+        {sorted.length === 0 ? <p className="p-4 text-sm text-muted-foreground">None</p> :
+          <ul className="divide-y">{sorted.slice(0, 6).map(report => <li key={report.id}><Link href={`/reports/${report.id}`} data-testid={`row-recent-${report.id}`} className="flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/60">
+            <div className="min-w-0 flex-1 text-sm"><b className="block truncate">{report.recruitName} · #{report.recruitBadge}</b><span className="text-xs text-muted-foreground">{formatDateDMY(report.date)} · {phaseAssignmentLabel(report.ftoAssignment, report.shift, report.cruiserDistrict)}</span></div>
+            <span className="hidden text-xs text-muted-foreground md:block">{evaluationProgress(report)}</span><StatusPill s={report.status} /><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link></li>)}</ul>}
+      </Panel>
+      <div className="space-y-4">
+        <RatingFlagsPanel flags={flags} />
+        <NrtAdminReviewPanel />
+      </div>
+    </div>
+  </div>;
 }

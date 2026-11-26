@@ -21,7 +21,6 @@ interface PhaseExtensionReviewViewProps {
 export function PhaseExtensionReviewView({requests,onReview,reviewingId,loading,error,previewOnly=false}:PhaseExtensionReviewViewProps) {
   return <Panel title={`Phase extension requests · ${requests.length}`} className="mb-4" id="panel-phase-extension-review">
     {error&&<p role="alert" className="border-b bg-destructive/5 p-4 text-sm text-destructive">{error}</p>}
-    {previewOnly&&<p role="status" className="border-b bg-amber-50 p-4 text-sm text-amber-950">Fictional request shown for preview only. Review actions and shared-service access are disabled.</p>}
     {loading&&<p role="status" className="border-b p-4 text-sm text-muted-foreground">Loading shared requests…</p>}
     {!loading&&!error&&!requests.length&&<p className="p-4 text-sm text-muted-foreground">No phase extension requests are available.</p>}
     {!!requests.length&&<ul className="divide-y">
@@ -55,7 +54,7 @@ export function PhaseExtensionReviewView({requests,onReview,reviewingId,loading,
         </>}
       </li>)}
     </ul>}
-    <p className="border-t px-4 py-3 text-xs text-muted-foreground">{previewOnly?'Fictional preview data stays in memory and clears on refresh. No request or decision is sent.':'Requests and review decisions are stored by the authenticated agency service and are available across devices.'}</p>
+    {!previewOnly&&<p className="border-t px-4 py-3 text-xs text-muted-foreground">Requests and review decisions are stored by the authenticated agency service and are available across devices.</p>}
   </Panel>;
 }
 
@@ -142,7 +141,6 @@ export function PhaseExtensionPanel() {
     return <Panel title="Request a phase extension · preview only" className="mb-4" id="panel-phase-extension-request">
       <div className="grid gap-3 p-4">
         <p className="text-sm text-muted-foreground">{ws.caseFolder?.className ?? 'Fictional FTO sample'} · {ws.caseFolder?.recruitName ?? 'DEMO PO'} · phase {ws.caseFolder?.phase ?? 3}.</p>
-        <p role="status" className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">This sample shows the FTO extension-request area. Submission is disabled; previews never read or write shared requests.</p>
       </div>
     </Panel>;
   }

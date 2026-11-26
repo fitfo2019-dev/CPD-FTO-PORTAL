@@ -34,7 +34,6 @@ export default function Reports() {
         <Link href="/reports/new" data-testid="link-new-log" className="h-10 px-4 rounded bg-primary text-primary-foreground font-bold text-sm inline-flex items-center gap-2"><PenLine className="h-4 w-4" />Start shift</Link>
       </PageHead>
       <PacketTransferPanel key={`${ws.role}:${vault}:${previewOnly}`} />
-      <p className="mb-3 rounded border bg-card p-3 text-sm text-muted-foreground">Each record covers one shift/day and contains its related duty, run, activity, and evaluation forms. Open a saved record to review or continue it; weekly totals are assembled separately from eligible records.</p>
       <div className="rise flex flex-wrap gap-2 mb-3">
           <div className="relative flex-1 min-w-[220px]"><Search className="h-4 w-4 absolute left-3 top-3 text-muted-foreground" /><input data-testid="input-search" type="search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Search PO, zone, precinct, FTO assignment, narrative" className="h-10 w-full rounded border bg-card pl-9 pr-3 text-sm" /></div>
         <SearchableSelect data-testid="select-status" className={sel} value={status} onChange={e=>setStatus(e.target.value as Status|'')}><option value="">All statuses</option>{(Object.keys(STATUS_LABEL) as Status[]).map(s=><option key={s} value={s}>{STATUS_LABEL[s]}</option>)}</SearchableSelect>

@@ -217,7 +217,7 @@ function FtoWeeklyPacket() {
 
   return (
     <div className="weekly-packet-page min-w-0 max-w-6xl" data-testid="weekly-packet-page">
-      <PageHead kicker={`Weekly Packet · Phase ${['', 'I', 'II', 'III', 'IV'][first.phase]}${week.programWeek ? ` · Week ${week.programWeek}` : ''}`} title={`PO ${owner.name} #${owner.badge}`}>
+      <PageHead kicker={`Weekly Packet · Phase ${['', 'I', 'II', 'III', 'IV'][first.phase]}${week.programWeek ? ` · Week ${week.programWeek}` : ''}`} title={`PO ${owner.name} #${owner.badge}`} titleIsData>
         <button type="button" className={BTN_PRIMARY} onClick={() => window.print()} data-testid="button-print-full-packet"><Printer className="h-4 w-4" />Print full packet</button>
         <button type="button" className={BTN_ALERT} onClick={() => setNrtOpen(true)} data-testid="button-nrt-review-request">NRT review request</button>
       </PageHead>

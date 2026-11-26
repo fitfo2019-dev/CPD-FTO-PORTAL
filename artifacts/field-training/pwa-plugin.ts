@@ -16,7 +16,8 @@ function publicFiles(directory = PUBLIC_ROOT): string[] {
 
 /** Emits a versioned service worker from the actual production bundle.
  * Cache the complete static app shell, including public images and install
- * assets. Never cache API responses or user data. */
+ * assets. Never cache API responses or user data. The law handbook loads its
+ * data on demand, so it stays out of the install cache. */
 export function fieldReadyPwa(base: string): Plugin {
   return {
     name: "fieldready-static-precache",
@@ -35,7 +36,7 @@ export function fieldReadyPwa(base: string): Plugin {
       const files = Object.keys(bundle).filter(name => /\.(js|css|html|svg|woff2?|png|jpe?g|webp|ico|webmanifest|txt)$/i.test(name));
       const urls = [...new Set([
         basePath,
-        ...publicFiles().map(name => `${basePath}${name}`),
+        ...publicFiles().filter(name => !name.startsWith("law-handbook/")).map(name => `${basePath}${name}`),
         ...files.map(name => `${basePath}${name}`),
       ])];
       const version = files.filter(name => /assets\/.*\.(js|css)$/.test(name)).join("|");

@@ -22,3 +22,8 @@ export function RebuildPoProgress() {
   const { ws } = useWorkspace();
   return <AdminPage><PageHeader section="Coordinator" title="PO Progress" /><ProgressView coordinatorScope={ws.role !== "fto_sgt"} /></AdminPage>;
 }
+
+/** PO Progress cards without the page header, for the FTO Sergeant home. */
+export function RebuildPoProgressCards() {
+  return <AdminPage><ProgressView coordinatorScope={false} /></AdminPage>;
+}

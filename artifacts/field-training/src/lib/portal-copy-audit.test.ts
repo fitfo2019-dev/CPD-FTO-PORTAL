@@ -168,7 +168,7 @@ test('Help Desk topics are limited to their declared roles with shared guidance 
   }
   assert.deepEqual(
     getApplicationHelpTopicsForRole('po').map(topic => topic.id),
-    ['local-save', 'record-status', 'account-access', 'packet-status'],
+    ['local-save', 'record-status', 'account-access', 'packet-status', 'page-resources', 'page-daily-records', 'page-agency-packets', 'page-account-settings', 'page-po-access'],
     'PO should see only shared topics and topics explicitly assigned to PO',
   );
   for (const role of ['policenet', 'policenet_admin_sgt'] as const) {
@@ -280,7 +280,7 @@ test('Help Desk clears a previous role-only search and shows topics available to
     assert.equal(input.value, 'xlsx');
     assert.deepEqual(
       Array.from(container.querySelectorAll('nav button')).map(button => button.textContent),
-      ['Import a roster'],
+      ['Import a roster', 'Assignments page notes'],
     );
     assert.equal(container.querySelector('article h3')?.textContent, 'Import a roster');
 
@@ -294,6 +294,11 @@ test('Help Desk clears a previous role-only search and shows topics available to
         'Check record status',
         'Activate an account',
         'Check an agency packet action',
+        'Resources page notes',
+        'Daily records and packet transfer notes',
+        'Agency packets and packet status notes',
+        'Account settings notes',
+        'PO account access notes',
       ],
     );
     assert.equal(container.querySelector('article h3')?.textContent, 'Save and reopen a local draft');
@@ -305,13 +310,15 @@ test('help keeps application-use guidance separate from sourced policy', () => {
   assert.match(helpPage, /<ApplicationHelpDesk role=\{ws\.role\} \/>/);
   assert.ok(helpDesk.includes('w-full sm:min-w-[14rem] sm:flex-1 sm:max-w-md'));
   assert.match(helpPage, /<ResourcesLibraryPage \/>/);
-  assert.match(helpDesk, /\/resources#resources-library/);
+  assert.doesNotMatch(helpDesk, /Operational requirements belong to official agency sources/);
   assert.match(ftoHelp, /Uploaded Final FTO Manual · updated 03\/10\/2026/);
   assert.match(directiveIndex, /https:\/\/www\.columbus\.gov\/Services\/Public-Safety\/Police\/About-the-Columbus-Division-of-Police\/Directives/);
   assert.doesNotMatch(resourcesLibrary, /FTO_HELP|MANUAL_SOURCE|MANUAL_PASSAGES|LAW_LIBRARY_ENTRIES|loadOrcCorpus/);
   assert.doesNotMatch(resourcesLibrary, /Ohio Revised Code|Columbus City Code|Oyez Supreme Court|Casebook|Glossary/);
   assert.match(resourcesLibrary, /DIRECTIVE_PDF_LINKS/);
-  assert.match(resourcesLibrary, /GeographyMapPanel/);
+  assert.match(helpPage, /GeographyMapPanel/);
+  assert.match(helpPage, /LawHandbookPanel/);
+  assert.ok(helpPage.indexOf('<GeographyMapPanel') < helpPage.indexOf('<ResourcesLibraryPage'));
   assert.match(resourcesLibrary, /Uploaded files/);
   const applicationHelpCopy = APPLICATION_HELP_TOPICS.map(topic =>
     [topic.title, topic.keywords, ...topic.steps, topic.expectedResult, topic.recovery].join(' '),

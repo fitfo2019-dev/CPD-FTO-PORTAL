@@ -13,16 +13,13 @@ export default function RoleAccessPage() {
         <div className="border-l-4 border-accent bg-accent/5 p-4 sm:p-5" role="status" data-testid="status-po-access-pending">
           <div className="flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/10 text-warn"><LockKeyhole className="h-5 w-5"/></span>
-            <div><p className="font-semibold">Confirm your account and class access.</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Your own training records appear after your department email is verified and your class and phase are activated.</p>
-            </div>
+            <div><p className="font-semibold">Confirm your account and class access.</p></div>
           </div>
           <ol className="mt-5 grid gap-2 border-t border-border pt-4 text-sm sm:grid-cols-3">
             <li className="flex gap-2"><span className="font-mono font-bold text-primary">1</span><span>Verify your department email.</span></li>
             <li className="flex gap-2"><span className="font-mono font-bold text-primary">2</span><span>Confirm your class assignment.</span></li>
             <li className="flex gap-2"><span className="font-mono font-bold text-primary">3</span><span>Wait for class and phase activation.</span></li>
           </ol>
-          <p className="mt-4 flex items-center gap-2 rounded border bg-card p-3 text-xs text-muted-foreground"><ShieldAlert className="h-4 w-4 shrink-0 text-warn"/>If an invitation or activation is missing, follow your established department process.</p>
           <Link href="/resources?topic=account-access#application-help" className="mt-3 inline-flex text-sm font-semibold text-primary underline underline-offset-2">Account access help</Link>
         </div>
       </Panel>

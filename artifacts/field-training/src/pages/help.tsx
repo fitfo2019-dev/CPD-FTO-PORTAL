@@ -5,6 +5,8 @@ import { PageHead } from '@/components/bits.js';
 import { DIRECTIVE_PDF_INDEX_SOURCE } from '@/lib/directive-pdf-index.js';
 import { useWorkspace } from '@/state/workspace.js';
 import ResourcesLibraryPage from '@/pages/resources-library-preview.js';
+import { GeographyMapPanel } from '@/components/geography-map-panel.js';
+import { LawHandbookPanel } from '@/components/law-handbook-panel.js';
 
 export default function HelpPage() {
   const { ws } = useWorkspace();
@@ -23,6 +25,10 @@ export default function HelpPage() {
         </a>
       </PageHead>
 
+      <div id="resources-preview-map" tabIndex={-1} data-testid="section-map-embed">
+        <GeographyMapPanel />
+      </div>
+      <LawHandbookPanel />
       <ApplicationHelpDesk role={ws.role} />
       <ResourcesLibraryPage />
 

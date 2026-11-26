@@ -60,11 +60,7 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
 
   return <Panel title="FTO Coordinator · roster and phase assignments" className="mb-4" data-testid="panel-training-assignments">
     <div className="p-4">
-      <div className="mb-3 rounded border border-warn/40 bg-warn/10 p-3 text-sm" role="status">
-        <b>Roster changes are saved on this device only.</b> Importing does not activate phases, invite PO’s, confirm roles, or make the roster official.
-      </div>
-      <p className="text-sm text-muted-foreground">Import one row per PO assignment. Imported names stay on this device.</p>
-      <Link href="/resources?topic=roster-import#application-help" className="mt-2 inline-flex text-sm font-semibold text-primary underline underline-offset-2">Roster import help</Link>
+      <Link href="/resources?topic=roster-import#application-help" className="inline-flex text-sm font-semibold text-primary underline underline-offset-2">Roster import help</Link>
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" onClick={downloadTemplate} className="inline-flex min-h-11 items-center gap-2 rounded border bg-card px-4 text-sm font-semibold"><Download className="h-4 w-4"/>Download CSV template</button>
         <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded bg-primary px-4 text-sm font-semibold text-primary-foreground">
@@ -72,7 +68,6 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
           <input type="file" accept=".csv,.xlsx,.docx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onFileChange} disabled={busy} className="sr-only" data-testid="input-roster-file"/>
         </label>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">CSV, Excel XLSX, or Word DOCX table with a header row · up to 2 MB · required: class, PO name/badge, FTO name/badge, and phase start date.</p>
       <p className="mt-1 break-all text-xs text-muted-foreground" data-testid="text-roster-columns">Columns: {templateHeaders}</p>
       {parseError&&<p className="mt-3 rounded border border-destructive/40 bg-destructive/5 p-3 text-sm" role="alert">{parseError}</p>}
       {preview&&<div className="mt-3 rounded border bg-muted/30 p-3" data-testid="roster-import-preview">
@@ -148,11 +143,9 @@ export function TrainingAssignmentsPanel({ onLoadAssignment }: { onLoadAssignmen
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={()=>onLoadAssignment(assignment)} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" data-testid={`button-load-assignment-${assignment.id}`}>Prefill phase case folder</button>
-            {emailHref?<a href={emailHref} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-3 text-sm font-semibold text-primary-foreground" data-testid={`link-email-assignment-${assignment.id}`}><Mail className="h-4 w-4"/>Open prefilled email</a>:
-              <span className="flex min-h-11 items-center rounded border px-3 text-xs text-muted-foreground">Add both PO and FTO emails to enable the email draft</span>}
+            {emailHref?<a href={emailHref} className="inline-flex min-h-11 items-center gap-2 rounded bg-primary px-3 text-sm font-semibold text-primary-foreground" data-testid={`link-email-assignment-${assignment.id}`}><Mail className="h-4 w-4"/>Open prefilled email</a>:null}
             {!canActivate&&<span className="flex min-h-11 items-center text-xs text-muted-foreground">FTO selects shift days off and confirms patrol area when opening the folder.</span>}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">The button opens a draft in your email app. Check the recipient and message, then send it from there.</p>
         </article>;
       })}</div>}
     </section>

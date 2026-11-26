@@ -32,6 +32,163 @@ const PO_PROGRESS_TOPICS: readonly ApplicationHelpTopic[] = [
   },
 ];
 
+// Page notes moved off the screens. Wording is kept as it was on each page.
+const PAGE_NOTE_TOPICS: readonly ApplicationHelpTopic[] = [
+  {
+    id: 'page-resources',
+    title: 'Resources page notes',
+    roles: ['fto', 'fto_coordinator', 'fto_sgt', 'po', 'fto_coc'],
+    keywords: 'resources library catalog directives geography map cruiser districts law handbook',
+    steps: [
+      'A focused catalog of signed-in uploaded files, official division directive PDFs, and the geography map.',
+      'Catalog results include only the sources listed here.',
+      'Explore the supplied map in an interactive view.',
+    ],
+    expectedResult: 'Operational requirements belong to official agency sources.',
+    recovery: 'If the embedded map does not load, use “Open Original Map.” Confirm current geography and assignments through official agency sources.',
+  },
+  {
+    id: 'page-home',
+    title: 'Home page notes',
+    roles: ['fto', 'fto_coordinator'],
+    keywords: 'home dashboard phase extension NRT review inbox alert preview',
+    steps: [
+      'This sample shows the FTO extension-request area. Submission is disabled; previews never read or write shared requests.',
+      'Fictional request shown for preview only. Review actions and shared-service access are disabled.',
+      'Fictional preview data stays in memory and clears on refresh. No request or decision is sent.',
+    ],
+    expectedResult: 'Requests and review decisions are stored by the authenticated agency service and are available across devices.',
+    recovery: 'NRT review inbox: no alert has been sent to the FTO for these requests.',
+  },
+  {
+    id: 'page-my-pos',
+    title: "My PO's and class roster notes",
+    roles: ['fto', 'fto_coordinator'],
+    keywords: "my PO's class roster overview substitute coverage workbook export follow-up",
+    steps: [
+      'Only PO’s assigned to the signed-in department email appear. Substitute access is unavailable until a shared coverage service confirms it.',
+      'The roster lists PO’s even when they have no daily logs yet. Substitute coverage creates a new day without changing the regular FTO assignment.',
+      'Open a phase case folder, set its training class, and save daily logs to populate this local overview.',
+      'Workbook export uses only the currently filtered local reports. Export does not transmit records to a server.',
+    ],
+    expectedResult: 'No matching FTO directory entry means no FTO directory entry matches the signed-in department email, so no class or PO records are shown.',
+    recovery: 'If the roster shows None, the FTO Coordinator must import the roster first.',
+  },
+  {
+    id: 'page-orientation',
+    title: 'Substation orientation notes',
+    roles: ['fto', 'fto_coordinator'],
+    keywords: 'substation orientation walkthrough checklist first shift phase review confirm',
+    steps: [
+      'Complete this before the first shift of each phase. The form is dated for the phase’s first scheduled workday.',
+      'Every checklist item starts checked for quick review; clear anything not completed during the walkthrough, then confirm the review before saving.',
+      'Enter the substation number, then press Tab or Enter to show its details.',
+      'FTO / PO walkthrough record, not a performance rating. Check a category only when every listed task was covered; a dashed box means some of its tasks are still open.',
+      'After walking through every category with the PO, confirm the review below the list.',
+    ],
+    expectedResult: 'Review confirmed shows after the review is confirmed. Any further edit clears this confirmation.',
+    recovery: 'Values stay in this device’s local workspace. Test values remain in memory and clear when the preview refreshes.',
+  },
+  {
+    id: 'page-daily-records',
+    title: 'Daily records and packet transfer notes',
+    roles: ['fto', 'fto_coordinator', 'po'],
+    keywords: 'daily records packet transfer save locally sync drafts finalize shared records refresh filters',
+    steps: [
+      'Each record covers one shift/day and contains its related duty, run, activity, and evaluation forms. Open a saved record to review or continue it; weekly totals are assembled separately from eligible records.',
+      'Save Locally writes to the encrypted device vault. When online, a separate draft sync may follow; saving never submits or finalizes a packet.',
+      'Server drafts stay outside Coordinator and PO review until finalized.',
+      'Only the assigned, server-verified FTO may synchronize or finalize a packet. Draft sync stays editable and is not a submission, signature, approval, or PO release.',
+      'Refresh never uploads, replaces, or merges local drafts. The server checks your authorized roster on every page and returns at most 100 records at a time.',
+      'Dates include both endpoints. Applying filters starts a new search from the newest matching packet.',
+    ],
+    expectedResult: 'Not Loaded means shared records have not been requested yet. Choose Refresh Shared Records to request authorized copies.',
+    recovery: 'In a UI preview, agency reads and uploads are disabled.',
+  },
+  {
+    id: 'page-agency-packets',
+    title: 'Agency packets and packet status notes',
+    roles: ['fto', 'fto_coordinator', 'po', 'fto_coc'],
+    keywords: 'agency packets packet status submissions read-only scope server role receipt approval release',
+    steps: [
+      'FTO Coordinator: review PO-screened packets, acknowledge receipt, approve, then release separately. Packets enter your inbox only after the PO reviews their own UA details and counts. Receipt is separate from approval and release.',
+      'PO: review only your own UA details and period counts; acknowledge receipt after Coordinator release. Review only your own UA details and daily, weekly, and monthly counts before Coordinator routing.',
+      'FTO: read packets in your assigned classes. You can correct only your own returned packets.',
+      'Other roles: read-only packets for classes assigned to your verified account.',
+      'Access is scoped by the agency server. Role shown here comes only from the server response.',
+    ],
+    expectedResult: 'Packet snapshot unavailable means no record details are shown and no packet state has been changed.',
+    recovery: 'Packet submissions are not loaded in UI previews. No shared records are shown.',
+  },
+  {
+    id: 'page-account-settings',
+    title: 'Account settings notes',
+    roles: ['fto', 'fto_coordinator', 'po'],
+    keywords: 'account settings local queue encrypted storage eviction preview memory',
+    steps: [
+      'The local queue is encrypted on this device and is not uploaded.',
+      'This fictional UI preview is held in memory only and is cleared when the page refreshes. No test content is written to browser storage.',
+    ],
+    expectedResult: 'The local queue is encrypted on this device and is not uploaded.',
+    recovery: 'Persistent storage can reduce automatic browser eviction, but it cannot protect against clearing site data, device loss, or storage failure.',
+  },
+  {
+    id: 'page-assignments',
+    title: 'Assignments page notes',
+    roles: ['fto_coordinator'],
+    keywords: 'assignments phase setup roster import email draft week dates universal assignment',
+    steps: [
+      'The date ranges set the workbook’s phase-week tabs. Extra approved weeks are included with Week 4 in Excel.',
+      'The universal FTO assignment is a user-requested option and is not established by the SOP.',
+      'Editing this form updates the current case-folder values; saved reports remain unchanged.',
+      'Roster changes are saved on this device only. Importing does not activate phases, invite PO’s, confirm roles, or make the roster official.',
+      'Import one row per PO assignment. Imported names stay on this device.',
+      'CSV, Excel XLSX, or Word DOCX table with a header row · up to 2 MB · required: class, PO name/badge, FTO name/badge, and phase start date.',
+    ],
+    expectedResult: 'The button opens a draft in your email app. Check the recipient and message, then send it from there.',
+    recovery: 'Add both PO and FTO emails to enable the email draft.',
+  },
+  {
+    id: 'page-coverage',
+    title: 'Day-off coverage notes',
+    roles: ['fto', 'fto_coordinator'],
+    keywords: 'coverage substitute FTO day off request notify accept decline',
+    steps: [
+      'Coverage requests are saved on this device only.',
+      'Other FTO’s are not notified and cannot accept or decline it here.',
+      'A request must be delivered to the FTO team before anyone can respond. No response buttons are shown for requests that have not been sent.',
+    ],
+    expectedResult: 'None means no local requests are saved on this device.',
+    recovery: 'Do not begin substitute work until a covering FTO has accepted and the Coordinator confirms the assignment.',
+  },
+  {
+    id: 'page-command-review',
+    title: 'Submitted packets notes',
+    roles: ['fto_coc'],
+    keywords: 'FTO COC command review submitted packets queue',
+    steps: [
+      'Only completed and submitted packets belong in this queue.',
+      'Drafts and unfinished packets do not appear here.',
+      'A packet is completed, it is submitted for command review, and then it appears in this queue.',
+    ],
+    expectedResult: 'When a completed packet is submitted, it is meant to show here.',
+    recovery: 'Packet review, export, printing, comments, and return-for-review are unavailable.',
+  },
+  {
+    id: 'page-po-access',
+    title: 'PO account access notes',
+    roles: ['po'],
+    keywords: 'PO account access verify email class phase activation invitation',
+    steps: [
+      'Verify your department email.',
+      'Confirm your class assignment.',
+      'Wait for class and phase activation.',
+    ],
+    expectedResult: 'Your own training records appear after your department email is verified and your class and phase are activated.',
+    recovery: 'If an invitation or activation is missing, follow your established department process.',
+  },
+];
+
 export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
   {
     id: 'local-save',
@@ -137,6 +294,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
     expectedResult: 'A request saved on this device is not submitted. Awaiting Coordinator review means the request was submitted.',
     recovery: 'If submission is not confirmed, keep the local draft and use Send saved request. Check the request status again before retrying.',
   },
+  ...PAGE_NOTE_TOPICS,
   ...(import.meta.env?.DEV ? PO_PROGRESS_TOPICS : []),
 ];
 
