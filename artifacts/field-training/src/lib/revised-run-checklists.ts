@@ -320,3 +320,9 @@ export function setRevisedRow(
 ): Record<string, boolean> {
   return { ...state, ...Object.fromEntries(indices.map(index => [`${prefix}${index}`, checked])) };
 }
+
+/** Splits a combined row into its slash-separated items when the label maps one-to-one. */
+export function rowSegments(label: string, indices: readonly number[]): readonly string[] | undefined {
+  const parts = label.split(' / ');
+  return parts.length === indices.length ? parts : undefined;
+}

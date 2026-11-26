@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import { partitionRevisedChecklist, revisedRowState, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
+import { partitionRevisedChecklist, revisedRowState, rowSegments, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
 
 type Props = {
   sections: readonly RevisedChecklistSection[];
@@ -9,10 +9,27 @@ type Props = {
   testId: string;
   onChange: (indices: readonly number[], checked: boolean) => void;
   renderItemDetails?: (indices: readonly number[]) => ReactNode;
+  notApplicable?: Readonly<Record<string, true>>;
 };
 
+
+function RowLabel({ label, indices, state, prefix, notApplicable }: { label: string; indices: readonly number[]; state: Record<string, boolean>; prefix: string; notApplicable?: Readonly<Record<string, true>> }) {
+  const parts = rowSegments(label, indices);
+  if (!parts) return <>{label}</>;
+  return <>{parts.map((part, position) => {
+    const key = `${prefix}${indices[position]}`;
+    const na = notApplicable?.[key] === true && state[key] === false;
+    const failed = state[key] === false && !na;
+    return <React.Fragment key={key}>
+      {position > 0 && <span className="text-muted-foreground"> / </span>}
+      <span className={na ? 'font-bold line-through decoration-2' : failed ? 'rounded-sm bg-destructive/10 px-0.5 font-semibold text-destructive' : undefined}
+        data-state={na ? 'not-applicable' : failed ? 'failed' : 'complete'}>{part}</span>
+    </React.Fragment>;
+  })}</>;
+}
+
 /** Fixed sections shared by every run form; answers never hide or move rows. */
-export function RunChecklistFields({ sections, state, prefix, disabled, testId, onChange, renderItemDetails }: Props) {
+export function RunChecklistFields({ sections, state, prefix, disabled, testId, onChange, renderItemDetails, notApplicable }: Props) {
   const display=partitionRevisedChecklist(sections);
   return <div className="mt-2 grid gap-3">
     {display.headerOptions.length>0&&<div className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -48,9 +65,7 @@ export function RunChecklistFields({ sections, state, prefix, disabled, testId, 
                   className="mt-1 shrink-0"
                   onChange={event => onChange(item.indices, event.target.checked)}
                   data-testid={`${testId}-row-${item.id}`} />
-                <span className="min-w-0 break-words">{item.label}
-                  {value.mixed && <span className="ml-1 font-semibold text-muted-foreground">· Partly completed</span>}
-                </span>
+                <span className="min-w-0 break-words"><RowLabel label={item.label} indices={item.indices} state={state} prefix={prefix} notApplicable={notApplicable} /></span>
               </label>
               {renderItemDetails?.(item.indices)}
             </div>;

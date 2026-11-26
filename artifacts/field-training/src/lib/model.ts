@@ -474,6 +474,10 @@ export interface TrainingRun {
   formStatus: 'not_started'|'in_progress'|'complete';
   checklist: Record<string, boolean>;
   checklistFailures?: Record<string, string[]>;
+  /** Unchecked items the FTO marked as not applying to this run (left blank on the form, no UA). */
+  checklistNotApplicable?: Record<string, true>;
+  /** FTO edits to the generated "PO failed to" sentence, keyed by checklist item. */
+  failureStatements?: Record<string, string>;
   directiveReviews?:DirectiveReviews;
   checklistReviewedAt?: string;
   narrative: string;

@@ -568,3 +568,7 @@
   .print-document.print-reference-pilot.print-weekly-log-page .print-weekly-log-table,
   .print-document.print-reference-pilot.print-weekly-log-page .print-weekly-log-table :is(td,th) { border: .55pt solid var(--ref-line) !important; }
 }
+
+.print-item-failed { font-weight: 700; color: #b42318; }
+.print-item-na { font-weight: 700; text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.print-po-failed-line { font-weight: 700; }

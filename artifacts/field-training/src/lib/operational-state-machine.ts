@@ -136,7 +136,7 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
       for (const section of sections) {
         for (const item of section.items) {
           const key = `${prefix}${index++}`;
-          if (run.checklist[key] === false) {
+          if (run.checklist[key] === false && run.checklistNotApplicable?.[key] !== true) {
             const failureActions=run.checklistFailures?.[key];
             if(failureActions) {
               const form=page.kind==='supplement'?(page.supplement??run.runKind):run.runKind;
