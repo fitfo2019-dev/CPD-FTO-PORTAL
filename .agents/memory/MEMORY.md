@@ -26,3 +26,4 @@
 - [Master system specification](master-system-specification.md) — apply the user's standing portal guardrails for interface copy, data, submission, export, profile, and validation behavior.
 - [Test administrator boundary](test-admin-boundary.md) — synthetic-staging-only role; never an agency claim, never in production, never acknowledges for a PO.
 - [SheetJS advisory ranges](sheetjs-advisory-ranges.md) — use official patched CE releases; npm advisory ranges can falsely flag patched tarballs.
+- [Perplexity builds the user interface](perplexity-ui-builds.md) — user-interface changes are built in Perplexity and arrive via GitHub main; hand off, do not build or push to main.

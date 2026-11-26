@@ -280,9 +280,10 @@ explicitly unindexed rather than assigned made-up packet coordinates.
 **Before modifying this workspace, read `PROJECT_MANIFEST.md` and preserve its API contracts, naming rules, and scope boundaries.**
 
 ## CONFIGURATION PROTECTION GATES (QUEUE CONTROL & ANALYSIS CONTRACT)
-1. PARSE TIMELINE SEQUENCE PRIOR TO EMISSION: Prior to executing any structural code modifications, state migrations, or schema updates, the compiler must conduct a multi-file dependency audit mapping the target source file across active workspace modules.
-2. CONFLICT INVERSION BLOCKER: If a queued instruction model demands adjustments to variables or files currently undergoing mutation by an active or immediately preceding thread pass, the agent must freeze execution and print a plain-text architectural warning outline summarizing the collision vectors, explicitly requesting human operator validation before altering the file tree.
-3. TRANSACTIONAL LOG COMPILING: Every structural pass must run `pnpm typecheck` automatically upon completion, rolling back to the immediate prior git baseline commit if a syntax error or contract drift registers.
+These gates apply to the Perplexity build, which is the only place code is changed. The Replit workspace only pulls GitHub `main` (fast-forward) and republishes; Replit Agent does not run structural passes, commit, roll back or push.
+1. PARSE TIMELINE SEQUENCE PRIOR TO EMISSION: Before any structural code modification, state migration or schema update, audit every workspace module that depends on the target file.
+2. CONFLICT INVERSION BLOCKER: If a requested change touches files that an open branch or unmerged change is also modifying, stop and describe the overlap to the user, and get their decision before changing the file tree.
+3. TRANSACTIONAL LOG COMPILING: Every structural change runs all six gates (`pnpm run snapshot:context`, `pnpm typecheck`, the Field Training build with zero warnings, `pnpm test:field-training:regressions`, `pnpm test:maintenance-guardrails`, `pnpm run bundle:production` at or under 26,214,400 bytes) on its own branch. A failing change is fixed or discarded on that branch; `main` is never reset or force-pushed.
 
 ## Functional Architecture & Core User Workflows
 
@@ -1211,7 +1212,9 @@ manual. Local validation logs under `generated-artifacts/task-180/` and source
 snapshots are excluded from Git and deployment. This process does not publish
 or deploy the portal.
 
-## Task #144 — run-checklist merge packet divergence — BLOCKED (2026-11-26)
+## Task #144 — run-checklist merge packet divergence — SUPERSEDED (2026-11-26)
+
+**Superseded 2026-11-26:** this blocker no longer applies. The Replit workspace now tracks GitHub `origin/main`, and the run checklist work was merged through GitHub `main` from the Perplexity build. The record below is kept as history only; do not act on it.
 
 ### Repository state and safe boundary
 
