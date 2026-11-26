@@ -327,7 +327,7 @@ const RESOURCE_FILES = [
     download_name: "Verizon-Search-Warrant-Example.pdf",
     content_type: "application/pdf",
     description: "Example affidavit, warrant and records request for Verizon Wireless.",
-    handling_note: "Names and contact details are placeholders. Follow Division Directive 6.04 for warrants.",
+    handling_note: "Personal names and contact details are placeholders. Follow Division Directive 6.04 for warrants.",
     disposition: "attachment",
   },
   {

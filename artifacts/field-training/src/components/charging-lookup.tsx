@@ -2,9 +2,10 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { Check, Copy, ExternalLink, FileText, Gavel, Search } from 'lucide-react';
 import { apiEndpoint } from '@workspace/api-client-react';
 import {
-  OFFICIAL_STATUTE_URL, canCopyWording, citationPath, clausesFromStatuteHtml, elementsComplete,
-  elementsForCitation, normalizeComplaintCodes, penaltySentences, searchCharges,
+  OFFICIAL_STATUTE_URL, canCopyWording, citationPath, elementsComplete,
+  elementsForCitation, normalizeComplaintCodes, penaltySentences, resolveStatute, searchCharges,
   type ChargeCode, type ComplaintEntry, type ElementGroup, type StatuteClauses,
+  type StatuteRecord, type SupplementRecord,
 } from '@/lib/charging-lookup.js';
 import './geography-map-panel.css';
 import './charging-lookup.css';
@@ -28,23 +29,29 @@ function loadChapter(kind: ChargeCode['kind'], chapter: string) {
   const path = kind === 'ORC' ? `statutes/${chapter}.json` : `city/${chapter}.json`;
   let pending = chapterCache.get(path);
   if (!pending) {
-    pending = fetch(`${DATA_ROOT}${path}`).then(response => (response.ok ? response.json() : {}));
+    pending = fetch(`${DATA_ROOT}${path}`)
+      .then(response => (response.ok ? response.json() : {}))
+      .catch(() => ({}));
     chapterCache.set(path, pending);
   }
   return pending;
 }
 
+let supplementPromise: Promise<Record<string, SupplementRecord>> | undefined;
+function loadSupplement(): Promise<Record<string, SupplementRecord>> {
+  supplementPromise ??= fetch(`${DATA_ROOT}charging-supplement.json`)
+    .then(response => (response.ok ? response.json() : { codes: {} }))
+    .then((data: { codes?: Record<string, SupplementRecord> }) => data.codes ?? {})
+    .catch(() => { supplementPromise = undefined; return {}; });
+  return supplementPromise;
+}
+
 async function loadStatute(code: ChargeCode): Promise<StatuteClauses | null> {
-  const chapter = await loadChapter(code.kind, code.section.split('.')[0]);
-  const record = chapter[code.section] as
-    | { html?: string; clauses?: string[]; penalties?: number[] }
-    | undefined;
-  if (!record) return null;
-  if (code.kind === 'CCC' && Array.isArray(record.clauses)) {
-    return { clauses: record.clauses, penaltyIndexes: record.penalties ?? [] };
-  }
-  const statute = clausesFromStatuteHtml(record.html ?? '');
-  return statute.clauses.length ? statute : null;
+  const [chapter, supplement] = await Promise.all([
+    loadChapter(code.kind, code.section.split('.')[0]),
+    loadSupplement(),
+  ]);
+  return resolveStatute(code, chapter[code.section] as StatuteRecord | undefined, supplement);
 }
 
 export function ChargingLookup({ compact = false }: { compact?: boolean }) {

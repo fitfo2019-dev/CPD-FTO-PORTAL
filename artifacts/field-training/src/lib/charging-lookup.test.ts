@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   citationPath, clauseLabels, clausesFromStatuteHtml, elementsComplete, elementsForCitation,
-  normalizeComplaintCodes, penaltySentences, searchCharges, type ComplaintEntry, type StatuteClauses,
+  normalizeComplaintCodes, penaltySentences, resolveStatute, searchCharges, type ComplaintEntry, type StatuteClauses,
 } from './charging-lookup';
 
 const data = (path: string) => JSON.parse(readFileSync(new URL(`../../public/law-handbook/data/${path}`, import.meta.url), 'utf8'));
@@ -72,4 +72,17 @@ test('city code clauses use the provided penalty indexes', () => {
   const statute: StatuteClauses = { clauses: city.clauses, penaltyIndexes: city.penalties };
   const group = elementsForCitation(statute, ['A']);
   assert.ok(group.lead.length + group.alternatives.length > 0);
+});
+
+test('sections missing from the chapter files resolve from the charging supplement', () => {
+  const supplement = data('charging-supplement.json').codes;
+  const cruelty = resolveStatute({ kind: 'ORC', section: '959.15' }, undefined, supplement);
+  assert.ok(cruelty && cruelty.clauses.length > 0);
+  assert.ok(penaltySentences(cruelty!).some(text => text.startsWith('ORC 959.99:')));
+  const group = elementsForCitation(cruelty!, ['A']);
+  assert.ok(group.lead.length > 0);
+  assert.ok(!group.lead.some(line => line.text.startsWith('ORC 959.99:')));
+  const theftRecord = data('statutes/2913.json')['2913.02'];
+  assert.deepEqual(resolveStatute({ kind: 'ORC', section: '2913.02' }, theftRecord, supplement), theft);
+  assert.equal(resolveStatute({ kind: 'CCC', section: '9999.99' }, undefined, supplement), null);
 });

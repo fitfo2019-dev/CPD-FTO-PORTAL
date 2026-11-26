@@ -217,6 +217,33 @@ export function clausesFromStatuteHtml(html: string): StatuteClauses {
   return { clauses, penaltyIndexes };
 }
 
+export interface StatuteRecord { html?: string; clauses?: string[]; penalties?: number[] }
+export interface SupplementRecord { clauses: string[]; penaltyIndexes: number[] }
+
+/**
+ * Statute text for a charge: the chapter record first, then the official text kept in the
+ * charging supplement for sections the chapter files do not carry.
+ */
+export function resolveStatute(
+  code: Pick<ChargeCode, 'kind' | 'section'>,
+  record: StatuteRecord | undefined,
+  supplement: Record<string, SupplementRecord> | undefined,
+): StatuteClauses | null {
+  if (record) {
+    if (code.kind === 'CCC' && Array.isArray(record.clauses) && record.clauses.length) {
+      return { clauses: record.clauses, penaltyIndexes: record.penalties ?? [] };
+    }
+    if (code.kind === 'ORC') {
+      const parsed = clausesFromStatuteHtml(record.html ?? '');
+      if (parsed.clauses.length) return parsed;
+    }
+  }
+  const extra = supplement?.[`${code.kind}:${code.section}`];
+  return extra && extra.clauses.length
+    ? { clauses: extra.clauses, penaltyIndexes: extra.penaltyIndexes }
+    : null;
+}
+
 export const OFFICIAL_STATUTE_URL = (kind: CodeKind, section: string) => kind === 'ORC'
   ? `https://codes.ohio.gov/ohio-revised-code/section-${section}`
   : 'https://library.municode.com/oh/columbus/codes/code_of_ordinances';
