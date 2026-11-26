@@ -42,22 +42,42 @@ export function WeekStrip({ po, big }: { po: ProgressPO; big?: boolean }) {
   );
 }
 
-function tileClass(s: PhaseStats | null) {
-  if (!s) return "tile fut";
+/** Worst rated week band in a phase (PO-STD-1); limbo and future weeks are not rated. */
+export function phaseWorstWeek(po: ProgressPO, phaseIndex: number): { level: 0 | 1 | 2; week: number; reason: string } | null {
+  let worst: { level: 0 | 1 | 2; week: number; reason: string } | null = null;
+  for (const x of po.weeks) {
+    if (x.kind !== "rated" || x.ph !== phaseIndex + 1) continue;
+    const b = weekBand(x);
+    if (!worst || b.level > worst.level) worst = { level: b.level, week: x.w, reason: b.reason };
+  }
+  return worst;
+}
+
+function tileClass(s: PhaseStats | null, worst: ReturnType<typeof phaseWorstWeek>) {
+  if (!s || !worst) return "tile fut";
   if (s.nrt > 0) return "tile nrt";
-  return `tile ${s.UA <= 2 ? "t0" : s.UA <= 5 ? "t1" : s.UA <= 9 ? "t2" : "t3"}`;
+  return `tile ${worst.level === 2 ? "t3" : worst.level === 1 ? "t1" : "t0"}`;
+}
+
+function tileTitle(i: number, s: PhaseStats | null, worst: ReturnType<typeof phaseWorstWeek>) {
+  if (!s || !worst) return `Phase ${PHASE_LABEL[i]} · not yet rated`;
+  const band = (["MEETS STANDARD", "EMERGING CONCERN", "BELOW STANDARD"] as const)[worst.level];
+  return `Phase ${PHASE_LABEL[i]} · worst rated week: Week ${worst.week} · ${band} (${worst.reason}) · ${s.UA} ${s.UA === 1 ? "UA" : "UA’s"} in phase`;
 }
 
 export function PhaseTiles({ po }: { po: ProgressPO }) {
   return (
     <div className="tiles">
-      {po.phases.map((s, i) => (
-        <div key={i} className={tileClass(s)}>
-          <span>{PHASE_LABEL[i]}</span>
-          <b>{s ? s.UA : "–"}</b>
-          <i>{s ? pct(s.aPct) : ""}</i>
-        </div>
-      ))}
+      {po.phases.map((s, i) => {
+        const worst = s ? phaseWorstWeek(po, i) : null;
+        return (
+          <div key={i} className={tileClass(s, worst)} title={tileTitle(i, s, worst)} data-band={worst?.level ?? ""}>
+            <span>{PHASE_LABEL[i]}</span>
+            <b>{s ? s.UA : "–"}</b>
+            <i>{s ? pct(s.aPct) : ""}</i>
+          </div>
+        );
+      })}
     </div>
   );
 }

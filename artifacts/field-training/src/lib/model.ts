@@ -728,6 +728,13 @@ export interface NrtReviewRequest {
   createdAt: string;
   alertStatus: 'queued';
 }
+/** A supervisor closed an alert; the required note is saved with the closer's name and the time. */
+export interface AlertClosure {
+  alertKey: string;
+  note: string;
+  closedBy: RecordActor;
+  closedAt: string;
+}
 export interface WeeklyPerformanceLogEntry {
   id:string;
   kind:'strength'|'corrective';
@@ -966,6 +973,7 @@ export interface Workspace {
   phaseExtensionRequests:PhaseExtensionRequest[];
   week15Recommendations:Week15Recommendation[];
   nrtReviewRequests:NrtReviewRequest[];
+  alertClosures:AlertClosure[];
 }
 
 const PII = [

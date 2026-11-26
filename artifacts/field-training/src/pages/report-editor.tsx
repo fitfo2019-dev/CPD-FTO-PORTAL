@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
-import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
+import { exportDailyRow } from '@/lib/daily-row-export.js';
 import { useOperationalStateMachine, useWorkspace } from '@/state/workspace.js';
 import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
 import { PageHead, Panel, StatusPill } from '@/components/bits.js';
@@ -111,6 +112,7 @@ export default function ReportEditor() {
   const [dateText, setDateText] = useState(() => r ? formatDateDMY(r.date) : '');
   const [showErr, setShowErr] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'pdf'|'xlsx'>('pdf');
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
   const [editingRunId, setEditingRunId] = useState<string | null>(null);
@@ -889,7 +891,17 @@ export default function ReportEditor() {
       <Link href="/reports" className="text-sm font-semibold inline-flex items-center gap-1 mb-2 hover:underline" data-testid="link-back"><ArrowLeft className="h-4 w-4" />Saved records</Link>
       <PageHead kicker="Shift workspace · Daily Performance Summary · U-10.174" title={r.recruitName ? `PO ${r.recruitName} #${r.recruitBadge}` : 'Probationary Officer shift'} titleIsData>
         <StatusPill s={r.status} />
-        <button type="button" data-testid="button-print-daily-log" onClick={() => { if(operationalPacket?.blockingIssues.length){toast({title:'Complete the phase-start packet',description:operationalPacket.blockingIssues.join(' '),variant:'destructive'});return;} window.print(); }} className="h-10 px-3 rounded border bg-card text-sm font-bold inline-flex items-center gap-1.5"><Printer className="h-4 w-4" />Print all forms / PDF</button>
+        <span className="inline-flex h-10 shrink-0 items-stretch overflow-hidden rounded border bg-card" role="group" aria-label="Export">
+          <select value={exportFormat} onChange={event=>setExportFormat(event.target.value==='xlsx'?'xlsx':'pdf')} aria-label="Export format" title="Choose the export file" className="w-36 border-r bg-card px-2 text-sm font-semibold" data-testid="select-daily-export-format">
+            <option value="pdf">PDF · all forms</option>
+            <option value="xlsx">Excel row</option>
+          </select>
+          <button type="button" data-testid="button-print-daily-log" onClick={() => {
+            if (exportFormat==='xlsx') { const filename=exportDailyRow(r); toast({title:'Excel row exported',description:filename}); return; }
+            if(operationalPacket?.blockingIssues.length){toast({title:'Complete the phase-start packet',description:operationalPacket.blockingIssues.join(' '),variant:'destructive'});return;}
+            window.print();
+          }} className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-sm font-bold">{exportFormat==='xlsx'?<FileSpreadsheet className="h-4 w-4" />:<Printer className="h-4 w-4" />}Export</button>
+        </span>
         {orientationHref&&<Link href={orientationHref} data-testid="link-saved-orientation" className="inline-flex h-10 items-center rounded border bg-card px-3 text-sm font-bold">Substation Orientation</Link>}
         {(editable || commentsEditable) && <button data-testid="button-save-draft" onClick={()=>save()} className="h-10 px-4 rounded bg-primary text-primary-foreground font-bold text-sm active:scale-[.98] transition">{commentsEditable ? 'Save comments' : 'Save draft'}{isDirty && ' *'}</button>}
         {editable && <button data-testid="button-save-next-workday" onClick={()=>save(false,true)} className="h-10 rounded border bg-card px-3 text-sm font-semibold">Save and next workday</button>}

@@ -31,6 +31,13 @@ test('each fictional role gets only the starter data intended for that role', ()
   assert.equal(coordinator.phaseExtensionRequests[0].status, 'pending');
   assert.match(coordinator.phaseExtensionRequests[0].justification, /Fictional sample/);
 
+  const sergeant = workspaces.get('fto_sgt')!;
+  assert.equal(sergeant.caseFolder, undefined);
+  assert.deepEqual(sergeant.assignments, []);
+  assert.equal(sergeant.phaseFolders.length, 2);
+  assert.equal(sergeant.nrtReviewRequests.length, 1);
+  assert.match(sergeant.nrtReviewRequests[0].summary, /Fictional sample/);
+
   for (const role of ['po', 'fto_coc', 'policenet', 'policenet_admin_sgt'] as const) {
     const workspace = workspaces.get(role)!;
     assert.equal(workspace.caseFolder, undefined, `${role} must not inherit an FTO phase folder`);
