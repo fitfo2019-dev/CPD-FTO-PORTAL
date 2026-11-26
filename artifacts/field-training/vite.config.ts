@@ -141,6 +141,12 @@ export default defineConfig(async ({ command }) => {
           ) {
             return "vendor-icons";
           }
+          if (
+            id.includes("/node_modules/xlsx/") ||
+            id.includes("/node_modules/xlsx-js-style/")
+          ) {
+            return "vendor-spreadsheet";
+          }
           return "vendor";
         },
       },

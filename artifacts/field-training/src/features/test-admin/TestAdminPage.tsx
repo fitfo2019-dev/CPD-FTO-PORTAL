@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode, type SubmitEvent } from "react";
 import {
   Activity, ArrowLeft, Ban, BookOpen, ClipboardList, FlaskConical, History,
   LayoutDashboard, Plus, Search, ShieldCheck, Users,
@@ -375,7 +375,7 @@ function ScenarioEditor({ editor, scenario, onClose, onSave }: {
   const editing = !!editor.item;
   const title = `${editing ? "Edit" : "New"} ${editor.kind === "participants" ? "participant" : editor.kind === "classes" ? "class" : "assignment"}`;
 
-  async function submit(event: FormEvent) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     let payload: TestAdminParticipantInput | TestAdminClassInput | TestAdminAssignmentInput;
@@ -430,7 +430,7 @@ function CreateRecordDialog({ assignments, classes, participants, onClose, onSav
   const [status, setStatus] = useState<"draft" | "submitted">("draft");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const assignment = assignments.find(item => item.id === assignmentId);
     if (!assignment || !date || date < assignment.starts_on || date > assignment.ends_on) {
@@ -459,7 +459,7 @@ function RecordEditor({ record, poName, onClose, onSave }: {
   const [status, setStatus] = useState<"draft" | "submitted">(record.status);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  async function submit(event: FormEvent) {
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!narrative.trim()) { setError("Enter a training narrative."); return; }
     setBusy(true);
