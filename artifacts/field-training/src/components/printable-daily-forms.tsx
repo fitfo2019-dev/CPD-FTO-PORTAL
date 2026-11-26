@@ -1,5 +1,5 @@
 import React, { Fragment } from 'react';
-import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS, partitionRevisedChecklist, revisedRowState, rowSegments, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
+import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS, partitionRevisedChecklist, revisedRowState, unitState, type RevisedChecklistRow, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
 import { PrintDocument, PrintTitleBlock, PrintFieldGrid, PrintField, PrintSectionPanel, PrintChecklistRow, PrintNotesArea, PrintFooter } from '@/components/print-template.js';
 import {
   DAILY_DUTY_CHECKLIST,
@@ -237,14 +237,10 @@ function NarrativeContinuationPages({report,run,pageReferences}:{report:Report;r
 }
 
 
-function PrintRowLabel({label,indices,state,prefix,itemNotApplicable}:{label:string;indices:readonly number[];state:Record<string,boolean>;prefix:string;itemNotApplicable?:Record<string,true>}) {
-  const parts=rowSegments(label,indices);
-  if(!parts)return <>{label}</>;
-  return <>{parts.map((part,position)=>{
-    const key=`${prefix}${indices[position]}`;
-    const na=itemNotApplicable?.[key]===true&&state[key]===false;
-    const failed=state[key]===false&&!na;
-    return <Fragment key={key}>{position>0&&' / '}<span className={na?'print-item-na':failed?'print-item-failed':undefined}>{part}</span></Fragment>;
+function PrintRowLabel({row,state,prefix,itemNotApplicable}:{row:RevisedChecklistRow;state:Record<string,boolean>;prefix:string;itemNotApplicable?:Record<string,true>}) {
+  return <>{row.units.map((unit,position)=>{
+    const {failed,notApplicable:na}=unitState(state,prefix,unit,itemNotApplicable);
+    return <Fragment key={unit.join('-')}>{position>0&&' / '}<span className={na?'print-item-na':failed?'print-item-failed':undefined}>{row.unitLabels[position]}</span></Fragment>;
   })}</>;
 }
 
@@ -256,7 +252,7 @@ function Checklist({title,sections,state,failures,prefix,notApplicable,itemNotAp
       {sections.map((section,index)=><PrintSectionPanel className="print-run-checkgroup" key={section.title} title={section.title} heading={3}><ul style={{'--print-checklist-rows':section.items.length} as React.CSSProperties}>{section.items.map(item=>{
         const value=revisedRowState(state,prefix,item.indices);
         const failedActions=item.indices.flatMap(index=>failures?.[`${prefix}${index}`]??[]);
-        return <PrintChecklistRow key={item.id} label={item.label} labelContent={<PrintRowLabel label={item.label} indices={item.indices} state={state} prefix={prefix} itemNotApplicable={itemNotApplicable}/>} help={item.help} {...value}
+        return <PrintChecklistRow key={item.id} label={item.label} labelContent={<PrintRowLabel row={item} state={state} prefix={prefix} itemNotApplicable={itemNotApplicable}/>} help={item.help} {...value}
           details={failedActions.length>0?<span className="print-run-failure-detail">{failedActions.map((action,actionIndex)=><span key={`${actionIndex}-${action}`}><span>Not completed: </span><strong>{action}</strong></span>)}</span>:undefined}/>;
       })}</ul>{index===sections.length-1&&!tail&&<div className="print-equal-support">{support}</div>}</PrintSectionPanel>)}
       {tail&&<div className="print-equal-support">{tail}</div>}

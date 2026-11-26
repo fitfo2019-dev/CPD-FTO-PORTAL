@@ -19,7 +19,7 @@ import { PrintableDailyLog } from '@/components/printable-daily-log.js';
 import { PrintableDailyForms } from '@/components/printable-daily-forms.js';
 import { activityDiscrepancies, activityTotals, buildClearanceDocuments, clearanceDerivedActivityCounts, manualActivityEntryForTotal, runActivityValidationError, runDerivedActivityCounts } from '@/lib/run-activity.js';
 import { checklistForMetadata, resetPrimaryChecklist } from '@/lib/run-checklist-state.js';
-import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS } from '@/lib/revised-run-checklists.js';
+import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS, type RevisedChecklistRow, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
 import { RunChecklistFields } from '@/components/run-checklist-fields.js';
 import { buildRunNarrativeDraft } from '@/lib/run-narrative-draft.js';
 import { isRtRestricted } from '@/lib/model.js';
@@ -166,7 +166,7 @@ export default function ReportEditor() {
   const [failurePromptQueue, setFailurePromptQueue] = useState<FailurePromptTarget[]>([]);
   const [runChecklistNA, setRunChecklistNAState] = useState<Record<string, true>>({});
   const [runFailureEdits, setRunFailureEdits] = useState<Record<string, string>>({});
-  const [uncheckedPrompt, setUncheckedPrompt] = useState<{form:RunChecklistSourceForm;naKey:string;rowLabel:string;items:UncheckedItem[]}|null>(null);
+  const [uncheckedPrompt, setUncheckedPrompt] = useState<{form:RunChecklistSourceForm;naKey:string;rowLabel:string;items:UncheckedItem[];itemLabels:Record<string,string>}|null>(null);
   const [uncheckedChoices, setUncheckedChoices] = useState<Record<string, UncheckedChoice|undefined>>({});
   const setRunChecklist: typeof setRunChecklistState = update => {
     setRunChecklistState(update);
@@ -492,26 +492,42 @@ export default function ReportEditor() {
     });
     setRunError('');
   };
-  const openUncheckedPrompt=(form:RunChecklistSourceForm,prefix:string,naKey:string,indices:readonly number[],labels:readonly string[],rowLabel:string)=>{
-    const items=indices.map(index=>({key:`${prefix}${index}`,label:labels[index]??`Checklist item ${index+1}`}));
-    setUncheckedChoices(Object.fromEntries(items.map(item=>[item.key,runChecklist[item.key]===false?(runChecklistNA[item.key]?'na':'fail'):undefined])));
-    setUncheckedPrompt({form,naKey,rowLabel,items});
+  /** The clicked row, or every row of a section when the whole section is unchecked. */
+  const checklistRowFor=(sections:readonly RevisedChecklistSection[],indices:readonly number[]):RevisedChecklistRow|undefined=>{
+    const rows=sections.flatMap(section=>section.items);
+    const exact=rows.find(item=>item.indices===indices);
+    if(exact)return exact;
+    const included=rows.filter(item=>item.indices.every(index=>indices.includes(index)));
+    if(!included.length)return undefined;
+    const label=included.map(item=>item.label).join(' / ');
+    return {id:included.map(item=>item.id).join('+'),label,help:label,indices:included.flatMap(item=>item.indices),units:included.flatMap(item=>item.units),unitLabels:included.flatMap(item=>item.unitLabels),unitSentences:included.flatMap(item=>item.unitSentences)};
+  };
+  const openUncheckedPrompt=(form:RunChecklistSourceForm,prefix:string,naKey:string,row:RevisedChecklistRow|undefined,labels:readonly string[])=>{
+    if(!row)return;
+    const items=row.units.map((unit,position)=>({key:`${prefix}${unit[0]}`,keys:unit.map(index=>`${prefix}${index}`),label:row.unitLabels[position]??labels[unit[0]!]??''}));
+    const itemLabels=Object.fromEntries(row.indices.map(index=>[`${prefix}${index}`,labels[index]??`Checklist item ${index+1}`]));
+    setUncheckedChoices(Object.fromEntries(items.map(item=>{
+      const unchecked=item.keys.filter(key=>runChecklist[key]===false);
+      return [item.key,unchecked.length===0?undefined:unchecked.every(key=>runChecklistNA[key])?'na':'fail'];
+    })));
+    setUncheckedPrompt({form,naKey,rowLabel:row.label,items,itemLabels});
   };
   const confirmUncheckedPrompt=()=>{
     if(!uncheckedPrompt)return;
-    const {form,naKey,items}=uncheckedPrompt;
-    const failed=items.filter(item=>uncheckedChoices[item.key]==='fail');
-    const notApplicable=items.filter(item=>uncheckedChoices[item.key]==='na');
-    const satisfied=items.filter(item=>!uncheckedChoices[item.key]);
+    const {form,naKey,items,itemLabels}=uncheckedPrompt;
+    const targetsFor=(choice:UncheckedChoice|undefined)=>items.filter(item=>uncheckedChoices[item.key]===choice).flatMap(item=>item.keys.map(key=>({form,key,label:itemLabels[key]??''})));
+    const failed=targetsFor('fail');
+    const notApplicable=targetsFor('na');
+    const satisfied=targetsFor(undefined);
     setUncheckedPrompt(null);
-    if(satisfied.length)selectChecklistItems(satisfied.map(item=>({form,...item})),naKey);
+    if(satisfied.length)selectChecklistItems(satisfied,naKey);
     if(notApplicable.length){
       setRunChecklist(current=>({...current,[naKey]:false,...Object.fromEntries(notApplicable.map(item=>[item.key,false]))}));
       setRunChecklistNA(current=>({...current,...Object.fromEntries(notApplicable.map(item=>[item.key,true as const]))}));
       setRunChecklistFailures(current=>{const next={...current};notApplicable.forEach(item=>{delete next[item.key];});return next;});
       setRunFailureEdits(current=>{const next={...current};notApplicable.forEach(item=>{delete next[item.key];});return next;});
     }
-    if(failed.length)clearChecklistItems(failed.map(item=>({form,...item})),naKey);
+    if(failed.length)clearChecklistItems(failed,naKey);
   };
   const failureStatements=runFailureStatements(workflowDraft as Parameters<typeof runFailureStatements>[0]);
   const statementCategory=(key:string)=>{
@@ -1052,7 +1068,7 @@ export default function ReportEditor() {
                         disabled={!editable||!!runChecklist['na-task']} testId={`checklist-primary-${runKind}`}
                         onChange={(indices,checked)=>{
                           const targets=indices.map(index=>({form:runKind,key:`task-${index}`,label:checkItems[index]}));
-                          if(checked)selectChecklistItems(targets,'na-task');else openUncheckedPrompt(runKind,'task-','na-task',indices,checkItems,primaryChecklistGroups.flatMap(section=>section.items).find(item=>item.indices===indices)?.label??targets.map(target=>target.label).join(' / '));
+                          if(checked)selectChecklistItems(targets,'na-task');else openUncheckedPrompt(runKind,'task-','na-task',checklistRowFor(primaryChecklistGroups,indices),checkItems);
                           if(indices.includes(primaryDirectiveIndex))setDirectiveReviewFlags(runKind,checked);
                         }}
                         notApplicable={runChecklistNA}
@@ -1084,7 +1100,7 @@ export default function ReportEditor() {
                         disabled={!editable||!!runChecklist[`na-supp-${supplement}`]} testId={`checklist-supplement-${supplement}`}
                         onChange={(indices,checked)=>{
                            const targets=indices.map(index=>({form:supplement,key:`supp-${supplement}-${index}`,label:supplementItems[index]}));
-                           if(checked)selectChecklistItems(targets,`na-supp-${supplement}`);else openUncheckedPrompt(supplement,`supp-${supplement}-`,`na-supp-${supplement}`,indices,supplementItems,groups.flatMap(section=>section.items).find(item=>item.indices===indices)?.label??targets.map(target=>target.label).join(' / '));
+                           if(checked)selectChecklistItems(targets,`na-supp-${supplement}`);else openUncheckedPrompt(supplement,`supp-${supplement}-`,`na-supp-${supplement}`,checklistRowFor(groups,indices),supplementItems);
                           if(indices.includes(supplementDirectiveIndex))setDirectiveReviewFlags(supplement,checked);
                          }}
                          notApplicable={runChecklistNA}

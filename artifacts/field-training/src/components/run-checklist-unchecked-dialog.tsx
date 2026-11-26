@@ -2,7 +2,7 @@ import React from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog.js';
 
 export type UncheckedChoice = 'fail' | 'na';
-export type UncheckedItem = { key: string; label: string };
+export type UncheckedItem = { key: string; keys: readonly string[]; label: string };
 
 export function RunChecklistUncheckedDialog({
   open, rowLabel, items, choices, onChoicesChange, onCancel, onConfirm,

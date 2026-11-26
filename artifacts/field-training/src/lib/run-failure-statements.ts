@@ -1,9 +1,5 @@
-import {
-  RUN_CHECKLIST_SECTIONS,
-  RUN_SUPPLEMENT_CHECKLIST_SECTIONS,
-  requiredSupplementalForms,
-  type TrainingRun,
-} from './model.js';
+import { requiredSupplementalForms, type TrainingRun } from './model.js';
+import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS, unitState, type RevisedChecklistSection } from './revised-run-checklists.js';
 
 /**
  * Owner-approved "PO failed to" sentences, keyed by the exact checklist label
@@ -49,37 +45,40 @@ export function defaultFailureStatement(label: string): string {
 /** One editable sentence; `keys` lists every failed item that shares it. */
 export type RunFailureStatement = { key: string; keys: string[]; labels: string[]; text: string; edited: boolean };
 
-/** Unchecked items that are not marked "did not apply", in form order. */
-export function runFailedItems(run: Pick<TrainingRun, 'runKind' | 'checklist' | 'checklistNotApplicable'> & Parameters<typeof requiredSupplementalForms>[0]) {
-  const items: { key: string; label: string }[] = [];
-  const collect = (sections: readonly { items: readonly { label: string }[] }[], prefix: string) => {
-    let index = 0;
-    for (const section of sections) for (const item of section.items) {
-      const key = `${prefix}${index++}`;
-      if (run.checklist[key] === false && run.checklistNotApplicable?.[key] !== true) items.push({ key, label: item.label });
-    }
+type FailedBox = { key: string; keys: string[]; label: string; sentence: string };
+
+/** Failed boxes (single items or approved merges) that are not marked "did not apply", in form order. */
+export function runFailedItems(run: Pick<TrainingRun, 'runKind' | 'checklist' | 'checklistNotApplicable'> & Parameters<typeof requiredSupplementalForms>[0]): FailedBox[] {
+  const boxes: FailedBox[] = [];
+  const collect = (sections: readonly RevisedChecklistSection[], prefix: string) => {
+    for (const section of sections) for (const row of section.items) row.units.forEach((unit, position) => {
+      if (!unitState(run.checklist, prefix, unit, run.checklistNotApplicable).failed) return;
+      const keys = unit.map(index => `${prefix}${index}`).filter(key => run.checklist[key] === false && run.checklistNotApplicable?.[key] !== true);
+      const label = row.unitLabels[position] ?? '';
+      const sentence = row.unitSentences[position] ?? (unit.length > 1 ? `PO failed to satisfactorily complete: ${label.trim()}.` : defaultFailureStatement(label));
+      boxes.push({ key: keys[0]!, keys, label, sentence });
+    });
   };
-  if (!run.checklist['na-task']) collect(RUN_CHECKLIST_SECTIONS[run.runKind], 'task-');
+  if (!run.checklist['na-task']) collect(REVISED_PRIMARY_CHECKLISTS[run.runKind], 'task-');
   for (const form of requiredSupplementalForms(run).filter(item => item !== 'narrative_addition')) {
     if (run.checklist[`na-supp-${form}`]) continue;
-    collect(RUN_SUPPLEMENT_CHECKLIST_SECTIONS[form], `supp-${form}-`);
+    collect(REVISED_SUPPLEMENT_CHECKLISTS[form], `supp-${form}-`);
   }
-  return items;
+  return boxes;
 }
 
-/** Failed items that share a default sentence (e.g. Enroute and Arrival) are listed once. */
+/** One sentence per failed box; boxes that share a default sentence are listed once. */
 export function runFailureStatements(
   run: Pick<TrainingRun, 'runKind' | 'checklist' | 'checklistNotApplicable' | 'failureStatements'> & Parameters<typeof requiredSupplementalForms>[0],
 ): RunFailureStatement[] {
   const byDefault = new Map<string, RunFailureStatement>();
   const out: RunFailureStatement[] = [];
-  for (const item of runFailedItems(run)) {
-    const fallback = defaultFailureStatement(item.label);
-    const group = byDefault.get(fallback);
-    if (group) { group.keys.push(item.key); group.labels.push(item.label); continue; }
-    const edited = run.failureStatements?.[item.key];
-    const statement: RunFailureStatement = { key: item.key, keys: [item.key], labels: [item.label], text: edited ?? fallback, edited: edited !== undefined };
-    byDefault.set(fallback, statement);
+  for (const box of runFailedItems(run)) {
+    const group = byDefault.get(box.sentence);
+    if (group) { group.keys.push(...box.keys); group.labels.push(box.label); continue; }
+    const edited = box.keys.map(key => run.failureStatements?.[key]).find(text => text !== undefined);
+    const statement: RunFailureStatement = { key: box.key, keys: [...box.keys], labels: [box.label], text: edited ?? box.sentence, edited: edited !== undefined };
+    byDefault.set(box.sentence, statement);
     out.push(statement);
   }
   return out;
@@ -89,7 +88,7 @@ export function runFailureStatements(
 export function activeFailureStatementEdits(
   run: Parameters<typeof runFailureStatements>[0],
 ): Record<string, string> | undefined {
-  const failed = new Set(runFailedItems(run).map(item => item.key));
+  const failed = new Set(runFailedItems(run).flatMap(item => item.keys));
   const kept = Object.entries(run.failureStatements ?? {}).filter(([key]) => failed.has(key));
   return kept.length ? Object.fromEntries(kept) : undefined;
 }

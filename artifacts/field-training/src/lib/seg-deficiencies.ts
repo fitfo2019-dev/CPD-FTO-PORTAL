@@ -3,6 +3,7 @@ import {
   type Category, type ChecklistDeficiencyGroup, type PrimaryRunForm, type Report, type SupplementalRunForm,
 } from './model.js';
 import type { OperationalPacket } from './operational-state-machine.js';
+import { approvedItemCategory } from './approved-checklist-merges.js';
 
 type SourceForm = 'duty' | PrimaryRunForm | SupplementalRunForm;
 
@@ -44,6 +45,8 @@ function taskCategory(form: SourceForm, section: string, label: string): Categor
   return sectionCategory(form, section);
 }
 
+const labelsOf = (sections: readonly { items: readonly { label: string }[] }[]) => sections.flatMap(section => section.items.map(item => item.label));
+
 function buildDirectory(): Readonly<Record<string, Category>> {
   if (CATEGORIES.length !== 30 || new Set(CATEGORIES).size !== 30) throw new Error('Exactly 30 unique SEG categories are required.');
   const directory: Record<string, Category> = {};
@@ -51,13 +54,15 @@ function buildDirectory(): Readonly<Record<string, Category>> {
   for (const [form, sections] of Object.entries(RUN_CHECKLIST_SECTIONS)) {
     let index = 0;
     for (const section of sections) for (const item of section.items) {
-      directory[`${form}:task-${index++}`] = taskCategory(form as PrimaryRunForm, section.title, item.label);
+      directory[`${form}:task-${index}`] = approvedItemCategory(form as PrimaryRunForm, labelsOf(sections), index) ?? taskCategory(form as PrimaryRunForm, section.title, item.label);
+      index++;
     }
   }
   for (const [form, sections] of Object.entries(RUN_SUPPLEMENT_CHECKLIST_SECTIONS)) {
     let index = 0;
     for (const section of sections) for (const item of section.items) {
-      directory[`${form}:supp-${form}-${index++}`] = taskCategory(form as SupplementalRunForm, section.title, item.label);
+      directory[`${form}:supp-${form}-${index}`] = (form === 'narrative_addition' ? undefined : approvedItemCategory(form as Exclude<SupplementalRunForm, 'narrative_addition'>, labelsOf(sections), index)) ?? taskCategory(form as SupplementalRunForm, section.title, item.label);
+      index++;
     }
   }
   return Object.freeze(directory);

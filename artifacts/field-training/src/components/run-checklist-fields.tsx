@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import { partitionRevisedChecklist, revisedRowState, rowSegments, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
+import { partitionRevisedChecklist, revisedRowState, unitState, type RevisedChecklistRow, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
 
 type Props = {
   sections: readonly RevisedChecklistSection[];
@@ -13,17 +13,13 @@ type Props = {
 };
 
 
-function RowLabel({ label, indices, state, prefix, notApplicable }: { label: string; indices: readonly number[]; state: Record<string, boolean>; prefix: string; notApplicable?: Readonly<Record<string, true>> }) {
-  const parts = rowSegments(label, indices);
-  if (!parts) return <>{label}</>;
-  return <>{parts.map((part, position) => {
-    const key = `${prefix}${indices[position]}`;
-    const na = notApplicable?.[key] === true && state[key] === false;
-    const failed = state[key] === false && !na;
-    return <React.Fragment key={key}>
+function RowLabel({ row, state, prefix, notApplicable }: { row: RevisedChecklistRow; state: Record<string, boolean>; prefix: string; notApplicable?: Readonly<Record<string, true>> }) {
+  return <>{row.units.map((unit, position) => {
+    const { failed, notApplicable: na } = unitState(state, prefix, unit, notApplicable);
+    return <React.Fragment key={unit.join('-')}>
       {position > 0 && <span className="text-muted-foreground"> / </span>}
       <span className={na ? 'font-bold line-through decoration-2' : failed ? 'rounded-sm bg-destructive/10 px-0.5 font-semibold text-destructive' : undefined}
-        data-state={na ? 'not-applicable' : failed ? 'failed' : 'complete'}>{part}</span>
+        data-state={na ? 'not-applicable' : failed ? 'failed' : 'complete'}>{row.unitLabels[position]}</span>
     </React.Fragment>;
   })}</>;
 }
@@ -65,7 +61,7 @@ export function RunChecklistFields({ sections, state, prefix, disabled, testId, 
                   className="mt-1 shrink-0"
                   onChange={event => onChange(item.indices, event.target.checked)}
                   data-testid={`${testId}-row-${item.id}`} />
-                <span className="min-w-0 break-words"><RowLabel label={item.label} indices={item.indices} state={state} prefix={prefix} notApplicable={notApplicable} /></span>
+                <span className="min-w-0 break-words"><RowLabel row={item} state={state} prefix={prefix} notApplicable={notApplicable} /></span>
               </label>
               {renderItemDetails?.(item.indices)}
             </div>;
