@@ -1118,3 +1118,54 @@ packager checks ZIP integrity and hard-fails if `dist-production.zip` exceeds
 manual. Local validation logs under `generated-artifacts/task-180/` and source
 snapshots are excluded from Git and deployment. This process does not publish
 or deploy the portal.
+
+## Task #144 — run-checklist merge packet divergence — BLOCKED (2026-11-26)
+
+### Repository state and safe boundary
+
+The supplied run-checklist packet targets `6495373`; the current workspace
+`main` is at `a0acaea`. Read-only Git inspection found no common ancestor, and
+neither commit is an ancestor of the other. The workspace has no GitHub `origin`
+remote configured. The packet's prescribed fast-forward-only update cannot be
+used; no rebase, cherry-pick, patch application, raw file copy or overwrite was
+attempted. **Task #144 remains BLOCKED and incomplete.**
+
+The packet bundle is not a safe replacement for the current workspace. A
+whole-tree comparison reports 274 differing paths: 27 added, 155 modified,
+91 deleted and 1 renamed when comparing current `main` toward the packet. The
+current-only paths include `.agents/memory/`, `replit.md`, and newer portal
+capabilities. Replacing the tree or copying its fallback files wholesale would
+discard unrelated current work. No changes from the packet were integrated.
+
+The packet's specific checklist and Traffic Data Collection proposals remain
+unreconciled. Any future work must compare those changes against the current
+portal and preserve current schemas, saved task offsets, offline vault behavior,
+and submission gates. Do not describe the packet as merged or validated.
+
+### Current-workspace verification for this status record
+
+Before writing this record, `pnpm run snapshot:context` created
+`local-history-snapshots/snapshot_20261126_131540_fba6a1a9/`. Its checksum
+manifest confirms copies of `.replit-context.md`, this manual and
+`src/config/phaseConfiguration.ts`, plus the other allowlisted configuration
+files. These are source-recovery copies, not a database or full-workspace backup.
+
+On the current workspace (not the unapplied packet), the following passed:
+
+- `pnpm typecheck`
+- `pnpm --filter @workspace/field-training run build`
+- `pnpm run test:field-training:regressions`: 16 phase tests and 42 offline and
+  dispatch tests passed.
+- `pnpm run test:training-packets`: 29 portal tests, 12 API readiness tests and
+  1 isolated preview test passed.
+- `pnpm --filter @workspace/field-training run test:ui-copy`: **11/11 passed**.
+- The snapshot and packet-control portions of
+  `pnpm run test:maintenance-guardrails` passed.
+
+That maintenance command did not complete: Node/tsx stopped while loading
+`weekly-log-print.test.ts` because it could not load the imported
+`columbus-logo.svg` (`ERR_UNKNOWN_FILE_EXTENSION`). The print-export guardrail
+file later in that command did not run. This is recorded as an unresolved
+test-runner limitation, not as a passing suite or a proven application defect.
+These results verify current-workspace behavior only; no code from commit
+`6495373` was built or tested. No production deployment was performed.
