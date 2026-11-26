@@ -94,6 +94,27 @@ test("saved run search keeps incident details and edit actions, and has a clear 
     await click("button-clear-run-search");
     assert.ok(dom.window.document.querySelector('[data-testid="row-training-run-incident-nine-digits"]'),
       "Clearing the search restores all saved runs");
+
+    await click("button-delete-run-incident-nine-digits");
+    assert.ok(dom.window.document.body.textContent?.includes("Remove this run from the daily log?"),
+      "Removing a run first opens the confirmation dialog");
+    await click("button-confirm-action-cancel");
+    assert.ok(dom.window.document.querySelector('[data-testid="row-training-run-incident-nine-digits"]'),
+      "Keeping the run leaves it in the daily-log draft");
+    assert.deepEqual(workspace.reports[0]?.runs.map(run => run.id), [
+      "incident-nine-digits", "incident-sixteen-digits",
+    ], "Cancelling does not change the saved report");
+
+    await click("button-delete-run-incident-nine-digits");
+    await click("button-confirm-action");
+    assert.equal(dom.window.document.querySelector('[data-testid="row-training-run-incident-nine-digits"]'), null,
+      "Confirming removes the selected run from the current draft");
+    assert.ok(dom.window.document.querySelector('[data-testid="row-training-run-incident-sixteen-digits"]'),
+      "Confirming leaves the other run in the daily-log draft");
+    assert.deepEqual(workspace.reports[0]?.runs.map(run => run.id), [
+      "incident-nine-digits", "incident-sixteen-digits",
+    ], "Removal remains an unsaved draft change");
+    assert.match(element("status-daily-save").textContent ?? "", /Unsaved daily log changes/);
   } finally {
     await act(async () => root.unmount());
     dom.window.close();
