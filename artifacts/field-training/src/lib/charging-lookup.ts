@@ -42,8 +42,35 @@ export interface ElementGroup {
 const LABEL = /^\s*\(([A-Za-z]{1,4}|\d{1,3})\)/;
 const ROMAN = /^(?:i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv)$/;
 
+/**
+ * Manual headings that print a section number that does not exist. The complaint wording
+ * of each entry already cites the corrected section (ORC 2913.02 and ORC 2911.211).
+ */
+export const SECTION_CORRECTIONS: Readonly<Record<string, string>> = {
+  'ORC:2913.0': 'ORC:2913.02',
+  'ORC:2909.211': 'ORC:2911.211',
+};
+
+function correctEntry(entry: ComplaintEntry, from: string, to: string): ComplaintEntry {
+  const pattern = new RegExp(`${from.replace(/\./g, '\\.')}(?!\\d)`, 'g');
+  return {
+    ...entry,
+    heading: entry.heading.replace(pattern, to),
+    citations: entry.citations.map(citation => citation.replace(pattern, to)),
+  };
+}
+
 export function normalizeComplaintCodes(codes: Record<string, ComplaintEntry[]>): ChargeCode[] {
-  return Object.entries(codes).map(([key, entries]) => {
+  const merged = new Map<string, ComplaintEntry[]>();
+  Object.entries(codes).forEach(([key, entries]) => {
+    const target = SECTION_CORRECTIONS[key];
+    const finalKey = target ?? key;
+    const list = target
+      ? entries.map(entry => correctEntry(entry, key.split(':')[1], target.split(':')[1]))
+      : entries;
+    merged.set(finalKey, [...(merged.get(finalKey) ?? []), ...list]);
+  });
+  return [...merged].map(([key, entries]) => {
     const [kind, section] = key.split(':') as [CodeKind, string];
     const offense = offenseName(entries[0]?.heading ?? '', section);
     const searchText = [

@@ -86,3 +86,20 @@ test('sections missing from the chapter files resolve from the charging suppleme
   assert.deepEqual(resolveStatute({ kind: 'ORC', section: '2913.02' }, theftRecord, supplement), theft);
   assert.equal(resolveStatute({ kind: 'CCC', section: '9999.99' }, undefined, supplement), null);
 });
+
+test('manual heading typos resolve to the sections their wording cites', () => {
+  assert.ok(!codes.some(code => code.key === 'ORC:2913.0' || code.key === 'ORC:2909.211'));
+  const theftCode = codes.find(code => code.key === 'ORC:2913.02')!;
+  const threat = theftCode.entries.find(entry => entry.heading === 'THEFT 2913.02(A)(4) ORC' && /special purpose/i.test(entry.variant));
+  assert.ok(threat);
+  assert.deepEqual(threat!.citations, ['ORC 2913.02(A)(4)']);
+  assert.deepEqual(citationPath(threat!.citations[0], '2913.02'), ['A', '4']);
+  const trespass = codes.find(code => code.key === 'ORC:2911.211')!;
+  const infrastructure = trespass.entries.find(entry => entry.citations.includes('ORC 2911.211(A)(2)'));
+  assert.ok(infrastructure && /critical infrastr/i.test(infrastructure.text));
+  assert.ok(searchCharges(codes, '2913.02').some(code => code.key === 'ORC:2913.02'));
+});
+
+test('repealed City Code 2329.13 and 2329.14 are not offered', () => {
+  assert.ok(!codes.some(code => code.key === 'CCC:2329.13' || code.key === 'CCC:2329.14'));
+});
