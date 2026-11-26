@@ -980,3 +980,17 @@ mtime_ms = 1795636636448
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/2c13ffe2-6d7a-4e52-85c8-eb9a3e28129c/8fd6ba3b-59db-48e3-84a7-a6884f225b7c"
 storage_version_token = "1795636647192959"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "-oVL2l8DOjiEBwJWUgF_m"
+uri = "file://generated-artifacts/incident-run-search-preview.html"
+type = "html"
+title = "Separated run-action preview"
+description = "The Remove run action now appears first on a separate, wide action row, opposite Edit, with the portal’s confirmation step retained."
+logical_id = "7e2d2bce-c162-4fb3-8259-fb057a2b208e"
+content_hash = "sha256:a0f1a9881e40535c513639a75e0e3f005f396ff817624e76b2cce6177bbf896a"
+size = 3890
+mtime_ms = 1795650285346
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:743deebc-4a49-40be-8fbc-df9475387f86/7e2d2bce-c162-4fb3-8259-fb057a2b208e/7f656f68-c936-483c-b877-c3b26aca2dfc"
+storage_version_token = "1795650286027453"
+content_type = "text/html"

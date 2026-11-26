@@ -5,6 +5,20 @@ import { applyDispatchIncidentRetry, applyDispatchPrefill, applyDispatchPrefillV
 import { lookupDispatchIncident } from "../components/dispatch-incident-lookup.js";
 import { OfflineStorage } from "./offlineStorage.js";
 import type { TrainingRun } from "./model.js";
+import { searchTrainingRunsByIncidentNumber } from "./training-run-search.js";
+
+test("saved runs search by incident-number text without losing long or leading-zero values",()=>{
+  const runs=[
+    {id:"short",incidentNumber:"012345678"},
+    {id:"long",incidentNumber:"0123456789012345"},
+    {id:"other",incidentNumber:"998877665"},
+    {id:"missing"},
+  ];
+  assert.deepEqual(searchTrainingRunsByIncidentNumber(runs,""),runs);
+  assert.deepEqual(searchTrainingRunsByIncidentNumber(runs," 012345678 "),runs.slice(0,2));
+  assert.deepEqual(searchTrainingRunsByIncidentNumber(runs,"0123456789012345"),[runs[1]]);
+  assert.deepEqual(searchTrainingRunsByIncidentNumber(runs,"123000000"),[]);
+});
 
 test('incident lookup matches the entered unit without borrowing another PO’s timings',()=>{
   const rows=[
