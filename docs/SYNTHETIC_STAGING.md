@@ -89,9 +89,9 @@ Test Admin authority gates above):
   — audited, non-destructive deactivation. An active class or participant with
   active assignments must have those assignments deactivated first. Assignment
   links and phase cannot be changed after training records exist; date changes
-must continue to include every existing record. Test Admin can still inspect
-historical records after an assignment is deactivated; new records require an
-active assignment and active participants.
+  must continue to include every existing record. Test Admin can still inspect
+  historical records after an assignment is deactivated; new records require an
+  active assignment and active participants.
 - `GET /v1/staging/test-admin/audit` — bounded read-only history; actor and
   client HMAC values are never returned.
 
