@@ -53,7 +53,8 @@
   }
   .portal-sidebar .portal-masthead-city { width: 160px; justify-self: auto; order: 2; }
   .portal-sidebar .portal-masthead-lockup { order: 3; gap: 0; }
-  .portal-sidebar .portal-masthead-insignia { order: 1; justify-content: center; gap: .6rem; }
+  .portal-sidebar .portal-masthead-insignia { order: 1; justify-content: center; gap: 1.15rem; }
+  .portal-sidebar .portal-masthead-badge-wrap::after { content: ""; position: absolute; top: 12%; bottom: 12%; right: -.6rem; width: 1px; background: rgb(255 255 255 / .35); }
   .portal-sidebar .portal-masthead-badge-wrap,
   .portal-sidebar .portal-masthead-patch { height: 3.4rem; }
   .portal-sidebar .portal-badge-easter-egg { top: 60%; font-size: 6.5px; opacity: .55; transition: opacity .3s; }
