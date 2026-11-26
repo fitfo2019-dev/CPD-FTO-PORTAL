@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const VERSION = "Version 1 · November 26, 2026 · portal main c159d2a";
+const VERSION = "Version 2 · November 26, 2026 · portal main 7d563d9";
 
 const NAVY = "1F3A68";
 S.setTheme({
@@ -509,14 +509,14 @@ S.layouts.agenda(deck.addSlide(), {
   const f = fr({
     kicker: "STATUS OF THE BUILD",
     headline: "The rules are live in the portal; several screens still await preview approval",
-    note: "As of portal main c159d2a and website main 11d7cd1. This slide is updated each time a change is merged.",
+    note: "As of portal main 7d563d9 and website main 11d7cd1. This slide is updated each time a change is merged.",
     sources: [LOG],
   });
   S.layouts.comparison(s, {
     frame: f,
     criteria: ["Paperwork", "PO standing", "Roles", "Notices"],
-    a: { tag: "LIVE", heading: "Merged and published", rows: ["Daily packet, two-stage submission, weekly packet", "PO-STD-2 status, PO-SCORE-2 score, Show Calculation", "Current sidebars for all five roles", "NRT rule logic and its tests"] },
-    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Redesigned FTO Shifts & Runs page with hours edit", "PO status label on My Training", "Redesigned PO and FTO Chain of Command sidebars", "NRT recommendation screen and notice delivery"] },
+    a: { tag: "LIVE", heading: "Merged and published", rows: ["Daily and weekly packets, two-stage submission, sign-in", "PO-STD-2 status, PO-SCORE-2 score, Show Calculation", "Current sidebars for all five roles", "NRT rule logic and its tests"] },
+    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Real form exporter for every form; Shifts & Runs redesign", "PO status label on My Training", "Redesigned PO and FTO Chain of Command sidebars", "NRT and cease-training screens and notices"] },
   });
 }
 
