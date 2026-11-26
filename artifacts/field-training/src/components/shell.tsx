@@ -64,6 +64,7 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     RESOURCES,
   ],
   po: [
+    { href: '/', label: 'My Training', icon: UserRound, devOnly: true },
     { href: '/agency-packets', label: 'Agency Packets', icon: FileText },
     { href: '/packet-submissions', label: 'Packet Status', icon: ClipboardList },
     { href: '/role-access', label: 'Account Access', icon: Lock },

@@ -23,6 +23,7 @@ export function createEmptyWorkspace(): Workspace {
     phaseExtensionRequests: [],
     week15Recommendations: [],
     nrtReviewRequests: [],
+    alertClosures: [],
   };
 }
 
@@ -110,6 +111,30 @@ export function createUiPreviewWorkspace(role: Role = 'fto'): Workspace {
         justification: 'Fictional sample request for preview only.',
         createdAt: PREVIEW_OPENED_AT,
         status: 'pending',
+      }],
+    };
+  }
+
+  if (role === 'fto_sgt') {
+    const folders = [
+      previewFolder(1, 'DEMO FTO', 'DEMO-FTO'),
+      previewFolder(2, 'DEMO FTO 2', 'DEMO-FTO-2'),
+    ];
+    return {
+      ...workspace,
+      phaseFolders: folders,
+      ftoDirectory: folders.map(folder => ({ badge: folder.ftoBadge, name: folder.ftoName })),
+      nrtReviewRequests: [{
+        id: 'ui-preview-nrt-request',
+        className: 'UI TEST ONLY',
+        recruitName: folders[0].recruitName,
+        recruitBadge: folders[0].recruitBadge,
+        phase: folders[0].phase,
+        reportIds: [],
+        summary: 'Fictional sample request for preview only.',
+        requestedBy: { name: folders[0].ftoName, badge: folders[0].ftoBadge, role: 'fto' },
+        createdAt: PREVIEW_OPENED_AT,
+        alertStatus: 'queued',
       }],
     };
   }

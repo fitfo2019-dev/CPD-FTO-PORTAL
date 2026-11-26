@@ -218,6 +218,7 @@ const loadRebuild = () => import('./features/rebuild/pages.js');
 const RebuildPhaseSetup = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPhaseSetup }))) : null;
 const RebuildPhaseSignUp = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPhaseSignUp }))) : null;
 const RebuildMyProbationaryOfficer = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildMyProbationaryOfficer }))) : null;
+const RebuildPoHome = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPoHome }))) : null;
 const RebuildPoProgress = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPoProgress }))) : null;
 function RebuildRoute({ page: Page }: { page: ComponentType | null }) {
   if (!Page) return <NotFound />;
@@ -258,6 +259,7 @@ function WorkspaceRoutes() {
     <Route path="/resources" component={HelpPage}/>
     <Route path="/help"><Redirect to="/resources"/></Route>
     <Route path="/role-access" component={RoleAccessPage}/>
+    {RebuildPoHome && <Route path="/">{() => <RebuildRoute page={RebuildPoHome}/>}</Route>}
     <Route component={RoleAccessPage}/>
   </Switch></RoutedErrorBoundary>;
   if (ws.role === 'fto_coc') return <RoutedErrorBoundary><Switch>
