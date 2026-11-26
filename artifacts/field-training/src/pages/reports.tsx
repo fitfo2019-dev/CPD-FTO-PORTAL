@@ -8,6 +8,7 @@ import { SearchableSelect } from '@/components/searchable-select.js';
 import { formatDateDMY } from '@/lib/training-calendar.js';
 import { activityTotals } from '@/lib/run-activity.js';
 import { PacketTransferPanel } from '@/components/packet-transfer-panel.js';
+import { SavedIncidentSearch } from '@/components/saved-incident-search.js';
 
 export default function Reports() {
   const { ws, vault, previewOnly } = useWorkspace();
@@ -42,6 +43,7 @@ export default function Reports() {
          <label className="h-10 px-3 rounded border bg-card text-sm flex items-center gap-2 cursor-pointer"><input data-testid="checkbox-flagged" type="checkbox" checked={flagged} onChange={e=>setFlagged(e.target.checked)} />Unacceptable / NRT follow-up</label>
         {active && <button data-testid="button-clear-filters" onClick={()=>{setQ('');setStatus('');setPhase('');setShift('');setFlagged(false);}} className="h-10 px-3 text-sm font-semibold inline-flex items-center gap-1 hover:underline"><X className="h-4 w-4" />Clear</button>}
       </div>
+      <SavedIncidentSearch reports={ws.reports} />
       <Panel>
         {list.length === 0 ? (
           <div className="p-10 text-center"><div className="mono text-4xl font-bold text-muted-foreground">0</div><p className="mt-2 text-sm text-muted-foreground">{active ? 'No reports match these filters.' : 'No reports yet.'}</p></div>

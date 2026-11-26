@@ -7,3 +7,17 @@ export function searchTrainingRunsByIncidentNumber<T extends { incidentNumber?: 
   if (!normalizedQuery) return [...runs];
   return runs.filter(run => run.incidentNumber?.toLowerCase().includes(normalizedQuery));
 }
+
+export function searchSavedTrainingRunsByIncidentNumber<
+  TReport extends { runs: readonly { incidentNumber?: string }[] },
+>(
+  reports: readonly TReport[],
+  query: string,
+): Array<{ report: TReport; run: TReport['runs'][number] }> {
+  if (!query.trim()) return [];
+
+  return reports.flatMap(report =>
+    searchTrainingRunsByIncidentNumber(report.runs, query)
+      .map(run => ({ report, run })),
+  );
+}
