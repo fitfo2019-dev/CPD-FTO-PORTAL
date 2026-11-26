@@ -2,11 +2,18 @@ import React, { type ReactNode } from 'react';
 import { cn } from '@/lib/utils.js';
 import { STATUS_LABEL, ratingLabel, ratingShortLabel, type Rating, type Status } from '@/lib/model.js';
 
+/** Keeps the possessive/plural "’s" lowercase inside uppercase shell labels (PO’s, UA’s, FTO’s). */
+export function caseSafe(text: ReactNode): ReactNode {
+  if (typeof text !== 'string' || !/[’']s\b/.test(text)) return text;
+  const parts = text.split(/([’']s)\b/);
+  return <span>{parts.map((part, index) => /^[’']s$/.test(part) ? <span key={index} className="normal-case">{part}</span> : part)}</span>;
+}
+
 export function PageHead({ kicker, title, children }: { kicker: string; title: string; children?: ReactNode }) {
-  return <div className="page-head flex flex-wrap items-end gap-3 mb-5 rise"><div className="mr-auto min-w-0"><div className="label-caps">{kicker}</div><h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h1></div>{children && <div className="page-head-actions">{children}</div>}</div>;
+  return <div className="page-head flex flex-wrap items-end gap-3 mb-5 rise"><div className="mr-auto min-w-0"><div className="label-caps">{caseSafe(kicker)}</div><h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h1></div>{children && <div className="page-head-actions">{children}</div>}</div>;
 }
 export function Panel({ title, action, children, className, id }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; id?: string }) {
-  return <section id={id} className={cn('min-w-0 rounded-md border bg-card rise', className)}>{title && <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b"><h2 className="label-caps min-w-0 text-foreground mr-auto">{title}</h2>{action}</div>}{children}</section>;
+  return <section id={id} className={cn('min-w-0 rounded-md border bg-card rise', className)}>{title && <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b"><h2 className="label-caps min-w-0 text-foreground mr-auto">{caseSafe(title)}</h2>{action}</div>}{children}</section>;
 }
 const STATUS_CLS: Record<Status,string> = { draft:'border-dashed border-muted-foreground/60 text-muted-foreground', fto_signed:'border-accent text-warn', recruit_signed:'border-primary text-primary', locked:'bg-foreground text-background border-foreground' };
 export function StatusPill({ s }: { s: Status }) { return <span className={cn('inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[0.68rem] font-bold uppercase tracking-wider whitespace-nowrap', STATUS_CLS[s])}>{STATUS_LABEL[s]}</span>; }

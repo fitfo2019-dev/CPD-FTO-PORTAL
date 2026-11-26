@@ -55,7 +55,7 @@ export default function Dashboard() {
         </>:<>
           <ActionLink href={shiftHref} icon={<ClipboardList className="h-4 w-4"/>} title={shiftLabel} detail={folder?currentDraft?'Continue the draft record':'Open today’s shift paperwork':'Set up the phase folder first'} primary testId="action-start-shift"/>
           <ActionLink href="/phase-setup" icon={<FolderOpen className="h-4 w-4"/>} title={folder?'Check phase setup':'Set up the phase folder'} detail="Confirm the PO, class, and phase" testId="action-phase-setup"/>
-          <ActionLink href="/substitute-fto" icon={<CalendarClock className="h-4 w-4"/>} title="Request or provide coverage" detail="Other FTOs are not notified" testId="action-fto-coverage"/>
+          <ActionLink href="/substitute-fto" icon={<CalendarClock className="h-4 w-4"/>} title="Request or provide coverage" detail="Other FTO’s are not notified" testId="action-fto-coverage"/>
           <ActionLink href="/fto-classes" icon={<CalendarDays className="h-4 w-4"/>} title="Sign up for a class phase" detail="See Coordinator-posted phase dates" testId="action-fto-class-signup"/>
           <ActionLink href="/class-overview" icon={<UsersRound className="h-4 w-4"/>} title="Open class records" detail="View class and roster information" testId="action-fto-class" disabled={!canViewClass(ws.role)}/>
           <ActionLink href="/resources" icon={<BookOpen className="h-4 w-4"/>} title="Training resources" detail="Open law library and reference files" testId="action-training-resources"/>

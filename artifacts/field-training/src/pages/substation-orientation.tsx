@@ -61,7 +61,7 @@ export default function SubstationOrientationPage() {
   const coveredCategories=record?SUBSTATION_ORIENTATION_CATEGORIES.filter(category=>orientationGroupState(record.checklist,category.keys).checked).length:0;
   const checked=SUBSTATION_ORIENTATION_KEYS.filter(key=>record?.checklist[key]!==false).length;
   const selectedSubstation=getSubstation(record?.substation??'');
-  if(!canAccess) return <Panel title="Substation Orientation access"><p className="p-4">This form is available to FTOs and the FTO Coordinator.</p></Panel>;
+  if(!canAccess) return <Panel title="Substation Orientation access"><p className="p-4">This form is available to FTO’s and the FTO Coordinator.</p></Panel>;
   if(!folder||!record) return <Panel title="Substation Orientation"><div className="p-4 text-sm"><p>Open the active phase case folder to prefill the PO and FTO before completing this first-day form.</p><Link href="/phase-setup" className="mt-3 inline-flex min-h-11 items-center font-semibold underline">Open Phase Setup</Link></div></Panel>;
   if(ws.role==='fto_coordinator'&&!existing) return <Panel title="Substation Orientation"><p className="p-4 text-sm">No saved orientation record is available to review. The assigned FTO completes this first-day form.</p></Panel>;
 

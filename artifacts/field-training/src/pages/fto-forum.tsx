@@ -37,7 +37,7 @@ export default function FtoForumPage() {
   }, [canOpen, vault, epoch, loadLocalChatDrafts]);
 
   if (!canOpen) {
-    return <Panel title="FTO Forum access"><p className="p-4 text-sm">This forum is available to FTOs and the FTO Coordinator.</p></Panel>;
+    return <Panel title="FTO Forum access"><p className="p-4 text-sm">This forum is available to FTO’s and the FTO Coordinator.</p></Panel>;
   }
 
   async function saveDraft() {
@@ -92,11 +92,11 @@ export default function FtoForumPage() {
 
   return <div className="mx-auto max-w-4xl">
     <PageHead kicker="Staff communication" title="FTO Forum">
-      <span className="inline-flex min-h-10 items-center gap-2 rounded border bg-card px-3 text-xs font-semibold"><MessageSquare className="h-4 w-4"/>FTOs and FTO Coordinator</span>
+      <span className="inline-flex min-h-10 items-center gap-2 rounded border bg-card px-3 text-xs font-semibold"><MessageSquare className="h-4 w-4"/>FTO’s and FTO Coordinator</span>
     </PageHead>
     <Panel title={previewOnly ? 'Unsent test drafts · memory only' : 'Unsent message drafts · this device only'} data-testid="panel-fto-forum">
       <div className="border-b bg-warn/5 px-4 py-3 text-sm">
-        <b>Messages cannot be sent from this page.</b> Drafts stay on this device and are not delivered to other FTOs or the FTO Coordinator. You can delete them.
+        <b>Messages cannot be sent from this page.</b> Drafts stay on this device and are not delivered to other FTO’s or the FTO Coordinator. You can delete them.
         <Link href="/resources?topic=record-status#application-help" className="ml-2 font-semibold text-primary underline underline-offset-2">Draft status help</Link>
       </div>
       <div className="p-4">
