@@ -39,6 +39,9 @@ export function createStagingRouter(repository: StagingRepository, resolveSessio
   const context = (res: Parameters<typeof stagingError>[0]): StagingContext => {
     const ctx: StagingContext = res.locals.stagingContext;
     ctx.onPrincipal = (id, role) => {
+      // Test authority is never presented as an agency principal; its actions
+      // are recorded in the synthetic audit table instead.
+      if (role === "TEST_ADMIN") return;
       res.locals.principal = {
         id, role, mfaVerified: true, squad: "",
         authenticatedAt: Date.now(), lastActivityAt: Date.now(),

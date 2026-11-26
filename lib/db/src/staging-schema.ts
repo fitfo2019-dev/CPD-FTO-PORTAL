@@ -9,7 +9,7 @@ export const syntheticTraining = pgSchema("synthetic_training");
 export const stagingMembers = syntheticTraining.table("members", {
   id: uuid("id").primaryKey(),
   subjectHash: text("subject_hash").notNull().unique(),
-  role: text("role", { enum: ["PO", "FTO", "FTO_COORDINATOR"] }).notNull(),
+  role: text("role", { enum: ["PO", "FTO", "FTO_COORDINATOR", "TEST_ADMIN"] }).notNull(),
   active: boolean("active").notNull().default(false),
   agencyVerified: boolean("agency_verified").notNull().default(false),
   termsAccepted: boolean("terms_accepted").notNull().default(false),

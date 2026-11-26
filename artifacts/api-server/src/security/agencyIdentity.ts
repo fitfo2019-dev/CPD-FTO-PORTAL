@@ -1,11 +1,12 @@
 import { getAuth } from "@clerk/express";
 import type { Request, RequestHandler } from "express";
 import type { Principal } from "./authorization.js";
+import { isReservedTestRole } from "./testAuthority.js";
 
 export type AgencyRole = "PO" | "FTO" | "FTO_COORDINATOR" | "FTO_COC" | "POLICENET" | "POLICENET_ADMIN_SGT";
 export type AgencyIdentity = { id: string; badge: string; role: AgencyRole };
 
-function claimAt(claims: unknown, path: string | undefined): unknown {
+export function claimAt(claims: unknown, path: string | undefined): unknown {
   if (!path || !/^[A-Za-z0-9_.]+$/.test(path)) return undefined;
   return path.split(".").reduce<unknown>((value, key) => {
     if (["__proto__", "prototype", "constructor"].includes(key)) return undefined;
@@ -20,11 +21,18 @@ export function agencyIdentityFromClaims(id: string, claims: unknown): AgencyIde
   if (claimAt(claims, process.env.AGENCY_VERIFIED_CLAIM_PATH) !== true) return null;
   const role = claimAt(claims, process.env.AGENCY_ROLE_CLAIM_PATH);
   const badge = claimAt(claims, process.env.AGENCY_BADGE_CLAIM_PATH);
+  // Test identities never become agency identities, even with a verified flag.
+  if (isReservedTestRole(role)) return null;
   if (typeof role !== "string" ||
     !["PO", "FTO", "FTO_COORDINATOR", "FTO_COC", "POLICENET", "POLICENET_ADMIN_SGT"].includes(role) ||
     typeof badge !== "string" || !/^[A-Za-z0-9-]{1,40}$/.test(badge) ||
     !id || id.length > 256) return null;
   return { id, badge, role: role as AgencyRole };
+}
+
+/** True only when the verified session carries the agency-verified claim. */
+export function hasAgencyVerifiedClaim(claims: unknown): boolean {
+  return claimAt(claims, process.env.AGENCY_VERIFIED_CLAIM_PATH) === true;
 }
 
 export function resolveAgencyIdentity(req: Request): AgencyIdentity | null {

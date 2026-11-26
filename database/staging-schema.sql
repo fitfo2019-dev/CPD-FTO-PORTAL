@@ -4,11 +4,19 @@ CREATE SCHEMA IF NOT EXISTS synthetic_training;
 CREATE TABLE IF NOT EXISTS synthetic_training.members (
   id uuid PRIMARY KEY,
   subject_hash text NOT NULL UNIQUE CHECK (subject_hash ~ '^[a-f0-9]{64}$'),
-  role text NOT NULL CHECK (role IN ('PO','FTO','FTO_COORDINATOR')),
+  role text NOT NULL,
   active boolean NOT NULL DEFAULT false,
   agency_verified boolean NOT NULL DEFAULT false,
   terms_accepted boolean NOT NULL DEFAULT false
 );
+-- Idempotent for existing installs. TEST_ADMIN is a synthetic-only test role:
+-- it can never be agency-verified and never appears in agency identity claims.
+ALTER TABLE synthetic_training.members DROP CONSTRAINT IF EXISTS members_role_check;
+ALTER TABLE synthetic_training.members ADD CONSTRAINT members_role_check
+  CHECK (role IN ('PO','FTO','FTO_COORDINATOR','TEST_ADMIN'));
+ALTER TABLE synthetic_training.members DROP CONSTRAINT IF EXISTS members_test_admin_not_agency;
+ALTER TABLE synthetic_training.members ADD CONSTRAINT members_test_admin_not_agency
+  CHECK (role <> 'TEST_ADMIN' OR NOT agency_verified);
 CREATE TABLE IF NOT EXISTS synthetic_training.classes (
   id uuid PRIMARY KEY,
   coordinator_id uuid NOT NULL REFERENCES synthetic_training.members(id),

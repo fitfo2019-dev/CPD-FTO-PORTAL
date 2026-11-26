@@ -14,12 +14,12 @@ import type { VerifiedStagingSession } from "./access.js";
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
 const repository = new StagingRepository(pool);
 const prefix = `fixture-${randomUUID()}`;
-const subjects = { po: `${prefix}-po`, otherPo: `${prefix}-other-po`, fto: `${prefix}-fto`, otherFto: `${prefix}-other-fto`, coordinator: `${prefix}-coordinator`, stranger: `${prefix}-stranger` };
+const subjects = { po: `${prefix}-po`, otherPo: `${prefix}-other-po`, fto: `${prefix}-fto`, otherFto: `${prefix}-other-fto`, coordinator: `${prefix}-coordinator`, stranger: `${prefix}-stranger`, testAdmin: `${prefix}-test-admin` };
 const ids = Object.fromEntries(Object.keys(subjects).map(key => [key, randomUUID()])) as Record<keyof typeof subjects, string>;
 const classId = randomUUID(), assignmentId = randomUUID(), otherAssignmentId = randomUUID();
 let selected: VerifiedStagingSession | null = null;
 const context = (subject: string): StagingContext => ({
-  session: { subject, sessionId: "fixture-session", recentMfa: true },
+  session: { subject, sessionId: "fixture-session", recentMfa: true, agencyVerified: false },
   requestId: randomUUID(), clientIp: "192.0.2.1",
 });
 const input = () => ({
@@ -36,20 +36,26 @@ let recordId = "";
 const endpoint = "/api/v1/staging/training-records";
 const originalEnabled = process.env.SYNTHETIC_STAGING_ENABLED;
 const originalMode = process.env.NODE_ENV;
+const originalTestAdmin = process.env.PORTAL_TEST_ADMIN_ENABLED;
 
 before(async () => {
   process.env.SYNTHETIC_STAGING_ENABLED = "true";
   process.env.NODE_ENV = "test";
+  process.env.PORTAL_TEST_ADMIN_ENABLED = "true";
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("No test listener.");
   base = `http://127.0.0.1:${address.port}`;
   for (const key of Object.keys(subjects) as (keyof typeof subjects)[]) {
+    if (key === "testAdmin") continue;
     const role = key === "coordinator" ? "FTO_COORDINATOR" : key === "fto" || key === "otherFto" ? "FTO" : "PO";
     await pool.query(`INSERT INTO synthetic_training.members
       (id,subject_hash,role,active,agency_verified,terms_accepted) VALUES ($1,$2,$3,true,true,true)`,
     [ids[key], hashUserIdentifier(subjects[key]), role]);
   }
+  await pool.query(`INSERT INTO synthetic_training.members
+    (id,subject_hash,role,active,agency_verified,terms_accepted) VALUES ($1,$2,'TEST_ADMIN',true,false,true)`,
+  [ids.testAdmin, hashUserIdentifier(subjects.testAdmin)]);
   await pool.query("INSERT INTO synthetic_training.classes(id,coordinator_id,active,phase_active) VALUES ($1,$2,true,true)", [classId, ids.coordinator]);
   await pool.query(`INSERT INTO synthetic_training.assignments(id,class_id,po_id,fto_id,phase,starts_on,ends_on,active)
     VALUES ($1,$2,$3,$4,1,'2026-11-01','2026-11-30',true),($5,$2,$6,$7,1,'2026-11-01','2026-11-30',true)`,
@@ -70,6 +76,7 @@ after(async () => {
   await pool.end();
   if (originalEnabled === undefined) delete process.env.SYNTHETIC_STAGING_ENABLED; else process.env.SYNTHETIC_STAGING_ENABLED = originalEnabled;
   if (originalMode === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = originalMode;
+  if (originalTestAdmin === undefined) delete process.env.PORTAL_TEST_ADMIN_ENABLED; else process.env.PORTAL_TEST_ADMIN_ENABLED = originalTestAdmin;
 });
 async function request(path: string, subject: string | null, method = "GET", body?: unknown) {
   selected = subject ? context(subject).session : null;
@@ -190,4 +197,58 @@ test("audit failure rolls back record insertion and leaves no idempotency receip
   assert.equal(count.rows[0].n, 0);
   const receipt = await pool.query("SELECT count(*)::int AS n FROM synthetic_training.receipts WHERE operation_id=$1", [operation.operation_id]);
   assert.equal(receipt.rows[0].n, 0);
+});
+
+test("provisioned test administrator can read and maintain all synthetic records but cannot acknowledge", async () => {
+  const listed = await request(endpoint, subjects.testAdmin);
+  assert.equal(listed.response.status, 200);
+  assert.ok((listed.data as StagingEnvelope).data.some(record => record.id === recordId));
+  assert.equal((await request(`${endpoint}/${recordId}`, subjects.testAdmin)).response.status, 200);
+  const created = await request(endpoint, subjects.testAdmin, "POST", {
+    ...input(), assignment_id: otherAssignmentId, record_date: "2026-11-25", status: "draft",
+  });
+  assert.equal(created.response.status, 201);
+  const adminRecord = (created.data as StagingEnvelope).data[0];
+  assert.equal(adminRecord.synthetic, true);
+  const updated = await request(`${endpoint}/${adminRecord.id}`, subjects.testAdmin, "PUT", {
+    operation_id: randomUUID(), base_version: 1, narrative: "FICTIONAL admin revision", status: "submitted", synthetic: true,
+  });
+  assert.equal(updated.response.status, 200);
+  assert.equal((await request(`${endpoint}/${adminRecord.id}/acknowledgement`, subjects.testAdmin, "POST", {
+    operation_id: randomUUID(), base_version: 2, acknowledged: true,
+  })).response.status, 403);
+  // Ordinary FTO scope is unchanged: an FTO outside that assignment cannot read it.
+  assert.equal((await request(`${endpoint}/${adminRecord.id}`, subjects.fto)).response.status, 404);
+  const audit = await pool.query("SELECT DISTINCT role FROM synthetic_training.audit_events WHERE actor_hash=$1", [hashUserIdentifier(subjects.testAdmin)]);
+  assert.deepEqual(audit.rows.map(row => row.role), ["TEST_ADMIN"]);
+});
+test("test authority fails closed without its switch, for agency-verified sessions, in production, and after revocation", async () => {
+  delete process.env.PORTAL_TEST_ADMIN_ENABLED;
+  assert.equal((await request(endpoint, subjects.testAdmin)).response.status, 403);
+  process.env.PORTAL_TEST_ADMIN_ENABLED = "true";
+  selected = { ...context(subjects.testAdmin).session, agencyVerified: true };
+  assert.equal((await fetch(`${base}${endpoint}`)).status, 403);
+  selected = { ...context(subjects.testAdmin).session, recentMfa: false };
+  assert.equal((await fetch(`${base}${endpoint}`)).status, 401);
+  process.env.NODE_ENV = "production";
+  assert.equal((await request(endpoint, subjects.testAdmin)).response.status, 404);
+  process.env.NODE_ENV = "test";
+  await pool.query("UPDATE synthetic_training.members SET active=false WHERE id=$1", [ids.testAdmin]);
+  assert.equal((await request(endpoint, subjects.testAdmin)).response.status, 403);
+  await pool.query("UPDATE synthetic_training.members SET active=true WHERE id=$1", [ids.testAdmin]);
+});
+test("client-supplied roles cannot escalate and test authority cannot be agency-verified", async () => {
+  selected = null;
+  const mockToken = await fetch(`${base}${endpoint}`, { headers: { "X-Role": "TEST_ADMIN", Authorization: "Bearer mock-jwt-string" } });
+  assert.equal(mockToken.status, 401);
+  selected = context(subjects.stranger).session;
+  const stranger = await fetch(`${base}${endpoint}?role=TEST_ADMIN`, { headers: { "X-Role": "TEST_ADMIN" } });
+  // The unassigned directory member still sees nothing despite forged role inputs.
+  assert.deepEqual(await stranger.json(), { status: "success", metadata: { total_records: 0, environment: "SYNTHETIC_STAGING" }, data: [] });
+  assert.equal((await request(endpoint, `${prefix}-unprovisioned`)).response.status, 403);
+  assert.equal((await request(endpoint, subjects.stranger, "POST", { ...input(), role: "TEST_ADMIN" })).response.status, 422);
+  await assert.rejects(pool.query("UPDATE synthetic_training.members SET agency_verified=true WHERE id=$1", [ids.testAdmin]));
+  await assert.rejects(pool.query(`INSERT INTO synthetic_training.members
+    (id,subject_hash,role,active,agency_verified,terms_accepted) VALUES ($1,$2,'TEST_ADMIN',true,true,true)`,
+  [randomUUID(), hashUserIdentifier(`${prefix}-verified-admin`)]));
 });

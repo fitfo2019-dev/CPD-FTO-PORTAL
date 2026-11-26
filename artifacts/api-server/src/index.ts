@@ -1,4 +1,5 @@
 import { logger, processLogger } from "./lib/logger.js";
+import { assertNoTestAuthorityInProduction } from "./security/testAuthority.js";
 
 const absolutePathPattern =
   /(?:file:\/\/)?\/(?:home|root|Users|private|tmp|var|nix|usr|opt|etc|srv|run|mnt|workspace|workspaces|app|build|repo|project)(?:\/[^\s:()[\]]*)*/g;
@@ -54,6 +55,7 @@ process.on("unhandledRejection", (reason) =>
 );
 
 async function startServer(): Promise<void> {
+  assertNoTestAuthorityInProduction();
   if (process.env.AGENCY_PACKET_SYNC_ENABLED === "true") {
     const required = ["AGENCY_DATABASE_URL", "AGENCY_ROLE_CLAIM_PATH",
       "AGENCY_VERIFIED_CLAIM_PATH", "AGENCY_BADGE_CLAIM_PATH", "AUDIT_ID_HMAC_KEY",

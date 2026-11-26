@@ -7,14 +7,14 @@ import {
   type StagingTrainingEnvelope,
 } from "@workspace/api-zod";
 import { hashUserIdentifier } from "../utils/cryptoUtils.js";
-import type { VerifiedStagingSession } from "./access.js";
+import { testAdminAuthorityAvailable, type VerifiedStagingSession } from "./access.js";
 
 export class StagingFailure extends Error {
   constructor(public readonly status: number, public readonly code: string) {
     super(code);
   }
 }
-type Member = { id: string; role: "PO" | "FTO" | "FTO_COORDINATOR" };
+type Member = { id: string; role: "PO" | "FTO" | "FTO_COORDINATOR" | "TEST_ADMIN" };
 type Assignment = { id: string; phase: number };
 export type SyntheticRecord = StagingTrainingRecord;
 export type StagingEnvelope = StagingTrainingEnvelope;
@@ -39,7 +39,9 @@ const scopeSql = `
  AND coordinator.active AND coordinator.agency_verified AND coordinator.terms_accepted
  AND coordinator.role='FTO_COORDINATOR'
  AND (
-   ($1='FTO' AND a.fto_id=$2)
+   -- TEST_ADMIN spans the synthetic schema only; real agency data is never here.
+   $1='TEST_ADMIN'
+   OR ($1='FTO' AND a.fto_id=$2)
    OR ($1='PO' AND a.po_id=$2)
    OR ($1='FTO_COORDINATOR' AND c.coordinator_id=$2)
  )`;
@@ -64,11 +66,16 @@ export class StagingRepository {
       await tx.query("SET LOCAL statement_timeout = '5s'");
       const membership = await tx.query<Member>(
         `SELECT id,role FROM synthetic_training.members
-         WHERE subject_hash=$1 AND active AND agency_verified AND terms_accepted FOR SHARE`,
+         WHERE subject_hash=$1 AND active AND terms_accepted
+         AND ((role<>'TEST_ADMIN' AND agency_verified) OR (role='TEST_ADMIN' AND NOT agency_verified))
+         FOR SHARE`,
         [hashUserIdentifier(ctx.session.subject)],
       );
       const member = membership.rows[0];
       if (!member) throw new StagingFailure(403, "AGENCY_ACCESS_DENIED");
+      if (member.role === "TEST_ADMIN" && !testAdminAuthorityAvailable(ctx.session)) {
+        throw new StagingFailure(403, "AGENCY_ACCESS_DENIED");
+      }
       ctx.onPrincipal?.(ctx.session.subject, member.role);
       const result = await work(tx, member);
       await tx.query("COMMIT");
@@ -160,7 +167,7 @@ export class StagingRepository {
 
   async create(ctx: StagingContext, input: CreateInput): Promise<StagingEnvelope> {
     return this.transaction(ctx, async (tx, member) => {
-      if (member.role !== "FTO") throw new StagingFailure(403, "RECORD_EDIT_DENIED");
+      if (member.role !== "FTO" && member.role !== "TEST_ADMIN") throw new StagingFailure(403, "RECORD_EDIT_DENIED");
       const scope = await tx.query<Assignment>(
         `SELECT a.id,a.phase FROM synthetic_training.assignments a ${assignmentJoin}
          WHERE ${scopeSql} AND a.id=$3 AND $4::date BETWEEN a.starts_on AND a.ends_on
@@ -184,7 +191,7 @@ export class StagingRepository {
 
   async update(ctx: StagingContext, id: string, input: UpdateInput): Promise<StagingEnvelope> {
     return this.transaction(ctx, async (tx, member) => {
-      if (member.role !== "FTO") throw new StagingFailure(403, "RECORD_EDIT_DENIED");
+      if (member.role !== "FTO" && member.role !== "TEST_ADMIN") throw new StagingFailure(403, "RECORD_EDIT_DENIED");
       const record = await this.getScoped(tx, member, id, true);
       return this.once(tx, ctx, input.operation_id, ["UPDATE", id, input], async () => {
         if (record.version !== input.base_version) throw new StagingFailure(409, "VERSION_CONFLICT");
@@ -202,6 +209,7 @@ export class StagingRepository {
 
   async acknowledge(ctx: StagingContext, id: string, input: AcknowledgementInput): Promise<StagingEnvelope> {
     return this.transaction(ctx, async (tx, member) => {
+      // Acknowledgement is the PO's own attestation; no administrator may make it.
       if (member.role !== "PO") throw new StagingFailure(403, "ACKNOWLEDGEMENT_DENIED");
       const record = await this.getScoped(tx, member, id, true);
       return this.once(tx, ctx, input.operation_id, ["ACKNOWLEDGE", id, input], async () => {
