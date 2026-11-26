@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  citationPath, clauseLabels, clausesFromStatuteHtml, elementsComplete, elementsForCitation,
+  canCopyWording, citationPath, clauseLabels, clausesFromStatuteHtml, elementsComplete, elementsForCitation,
   normalizeComplaintCodes, penaltySentences, resolveStatute, searchCharges, type ComplaintEntry, type StatuteClauses,
 } from './charging-lookup';
 
@@ -102,4 +102,19 @@ test('manual heading typos resolve to the sections their wording cites', () => {
 
 test('repealed City Code 2329.13 and 2329.14 are not offered', () => {
   assert.ok(!codes.some(code => code.key === 'CCC:2329.13' || code.key === 'CCC:2329.14'));
+});
+
+test('city corrections: placard tampering under 4707.09, 525.23 removed, open burning locked', () => {
+  const supplement = data('charging-supplement.json').codes;
+  assert.ok(!codes.some(code => code.key === 'CCC:525.23'));
+  const placard = codes.find(code => code.key === 'CCC:4707.09')!;
+  assert.ok(placard.entries.every(entry => entry.text.includes('Section 4707.09') && !entry.text.includes('4707.07')));
+  const statute = resolveStatute({ kind: 'CCC', section: '4707.09' }, undefined, supplement)!;
+  const group = elementsForCitation(statute, []);
+  assert.equal(group.lead.length, 1);
+  assert.match(group.lead[0].text, /no person shall deface or remove/);
+  assert.ok(elementsComplete(group, new Set([group.lead[0].index])));
+  assert.deepEqual(penaltySentences(statute), ['CCC 4701.99: A. Whoever violates any provision of this code is guilty of a misdemeanor of the first degree.']);
+  const burning = codes.find(code => code.key === 'CCC:2501.985')!;
+  assert.ok(burning.entries.every(entry => !canCopyWording(entry)));
 });
