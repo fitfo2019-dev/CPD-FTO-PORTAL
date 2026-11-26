@@ -48,3 +48,9 @@ test('missing DOR dates skip off days and days with records', () => {
   ];
   assert.deepEqual(missingDorDates(folder, reports, '2026-11-20'), ['2026-11-17', '2026-11-19']);
 });
+
+test('weekly packet FTO draft removes the review notice from form content', async () => {
+  const { TIMELINE_DRAFT_PREAMBLE_PATTERN } = await import('./timeline-interpolation.js');
+  const text = 'System-generated weekly record draft: verify each entry.\n\nReviewed rating frequencies: NO: 9.';
+  assert.equal(text.replace(TIMELINE_DRAFT_PREAMBLE_PATTERN, ''), 'Reviewed rating frequencies: NO: 9.');
+});
