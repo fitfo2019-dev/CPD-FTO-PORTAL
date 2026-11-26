@@ -291,7 +291,7 @@ function PacketDetail({ packet, role, locked, onAction }: {
     </footer>
     : <footer className="apr-workflow">
       <div className="apr-workflow-heading"><ShieldCheck size={14} />Read-only</div>
-      {wf === "withdrawn" ? <AmendmentPolicy /> : <p className="apr-help" style={{ marginTop: 0 }}>FTOs can view their returned packets. Release, withdrawal, and acknowledgment are recorded by the coordinator and PO on the agency server.</p>}
+      {wf === "withdrawn" ? <AmendmentPolicy /> : <p className="apr-help" style={{ marginTop: 0 }}>FTO’s can view their returned packets. Release, withdrawal, and acknowledgment are recorded by the coordinator and PO on the agency server.</p>}
     </footer>}
   </>;
 }

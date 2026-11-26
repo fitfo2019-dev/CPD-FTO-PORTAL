@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ClerkProvider, SignIn, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
@@ -192,12 +192,26 @@ function ClerkWorkspaceSessionPurger() {
   return null;
 }
 
+// Rebuild screens (Phase Setup, Phase Sign-Up, My Probationary Officer, PO Progress) are
+// preview-only until their server routes are integrated; production builds exclude them.
+const loadRebuild = () => import('./features/rebuild/pages.js');
+const RebuildPhaseSetup = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPhaseSetup }))) : null;
+const RebuildPhaseSignUp = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPhaseSignUp }))) : null;
+const RebuildMyProbationaryOfficer = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildMyProbationaryOfficer }))) : null;
+const RebuildPoProgress = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPoProgress }))) : null;
+function RebuildRoute({ page: Page }: { page: ComponentType | null }) {
+  if (!Page) return <NotFound />;
+  return <Suspense fallback={null}><Page /></Suspense>;
+}
+
 function WorkspaceRoutes() {
   const { epoch, ws } = useWorkspace();
   const [path]=useLocation();
   // FTO Sergeant previews expose role-appropriate Help Desk guidance only.
   // Assignment authority remains a separate server-side capability.
   if (ws.role === 'fto_sgt') return <RoutedErrorBoundary><Switch>
+    {RebuildPhaseSetup && <Route path="/rebuild-phase-setup">{() => <RebuildRoute page={RebuildPhaseSetup}/>}</Route>}
+    {RebuildPoProgress && <Route path="/po-progress">{() => <RebuildRoute page={RebuildPoProgress}/>}</Route>}
     <Route path="/resources" component={HelpPage}/>
     <Route path="/help"><Redirect to="/resources"/></Route>
     <Route>{() => <Redirect to="/resources"/>}</Route>
@@ -230,6 +244,10 @@ function WorkspaceRoutes() {
       <Switch key={epoch}>
         <Route path="/" component={Dashboard} />
         <Route path="/phase-setup" component={PhaseSetupPage} />
+        {RebuildPhaseSetup && <Route path="/rebuild-phase-setup">{() => <RebuildRoute page={RebuildPhaseSetup}/>}</Route>}
+        {RebuildPoProgress && <Route path="/po-progress">{() => <RebuildRoute page={RebuildPoProgress}/>}</Route>}
+        {RebuildPhaseSignUp && <Route path="/phase-sign-up">{() => <RebuildRoute page={RebuildPhaseSignUp}/>}</Route>}
+        {RebuildMyProbationaryOfficer && <Route path="/my-probationary-officer">{() => <RebuildRoute page={RebuildMyProbationaryOfficer}/>}</Route>}
         <Route path="/substation-orientation" component={SubstationOrientationPage} />
         <Route path="/fto-forum" component={FtoForumPage} />
         <Route path="/reports" component={Reports} />

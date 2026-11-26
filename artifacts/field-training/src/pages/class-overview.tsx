@@ -103,7 +103,7 @@ export default function ClassOverview() {
     }
   };
 
-  if (!canViewClass(ws.role)) return <Panel title="Class access restricted"><p role="alert" className="p-6">Class records and aggregate exports are available only to FTOs and the FTO Coordinator.</p></Panel>;
+  if (!canViewClass(ws.role)) return <Panel title="Class access restricted"><p role="alert" className="p-6">Class records and aggregate exports are available only to FTO’s and the FTO Coordinator.</p></Panel>;
   return <div>
     <Link href="/" className="mb-2 inline-flex items-center gap-1 text-sm font-semibold hover:underline" data-testid="link-class-back"><ArrowLeft className="h-4 w-4" />Workspace</Link>
     <PageHead kicker="Training class" title="Class overview">
@@ -116,8 +116,8 @@ export default function ClassOverview() {
       <label className="flex h-10 items-center gap-2 rounded border bg-card px-3 text-sm"><input type="checkbox" checked={followUpOnly} onChange={event=>setFollowUpOnly(event.target.checked)} data-testid="checkbox-follow-up-filter" />UA / NRT follow-up</label>
       <button type="button" onClick={clearFilters} className="h-10 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-clear-class-filters"><Filter className="mr-1 inline h-4 w-4" />Clear</button>
     </div>
-    <Panel title={ws.role==='fto'?'My assigned POs':'Class roster · FTO and Coordinator coverage'} className="mb-4">
-       <p className="border-b p-3 text-sm text-muted-foreground">{ws.role==='fto'?'Only POs assigned to the signed-in department email appear. Substitute access is unavailable until a shared coverage service confirms it.':'The roster lists POs even when they have no daily logs yet. Substitute coverage creates a new day without changing the regular FTO assignment.'}</p>
+    <Panel title={ws.role==='fto'?'My assigned PO’s':'Class roster · FTO and Coordinator coverage'} className="mb-4">
+       <p className="border-b p-3 text-sm text-muted-foreground">{ws.role==='fto'?'Only PO’s assigned to the signed-in department email appear. Substitute access is unavailable until a shared coverage service confirms it.':'The roster lists PO’s even when they have no daily logs yet. Substitute coverage creates a new day without changing the regular FTO assignment.'}</p>
       {ws.role==='fto'&&!signedInFto&&<p className="border-b bg-accent/10 p-3 text-sm" role="status" data-testid="status-fto-roster-unavailable">No FTO directory entry matches the signed-in department email. No class or PO records are shown.</p>}
       {roster.length ? <ul className="divide-y">{roster.map(assignment=>{
         const fto=ws.ftoDirectory.find(item=>item.badge.toLowerCase()===assignment.ftoBadge.toLowerCase());
