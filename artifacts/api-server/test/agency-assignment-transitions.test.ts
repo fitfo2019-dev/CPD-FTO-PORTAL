@@ -117,6 +117,137 @@ const successorInput = (previousAssignmentId: string, operationId = randomUUID()
   ends_on: "2026-12-31",
 });
 
+async function seedTransitionHistory(
+  db: PGlite,
+  startingAssignmentId: string,
+  count: number,
+  timestampOffset = 0,
+): Promise<void> {
+  let predecessorId = startingAssignmentId;
+  for (let index = 0; index < count; index++) {
+    const successorId = randomUUID();
+    const operationId = randomUUID();
+    await db.query(
+      `INSERT INTO agency_training.assignments (
+        id,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,
+        po_id_hash,po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        active,fto_id,fto_badge,po_id,po_badge,coordinator_id
+      )
+      SELECT $1,class_name,phase,fto_id_hash,fto_badge_hash,fto_name,
+        po_id_hash,po_badge_hash,po_name,coordinator_id_hash,starts_on,ends_on,
+        true,fto_id,fto_badge,po_id,po_badge,coordinator_id
+      FROM agency_training.assignments WHERE id=$2`,
+      [successorId, predecessorId],
+    );
+    await db.query(
+      `INSERT INTO agency_training.assignment_transitions (
+        operation_id,actor_hash,request_hash,po_id,po_name,po_badge,class_name,
+        previous_assignment_id,successor_assignment_id,previous_phase,successor_phase,
+        previous_ends_on,successor_starts_on,successor_ends_on,
+        previous_snapshot,successor_snapshot,occurred_at
+      )
+      SELECT $1,$2,$3,po_id,po_name,po_badge,class_name,$4,$5,phase,phase,
+        ends_on,starts_on,ends_on,
+        jsonb_build_object('fto_name',fto_name,'fto_badge',fto_badge),
+        jsonb_build_object('fto_name',fto_name,'fto_badge',fto_badge),
+        $6::timestamptz
+      FROM agency_training.assignments WHERE id=$4`,
+      [
+        operationId,
+        "a".repeat(64),
+        "b".repeat(64),
+        predecessorId,
+        successorId,
+        new Date(Date.UTC(2026, 0, 1, 0, timestampOffset + index)).toISOString(),
+      ],
+    );
+    predecessorId = successorId;
+  }
+}
+
+test("PO assignment history paginates beyond 100 and never crosses verified scopes", async () => {
+  const fixture = await createFixture();
+  try {
+    const { db, transitionStore, previousAssignmentId, trustedFtoAssignmentId } = fixture;
+    const otherCoordinator: AgencyIdentity = {
+      id: "TEST-other-coordinator",
+      badge: "TEST-C2",
+      role: "FTO_COORDINATOR",
+    };
+    await db.query(
+      `INSERT INTO agency_training.coordinator_directory (id,name)
+       VALUES ($1,'TEST Other Coordinator')`,
+      [otherCoordinator.id],
+    );
+    await db.query(
+      `UPDATE agency_training.assignments
+       SET coordinator_id=$1,coordinator_id_hash=$2
+       WHERE po_id='TEST-other-po'`,
+      [otherCoordinator.id, hash(otherCoordinator.id)],
+    );
+    await db.query(
+      `INSERT INTO agency_training.po_coordinators (po_id,po_id_hash,po_badge,coordinator_id)
+       VALUES ('TEST-other-po',$1,'TEST-P2',$2)`,
+      [hash("TEST-other-po"), otherCoordinator.id],
+    );
+
+    await seedTransitionHistory(db, previousAssignmentId, 105);
+    await seedTransitionHistory(db, trustedFtoAssignmentId, 3, 1000);
+
+    const recentContext = await transitionStore.context(coordinator);
+    assert.equal(recentContext.transitions.length, 100);
+
+    const collected: string[] = [];
+    let cursor: string | undefined;
+    let pageCount = 0;
+    do {
+      const page = await transitionStore.history(
+        coordinator,
+        previousAssignmentId,
+        cursor,
+        50,
+      );
+      collected.push(...page.transitions.map(item => item.operation_id));
+      cursor = page.next_cursor ?? undefined;
+      pageCount++;
+    } while (cursor);
+
+    assert.equal(pageCount, 3);
+    assert.equal(collected.length, 105);
+    assert.equal(new Set(collected).size, 105);
+    const poA = await transitionStore.history(coordinator, previousAssignmentId, undefined, 100);
+    assert.equal(poA.transitions.every(item => item.po_badge === poBadge), true);
+
+    await assert.rejects(
+      transitionStore.history(coordinator, trustedFtoAssignmentId),
+      error => error instanceof PacketError && error.status === 403,
+      "another Coordinator cannot request this PO's records by changing the assignment anchor",
+    );
+    const poB = await transitionStore.history(otherCoordinator, trustedFtoAssignmentId, undefined, 100);
+    assert.equal(poB.transitions.length, 3);
+    assert.equal(poB.transitions.every(item => item.po_badge === "TEST-P2"), true);
+    assert.equal(poB.transitions.some(item => collected.includes(item.operation_id)), false);
+
+    const revocationPage = await transitionStore.history(coordinator, previousAssignmentId);
+    assert.ok(revocationPage.next_cursor);
+    await db.query(
+      "UPDATE agency_training.po_coordinators SET coordinator_id=$2 WHERE po_id=$1",
+      [poId, otherCoordinator.id],
+    );
+    await assert.rejects(
+      transitionStore.history(
+        coordinator,
+        previousAssignmentId,
+        revocationPage.next_cursor ?? undefined,
+      ),
+      error => error instanceof PacketError && error.status === 403,
+      "the server rechecks current PO scope before serving every cursor page",
+    );
+  } finally {
+    await fixture.db.close();
+  }
+});
+
 test("a successor assignment preserves late packet work under its original FTO and date", async () => {
   const fixture = await createFixture();
   try {
@@ -514,6 +645,7 @@ test("real PostgreSQL serializes concurrent assignment changes and rechecks revo
 
 test("the HTTP routes derive authority from the verified identity and accept no local roster claims", async () => {
   let createCalls = 0;
+  let historyCalls = 0;
   let routeIdentity = coordinator;
   const transition = {
     operation_id: randomUUID(),
@@ -535,6 +667,10 @@ test("the HTTP routes derive authority from the verified identity and accept no 
   };
   const stub = {
     context: async () => ({ available: true, role: "FTO_COORDINATOR", assignments: [], ftos: [], transitions: [] }),
+    history: async (_identity: AgencyIdentity, _assignmentId: string, _cursor?: string, _limit?: number) => {
+      historyCalls++;
+      return { transitions: [transition], next_cursor: null };
+    },
     create: async () => { createCalls++; return { created: true, transition }; },
   } as unknown as ReturnType<typeof createAgencyAssignmentTransitionStore>;
   const app = express();
@@ -553,6 +689,18 @@ test("the HTTP routes derive authority from the verified identity and accept no 
     const context = await fetch(`${baseUrl}/context`);
     assert.equal(context.status, 200);
     assert.equal(context.headers.get("cache-control"), "private, no-store");
+
+    const history = await fetch(`${baseUrl}/history?assignmentId=${transition.previous_assignment_id}&limit=1`);
+    assert.equal(history.status, 200);
+    assert.equal(history.headers.get("cache-control"), "private, no-store");
+    assert.equal(historyCalls, 1);
+    assert.deepEqual((await history.json() as { transitions: unknown[]; next_cursor: string | null }), {
+      transitions: [{ ...transition, occurred_at: transition.occurred_at.toISOString() }],
+      next_cursor: null,
+    });
+    const invalidHistory = await fetch(`${baseUrl}/history?assignmentId=not-a-uuid`);
+    assert.equal(invalidHistory.status, 400);
+    assert.equal(historyCalls, 1);
 
     const invalid = await fetch(baseUrl, {
       method: "POST",
@@ -575,6 +723,8 @@ test("the HTTP routes derive authority from the verified identity and accept no 
     routeIdentity = oldFto;
     const forbidden = await fetch(`${baseUrl}/context`);
     assert.equal(forbidden.status, 403);
+    const forbiddenHistory = await fetch(`${baseUrl}/history?assignmentId=${transition.previous_assignment_id}`);
+    assert.equal(forbiddenHistory.status, 403);
     assert.equal(createCalls, 1);
   } finally {
     await new Promise<void>((resolve, reject) =>

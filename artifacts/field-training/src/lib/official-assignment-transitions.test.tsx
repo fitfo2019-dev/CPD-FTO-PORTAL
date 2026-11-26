@@ -102,8 +102,20 @@ test("Coordinator assignment flow reads trusted roster and writes only after exp
       const method = init?.method ?? "GET";
       const body = typeof init?.body === "string" ? JSON.parse(init.body) : undefined;
       requests.push({ method, url, body });
-      if (method === "GET") {
+      if (method === "GET" && url === "/api/v1/agency/assignment-transitions/context") {
         return new Response(JSON.stringify(context), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (method === "GET" && url.startsWith("/api/v1/agency/assignment-transitions/history?")) {
+        const params = new URL(url, "http://localhost").searchParams;
+        assert.equal(params.get("assignmentId"), previousAssignmentId);
+        assert.equal(params.get("limit"), "50");
+        return new Response(JSON.stringify({
+          transitions: context.transitions,
+          next_cursor: null,
+        }), {
           status: 200,
           headers: { "content-type": "application/json" },
         });
@@ -156,7 +168,13 @@ test("Coordinator assignment flow reads trusted roster and writes only after exp
       "opening the manager panel never changes the server roster",
     );
     await act(async () => element("button-open-assignment-history").click());
+    await flush();
     assert.match(element("successor-assignment-history").textContent ?? "", /Earlier FTO/);
+    assert.equal(
+      requests.filter(item => item.method === "GET" && item.url.includes("/history?")).length,
+      1,
+      "the history view loads the selected PO's server-paginated records",
+    );
     await act(async () => element<HTMLButtonElement>("successor-assignment-history").querySelector("button")!.click());
 
     const writeDate = async (testId: string, value: string) => {
@@ -206,6 +224,7 @@ test("Coordinator assignment flow reads trusted roster and writes only after exp
     assert.ok(requests.every(item => !item.url.includes("/training-packets")),
       "assignment changes do not call packet sync or finalization");
     await act(async () => element("button-view-assignment-history").click());
+    await flush();
     assert.match(element("successor-assignment-history").textContent ?? "", /FTO Original/);
     assert.match(element("successor-assignment-history").textContent ?? "", /FTO Successor/);
     assert.match(element("successor-assignment-history").textContent ?? "", /Earlier FTO/);

@@ -1,6 +1,8 @@
 import {
   CreateSuccessorAssignmentBody,
   CreateSuccessorAssignmentResponse,
+  GetAssignmentTransitionHistoryQueryParams,
+  GetAssignmentTransitionHistoryResponse,
   GetAssignmentTransitionContextResponse,
 } from "@workspace/api-zod";
 import { Router, type RequestHandler } from "express";
@@ -27,6 +29,33 @@ export function createAgencyAssignmentTransitionsRouter(
       const context = await store.context(identity);
       res.setHeader("Cache-Control", "private, no-store");
       res.json(GetAssignmentTransitionContextResponse.parse(context));
+    } catch (error) {
+      sendTransitionError(res, error);
+    }
+  });
+
+  router.get("/v1/agency/assignment-transitions/history", async (req, res): Promise<void> => {
+    const identity = res.locals.agencyIdentity as AgencyIdentity;
+    if (identity.role !== "FTO_COORDINATOR") {
+      sendTransitionError(res, new PacketError(403, "ASSIGNMENT_TRANSITION_FORBIDDEN"));
+      return;
+    }
+    const params = GetAssignmentTransitionHistoryQueryParams.safeParse(req.query);
+    if (!params.success) {
+      sendTransitionError(res, new PacketError(400, "INVALID_ASSIGNMENT_HISTORY_REQUEST"));
+      return;
+    }
+    try {
+      const store = resolveStore();
+      if (!store) throw new PacketError(503, "AGENCY_STORAGE_UNAVAILABLE");
+      const page = await store.history(
+        identity,
+        params.data.assignmentId,
+        params.data.cursor,
+        params.data.limit,
+      );
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json(GetAssignmentTransitionHistoryResponse.parse(page));
     } catch (error) {
       sendTransitionError(res, error);
     }

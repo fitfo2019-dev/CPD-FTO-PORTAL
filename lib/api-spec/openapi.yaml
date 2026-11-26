@@ -179,6 +179,23 @@ paths:
         "401": { description: Verified sign-in required }
         "403": { description: Active FTO Coordinator scope required }
         "503": { description: Agency storage unavailable }
+  /v1/agency/assignment-transitions/history:
+    get:
+      operationId: getAssignmentTransitionHistory
+      tags: [assignment-transitions]
+      parameters:
+        - { name: assignmentId, in: query, required: true, schema: { type: string, minLength: 36, maxLength: 36, pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$" } }
+        - { name: cursor, in: query, required: false, schema: { type: string, maxLength: 256 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: One PO's assignment transition history page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentTransitionHistoryPage" }
+        "400": { description: Invalid history page request }
+        "403": { description: Active FTO Coordinator scope required }
+        "503": { description: Agency storage unavailable }
   /v1/agency/assignment-transitions:
     post:
       operationId: createSuccessorAssignment
@@ -1160,6 +1177,15 @@ components:
         transitions:
           type: array
           items: { $ref: "#/components/schemas/AssignmentTransitionRecord" }
+    AssignmentTransitionHistoryPage:
+      type: object
+      additionalProperties: false
+      required: [transitions, next_cursor]
+      properties:
+        transitions:
+          type: array
+          items: { $ref: "#/components/schemas/AssignmentTransitionRecord" }
+        next_cursor: { type: ["string", "null"], maxLength: 256 }
     AssignmentTransitionEnvelope:
       type: object
       additionalProperties: false

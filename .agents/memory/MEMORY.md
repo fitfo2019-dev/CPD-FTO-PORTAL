@@ -22,3 +22,4 @@
 - [Saved action evidence boundary](selected-action-evidence.md) — recurring-action views use saved specific selections only and never invent narratives, ratings, failures, or training.
 - [Assignment transition authorization](assignment-transition-authorization.md) — serialize per-PO writes and recheck current scope before returning an idempotent result.
 - [Portal transfer budget](portal-transfer-budget.md) — preserve separate gzip limits for initial JavaScript and intentionally deferred chunks.
+- [OpenAPI parameter codegen](openapi-parameter-codegen.md) — avoid generated path/query parameter symbol collisions and validate coerced UUID query strings with explicit patterns.

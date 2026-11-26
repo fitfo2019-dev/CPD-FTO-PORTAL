@@ -1,10 +1,12 @@
 import {
   createSuccessorAssignment,
+  getAssignmentTransitionHistory,
   getAssignmentTransitionContext,
 } from "@workspace/api-client-react";
 import {
   CreateSuccessorAssignmentBody,
   CreateSuccessorAssignmentResponse,
+  GetAssignmentTransitionHistoryResponse,
   GetAssignmentTransitionContextResponse,
 } from "@workspace/api-zod";
 import type { SuccessorAssignmentInput } from "@workspace/api-zod";
@@ -21,6 +23,22 @@ export async function loadOfficialAssignmentTransitionContext(signal?: AbortSign
     signal: timedSignal(signal),
   });
   return GetAssignmentTransitionContextResponse.parse(response);
+}
+
+export async function loadOfficialAssignmentTransitionHistory(
+  assignmentId: string,
+  cursor?: string,
+  signal?: AbortSignal,
+) {
+  const response = await getAssignmentTransitionHistory(
+    { assignmentId, cursor, limit: 50 },
+    {
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: timedSignal(signal),
+    },
+  );
+  return GetAssignmentTransitionHistoryResponse.parse(response);
 }
 
 export async function submitOfficialSuccessorAssignment(

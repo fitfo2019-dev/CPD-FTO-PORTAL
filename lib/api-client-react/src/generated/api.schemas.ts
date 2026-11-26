@@ -475,6 +475,15 @@ export interface AssignmentTransitionContext {
   transitions: AssignmentTransitionRecord[];
 }
 
+export interface AssignmentTransitionHistoryPage {
+  transitions: AssignmentTransitionRecord[];
+  /**
+     * @maxLength 256
+     * @nullable
+     */
+  next_cursor: string | null;
+}
+
 export type AssignmentTransitionEnvelopeStatus = typeof AssignmentTransitionEnvelopeStatus[keyof typeof AssignmentTransitionEnvelopeStatus];
 
 
@@ -1437,6 +1446,24 @@ export type ListPacketSubmissionsParams = {
  * @minimum 0
  */
 offset?: number;
+};
+
+export type GetAssignmentTransitionHistoryParams = {
+/**
+ * @minLength 36
+ * @maxLength 36
+ * @pattern ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$
+ */
+assignmentId: string;
+/**
+ * @maxLength 256
+ */
+cursor?: string;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 
 export type ListTrainingPacketsParams = {

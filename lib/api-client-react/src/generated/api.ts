@@ -28,11 +28,13 @@ import type {
   ApiError,
   AssignmentTransitionContext,
   AssignmentTransitionEnvelope,
+  AssignmentTransitionHistoryPage,
   AuditLogsEnvelope,
   DispatchEventIngressEnvelope,
   DispatchEventIngressInput,
   DispatchIncidentEnvelope,
   DispatchIncidentLookupInput,
+  GetAssignmentTransitionHistoryParams,
   GetOperationalProfileHistoryParams,
   HealthEnvelope,
   ListPacketSubmissionsParams,
@@ -1018,6 +1020,108 @@ export function useGetAssignmentTransitionContext<TData = Awaited<ReturnType<typ
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetAssignmentTransitionContextQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAssignmentTransitionHistoryUrl = (params: GetAssignmentTransitionHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/agency/assignment-transitions/history?${stringifiedParams}` : `/api/v1/agency/assignment-transitions/history`
+}
+
+export const getAssignmentTransitionHistory = async (params: GetAssignmentTransitionHistoryParams, options?: Parameters<typeof customFetch>[1]): Promise<AssignmentTransitionHistoryPage> => {
+
+  return customFetch<AssignmentTransitionHistoryPage>(getGetAssignmentTransitionHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAssignmentTransitionHistoryQueryKey = (params?: GetAssignmentTransitionHistoryParams,) => {
+    return [
+    `/api/v1/agency/assignment-transitions/history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAssignmentTransitionHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(params: GetAssignmentTransitionHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAssignmentTransitionHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>> = ({ signal }) => getAssignmentTransitionHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAssignmentTransitionHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>>
+export type GetAssignmentTransitionHistoryQueryError = ErrorType<void>
+
+
+export function useGetAssignmentTransitionHistory<TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(
+ params: GetAssignmentTransitionHistoryParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssignmentTransitionHistory>>,
+          TError,
+          Awaited<ReturnType<typeof getAssignmentTransitionHistory>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAssignmentTransitionHistory<TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(
+ params: GetAssignmentTransitionHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAssignmentTransitionHistory>>,
+          TError,
+          Awaited<ReturnType<typeof getAssignmentTransitionHistory>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAssignmentTransitionHistory<TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(
+ params: GetAssignmentTransitionHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetAssignmentTransitionHistory<TData = Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError = ErrorType<void>>(
+ params: GetAssignmentTransitionHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAssignmentTransitionHistory>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAssignmentTransitionHistoryQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

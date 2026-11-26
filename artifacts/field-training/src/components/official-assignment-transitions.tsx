@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useUser } from "@clerk/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,6 +16,7 @@ import { phaseLabel, type Phase } from "@/lib/model.js";
 import {
   assignmentTransitionError,
   loadOfficialAssignmentTransitionContext,
+  loadOfficialAssignmentTransitionHistory,
   submitOfficialSuccessorAssignment,
 } from "@/lib/assignment-transitions.js";
 import { tokens } from "@workspace/fto-law-library-schema";
@@ -120,6 +121,7 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
   const [endsOn, setEndsOn] = useState("");
   const [pendingInput, setPendingInput] = useState<SuccessorAssignmentInput | null>(null);
   const [lastTransition, setLastTransition] = useState<AssignmentTransitionRecord | null>(null);
+  const [historyAssignmentId, setHistoryAssignmentId] = useState("");
   const [submitError, setSubmitError] = useState("");
 
   useLayoutEffect(() => {
@@ -128,8 +130,8 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
     return () => {
       active.current = false;
       controller.current.abort();
-      void queryClient.cancelQueries({ queryKey, exact: true });
-      queryClient.removeQueries({ queryKey, exact: true });
+      void queryClient.cancelQueries({ queryKey });
+      queryClient.removeQueries({ queryKey });
       const mutations = queryClient.getMutationCache();
       mutations.findAll({ mutationKey: queryKey, exact: true }).forEach(item => mutations.remove(item));
     };
@@ -143,6 +145,25 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
         AbortSignal.any([signal, controller.current.signal]),
       );
     },
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const historyQuery = useInfiniteQuery({
+    queryKey: [...queryKey, "history", historyAssignmentId],
+    enabled: view === "history" && Boolean(historyAssignmentId),
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam, signal }) => {
+      if (!active.current) throw new Error("This account is no longer active.");
+      return loadOfficialAssignmentTransitionHistory(
+        historyAssignmentId,
+        pageParam ?? undefined,
+        AbortSignal.any([signal, controller.current.signal]),
+      );
+    },
+    getNextPageParam: lastPage => lastPage.next_cursor ?? undefined,
     staleTime: 0,
     gcTime: 0,
     retry: false,
@@ -173,7 +194,7 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
         title: "Successor assignment confirmed",
         description: "Existing daily packets were not changed or submitted.",
       });
-      void queryClient.invalidateQueries({ queryKey, exact: true });
+      void queryClient.invalidateQueries({ queryKey });
     },
     onError: error => {
       if (!active.current) return;
@@ -183,7 +204,7 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
 
   const context = query.data;
   const assignments = context?.assignments ?? [];
-  const transitions = context?.transitions ?? [];
+  const historyTransitions = historyQuery.data?.pages.flatMap(page => page.transitions) ?? [];
   const previousAssignment = assignments.find(item => item.id === previousAssignmentId);
   const ftoChoices = useMemo(
     () => previousAssignment
@@ -247,13 +268,10 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
     startsOn <= previousAssignment.ends_on
     ? addCalendarDays(startsOn, -1)
     : previousAssignment?.ends_on ?? "";
-  const selectedTransitions = [...transitions, ...(lastTransition &&
-    !transitions.some(item => item.operation_id === lastTransition.operation_id)
-    ? [lastTransition]
-    : [])].filter(item =>
-    item.po_badge === previousAssignment?.po_badge ||
-    item.po_badge === lastTransition?.po_badge,
-  );
+  const openAssignmentHistory = (assignmentId: string) => {
+    setHistoryAssignmentId(assignmentId);
+    setView("history");
+  };
   const retryAllowed = mutation.isError &&
     (statusOf(mutation.error) === undefined || statusOf(mutation.error) === 503);
 
@@ -438,10 +456,10 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
                     Only a verified Coordinator can change the server-held roster.
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    {selectedTransitions.length > 0 && (
+                    {previousAssignment && (
                       <button
                         type="button"
-                        onClick={() => setView("history")}
+                        onClick={() => openAssignmentHistory(previousAssignment.id)}
                         className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-bold uppercase text-card-foreground hover:bg-accent"
                         data-testid="button-open-assignment-history"
                       >
@@ -557,7 +575,7 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
               <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
                 <button
                   type="button"
-                  onClick={() => setView("history")}
+                  onClick={() => openAssignmentHistory(lastTransition.previous_assignment_id)}
                   className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-bold uppercase text-card-foreground hover:bg-accent"
                   data-testid="button-view-assignment-history"
                 >
@@ -591,13 +609,31 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
                   <ArrowLeft aria-hidden="true" className="size-4" /> Back
                 </button>
               </div>
-              {selectedTransitions.length === 0 ? (
+              {historyQuery.isLoading ? (
+                <p className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground" data-testid="status-assignment-history-loading">
+                  Loading assignment history…
+                </p>
+              ) : historyQuery.isError ? (
+                <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4" role="alert" data-testid="status-assignment-history-error">
+                  <p className="text-sm font-semibold text-destructive">
+                    {assignmentTransitionError(historyQuery.error)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void historyQuery.refetch()}
+                    className="mt-3 inline-flex min-h-10 items-center rounded-md border border-border bg-card px-3 text-xs font-bold uppercase text-card-foreground hover:bg-accent"
+                    data-testid="button-retry-assignment-history"
+                  >
+                    Retry history lookup
+                  </button>
+                </div>
+              ) : historyTransitions.length === 0 ? (
                 <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
                   No assignment transitions are recorded for this PO yet.
                 </p>
               ) : (
                 <ol className="space-y-3">
-                  {selectedTransitions.map(item => (
+                  {historyTransitions.map(item => (
                     <li key={item.operation_id} className="rounded-md border border-border bg-background p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <p className="font-semibold text-card-foreground">
@@ -618,6 +654,30 @@ export function OfficialAssignmentTransitionController({ userId }: { userId: str
                     </li>
                   ))}
                 </ol>
+              )}
+              {historyQuery.hasNextPage && (
+                <button
+                  type="button"
+                  onClick={() => void historyQuery.fetchNextPage()}
+                  disabled={historyQuery.isFetchingNextPage}
+                  className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-bold uppercase text-card-foreground hover:bg-accent disabled:opacity-50"
+                  data-testid="button-load-more-assignment-history"
+                >
+                  {historyQuery.isFetchingNextPage ? "Loading…" : "Load older history"}
+                  <ArrowRight aria-hidden="true" className="size-4" />
+                </button>
+              )}
+              {historyQuery.isFetchNextPageError && (
+                <p className="mt-3 text-sm text-destructive" role="alert" data-testid="status-assignment-history-next-page-error">
+                  The next history page could not be loaded. Try again.
+                  <button
+                    type="button"
+                    onClick={() => void historyQuery.fetchNextPage()}
+                    className="ml-2 font-bold underline"
+                  >
+                    Retry
+                  </button>
+                </p>
               )}
             </div>
           )}

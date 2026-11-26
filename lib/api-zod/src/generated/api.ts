@@ -572,6 +572,58 @@ export const GetAssignmentTransitionContextResponse = zod.object({
 })
 
 
+export const getAssignmentTransitionHistoryQueryAssignmentIdMin = 36;
+export const getAssignmentTransitionHistoryQueryAssignmentIdMax = 36;
+
+
+export const getAssignmentTransitionHistoryQueryAssignmentIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$');
+export const getAssignmentTransitionHistoryQueryCursorMax = 256;
+
+export const getAssignmentTransitionHistoryQueryLimitDefault = 50;
+export const getAssignmentTransitionHistoryQueryLimitMax = 100;
+
+
+
+export const GetAssignmentTransitionHistoryQueryParams = zod.object({
+  "assignmentId": zod.coerce.string().min(getAssignmentTransitionHistoryQueryAssignmentIdMin).max(getAssignmentTransitionHistoryQueryAssignmentIdMax).regex(getAssignmentTransitionHistoryQueryAssignmentIdRegExp),
+  "cursor": zod.coerce.string().max(getAssignmentTransitionHistoryQueryCursorMax).optional(),
+  "limit": zod.coerce.number().int().min(1).max(getAssignmentTransitionHistoryQueryLimitMax).default(getAssignmentTransitionHistoryQueryLimitDefault)
+})
+
+export const getAssignmentTransitionHistoryResponseTransitionsItemPreviousPhaseMax = 4;
+
+export const getAssignmentTransitionHistoryResponseTransitionsItemSuccessorPhaseMax = 4;
+
+export const getAssignmentTransitionHistoryResponseTransitionsItemPreviousEndsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getAssignmentTransitionHistoryResponseTransitionsItemSuccessorStartsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getAssignmentTransitionHistoryResponseTransitionsItemSuccessorEndsOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getAssignmentTransitionHistoryResponseNextCursorMax = 256;
+
+
+
+export const GetAssignmentTransitionHistoryResponse = zod.object({
+  "transitions": zod.array(zod.object({
+  "operation_id": zod.string().uuid(),
+  "occurred_at": zod.coerce.date(),
+  "class_name": zod.string(),
+  "po_name": zod.string(),
+  "po_badge": zod.string(),
+  "previous_assignment_id": zod.string().uuid(),
+  "successor_assignment_id": zod.string().uuid(),
+  "previous_phase": zod.number().int().min(1).max(getAssignmentTransitionHistoryResponseTransitionsItemPreviousPhaseMax),
+  "successor_phase": zod.number().int().min(1).max(getAssignmentTransitionHistoryResponseTransitionsItemSuccessorPhaseMax),
+  "previous_fto_name": zod.string(),
+  "previous_fto_badge": zod.string(),
+  "successor_fto_name": zod.string(),
+  "successor_fto_badge": zod.string(),
+  "previous_ends_on": zod.string().regex(getAssignmentTransitionHistoryResponseTransitionsItemPreviousEndsOnRegExp),
+  "successor_starts_on": zod.string().regex(getAssignmentTransitionHistoryResponseTransitionsItemSuccessorStartsOnRegExp),
+  "successor_ends_on": zod.string().regex(getAssignmentTransitionHistoryResponseTransitionsItemSuccessorEndsOnRegExp)
+})),
+  "next_cursor": zod.string().max(getAssignmentTransitionHistoryResponseNextCursorMax).nullable()
+})
+
+
 export const createSuccessorAssignmentBodyFtoIdMax = 256;
 
 export const createSuccessorAssignmentBodyPhaseMax = 4;

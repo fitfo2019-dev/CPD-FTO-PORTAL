@@ -30,6 +30,30 @@ type TransitionRow = {
   successor_ends_on: string;
 };
 type ScopedAssignmentRow = TrustedTrainingAssignment & { po_id: string };
+type HistoryCursor = { occurred_at: string; operation_id: string };
+
+function decodeHistoryCursor(value?: string): HistoryCursor | null {
+  if (value === undefined) return null;
+  try {
+    const decoded = Buffer.from(value, "base64url").toString("utf8");
+    const parsed: unknown = JSON.parse(decoded);
+    if (Buffer.from(decoded).toString("base64url") !== value ||
+      typeof parsed !== "object" || parsed === null ||
+      !("occurred_at" in parsed) || typeof parsed.occurred_at !== "string" ||
+      !Number.isFinite(Date.parse(parsed.occurred_at)) ||
+      !("operation_id" in parsed) || typeof parsed.operation_id !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parsed.operation_id)) {
+      throw new Error("Invalid cursor");
+    }
+    return { occurred_at: parsed.occurred_at, operation_id: parsed.operation_id };
+  } catch {
+    throw new PacketError(400, "INVALID_ASSIGNMENT_HISTORY_CURSOR");
+  }
+}
+
+function encodeHistoryCursor(cursor: HistoryCursor): string {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url");
+}
 
 const transitionColumns = `operation_id::text, occurred_at::text, class_name,
   po_name, po_badge, previous_assignment_id::text, successor_assignment_id::text,
@@ -154,6 +178,85 @@ export function createAgencyAssignmentTransitionStore(pool: pg.Pool) {
           assignments: assignmentResult.rows.map(({ po_id: _poId, ...row }) => row),
           ftos: ftoResult.rows,
           transitions: transitionResult.rows.map(toTransition),
+        };
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throwTransitionError(error);
+      } finally {
+        client.release();
+      }
+    },
+
+    async history(
+      identity: AgencyIdentity,
+      assignmentId: string,
+      cursorValue?: string,
+      limit = 50,
+    ) {
+      if (identity.role !== "FTO_COORDINATOR") {
+        throw new PacketError(403, "ASSIGNMENT_TRANSITION_FORBIDDEN");
+      }
+      const cursor = decodeHistoryCursor(cursorValue);
+      const idHash = hashUserIdentifier(identity.id);
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+        const scopeResult = await client.query<{ po_id: string }>(
+          `SELECT a.po_id
+           FROM agency_training.assignments a
+           WHERE a.id = $1 AND a.active AND a.po_id IS NOT NULL
+             AND a.coordinator_id_hash IS NOT NULL
+             AND a.po_id_hash IS NOT NULL
+             AND (
+               EXISTS (
+                 SELECT 1 FROM agency_training.po_coordinators pc
+                 WHERE pc.po_id = a.po_id AND pc.po_id_hash = a.po_id_hash
+                   AND pc.coordinator_id = $2
+               )
+               OR (
+                 NOT EXISTS (
+                   SELECT 1 FROM agency_training.po_coordinators pc
+                   WHERE pc.po_id = a.po_id AND pc.po_id_hash = a.po_id_hash
+                 )
+                 AND a.coordinator_id_hash = $3
+               )
+             )
+           LIMIT 1`,
+          [assignmentId, identity.id, idHash],
+        );
+        const poId = scopeResult.rows[0]?.po_id;
+        if (!poId) throw new PacketError(403, "ASSIGNMENT_TRANSITION_SCOPE_REQUIRED");
+
+        const result = cursor
+          ? await client.query<TransitionRow>(
+            `SELECT ${transitionColumns}
+             FROM agency_training.assignment_transitions
+             WHERE po_id = $1
+               AND (occurred_at, operation_id) < ($2::timestamptz, $3::uuid)
+             ORDER BY occurred_at DESC, operation_id DESC
+             LIMIT $4`,
+            [poId, cursor.occurred_at, cursor.operation_id, limit + 1],
+          )
+          : await client.query<TransitionRow>(
+            `SELECT ${transitionColumns}
+             FROM agency_training.assignment_transitions
+             WHERE po_id = $1
+             ORDER BY occurred_at DESC, operation_id DESC
+             LIMIT $2`,
+            [poId, limit + 1],
+          );
+        const hasMore = result.rows.length > limit;
+        const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+        const last = rows.at(-1);
+        await client.query("COMMIT");
+        return {
+          transitions: rows.map(toTransition),
+          next_cursor: hasMore && last
+            ? encodeHistoryCursor({
+              occurred_at: last.occurred_at,
+              operation_id: last.operation_id,
+            })
+            : null,
         };
       } catch (error) {
         await client.query("ROLLBACK");
