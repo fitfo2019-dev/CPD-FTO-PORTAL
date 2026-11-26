@@ -203,7 +203,7 @@ export default function PhaseSetupPage() {
     });
   }
 
-  if(!canEdit) return <Panel title="Phase setup access"><p className="p-4 text-sm">Phase setup is available to FTOs and the FTO Coordinator.</p></Panel>;
+  if(!canEdit) return <Panel title="Phase setup access"><p className="p-4 text-sm">Phase setup is available to FTO’s and the FTO Coordinator.</p></Panel>;
 
   return <div className="mx-auto max-w-none">
     <PageHead kicker="Step 1 · Class and phase details" title="Phase setup">
