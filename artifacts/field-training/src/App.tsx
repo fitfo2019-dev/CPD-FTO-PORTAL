@@ -27,6 +27,8 @@ import WeeklySummaryPage from '@/pages/weekly-summary.js';
 import MonthlySummaryPage from '@/pages/monthly-summary.js';
 import ClassOverview from '@/pages/class-overview.js';
 import SubstituteFtoPage from '@/pages/substitute-fto.js';
+import SchedulingPage from '@/pages/scheduling.js';
+import PoTrainingPage from '@/pages/po-training.js';
 import NrtFollowUpPage from '@/pages/nrt-follow-up.js';
 import NrtUaPortalPage from '@/pages/nrt-ua-portal.js';
 import PhaseSetupPage from '@/pages/phase-setup.js';
@@ -218,7 +220,6 @@ const loadRebuild = () => import('./features/rebuild/pages.js');
 const RebuildPhaseSetup = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPhaseSetup }))) : null;
 const RebuildPhaseSignUp = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPhaseSignUp }))) : null;
 const RebuildMyProbationaryOfficer = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildMyProbationaryOfficer }))) : null;
-const RebuildPoHome = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPoHome }))) : null;
 const RebuildPoProgress = import.meta.env.DEV ? lazy(() => loadRebuild().then(m => ({ default: m.RebuildPoProgress }))) : null;
 function RebuildRoute({ page: Page }: { page: ComponentType | null }) {
   if (!Page) return <NotFound />;
@@ -248,19 +249,15 @@ function WorkspaceRoutes() {
   // Fail closed in the COC preview: no draft/class route is rendered.
   // This UI boundary is not a substitute for server-side packet authorization.
   if (isTechnicalRole(ws.role)) return <RoutedErrorBoundary><Switch>
-    <Route path="/resources" component={HelpPage}/>
-    <Route path="/help"><Redirect to="/resources"/></Route>
     <Route path="/technical-access" component={RoleAccessPage}/>
     <Route component={RoleAccessPage}/>
   </Switch></RoutedErrorBoundary>;
   if (ws.role === 'po') return <RoutedErrorBoundary><Switch>
     <Route path="/settings" component={Settings}/>
-    <Route path="/agency-packets" component={AgencyPacketsPage}/>
     <Route path="/resources" component={HelpPage}/>
     <Route path="/help"><Redirect to="/resources"/></Route>
-    <Route path="/role-access" component={RoleAccessPage}/>
-    {RebuildPoHome && <Route path="/">{() => <RebuildRoute page={RebuildPoHome}/>}</Route>}
-    <Route component={RoleAccessPage}/>
+    <Route path="/" component={PoTrainingPage}/>
+    <Route>{() => <Redirect to="/"/>}</Route>
   </Switch></RoutedErrorBoundary>;
   if (ws.role === 'fto_coc') return <RoutedErrorBoundary><Switch>
     <Route path="/resources" component={HelpPage}/>
@@ -290,6 +287,7 @@ function WorkspaceRoutes() {
         <Route path="/class-overview" component={ClassOverview} />
         <Route path="/fto-directory" component={FtoDirectoryPage} />
         <Route path="/substitute-fto" component={SubstituteFtoPage} />
+        <Route path="/scheduling" component={SchedulingPage} />
          <Route path="/fto-classes" component={FtoClassesPage} />
         <Route path="/reports/:id/nrt-follow-up" component={NrtFollowUpPage} />
          <Route path="/reports/:id">{(params: {id:string}) => <ShiftStartGate key={params.id} reportId={params.id}/>}</Route>

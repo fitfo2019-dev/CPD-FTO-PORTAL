@@ -2,7 +2,7 @@ import "./rebuild.css";
 import { useWorkspace } from "@/state/workspace";
 import { PhaseSetup } from "./admin/phase-setup";
 import { MyProbationaryOfficer, PhaseSignUp } from "./admin/fto-pages";
-import { PoHome } from "./admin/po-home";
+import { PoContacts } from "./admin/po-home";
 import { AdminPage } from "./admin/ui";
 import { PageHeader } from "./portal/page-header";
 import { ProgressView } from "./po-progress/progress-view";
@@ -29,7 +29,7 @@ export function RebuildPoProgressCards() {
   return <AdminPage><ProgressView coordinatorScope={false} /></AdminPage>;
 }
 
-/** PO home preview: contact cards and released weekly packets (sample data until the server roster is live). */
-export function RebuildPoHome() {
-  return <PoHome />;
+/** PO contact cards for My Training (sample data until the server roster is live). */
+export function RebuildPoContacts() {
+  return <PoContacts />;
 }

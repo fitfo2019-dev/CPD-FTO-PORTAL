@@ -45,7 +45,7 @@ test('copy cleanup preserves four-digit midwatch indices and wagon assignment va
 });
 test('shell capitalization uses CSS only on fixed navigation links',()=>{
   const css=readFileSync(new URL('../index.css',import.meta.url),'utf8');
-  assert.match(css,/\[data-testid="nav-desktop"\] > a,\s*\[data-testid="nav-mobile"\] > a \{ text-transform: uppercase; \}/);
+  assert.match(css,/\[data-testid="nav-desktop"\] > a,\s*\[data-testid="nav-mobile"\] > a,\s*\[data-testid="nav-mobile"\] > button,\s*\[data-testid="sheet-mobile-nav-more"\] a \{ text-transform: uppercase; \}/);
   assert.doesNotMatch(css,/(?:input|textarea|contenteditable)[^{}]*\{[^}]*text-transform:\s*(?:uppercase|capitalize)/);
 });
 test('dispatch ambiguity and real packet submission safeguards stay in place',()=>{

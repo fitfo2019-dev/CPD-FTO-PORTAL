@@ -332,15 +332,19 @@ test('uploaded downloads reuse the current same-origin portal session', () => {
   assert.match(clerkAuthentication, /const \{ userId \} = getAuth\(req\)/);
 });
 
-test('every portal role can find Help Desk on desktop and mobile navigation', () => {
+test('every training role can find Resources on desktop and mobile navigation', () => {
   const roleNavStart = shell.indexOf('const ROLE_NAV');
   const roleNavEnd = shell.indexOf('const navTestId');
   const roleNavSource = shell.slice(roleNavStart, roleNavEnd);
-  assert.equal((roleNavSource.match(/\bRESOURCES\b/g) ?? []).length, 7);
+  assert.equal((roleNavSource.match(/\bRESOURCES\b/g) ?? []).length, 5);
   assert.match(roleNavSource, /fto_sgt:\s*\[[\s\S]*?RESOURCES,/);
-  assert.match(shell, /label: 'Help Desk'/);
-  assert.match(shell, /visibleNav\.slice\(0, 4\), RESOURCES/);
-  assert.equal((app.match(/<Route path="\/resources" component=\{HelpPage\}/g) ?? []).length, 5);
+  assert.match(roleNavSource, /po:\s*\[\s*\{ href: '\/', label: 'My Training'[^}]*\},\s*RESOURCES,\s*\]/);
+  assert.doesNotMatch(roleNavSource, /policenet(_admin_sgt)?:\s*\[[^\]]*RESOURCES/);
+  assert.match(shell, /label: 'Resources'/);
+  assert.match(shell, /function mobileTabs\(/);
+  assert.equal((app.match(/<Route path="\/resources" component=\{HelpPage\}/g) ?? []).length, 4);
+  const technicalGate = app.slice(app.indexOf('if (isTechnicalRole(ws.role))'), app.indexOf("if (ws.role === 'po')"));
+  assert.doesNotMatch(technicalGate, /\/resources/);
   const sergeantGate = app.slice(app.indexOf("if (ws.role === 'fto_sgt')"), app.indexOf('// This route authorizes'));
   assert.match(sergeantGate, /<Route path="\/resources" component=\{HelpPage\}/);
   assert.match(sergeantGate, /<Redirect to="\/resources"\/>/);
