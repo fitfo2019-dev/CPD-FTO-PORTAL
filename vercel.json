@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "NODE_ENV=development BASE_PATH=/ VITE_CLERK_PUBLISHABLE_KEY=pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk pnpm --filter @workspace/field-training run build",
+  "outputDirectory": "artifacts/field-training/dist/public",
+  "redirects": [
+    { "source": "/", "destination": "/ui-preview", "permanent": false },
+    { "source": "/sign-in/:path*", "destination": "/ui-preview", "permanent": false },
+    { "source": "/sign-up/:path*", "destination": "/ui-preview", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    { "source": "/(.*)", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }] }
+  ]
+}
