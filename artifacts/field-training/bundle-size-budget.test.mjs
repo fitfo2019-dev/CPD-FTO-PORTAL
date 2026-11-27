@@ -106,3 +106,23 @@ test("fails if Vite produces no JavaScript entry chunk", () => {
     /found no JavaScript entry chunk/,
   );
 });
+
+test("a static import loop between chunks fails the build", () => {
+  const a = chunk("entry.js", "a", { isEntry: true, imports: ["b.js"] });
+  const b = chunk("b.js", "b", { imports: ["entry.js"] });
+  assert.throws(() => runBudget({ "entry.js": a, "b.js": b }), /import loop: entry\.js -> b\.js -> entry\.js/);
+});
+
+test("the spreadsheet tools may not join the start-up download", () => {
+  const entry = chunk("assets/index.js", "entry", { isEntry: true, imports: ["assets/vendor-spreadsheet-x.js"] });
+  const sheet = chunk("assets/vendor-spreadsheet-x.js", "sheet");
+  assert.throws(() => runBudget({ "assets/index.js": entry, "assets/vendor-spreadsheet-x.js": sheet }), /start-up download includes/);
+  const lazy = chunk("assets/index.js", "entry", { isEntry: true, dynamicImports: ["assets/vendor-spreadsheet-x.js"] });
+  assert.doesNotThrow(() => runBudget({ "assets/index.js": lazy, "assets/vendor-spreadsheet-x.js": sheet }));
+});
+
+test("the after-sign-in limit is 1 MB", async () => {
+  const { FIELD_TRAINING_BUNDLE_BUDGETS } = await import("./bundle-size-budget.js");
+  assert.equal(FIELD_TRAINING_BUNDLE_BUDGETS.deferredGzipBytes, 1024 * 1024);
+  assert.equal(FIELD_TRAINING_BUNDLE_BUDGETS.initialGzipBytes, 1024 * 1024);
+});
