@@ -3,7 +3,7 @@ import { Check, Copy, ExternalLink, FileText, Gavel, Search } from 'lucide-react
 import { apiEndpoint } from '@workspace/api-client-react';
 import {
   OFFICIAL_STATUTE_URL, canCopyWording, citationPath, elementsComplete,
-  elementsForCitation, normalizeComplaintCodes, penaltySentences, resolveStatute, searchCharges,
+  elementsForCitation, mergeComplaintSources, normalizeComplaintCodes, penaltySentences, resolveStatute, searchCharges,
   type ChargeCode, type ComplaintEntry, type ElementGroup, type StatuteClauses,
   type StatuteRecord, type SupplementRecord,
 } from '@/lib/charging-lookup.js';
@@ -17,9 +17,14 @@ const manualPageHref = (page: number) =>
 
 let codesPromise: Promise<ChargeCode[]> | undefined;
 function loadCodes(): Promise<ChargeCode[]> {
-  codesPromise ??= fetch(`${DATA_ROOT}complaints.json`)
-    .then(response => { if (!response.ok) throw new Error(String(response.status)); return response.json(); })
-    .then((data: { codes: Record<string, ComplaintEntry[]> }) => normalizeComplaintCodes(data.codes))
+  type ComplaintFile = { codes: Record<string, ComplaintEntry[]> };
+  const manual = fetch(`${DATA_ROOT}complaints.json`)
+    .then(response => { if (!response.ok) throw new Error(String(response.status)); return response.json() as Promise<ComplaintFile>; });
+  const felonyTraffic = fetch(`${DATA_ROOT}felony-traffic.json`)
+    .then(response => (response.ok ? response.json() as Promise<ComplaintFile> : { codes: {} }))
+    .catch(() => ({ codes: {} }));
+  codesPromise ??= Promise.all([manual, felonyTraffic])
+    .then(([main, felony]) => normalizeComplaintCodes(mergeComplaintSources(main.codes, felony.codes)))
     .catch(error => { codesPromise = undefined; throw error; });
   return codesPromise;
 }
@@ -229,15 +234,26 @@ function ChargeDetail({ code, onBack }: { code: ChargeCode; onBack: () => void }
             {entry.conflict ? 'Manual conflict' : entry.ambiguous ? 'Ambiguous manual entry' : 'Manual example'}
           </p>
         )}
-        <p className="charging-wording" data-testid="text-complaint-wording">{entry.text}</p>
-        <div className="charging-actions">
-          <button type="button" className="charging-copy" disabled={!copyAllowed} onClick={() => { void copy(); }} data-testid="button-copy-wording">
-            {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy wording'}
-          </button>
-          <a className="geography-map-link" href={manualPageHref(entry.page)} target="_blank" rel="noreferrer" data-testid="link-manual-page">
-            <FileText size={15} aria-hidden="true" /> Manual page {entry.page}
-          </a>
-        </div>
+        {entry.processedBy === 'DICE' && (
+          <p className="charging-flag" data-testid="text-charge-dice">Processed by D.I.C.E. officers only</p>
+        )}
+        {entry.citationOnly ? (
+          <p className="charging-wording" data-testid="text-complaint-citation">Written on a traffic citation</p>
+        ) : (
+          <p className="charging-wording" data-testid="text-complaint-wording">{entry.text}</p>
+        )}
+        {!entry.citationOnly && !entry.processedBy && (
+          <div className="charging-actions">
+            <button type="button" className="charging-copy" disabled={!copyAllowed} onClick={() => { void copy(); }} data-testid="button-copy-wording">
+              {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy wording'}
+            </button>
+            {entry.page > 0 && (
+              <a className="geography-map-link" href={manualPageHref(entry.page)} target="_blank" rel="noreferrer" data-testid="link-manual-page">
+                <FileText size={15} aria-hidden="true" /> Manual page {entry.page}
+              </a>
+            )}
+          </div>
+        )}
       </section>
     </div>
   );
