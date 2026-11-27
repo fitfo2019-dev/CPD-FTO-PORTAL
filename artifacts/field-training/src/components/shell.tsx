@@ -19,6 +19,8 @@ import { probeTestAdmin } from '@/features/test-admin/api.js';
 type NavItem = { href: string; label: string; icon: typeof LayoutGrid; devOnly?: boolean };
 
 const RESOURCES: NavItem = { href: '/resources', label: 'Resources', icon: CircleHelp };
+// Technical roles: application-use help on the same route, without training Resources.
+const APP_HELP: NavItem = { href: '/resources', label: 'App Help', icon: CircleHelp };
 const SETTINGS: NavItem = { href: '/settings', label: 'Account Settings', icon: Settings };
 // Vercel names and order first, then the Replit-only pages. Items marked devOnly are
 // rebuild screens that stay preview-only until their server routes are integrated.
@@ -70,9 +72,11 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
   ],
   policenet: [
     { href: '/technical-access', label: 'Technical Access', icon: Settings },
+    APP_HELP,
   ],
   policenet_admin_sgt: [
     { href: '/technical-access', label: 'Technical Access', icon: Settings },
+    APP_HELP,
   ],
 };
 
