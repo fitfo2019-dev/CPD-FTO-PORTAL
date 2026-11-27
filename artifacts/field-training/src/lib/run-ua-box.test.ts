@@ -169,3 +169,36 @@ test('export validation accepts the run UA box and FTO performed marks, and reje
   const broken = { ...report, runs: report.runs.map(item => ({ ...item, uaBox: { ...item.uaBox, minutes: 0 } })) };
   assert.throws(() => validateReportsForExport([broken]));
 });
+
+const rtDay = (id: string, date: string, text: string): Report => {
+  const report = { ...base([], id, date), ratingsReviewedAt: `${date}T21:00:00Z` };
+  report.ratings = { ...report.ratings, contentAccuracy: { ...report.ratings.contentAccuracy, rating: 'RT', justification: text } };
+  return report;
+};
+
+test('three Responding to Training ratings in one category in a week draft a weekly log entry with no minutes', () => {
+  const two = [rtDay('rt1', '2026-11-09', 'PO left out the suspect description.'), rtDay('rt2', '2026-11-10', 'PO left out the vehicle color.')];
+  assert.equal(mergeReviewedUaEntries(log(two[0]!), two, []).entries.some(entry => entry.id.startsWith('auto-rt-')), false);
+  const three = [...two, rtDay('rt3', '2026-11-11', 'PO left out the direction of travel.')];
+  const entry = mergeReviewedUaEntries(log(three[0]!), three, []).entries.find(item => item.id === 'auto-rt-week-contentAccuracy');
+  assert.ok(entry);
+  assert.equal(entry.totalTime, '');
+  assert.deepEqual(entry.sourceReportIds, ['rt1', 'rt2', 'rt3']);
+  assert.match(entry.narrative, /suspect description[\s\S]*vehicle color[\s\S]*direction of travel/);
+});
+
+test('an FTO edit to a drafted Responding to Training entry is kept when the log is rebuilt', () => {
+  const days = [rtDay('rt1', '2026-11-09', 'One.'), rtDay('rt2', '2026-11-10', 'Two.'), rtDay('rt3', '2026-11-11', 'Three.')];
+  const first = mergeReviewedUaEntries(log(days[0]!), days, []);
+  const edited = { ...first, entries: first.entries.map(entry => entry.id.startsWith('auto-rt-') ? { ...entry, narrative: 'FTO wording.', totalTime: '25 min' } : entry) };
+  const again = mergeReviewedUaEntries(edited, days, []).entries.find(item => item.id.startsWith('auto-rt-'));
+  assert.equal(again?.narrative, 'FTO wording.');
+  assert.equal(again?.totalTime, '25 min');
+});
+
+test('a category marked Not Applicable counts as Not Observed', () => {
+  const report = { ...base([]), ratingsReviewedAt: '2026-11-09T21:00:00Z', notApplicableCategories: ['resourceEquipmentUsage'] as Category[] };
+  report.ratings = { ...report.ratings, resourceEquipmentUsage: { ...report.ratings.resourceEquipmentUsage, rating: '' } };
+  assert.equal(weeklyRatingCount([report], 'resourceEquipmentUsage', 'NO'), 1);
+  assert.equal(weeklyRatingCount([report], 'resourceEquipmentUsage', 'A'), 0);
+});

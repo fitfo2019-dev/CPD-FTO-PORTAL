@@ -12,7 +12,8 @@ export function categoryIsNotApplicable(report:Report,category:Category):boolean
 }
 
 export function effectiveCategoryRating(report:Report,category:Category):Rating {
-  if(categoryIsNotApplicable(report,category))return '';
+  // Not Applicable is recorded as Not Observed (owner, Nov 27, 2026).
+  if(categoryIsNotApplicable(report,category))return 'NO';
   return report.ratings?.[category]?.rating??'';
 }
 

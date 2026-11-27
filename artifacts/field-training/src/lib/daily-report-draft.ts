@@ -8,6 +8,7 @@ import {
   type Report,
 } from './model.js';
 import { getPhaseScheduleInfo } from './training-calendar.js';
+import { assignmentShiftStartTime } from './shift-start-times.js';
 import { OperationalIdentitySnapshot, type OperationalIdentity } from '@workspace/api-zod/operational-profile';
 
 /** Build a daily draft from the active folder without carrying forward prior evaluations. */
@@ -16,7 +17,7 @@ export function createDailyReportDraft(folder:PhaseCaseFolder,date:string,prior?
   const now=new Date().toISOString();
   const schedule=getPhaseScheduleInfo(folder.phase,date,folder.phaseStartDate,folder.daysOff,folder.phaseWeekRanges,folder.limboExtensionWeeks);
   return {
-    id:uid(),date,shiftStartTime:'',shift:folder.shift,phase:folder.phase,zone:folder.zone,precinct:folder.precinct,
+    id:uid(),date,shiftStartTime:assignmentShiftStartTime(folder.shift,folder.precinct),shift:folder.shift,phase:folder.phase,zone:folder.zone,precinct:folder.precinct,
     cruiserDistrict:folder.cruiserDistrict,ftoAssignment:folder.ftoAssignment,className:folder.className??'',
     recruitName:folder.recruitName,recruitBadge:folder.recruitBadge,ftoName:folder.ftoName,ftoBadge:folder.ftoBadge,
     activity:emptyDailyActivitySummary(),activityCountsIncludeRuns:false,runs:[],

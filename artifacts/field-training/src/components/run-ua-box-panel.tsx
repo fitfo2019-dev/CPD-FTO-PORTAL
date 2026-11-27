@@ -3,6 +3,7 @@ import { CATEGORIES, CATEGORY_LABEL, type Category, type RunUaBox } from '@/lib/
 import type { RunFailureStatement } from '@/lib/run-failure-statements.js';
 import { parseUaMinutes, UA_MINUTE_CHOICES } from '@/lib/run-ua-box.js';
 import { categoryNumberLabel } from '@/lib/weekly-log-layout.js';
+import { correctiveTrainingPhrases, insertCorrectiveTrainingPhrase } from '@/lib/corrective-training-phrases.js';
 
 type Props = {
   editable: boolean;
@@ -14,12 +15,14 @@ type Props = {
   onChange: (next: RunUaBox) => void;
   /** Earlier UA's in the same category this phase, newest last; nothing is linked until the FTO taps one. */
   suggestions: (category: Category) => { id: string; label: string; shortLabel: string }[];
+  /** Opens the category change for a UA captured by an unchecked box. */
+  onChangeCategory?: (category: Category) => void;
 };
 
 const categoryName = (category: Category) => `${categoryNumberLabel(category)} · ${CATEGORY_LABEL[category]}`;
 
 /** One UA box per run: every UA category, what happened, the corrective training and total minutes. */
-export function RunUaBoxPanel({ editable, statements, onStatementChange, checklistCategories, box, onChange, suggestions }: Props) {
+export function RunUaBoxPanel({ editable, statements, onStatementChange, checklistCategories, box, onChange, suggestions, onChangeCategory }: Props) {
   const added = box.addedCategories ?? [];
   const categories = [...new Set([...checklistCategories, ...added])];
   const [open, setOpen] = useState(false);
@@ -36,6 +39,7 @@ export function RunUaBoxPanel({ editable, statements, onStatementChange, checkli
   const minutesMissing = !box.minutes;
   const trainingMissing = !box.correctiveTraining?.trim();
   const whatMissing = !box.whatHappened?.trim() && (added.length > 0 || statements.length === 0);
+  const phrases = correctiveTrainingPhrases([...statements.flatMap(statement => statement.labels), ...added.map(category => CATEGORY_LABEL[category])]);
   const required = (missing: boolean) => missing ? <span className="ml-2 text-[11px] font-bold uppercase tracking-wide text-destructive">Required</span> : null;
   return <section className="my-3 rounded border border-destructive/40 bg-destructive/5 p-3" data-testid="section-run-ua-box">
     <h4 className="text-xs font-bold uppercase tracking-wide text-destructive">Unacceptable performance</h4>
@@ -43,7 +47,9 @@ export function RunUaBoxPanel({ editable, statements, onStatementChange, checkli
       {categories.map(category => {
         const locked = checklistCategories.includes(category);
         return <span key={category} className="inline-flex min-h-8 items-center gap-1 rounded border bg-card px-2 text-xs font-semibold" data-testid={`chip-run-ua-${category}`}>
-          {categoryName(category)}
+          {locked && editable && onChangeCategory
+            ? <button type="button" className="text-left underline-offset-2 hover:underline" onClick={() => onChangeCategory(category)} data-testid={`button-change-run-ua-${category}`}>{categoryName(category)}</button>
+            : categoryName(category)}
           {!locked && editable && <button type="button" aria-label={`Remove ${CATEGORY_LABEL[category]}`} className="ml-1 px-1 font-bold text-destructive"
             onClick={() => patch({ addedCategories: added.filter(item => item !== category) })} data-testid={`button-remove-run-ua-${category}`}>×</button>}
         </span>;
@@ -69,6 +75,10 @@ export function RunUaBoxPanel({ editable, statements, onStatementChange, checkli
       <textarea rows={2} disabled={!editable} className="w-full rounded border bg-card p-2 text-sm [field-sizing:content]" value={box.correctiveTraining ?? ''}
         onChange={event => patch({ correctiveTraining: event.target.value })} data-testid="input-run-ua-corrective-training"/>
     </label>
+    {editable && phrases.length > 0 && <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Corrective training phrases" data-testid="list-corrective-training-phrases">
+      {phrases.map(phrase => <button key={phrase.id} type="button" className="min-h-8 rounded border bg-card px-2 py-1 text-left text-xs hover:bg-muted"
+        onClick={() => patch({ correctiveTraining: insertCorrectiveTrainingPhrase(box.correctiveTraining, phrase.text) })} data-testid={`button-insert-phrase-${phrase.id}`}>{phrase.text}</button>)}
+    </div>}
     <div className="mt-3 grid gap-1">
       <span className="text-xs font-bold uppercase tracking-wide">Corrective training minutes{required(minutesMissing)}</span>
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Corrective training minutes">

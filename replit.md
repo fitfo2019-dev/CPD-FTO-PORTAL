@@ -87,6 +87,14 @@ Follow the current FTO manual and the workflow requirements below. Use the exact
 - Preserve the hierarchy as Division → Zone → Precinct → Cruiser District. Assignment geography is not a run or incident location.
 - Sources: [FTO Manual](attached_assets/FTO_MANUAL_(1)_1794984875252.pdf), [2025 Annual Report](https://www.columbus.gov/files/sharedassets/city/v/1/public-safety/police/reports/2025annualreport.pdf), [Cruiser Districts](https://opendata.columbus.gov/datasets/police-cruiser-districts/about), [Precincts](https://opendata.columbus.gov/datasets/police-precincts/about), [Organizational Structure](https://www.columbus.gov/Services/Public-Safety/Police/About-the-Columbus-Division-of-Police/Organizational-Structure).
 
+### Daily packet flow (Nov 27, 2026 preview, PR #46)
+
+- Three stages: Start Shift, Runs, Finish and Submit. The start time defaults from the assignment (2019 start times) and stays editable.
+- Ratings stay Acceptable unless a box is unchecked; the 8 default Not Observed categories stay Not Observed; Not Applicable counts as Not Observed on the client, the print and the server.
+- Corrective training phrases insert only when the FTO taps one. Minutes are never prefilled.
+- Three or more Responding to Training ratings in a category in a week draft a Weekly Performance Log entry with W#D#P# references and blank minutes.
+- The Patrol View mapper never imports caller, phone or notes; the API is pending.
+
 ## Academy Accounts and Training Access
 
 - FTO ADMIN may create a pending PO account before Phase I. Send the activation link to the PO's department email. The PO verifies that account and sets their own password while at the academy; never use a badge number as a password.

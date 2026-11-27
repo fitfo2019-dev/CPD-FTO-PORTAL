@@ -87,3 +87,23 @@ test("run-derived activity counts use only completed and reviewed checklists", (
   assert.equal(totals.daily.reviewed_run_checklists, 1);
   assert.equal(totals.daily.total_runs, 2);
 });
+
+test("server totals count Not Applicable as Not Observed and keep one UA per category per run and Officer Safety once per day", () => {
+  const report = {
+    id: "daily-na", date: "2026-11-24", ratingsReviewedAt: "2026-11-24T20:00:00Z",
+    notApplicableCategories: ["resourceEquipmentUsage"],
+    ratings: {
+      resourceEquipmentUsage: { rating: "" },
+      contentAccuracy: { rating: "UA" },
+      buildingSearch: { rating: "UA" },
+    },
+    runs: [{ id: "r1", occurredAt: "2026-11-24T13:00:00Z" }, { id: "r2", occurredAt: "2026-11-24T15:00:00Z" }],
+    checklistDeficiencies: [
+      { category: "contentAccuracy", runId: "r1" }, { category: "contentAccuracy", runId: "r1", added: true },
+      { category: "contentAccuracy", runId: "r2" },
+      { category: "buildingSearch", runId: "r1" }, { category: "buildingSearch", runId: "r2" },
+    ],
+  };
+  const totals = summarizePacketPoTotals([{ report, record_date: "2026-11-24" }], "2026-11-24");
+  assert.deepEqual(totals.daily.rating_counts, { NO: 1, A: 0, RT: 0, UA: 3, NRT: 0 });
+});

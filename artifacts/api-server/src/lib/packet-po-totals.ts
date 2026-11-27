@@ -159,7 +159,8 @@ function makeTotals(rows: PacketReportRow[], start: string, end: string): Packet
           const rating = ratingOf(entry);
           const groups = counted.get(category) ?? 0;
           if (groups > 0 && rating !== "NRT") { totals.rating_counts.UA += groups; continue; }
-          if (notApplicable.has(category) && rating !== "UA" && !hasDeficiency(report, category)) continue;
+          // Not Applicable counts as Not Observed (owner, Nov 27, 2026), matching the client weeklyRatingCount.
+          if (notApplicable.has(category) && rating !== "UA" && !hasDeficiency(report, category)) { totals.rating_counts.NO++; continue; }
           if (rating) totals.rating_counts[rating]++;
         }
       }

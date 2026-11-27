@@ -93,6 +93,16 @@ One tap on a section header marks the whole section Not Applicable.
 - A narrative that is too long for its page continues on a Narrative Addition page, printed as the next page number within the margins.
 - This replaces the earlier "write per category on the rating row" decision.
 
+### Daily packet flow and time savers (preview, Nov 27, 2026)
+
+- Stages: Start Shift (shift details and Reporting for Duty), Runs, Finish and Submit (activity summary, Daily Ratings, shift narrative). Old links to the five earlier steps open the matching stage.
+- Start time defaults from the assignment (lib/shift-start-times.ts) and stays editable.
+- Daily Ratings: Acceptable unless a box is unchecked; the 8 default Not Observed categories stay Not Observed; Not Applicable counts as Not Observed.
+- Run UA box: tap-to-insert corrective training phrases (lib/corrective-training-phrases.ts) appear only when tapped and stay editable. Locked chips open Change UA category.
+- Weekly Performance Log: 3 or more Responding to Training ratings in one category in a week draft an entry with W#D#P# references and blank minutes; FTO edits are kept.
+- Patrol View mapper (lib/patrol-view-incident.ts): no screen; API pending.
+- Server totals (api-server packet-po-totals.ts) count Not Applicable as Not Observed and mirror UA counting.
+
 ### The run UA box (preview, Nov 27, 2026)
 
 - Each run has one UA box on its Narrative and Save step. It lists every UA category on the run: the categories from unchecked boxes (locked) and any category the FTO adds (removable until Finalize).

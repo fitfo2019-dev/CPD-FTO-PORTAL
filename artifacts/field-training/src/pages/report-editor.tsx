@@ -45,7 +45,7 @@ import { runFailureActionChoices, runChecklistFailureSummaries, type RunChecklis
 import { RunChecklistUncheckedDialog, type UncheckedChoice, type UncheckedItem } from '@/components/run-checklist-unchecked-dialog.js';
 import { applyTrafficDataCollectionRule } from '@/lib/traffic-data-collection.js';
 import { activeFailureStatementEdits, activeFtoPerformed, activeNotApplicable, runFailureStatements } from '@/lib/run-failure-statements.js';
-import { SEG_TASK_DIRECTORY, UA_NOT_COUNTED_LABEL } from '@/lib/seg-deficiencies.js';
+import { SEG_TASK_DIRECTORY, UA_NOT_COUNTED_LABEL, deficiencyGroupId } from '@/lib/seg-deficiencies.js';
 import '@/components/run-sheet-workflow.css';
 
 import { PacketSubmitControl } from '@/components/packet-review/submit-control.js';
@@ -59,17 +59,22 @@ import { searchTrainingRunsByIncidentNumber } from '@/lib/training-run-search.js
 
 const RunUaBoxPanel = lazy(() => import('@/components/run-ua-box-panel.js').then(m => ({ default: m.RunUaBoxPanel })));
 
-type EditorStage = 'shift'|'duty'|'runs'|'activity'|'evaluation'|'narrative';
+type EditorStage = 'start'|'runs'|'finish';
 type FailurePromptTarget = { form:RunChecklistSourceForm;key:string;label:string;choices:readonly string[];mode:'clear'|'edit' };
 type ChecklistActionTarget = { form:RunChecklistSourceForm;key:string;label:string };
 const EDITOR_STAGES: {id:EditorStage;label:string;hash:string}[] = [
-  {id:'shift',label:'Shift',hash:'shift-details'},
-  {id:'duty',label:'Reporting for Duty',hash:'duty-form'},
-  {id:'runs',label:'Runs & forms',hash:'run-forms'},
-  {id:'activity',label:'Activity',hash:'activity-summary'},
-  {id:'evaluation',label:'SEG evaluation',hash:'seg-ratings'},
-  {id:'narrative',label:'Narrative & comments',hash:'shift-narrative'},
+  {id:'start',label:'Start Shift',hash:'start-shift'},
+  {id:'runs',label:'Runs',hash:'run-forms'},
+  {id:'finish',label:'Finish and Submit',hash:'finish-submit'},
 ];
+/** Links saved before the three-stage layout still open the matching stage. */
+const LEGACY_STAGE_HASHES: Readonly<Record<string,EditorStage>> = {
+  'shift-details':'start','duty-form':'start','activity-summary':'finish','seg-ratings':'finish','shift-narrative':'finish',
+};
+function stageForHash(hash:string):EditorStage {
+  const key=hash.replace(/^#/,'');
+  return EDITOR_STAGES.find(item=>item.hash===key)?.id??LEGACY_STAGE_HASHES[key]??(key.startsWith('run-')?'runs':'start');
+}
 const QUICK_ADD = [
   {form:'building_search',label:'Building Search'},
   {form:'arrest_process',label:'Arrest Process'},
@@ -77,12 +82,10 @@ const QUICK_ADD = [
   {form:'narrative_addition',label:'Narrative Addition'},
 ] as const satisfies readonly {form:SupplementalRunForm;label:string}[];
 function stageForError(message:string):EditorStage {
-  if(/Reporting for Duty|Shotgun|Cruiser|duty/i.test(message))return 'duty';
+  if(/Reporting for Duty|Shotgun|Cruiser|duty/i.test(message))return 'start';
   if(/run|Run|Call for Service|Traffic|Building Search|Domestic|Self-Initiated/.test(message)&&/complet|review/i.test(message))return 'runs';
-  if(/Shift date|day off|PO |badge|class|phase|week|assignment/i.test(message))return 'shift';
-  if(/activity|statistic/i.test(message))return 'activity';
-  if(/narrative|remedial/i.test(message)&&!/articulation/i.test(message))return 'narrative';
-  return 'evaluation';
+  if(/Shift date|day off|PO |badge|class|phase|week|assignment/i.test(message))return 'start';
+  return 'finish';
 }
 
 function checklistHelp(form:string,meaning:string) {
@@ -161,7 +164,7 @@ export default function ReportEditor() {
   const [riskCandidate,setRiskCandidate]=useState<PrimaryRunForm|''>('');
   const [riskCodeDirty,setRiskCodeDirty]=useState(false);
   const [confirmAction, setConfirmAction] = useState<{title:string;body:string;label:string;action:()=>void}|null>(null);
-  const [stage, setStage] = useState<EditorStage>(()=>EDITOR_STAGES.find(item=>`#${item.hash}`===window.location.hash)?.id??(window.location.hash.startsWith('#run-')?'runs':'shift'));
+  const [stage, setStage] = useState<EditorStage>(()=>stageForHash(window.location.hash));
   useEffect(()=>{
     const target=decodeURIComponent(window.location.hash.slice(1));
     if(!target.startsWith('run-')||target==='run-forms')return;
@@ -379,7 +382,8 @@ export default function ReportEditor() {
       const hasEquipmentDeficiency=current.checklistDeficiencies?.some(group=>group.category==='resourceEquipmentUsage')===true;
       const ratings={...current.ratings,resourceEquipmentUsage:{
         ...current.ratings.resourceEquipmentUsage,
-        ...(!hasEquipmentDeficiency?{rating:'' as Rating,justification:''}:{}),
+        // Not Applicable is recorded as Not Observed; Y restores the category's starting rating.
+        ...(!hasEquipmentDeficiency?{rating:(value==='N'?'NO':defaultRatings().resourceEquipmentUsage.rating) as Rating,justification:''}:{}),
       }};
       return {
         ...current,
@@ -884,7 +888,7 @@ export default function ReportEditor() {
   function save(reviewed = false,nextWorkingDay = false): boolean {
     if (!r) return false;
     if(reviewed&&errs.length){setShowErr(true);setStage(stageForError(errs[0]));return false;}
-    if (!parsedDate || selectedDayOff) { setShowErr(true); setStage('shift'); return false; }
+    if (!parsedDate || selectedDayOff) { setShowErr(true); setStage('start'); return false; }
     if (runFormDirty) { setStage('runs'); toast({title:'Add or discard the open run first',description:'The open run is held on this screen only and is not yet part of this daily log. It is shown now.',variant:'destructive'}); return false; }
     const next = { ...r, date: parsedDate, ratingsReviewedAt: reviewed ? new Date().toISOString() : r.ratingsReviewedAt, updatedAt: new Date().toISOString() };
     upsertReport(next); setR(next);
@@ -949,7 +953,7 @@ export default function ReportEditor() {
       </div>
       <nav aria-label="Shift stages" className="editor-stage-nav sticky top-10 z-30 mb-4" data-testid="nav-shift-sections">
         {EDITOR_STAGES.map((item,index)=>{const count=showErr?errs.filter(e=>stageForError(e)===item.id).length:0;return <button key={item.id} type="button" onClick={()=>{setStage(item.id);window.history.replaceState(null,'',`#${item.hash}`);}} aria-current={stage===item.id?'page':undefined} className={cn('editor-stage',stage===item.id&&'is-active')} data-testid={`button-stage-${item.id}`}>
-          <span className="editor-stage-index">{index+1}</span>{item.label}{item.id==='evaluation'&&isLimboDay?' · Limbo':''}{item.id==='runs'&&<span className="mono text-[0.7rem] opacity-75">{r.runs.length}{runFormDirty?' + draft':''}</span>}{count>0&&<span className="editor-stage-count">{count}</span>}
+          <span className="editor-stage-index">{index+1}</span>{item.label}{item.id==='finish'&&isLimboDay?' · Limbo':''}{item.id==='runs'&&<span className="mono text-[0.7rem] opacity-75">{r.runs.length}{runFormDirty?' + draft':''}</span>}{count>0&&<span className="editor-stage-count">{count}</span>}
         </button>;})}
       </nav>
       {ws.role !== 'fto_coordinator' && !editable && !locked && <div className="rise mb-3 text-sm rounded border bg-card p-3 flex gap-2"><Info className="h-4 w-4 mt-0.5 shrink-0" />{r.status === 'draft' ? 'Switch to the FTO role view to edit this draft.' : 'No official signature or approval has been recorded.'}</div>}
@@ -963,7 +967,7 @@ export default function ReportEditor() {
 
       {showErr && errs.length > 0 && <div role="alert" className="rise mb-4 rounded border border-destructive bg-card p-3 text-sm" data-testid="list-errors"><b className="text-destructive">Required before any signature (drafts may be saved incomplete):</b><ul className="list-disc pl-5 mt-1">{errs.map(e=><li key={e}><button type="button" className="text-left underline-offset-2 hover:underline" onClick={()=>setStage(stageForError(e))} data-testid="button-error-goto">{e}</button></li>)}</ul></div>}
 
-      {stage==='shift'&&<>
+      {stage==='start'&&<>
       <Panel id="shift-details" title="Shift metadata" className="mb-4 scroll-mt-28">
         <p className="border-b px-4 py-3 text-sm text-muted-foreground">The assigned FTO’s name and badge come from the phase assignment and are saved as this report’s identity snapshot.</p>
         <fieldset disabled={!editable} className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
@@ -993,17 +997,17 @@ export default function ReportEditor() {
       </Panel>
       </>}
 
-      {stage==='duty'&&<>
+      {stage==='start'&&<>
         <Panel id="duty-form" title="Reporting for Duty Form" className="mb-4 scroll-mt-28">
-         <div className="border-b px-4 py-3 text-sm text-muted-foreground">
-            New daily logs start with duty-check boxes selected to speed entry. Review every item; clearing an applicable task creates a UA deficiency. Each section’s <b>Not applicable</b> box starts unchecked; use it for an inapplicable section. Confirm the review before submission.
-         </div>
          <div className="grid gap-4 p-4">
            <fieldset disabled={!editable} className="grid gap-4 sm:grid-cols-3">
              <F l="Unit / cruiser assignment"><input value={r.reportingForDuty.cruiserId||r.reportingForDuty.unitNumber||''} maxLength={40} className={inp+' mono'} onChange={event=>set('reportingForDuty',{...r.reportingForDuty,unitNumber:event.target.value,cruiserId:event.target.value,reviewedAt:undefined})} placeholder="Enter assigned unit or cruiser" data-testid="input-unit-number"/></F>
               <F l="Shotgun Training"><select className={inp} value={r.reportingForDuty.shotgunTraining??''} onChange={event=>{const value=event.target.value;if(value==='Y'||value==='N')setShotgunTraining(value);}} data-testid="select-shotgun-training"><option value="" disabled>Select Y / N</option><option value="Y">Y</option><option value="N">N</option></select></F>
            </fieldset>
-            {deficiencyEditor.groups.some(group=>!group.added)&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.filter(group=>!group.added).map(group=><button type="button" key={group.id} disabled={!editable||!group.reviewed} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
+            {deficiencyEditor.groups.filter(group=>!group.added&&!group.runId&&group.reviewed).map(group=><label key={group.id} className="grid gap-1 rounded border border-destructive/40 bg-destructive/5 p-3 text-sm font-semibold" data-testid={`review-deficiency-${group.id}`}>
+              <span className="text-xs font-bold uppercase tracking-wide text-destructive">Unacceptable performance · {CATEGORY_LABEL[group.category]}</span>
+              <textarea disabled={!editable} value={group.narrative} onChange={event=>deficiencyEditor.setGroupNarrative(group.id,event.target.value)} className="w-full rounded border bg-card p-2.5 text-sm font-normal [field-sizing:content]" data-testid={`input-duty-deficiency-${group.id}`}/>
+            </label>)}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded border bg-muted/20 p-3">
               <span className="text-sm font-semibold">Reporting for Duty form checkboxes</span>
               <button type="button" disabled={!editable} onClick={toggleDutyChecklist} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-duty-checklist">{dutyAllChecked?'Deselect all':'Select all'}</button>
@@ -1200,17 +1204,16 @@ export default function ReportEditor() {
               <div className="rounded border bg-card p-3">
                 <div className="text-sm font-bold">Sheets in this run</div>
                 <ul className="mt-2 divide-y text-sm">{runChecklistSteps.map(step=><li key={step.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><button type="button" className="font-semibold underline-offset-2 hover:underline" onClick={()=>setRunStep(step.id)} data-testid={`link-finish-sheet-${step.id}`}>{step.title}</button><SheetStatus state={sheetReviewed(step.id as RunSheetKey)?'reviewed':'needs_review'} testId={`status-sheet-${step.id}`}/></li>)}</ul>
-                {!allSheetsReviewed&&<p className="mt-2 text-xs text-warn font-semibold">Open each sheet marked Needs review and confirm the review at the bottom of its checklist. Visiting a sheet does not count as a review.</p>}
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button type="button" disabled={!editable||!allSheetsReviewed} onClick={draftNarrative} className="min-h-10 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-50" data-testid="button-draft-run-narrative">Draft narrative outline from reviewed sheets</button>
-                <span className="text-xs text-muted-foreground">Only fills an empty narrative or an unedited outline. Written text is never replaced.</span>
               </div>
             <Suspense fallback={null}><RunUaBoxPanel editable={editable}
               statements={failureStatements.map(statement=>({...statement,category:statementCategory(statement.key)}))}
               onStatementChange={(keys,value)=>setRunFailureEdits(current=>({...current,...Object.fromEntries(keys.map(key=>[key,value]))}))}
               checklistCategories={[...new Set(deficiencyEditor.groups.filter(group=>group.runId===(editingRunId??runDraftId)&&!group.added).map(group=>group.category))]}
               box={runUaBox} onChange={setRunUaBox}
+              onChangeCategory={category=>deficiencyEditor.open(deficiencyGroupId(editingRunId??runDraftId,category))}
               suggestions={category=>uaIssueSuggestions(ws.reports,r,editingRunId??runDraftId,category,parseRunDateTime(runDateTimeText))}/></Suspense>
             <F l="Training narrative · performance, coaching, response"><textarea rows={3} disabled={!editable} className="mt-3 w-full rounded border bg-card p-2.5 text-sm" value={runNarrative} onChange={e=>setRunNarrative(e.target.value)} placeholder="Describe observed performance, response, and coaching." data-testid="input-run-narrative" /></F>
             {runUaText&&<p className="mt-2 whitespace-pre-wrap rounded border bg-muted/30 p-2.5 text-sm" data-testid="text-run-ua-appended">{runUaText}</p>}
@@ -1278,20 +1281,12 @@ export default function ReportEditor() {
               })}</ul>}
           </div>
         </div>
-        <div className="border-t bg-warn/5 px-4 py-3 text-xs text-muted-foreground" data-testid="status-patrol-integration">
-          <b className="text-foreground">Patrol View import and online submission are unavailable.</b> Run details must be entered manually. Saved records do not have verified signatures or official approval.
-        </div>
       </Panel>
       </>}
 
-      {stage==='evaluation'&&<>
-      <Panel id="seg-ratings" title="Standard Evaluation Guidelines · 30 categories · descriptive ratings" className="mb-4 scroll-mt-28">
-        <div className="border-b px-4 py-3 text-sm text-muted-foreground">
-          {isLimboDay
-            ? <p className="font-semibold text-foreground">Limbo day: no performance ratings are recorded. The manual requires the daily categories to remain blank; run checklists and activity are still completed.</p>
-            : <><p>These 30 categories follow your updated Weekly Performance Summary. Most start at Acceptable; EVO, Initiating Arrests, Handling Prisoners, Vehicle Stops, Building Search, Pat Down/Searches, High Stress Situations, and Arrest Situations start at Not Observed. The FTO must review each selection against observed performance; no rating is inferred from activity.</p>
-              <p className="mt-1">The manual definition and source SEG are shown under every category. Before submission, the PO and FTO must review every category; defaults are not proof of review.</p></>}
-        </div>
+      {stage==='finish'&&<>
+      <Panel id="seg-ratings" title="Daily Ratings" className="mb-4 scroll-mt-28">
+        {isLimboDay&&<div className="border-b px-4 py-3 text-sm"><p className="font-semibold text-foreground">Limbo day · no ratings</p></div>}
         <div className="grid gap-2 border-b bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="rating-legend">
           {RATING_LEGEND.map(({code,label})=><div key={code} className="flex items-center gap-2 text-sm" data-testid={`legend-rating-${code}`}><span className="mono min-w-9 font-bold">{code}</span><span>— {label}</span></div>)}
         </div>
@@ -1318,7 +1313,7 @@ export default function ReportEditor() {
                     </div>
                     <div role="radiogroup" aria-label={CATEGORY_LABEL[c]} className="grid h-fit grid-cols-5 gap-1 self-start">
                       {r.notApplicableCategories?.includes(c)&&!deficiencyEditor.groups.some(group=>group.category===c)&&v.rating!=='UA'
-                        ? <span role="status" className="seg-rating-choice col-span-5 flex h-9 items-center justify-center rounded-sm border bg-muted text-xs font-bold" data-testid={`rating-${c}-na`}>N/A · Not applicable</span>
+                        ? <span role="status" className="seg-rating-choice col-span-5 flex h-9 items-center justify-center rounded-sm border bg-muted text-xs font-bold" data-testid={`rating-${c}-na`}>NO · Not Observed (not applicable)</span>
                         : RATINGS.map(code => {
                         const rtRestricted=code==='RT' && isRtRestricted(c);
                         return <button
@@ -1378,7 +1373,7 @@ export default function ReportEditor() {
       </Panel>
       </>}
 
-      {stage==='activity'&&<>
+      {stage==='finish'&&<>
       <Panel id="activity-summary" title="Daily Activity Summary" className="mb-4 scroll-mt-28">
         {activityMismatchFields.length>0&&<div className="border-b px-4 py-3 text-sm text-muted-foreground">
           {activityMismatchFields.length>0&&<div role="note" className="mt-2 rounded border border-accent bg-accent/10 p-2.5 text-foreground" data-testid="status-activity-discrepancy"><b>Review the daily statistics against run records</b><p className="mt-1 text-xs text-muted-foreground">The portal did not change either value.</p><ul className="mt-1 grid gap-1 text-xs sm:grid-cols-2">{activityMismatchFields.map(({key,label})=><li key={key}><b>{label}:</b> daily statistic {totalActivity[key]} · run checkboxes {runDerivedActivity[key]}</li>)}</ul></div>}
@@ -1414,7 +1409,7 @@ export default function ReportEditor() {
       </Panel>
       </>}
 
-      {stage==='narrative'&&<>
+      {stage==='finish'&&<>
       <Panel id="shift-narrative" title="Narrative" className="mb-4 scroll-mt-28">
         <div className="p-4 grid gap-3">
           <F l="Shift narrative"><textarea disabled={!editable} rows={4} value={r.narrative} onChange={e=>set('narrative',e.target.value)} className="w-full rounded border bg-card p-2.5 text-sm" data-testid="input-narrative" /></F>
@@ -1490,7 +1485,7 @@ export default function ReportEditor() {
       </AlertDialog>
       <AlertDialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>PO and FTO: review every performance category</AlertDialogTitle><AlertDialogDescription>Most categories start at Acceptable; eight categories start at Not Observed. Review all 30 category definitions and ratings, the Reporting for Duty checklist, and every run form for completeness. This saves a local review confirmation only; it does not submit a report or verify the PO’s identity.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Review ratings with the PO</AlertDialogTitle><AlertDialogDescription className="sr-only">Confirm the daily ratings were reviewed with the PO</AlertDialogDescription></AlertDialogHeader>
           <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={reviewConfirmed} onChange={e=>setReviewConfirmed(e.target.checked)} data-testid="checkbox-rating-review" />I confirm every category was reviewed with the PO for the correct rating.</label>
           {errs.length>0 && <p role="alert" className="text-sm text-destructive">{errs.length} required evaluation or header items still need attention.</p>}
           <AlertDialogFooter><AlertDialogCancel>Return to categories</AlertDialogCancel><AlertDialogAction disabled={!reviewConfirmed || errs.length>0 || runFormDirty} onClick={()=>save(true)} data-testid="button-confirm-rating-review">Save local review</AlertDialogAction></AlertDialogFooter>
