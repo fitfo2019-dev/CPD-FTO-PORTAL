@@ -18,7 +18,7 @@ import { probeTestAdmin } from '@/features/test-admin/api.js';
 
 type NavItem = { href: string; label: string; icon: typeof LayoutGrid; devOnly?: boolean };
 
-const RESOURCES: NavItem = { href: '/resources', label: 'Help Desk', icon: CircleHelp };
+const RESOURCES: NavItem = { href: '/resources', label: 'Resources', icon: CircleHelp };
 const SETTINGS: NavItem = { href: '/settings', label: 'Account Settings', icon: Settings };
 // Vercel names and order first, then the Replit-only pages. Items marked devOnly are
 // rebuild screens that stay preview-only until their server routes are integrated.
@@ -65,22 +65,34 @@ const ROLE_NAV: Record<Role, NavItem[]> = {
     RESOURCES,
   ],
   po: [
-    { href: '/', label: 'My Training', icon: UserRound, devOnly: true },
-    { href: '/agency-packets', label: 'Agency Packets', icon: FileText },
-    { href: '/packet-submissions', label: 'Packet Status', icon: ClipboardList },
-    { href: '/role-access', label: 'Account Access', icon: Lock },
+    { href: '/', label: 'My Training', icon: UserRound },
     RESOURCES,
-    SETTINGS,
   ],
   policenet: [
     { href: '/technical-access', label: 'Technical Access', icon: Settings },
-    RESOURCES,
   ],
   policenet_admin_sgt: [
     { href: '/technical-access', label: 'Technical Access', icon: Settings },
-    RESOURCES,
   ],
 };
+
+// Phone bottom bar: three fixed tabs per role, everything else under MORE.
+const SCHEDULING: NavItem = { href: '/scheduling', label: 'Scheduling', icon: CalendarCheck };
+const MOBILE_PRIMARY: Partial<Record<Role, string[]>> = {
+  fto: ['/', '/reports/new', SCHEDULING.href],
+  fto_coordinator: ['/', '/packet-submissions', '/class-overview'],
+  fto_sgt: ['/', '/po-progress', '/reports/weekly-packet'],
+};
+// Pages reached through the Scheduling tab on phones.
+const SCHEDULING_PAGES = ['/phase-sign-up', '/substitute-fto'];
+
+function mobileTabs(role: Role, nav: NavItem[]): { primary: NavItem[]; more: NavItem[] } {
+  const items = role === 'fto' ? [...nav.filter(item => !SCHEDULING_PAGES.includes(item.href)), SCHEDULING] : nav;
+  if (items.length <= 4) return { primary: items, more: [] };
+  const wanted = (MOBILE_PRIMARY[role] ?? []).map(href => items.find(item => item.href === href)).filter((item): item is NavItem => Boolean(item));
+  const primary = [...wanted, ...items.filter(item => !wanted.includes(item))].slice(0, 3);
+  return { primary, more: items.filter(item => !primary.includes(item)) };
+}
 const navFor = (role: Role): NavItem[] => ROLE_NAV[role].filter(item => !item.devOnly || import.meta.env.DEV);
 
 const navTestId = (href: string) => `link-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`;
@@ -131,6 +143,7 @@ export function Shell({ children }: { children: ReactNode }) {
   };
   const isActive = (h: string) => {
     if(h==='/') return loc==='/';
+    if(h==='/scheduling') return loc==='/scheduling'||SCHEDULING_PAGES.includes(loc);
     if(h==='/reports/weekly-packet') return loc==='/reports/weekly-packet'||loc==='/reports/weekly-summary'||loc==='/reports/weekly-ack'||loc==='/reports/weekly-log';
     if(h==='/reports/monthly-summary') return loc==='/reports/monthly-summary';
     if(h==='/reports/weekly-log') return loc==='/reports/weekly-log';
@@ -142,12 +155,10 @@ export function Shell({ children }: { children: ReactNode }) {
   const visibleNav = testAdminAvailable
     ? [...navFor(w.ws.role), { href: '/test-admin', label: 'Test Admin', icon: FlaskConical }]
     : navFor(w.ws.role);
-  const mobileNav = visibleNav.length > 5
-    ? [...visibleNav.slice(0, 4), RESOURCES, ...visibleNav.slice(4).filter(item => item.href !== RESOURCES.href)]
-    : visibleNav;
-  const mobilePrimary = mobileNav.length > 4 ? mobileNav.slice(0, 3) : mobileNav;
-  const mobileMore = mobileNav.length > 4 ? mobileNav.slice(3) : [];
-  const activePage = visibleNav.find(n => isActive(n.href)) ?? visibleNav[0];
+  const { primary: mobilePrimary, more: mobileMore } = mobileTabs(w.ws.role, visibleNav);
+  // PO's reach Account Settings from the account area instead of a menu tab.
+  const accountMenuSettings = w.ws.role === 'po';
+  const activePage = visibleNav.find(n => isActive(n.href)) ?? (loc === SCHEDULING.href ? SCHEDULING : visibleNav[0]);
   const currentPage = isCommand && loc!=='/resources'
     ? 'Submitted packets'
     : loc === '/reports/weekly-ack'
@@ -163,7 +174,7 @@ export function Shell({ children }: { children: ReactNode }) {
       : role === 'fto_sgt'
         ? '/'
       : role === 'po'
-        ? '/role-access'
+        ? '/'
         : isTechnicalRole(role)
           ? '/technical-access'
           : '/');
@@ -254,6 +265,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
         <div className="portal-side-foot">
             <div className="portal-side-account">
+              {accountMenuSettings && <Link href={SETTINGS.href} data-testid="link-account-settings" aria-current={isActive(SETTINGS.href) ? 'page' : undefined} className="flex h-8 items-center gap-1.5 rounded-sm border border-white/30 px-2 text-xs font-semibold text-white hover:bg-white/10"><Settings className="h-3.5 w-3.5" aria-hidden="true" />{SETTINGS.label}</Link>}
               {!w.previewOnly && isLoaded && isSignedIn ? (
                 <>
                   <span className="block break-words text-[0.7rem] font-semibold text-white/80" title="Signed-in account">
@@ -312,6 +324,7 @@ export function Shell({ children }: { children: ReactNode }) {
             Status help
           </Link>
           <div className="ml-auto flex w-full min-w-0 items-center gap-1.5 md:w-auto">
+            {accountMenuSettings && <Link href={SETTINGS.href} aria-label={SETTINGS.label} data-testid="link-account-settings-mobile" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border md:hidden"><Settings className="h-4 w-4" aria-hidden="true" /></Link>}
             {!w.previewOnly && isLoaded && isSignedIn ? (
               <button type="button" onClick={() => void onSignOut()} aria-label="Sign out" className="h-9 shrink-0 rounded-sm border px-2 text-xs font-semibold md:hidden">
                 Sign out

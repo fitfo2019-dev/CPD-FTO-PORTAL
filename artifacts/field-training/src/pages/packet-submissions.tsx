@@ -63,7 +63,7 @@ function Detail({id,onClose}:{id:string;onClose():void}) {
         <Button data-testid="button-review-po-totals" disabled={busy} onClick={()=>void reviewPoTotals()}>CONFIRM MY REVIEW</Button>
       </div>}
       {poView&&s.handoff_status!=='awaiting_po_totals_review'&&<p className="border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-        Your review was recorded. A released packet and its receipt action appear under Agency Packets.
+        Your review was recorded.
       </p>}
     </div>}
     <AlertDialog open={!!confirm} onOpenChange={o=>{if(!o&&!busy)setConfirm(null);}}>
@@ -120,7 +120,7 @@ function Assignments() {
   </section>;
 }
 
-export default function PacketSubmissions() {
+export default function PacketSubmissions({embedded=false}:{embedded?:boolean}={}) {
   const {context,loading,error,previewOnly,refresh}=usePacketReview();
   const [offset,setOffset]=useState(0);
   const [openId,setOpenId]=useState<string|null>(null);
@@ -128,10 +128,12 @@ export default function PacketSubmissions() {
   const list=useListPacketSubmissions({offset},{query:{enabled:live,queryKey:[...getListPacketSubmissionsQueryKey({offset}),context?.account_id],refetchInterval:5000,retry:false}});
   const items=list.data?.items??[];
   return <div className="space-y-4 pb-8">
-    <header className="border border-border border-t-4 border-t-primary bg-card p-4">
-      <p className="library-eyebrow">Packet Submissions</p>
-      <h1 className="page-title text-2xl">Daily Packet Status</h1>
-    </header>
+    {embedded
+      ? <h2 className="label-caps" data-testid="heading-review-and-sign">Review and Sign</h2>
+      : <header className="border border-border border-t-4 border-t-primary bg-card p-4">
+        <p className="library-eyebrow">Packet Submissions</p>
+        <h1 className="page-title text-2xl">Daily Packet Status</h1>
+      </header>}
     {previewOnly?<p role="status" className="border border-dashed border-border p-4 text-sm">Not loaded</p>
     :loading?<Skeleton/>
     :error||!context?<div role="alert" className="flex items-center justify-between gap-2 border border-destructive bg-card p-4 text-sm text-destructive">{error??'Packet service unavailable.'}<Button variant="outline" onClick={()=>void refresh().catch(()=>{})}>RETRY</Button></div>
