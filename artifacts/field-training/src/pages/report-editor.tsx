@@ -1211,7 +1211,7 @@ export default function ReportEditor() {
               onStatementChange={(keys,value)=>setRunFailureEdits(current=>({...current,...Object.fromEntries(keys.map(key=>[key,value]))}))}
               checklistCategories={[...new Set(deficiencyEditor.groups.filter(group=>group.runId===(editingRunId??runDraftId)&&!group.added).map(group=>group.category))]}
               box={runUaBox} onChange={setRunUaBox}
-              suggestions={category=>uaIssueSuggestions(ws.reports,r,editingRunId??runDraftId,category)}/></Suspense>
+              suggestions={category=>uaIssueSuggestions(ws.reports,r,editingRunId??runDraftId,category,parseRunDateTime(runDateTimeText))}/></Suspense>
             <F l="Training narrative · performance, coaching, response"><textarea rows={3} disabled={!editable} className="mt-3 w-full rounded border bg-card p-2.5 text-sm" value={runNarrative} onChange={e=>setRunNarrative(e.target.value)} placeholder="Describe observed performance, response, and coaching." data-testid="input-run-narrative" /></F>
             {runUaText&&<p className="mt-2 whitespace-pre-wrap rounded border bg-muted/30 p-2.5 text-sm" data-testid="text-run-ua-appended">{runUaText}</p>}
             {narrativeAdditionRequired&&<button type="button" onClick={()=>{document.body.classList.add('print-narrative-only');window.addEventListener('afterprint',()=>document.body.classList.remove('print-narrative-only'),{once:true});window.print();}} className="mt-2 min-h-10 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-print-narrative-continuation">Print narrative continuation pages only</button>}

@@ -58,15 +58,15 @@ export function RunUaBoxPanel({ editable, statements, onStatementChange, checkli
       <span className="text-xs font-bold uppercase tracking-wide">What happened{required(whatMissing)}</span>
       {statements.map((statement, index) => <label key={statement.keys.join('|')} className="grid gap-1">
         {statement.category && <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" data-testid={`text-po-failed-category-${index}`}>{categoryName(statement.category)}</span>}
-        <textarea rows={Math.max(2, Math.ceil(statement.text.length / 85))} disabled={!editable} className="w-full rounded border bg-card p-2 text-sm" value={statement.text}
+        <textarea rows={Math.max(2, Math.ceil(statement.text.length / 85))} disabled={!editable} className="w-full rounded border bg-card p-2 text-sm [field-sizing:content]" value={statement.text}
           aria-label={`PO failed to statement ${index + 1}`} onChange={event => onStatementChange(statement.keys, event.target.value)} data-testid={`input-po-failed-${index}`}/>
       </label>)}
-      <textarea rows={2} disabled={!editable} className="w-full rounded border bg-card p-2 text-sm" value={box.whatHappened ?? ''}
+      <textarea rows={2} disabled={!editable} className="w-full rounded border bg-card p-2 text-sm [field-sizing:content]" value={box.whatHappened ?? ''}
         aria-label="What happened, FTO additions" onChange={event => patch({ whatHappened: event.target.value })} data-testid="input-run-ua-what-happened"/>
     </div>
     <label className="mt-3 grid gap-1">
       <span className="text-xs font-bold uppercase tracking-wide">Corrective training{required(trainingMissing)}</span>
-      <textarea rows={2} disabled={!editable} className="w-full rounded border bg-card p-2 text-sm" value={box.correctiveTraining ?? ''}
+      <textarea rows={2} disabled={!editable} className="w-full rounded border bg-card p-2 text-sm [field-sizing:content]" value={box.correctiveTraining ?? ''}
         onChange={event => patch({ correctiveTraining: event.target.value })} data-testid="input-run-ua-corrective-training"/>
     </label>
     <div className="mt-3 grid gap-1">

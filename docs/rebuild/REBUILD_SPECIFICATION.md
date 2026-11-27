@@ -71,6 +71,7 @@ The FTO picks one of three reasons:
 
 - **Not Acceptable.** Creates a UA in the item's category.
 - **FTO Performed.** Recorded on the checklist only. No sentence is added to the narrative and the ratings are not affected.
+- The choice is made in one dialog per unchecked box. A box that combines several tasks lists each task with its own choice, plus "All of these".
 - **Not Applicable.** No effect.
 
 One tap on a section header marks the whole section Not Applicable.
@@ -91,6 +92,13 @@ One tap on a section header marks the whole section Not Applicable.
 - The daily rating row and the Weekly Performance Log entry fill in from this text automatically, so nothing is typed twice. Minutes captured here mean nothing has to be re-entered on the weekly.
 - A narrative that is too long for its page continues on a Narrative Addition page, printed as the next page number within the margins.
 - This replaces the earlier "write per category on the rating row" decision.
+
+### The run UA box (preview, Nov 27, 2026)
+
+- Each run has one UA box on its Narrative and Save step. It lists every UA category on the run: the categories from unchecked boxes (locked) and any category the FTO adds (removable until Finalize).
+- The box holds what happened (the "PO failed to..." sentences, editable, plus the FTO's own additions), the corrective training, and the total corrective-training minutes for the run (5, 10, 15, 20, 30 or Other). Minutes have no default; the FTO must choose them.
+- For each category, the box offers "Same issue as" the latest earlier UA in that category for this PO and phase, including an earlier run the same day, even while the current run is still being entered. The link feeds the NRT recommendation (PO-NRT-1).
+- The box text is appended under the run narrative, so it is written once.
 
 ### Abbreviations
 
@@ -241,7 +249,7 @@ The workbook listed "Summons Re-Issued" twice, so it appears once here. Solve Ci
 | Topic | Decision |
 | --- | --- |
 | Weekly Performance Summary | Totals the daily ratings and activity automatically. The header has Phase, Phase Week # (of 15), FTO Week # and "Week of", all auto-filled and locked. |
-| Weekly Performance Log | Auto-drafted. One entry per deficient category number, containing the deficiency, the corrective training, total minutes, and the W#D#P# tag of each page where it happened, e.g. "W1D4P7- PO failed to...". Strengths are suggested from categories rated A all week. The FTO edits and adds a brief overall comment. Per the manual, the Weekly Log date is the Sunday of that training week. |
+| Weekly Performance Log | Auto-drafted from reviewed daily logs, grouped like manual page 42: one entry per run category set (for example "5, 6/17/24, 25"), with the W#D#P# tag, the deficiency and corrective training, and that run's total minutes. Same-day runs with the same category share one entry. A UA that is documented but not counted gets its own entry marked "Not counted" with the reason. No default minutes. Strengths are suggested from categories rated A all week. The FTO edits and adds a brief overall comment. Per the manual, the Weekly Log date is the Sunday of that training week. |
 | Day-count check | Replaces the workbook's fixed 4 or 5 "!" check. Expected days = the PO's scheduled days, minus Limbo days, minus days marked PO not working. Coverage-day dailies count toward the regular FTO's week. A red "!" shows on a category row only when a scheduled rated day has no finalized daily, and hovering shows the missing day (e.g. "W2D4 not submitted"). The weekly cannot go to the PO for signature until no "!" remains. |
 | PO review and signature | On the FTO laptop or in the PO's own account. The packet cannot go to the Coordinator until the PO signs, because the manual requires the PO to review before upload. |
 | Deadline | Due 3 days after the workweek ends (manual). The FTO home page shows the due date, with a notice on day 2. On day 4 the Coordinator's Packet Monitor shows the packet as overdue. |

@@ -154,6 +154,14 @@ test('same-issue suggestions list earlier UA\'s for this PO, phase and category;
   assert.equal(adviseNrt(history, today).kind, 'nrt');
 });
 
+test('a run still being entered can be linked to an earlier run the same day', () => {
+  const report = settle(base([run('a', 13, '2026-11-10', box({ addedCategories: ['communicationsUsage'], whatHappened: 'Radio error a.' }))], 'same-day', '2026-11-10'));
+  const draftAt = run('draft', 16, '2026-11-10').occurredAt;
+  const earlier = report.checklistDeficiencies!.find(group => group.added)!;
+  assert.deepEqual(uaIssueSuggestions([], report, 'draft', 'communicationsUsage', draftAt).map(option => option.id), [uaIssueKey(report.id, earlier.id)]);
+  assert.equal(uaIssueSuggestions([], report, 'draft', 'communicationsUsage', run('draft', 9, '2026-11-10').occurredAt).length, 0);
+});
+
 test('export validation accepts the run UA box and FTO performed marks, and rejects zero minutes', () => {
   const value = failing('a', 13);
   const report = settle(base([{ ...value, checklistFtoPerformed: { 'task-0': true } }]));

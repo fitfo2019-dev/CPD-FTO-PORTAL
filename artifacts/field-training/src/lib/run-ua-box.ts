@@ -66,11 +66,12 @@ export const uaIssueKey = (reportId: string, groupId: string) => `${reportId}|${
  * Earlier UA's for this PO, class and phase in the same category, offered as a one-tap "Same issue as" suggestion.
  * Nothing is linked until the FTO taps it (owner, Nov 27, 2026).
  */
-export function uaIssueSuggestions(reports: readonly Report[], report: Report, runId: string, category: Category): { id: string; label: string }[] {
+export function uaIssueSuggestions(reports: readonly Report[], report: Report, runId: string, category: Category, draftOccurredAt?: string): { id: string; label: string }[] {
   const sameTrainee = (item: Report) => item.recruitBadge === report.recruitBadge && (item.className ?? '') === (report.className ?? '') && item.phase === report.phase;
   const earlier = reports.filter(item => item.id !== report.id && sameTrainee(item) && item.date < report.date && !item.limboDay)
     .sort((left, right) => left.date.localeCompare(right.date));
-  const runAt = report.runs.find(run => run.id === runId)?.occurredAt ?? '';
+  // A run still being entered is not in report.runs yet; use its entered time.
+  const runAt = report.runs.find(run => run.id === runId)?.occurredAt ?? draftOccurredAt ?? '';
   const sameDayEarlier = (group: ChecklistDeficiencyGroup) => {
     const at = report.runs.find(run => run.id === group.runId)?.occurredAt ?? '';
     return group.runId !== runId && at < runAt;
