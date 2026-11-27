@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const VERSION = "Version 4 · November 26, 2026 · portal main 9999e49";
+const VERSION = "Version 4 · November 26, 2026 · portal main 921d984";
 
 const NAVY = "1F3A68";
 S.setTheme({
@@ -536,14 +536,14 @@ S.layouts.agenda(deck.addSlide(), {
   const f = fr({
     kicker: "STATUS OF THE BUILD",
     headline: "The rules are live in the portal; several screens still await preview approval",
-    note: "As of portal main 9999e49 and website main 11d7cd1. This slide is updated each time a change is merged.",
+    note: "As of portal main 921d984 and website main 11d7cd1. Server alerts start once the alerts migration is applied. This slide is updated each time a change is merged.",
     sources: [LOG],
   });
   S.layouts.comparison(s, {
     frame: f,
     criteria: ["Paperwork", "PO standing", "Roles", "Notices"],
-    a: { tag: "LIVE", heading: "Merged and published", rows: ["Two-stage packets, charging lookup, Resources", "PO-STD-2, PO-SCORE-2, Show Calculation, My Training", "Role tabs; Help Desk workflows per role", "NRT rule logic and its tests"] },
-    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Real form exporter; Shifts & Runs redesign", "PO status label and phase tracker on My Training", "Role manual PDFs; Vercel role cards", "Server NRT and Week 15 alerts; cease-training"] },
+    a: { tag: "LIVE", heading: "Merged to main", rows: ["Two-stage packets, charging lookup, Resources", "PO-STD-2, PO-SCORE-2, Show Calculation, My Training", "Role tabs; Help Desk workflows; manual PDFs", "Server NRT and Week 15 alerts in the portal"] },
+    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Real form exporter; Shifts & Runs redesign", "PO status label and phase tracker on My Training", "Added UA's; Vercel role cards", "Alert email by mail relay; cease-training"] },
   });
 }
 
