@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   canCopyWording, citationPath, clauseLabels, clausesFromStatuteHtml, elementsComplete, elementsForCitation, mergeComplaintSources,
-  normalizeComplaintCodes, penaltySentences, resolveStatute, searchCharges, type ComplaintEntry, type StatuteClauses,
+  normalizeComplaintCodes, penaltySentences, resolveStatute, searchCharges, wordingCitesOwnSection, type ComplaintEntry, type StatuteClauses,
 } from './charging-lookup';
 
 const data = (path: string) => JSON.parse(readFileSync(new URL(`../../public/law-handbook/data/${path}`, import.meta.url), 'utf8'));
@@ -117,7 +117,8 @@ test('city corrections: placard tampering under 4707.09, 525.23 removed, open bu
   assert.deepEqual(penaltySentences(statute), ['CCC 4701.99: A. Whoever violates any provision of this code is guilty of a misdemeanor of the first degree.']);
   assert.ok(!codes.some(code => code.key === 'CCC:2501.985'));
   const burning = codes.find(code => code.key === 'CCC:2501.09.1')!;
-  assert.ok(burning.entries.every(entry => !canCopyWording(entry) && entry.text.includes('Section 2501.09.1') && entry.text.includes('2501.01.1')));
+  assert.ok(burning.entries.every(entry => canCopyWording(entry) && entry.text.includes('Section 2501.09.1') && entry.text.includes('2501.01.1')
+    && entry.text.includes('open burning') && !entry.text.includes('opening burning')));
   const fireCode = resolveStatute({ kind: 'CCC', section: '2501.09.1' }, undefined, supplement)!;
   assert.deepEqual(penaltySentences(fireCode), ['CCC 2501.99: Any violation of the Columbus Fire Prevention Code is a first degree misdemeanor.']);
 });
@@ -151,4 +152,19 @@ test('OVI: misdemeanor is citation only, felony OVI wording is word for word and
   assert.deepEqual(group.alternatives.slice(viii + 1, viii + 4).map(line => [line.text.slice(0, line.text.indexOf(')') + 1), line.depth]),
     [['(I)', 4], ['(II)', 4], ['(ix)', 3]]);
   assert.ok(merged.some(code => code.key === 'ORC:2913.02'));
+});
+
+test('Set D: 2921.52 felony cites 2921.52, felony traffic offenses go to D.I.C.E., Copy needs the own section', () => {
+  const sham = codes.find(code => code.key === 'ORC:2921.52')!;
+  assert.ok(sham.entries.every(entry => canCopyWording(entry) && wordingCitesOwnSection(entry)));
+  assert.ok(sham.entries[3].text.includes('Section 2921.52(B)(3)'));
+  const dice = (key: string) => codes.find(code => code.key === key)!.entries.filter(entry => entry.processedBy === 'DICE');
+  assert.deepEqual(dice('ORC:2919.22').map(entry => entry.variant.slice(-2)), ['F5', 'F5', 'F4']);
+  assert.ok(dice('ORC:2919.22').every(entry => entry.variant.startsWith('OPERATING VEHICLE WHILE INTOXICATED') && !canCopyWording(entry)));
+  assert.deepEqual(dice('ORC:2921.331').map(entry => entry.variant.slice(-2)), ['F4', 'F3', 'F3']);
+  const mismatch = { ...sham.entries[3], text: sham.entries[3].text.replace('Section 2921.52(B)(3)', 'Section 921.52(B)(3)') };
+  assert.ok(!wordingCitesOwnSection(mismatch) && !canCopyWording(mismatch));
+  assert.ok(!wordingCitesOwnSection({ ...mismatch, text: 'in violation of Section 2921.521 of the Ohio Revised Code' }));
+  const locked = codes.flatMap(code => code.entries).filter(entry => !entry.conflict && !entry.example && entry.text.trim() && !wordingCitesOwnSection(entry));
+  assert.equal(locked.length, 0);
 });

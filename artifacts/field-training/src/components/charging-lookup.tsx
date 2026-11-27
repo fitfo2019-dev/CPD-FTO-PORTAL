@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { Check, Copy, ExternalLink, FileText, Gavel, Search } from 'lucide-react';
 import { apiEndpoint } from '@workspace/api-client-react';
 import {
-  OFFICIAL_STATUTE_URL, canCopyWording, citationPath, elementsComplete,
+  OFFICIAL_STATUTE_URL, canCopyWording, citationPath, elementsComplete, wordingCitesOwnSection,
   elementsForCitation, mergeComplaintSources, normalizeComplaintCodes, penaltySentences, resolveStatute, searchCharges,
   type ChargeCode, type ComplaintEntry, type ElementGroup, type StatuteClauses,
   type StatuteRecord, type SupplementRecord,
@@ -156,6 +156,7 @@ function ChargeDetail({ code, onBack }: { code: ChargeCode; onBack: () => void }
     ? elementsComplete(group, checked)
     : officialReviewed;
   const copyAllowed = Boolean(entry && canCopyWording(entry) && elementsDone);
+  const citationMismatch = Boolean(entry && entry.text.trim() && !wordingCitesOwnSection(entry));
   const officialUrl = OFFICIAL_STATUTE_URL(code.kind, code.section);
 
   const toggle = (index: number) => setChecked(previous => {
@@ -229,9 +230,9 @@ function ChargeDetail({ code, onBack }: { code: ChargeCode; onBack: () => void }
 
       <section className="charging-step" aria-labelledby="charging-wording">
         <h3 id="charging-wording">Complaint wording</h3>
-        {(entry.conflict || entry.ambiguous || entry.example) && (
+        {(citationMismatch || entry.conflict || entry.ambiguous || entry.example) && (
           <p className="charging-flag" data-testid="text-charge-flag">
-            {entry.conflict ? 'Manual conflict' : entry.ambiguous ? 'Ambiguous manual entry' : 'Manual example'}
+            {citationMismatch || entry.conflict ? 'Manual conflict' : entry.ambiguous ? 'Ambiguous manual entry' : 'Manual example'}
           </p>
         )}
         {entry.processedBy === 'DICE' && (
@@ -242,11 +243,13 @@ function ChargeDetail({ code, onBack }: { code: ChargeCode; onBack: () => void }
         ) : (
           <p className="charging-wording" data-testid="text-complaint-wording">{entry.text}</p>
         )}
-        {!entry.citationOnly && !entry.processedBy && (
+        {!entry.citationOnly && (!entry.processedBy || entry.page > 0) && (
           <div className="charging-actions">
-            <button type="button" className="charging-copy" disabled={!copyAllowed} onClick={() => { void copy(); }} data-testid="button-copy-wording">
-              {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy wording'}
-            </button>
+            {!entry.processedBy && (
+              <button type="button" className="charging-copy" disabled={!copyAllowed} onClick={() => { void copy(); }} data-testid="button-copy-wording">
+                {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />} {copied ? 'Copied' : 'Copy wording'}
+              </button>
+            )}
             {entry.page > 0 && (
               <a className="geography-map-link" href={manualPageHref(entry.page)} target="_blank" rel="noreferrer" data-testid="link-manual-page">
                 <FileText size={15} aria-hidden="true" /> Manual page {entry.page}

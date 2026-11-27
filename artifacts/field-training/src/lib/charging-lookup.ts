@@ -231,9 +231,19 @@ export function penaltySentences(statute: StatuteClauses): string[] {
     .filter(text => /\bguilty of\b|\b(felony|misdemeanor) of the \w+ degree\b|\b(first|second|third|fourth|fifth) degree (felony|misdemeanor)\b|\bminor misdemeanor\b|\bunclassified (felony|misdemeanor)\b/i.test(text));
 }
 
+/** True when the wording cites at least one of the entry's own sections (e.g. 2921.52 for ORC 2921.52(B)(3)). */
+export function wordingCitesOwnSection(entry: ComplaintEntry): boolean {
+  const sections = entry.citations
+    .map(citation => /^(?:ORC|CCC)\s+(\d[\d.]*?)(?=\(|$)/.exec(citation.trim())?.[1])
+    .filter((section): section is string => Boolean(section));
+  if (sections.length === 0) return true;
+  return sections.some(section =>
+    new RegExp(`(?<![\\d.])${section.replace(/\./g, '\\.')}(?!\\.?\\d)`).test(entry.text));
+}
+
 export function canCopyWording(entry: ComplaintEntry): boolean {
   return !entry.conflict && !entry.ambiguous && !entry.example && !entry.processedBy && !entry.citationOnly
-    && entry.text.trim().length > 0;
+    && entry.text.trim().length > 0 && wordingCitesOwnSection(entry);
 }
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', sect: '§' };
