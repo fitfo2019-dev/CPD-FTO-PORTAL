@@ -26,6 +26,8 @@ tags:
     description: Server-scoped Coordinator packet review and PO acknowledgment
   - name: assignment-transitions
     description: Coordinator-authorized successor assignment transitions
+  - name: training-alerts
+    description: NRT, NRT review request and Phase IV Not release alerts for the assigned Coordinator and FTO Sergeants
 paths:
   /v1/account/operational-profile:
     get:
@@ -166,6 +168,76 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PacketSubmission" }
+  /v1/alerts:
+    get:
+      operationId: listTrainingAlerts
+      tags: [training-alerts]
+      parameters:
+        - { name: state, in: query, schema: { type: string, enum: [open, closed], default: open } }
+      responses:
+        "200":
+          description: Alerts scoped to the verified Coordinator, every alert for an FTO Sergeant, or the FTO's own alerts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingAlertPage" }
+        "403": { description: "Verified FTO, Coordinator or FTO Sergeant required" }
+        "503": { description: Alert storage unavailable }
+  /v1/alerts/nrt-review-request:
+    post:
+      operationId: createNrtReviewRequest
+      tags: [training-alerts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NrtReviewRequestInput" }
+      responses:
+        "200":
+          description: Server-recorded NRT review request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingAlert" }
+        "403": { description: Active assignment to the PO required }
+        "503": { description: Alert storage unavailable }
+  /v1/alerts/week15:
+    put:
+      operationId: saveWeek15Recommendation
+      tags: [training-alerts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Week15RecommendationInput" }
+      responses:
+        "200":
+          description: Not release alert opened, changed, or not needed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Week15RecommendationResult" }
+        "403": { description: Active Phase IV assignment to the PO required }
+        "422": { description: Phase IV assignment required }
+        "503": { description: Alert storage unavailable }
+  /v1/alerts/{id}/close:
+    post:
+      operationId: closeTrainingAlert
+      tags: [training-alerts]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CloseTrainingAlertInput" }
+      responses:
+        "200":
+          description: Alert closed for every recipient
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingAlert" }
+        "400": { description: Closing note required }
+        "403": { description: Coordinator or FTO Sergeant required }
+        "404": { description: Alert not found in scope }
+        "409": { description: Alert already closed }
   /v1/agency/assignment-transitions/context:
     get:
       operationId: getAssignmentTransitionContext
@@ -1242,7 +1314,7 @@ components:
       properties:
         available: { type: boolean }
         account_id: { type: string }
-        role: { type: string, enum: [PO, FTO, FTO_COORDINATOR, FTO_COC, POLICENET, POLICENET_ADMIN_SGT] }
+        role: { type: string, enum: [PO, FTO, FTO_SGT, FTO_COORDINATOR, FTO_COC, POLICENET, POLICENET_ADMIN_SGT] }
         coordinators:
           type: array
           items: { $ref: "#/components/schemas/PacketCoordinator" }
@@ -1353,6 +1425,70 @@ components:
         category_key: { type: string, minLength: 1, maxLength: 80, pattern: "^[A-Za-z][A-Za-z0-9]*$" }
         rating: { type: string, enum: [UA] }
         justification: { type: string, maxLength: 100000 }
+    TrainingAlert:
+      type: object
+      required: [id, kind, po_name, po_badge, class_name, phase, fto_name, coordinator_id, category, record_date, report_ids, summary, week15_choice, week15_changed_at, created_at, state, closed_by_name, closed_by_role, closed_at, close_note]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [NRT, NRT_REVIEW_REQUEST, NOT_RELEASE] }
+        po_name: { type: string }
+        po_badge: { type: string }
+        class_name: { type: string }
+        phase: { type: integer, minimum: 1, maximum: 4 }
+        fto_name: { type: string }
+        coordinator_id: { type: string }
+        category: { anyOf: [{ type: string }, { type: "null" }] }
+        record_date: { anyOf: [{ type: string }, { type: "null" }] }
+        report_ids: { type: array, items: { type: string } }
+        summary: { type: string }
+        week15_choice: { anyOf: [{ type: string, enum: [release, not_release] }, { type: "null" }] }
+        week15_changed_at: { anyOf: [{ type: string }, { type: "null" }] }
+        created_at: { type: string }
+        state: { type: string, enum: [open, closed] }
+        closed_by_name: { anyOf: [{ type: string }, { type: "null" }] }
+        closed_by_role: { anyOf: [{ type: string, enum: [FTO_COORDINATOR, FTO_SGT] }, { type: "null" }] }
+        closed_at: { anyOf: [{ type: string }, { type: "null" }] }
+        close_note: { type: string }
+    TrainingAlertPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TrainingAlert" }
+    NrtReviewRequestInput:
+      type: object
+      additionalProperties: false
+      required: [po_badge, report_ids, summary]
+      properties:
+        po_badge: { type: string, minLength: 1, maxLength: 40, pattern: "^[A-Za-z0-9-]+$" }
+        report_ids:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { type: string, minLength: 1, maxLength: 200 }
+        summary: { type: string, maxLength: 5000 }
+    Week15RecommendationInput:
+      type: object
+      additionalProperties: false
+      required: [po_badge, choice]
+      properties:
+        po_badge: { type: string, minLength: 1, maxLength: 40, pattern: "^[A-Za-z0-9-]+$" }
+        choice: { type: string, enum: [release, not_release] }
+    Week15RecommendationResult:
+      type: object
+      required: [alert]
+      properties:
+        alert:
+          anyOf:
+            - { $ref: "#/components/schemas/TrainingAlert" }
+            - { type: "null" }
+    CloseTrainingAlertInput:
+      type: object
+      additionalProperties: false
+      required: [note]
+      properties:
+        note: { type: string, minLength: 1, maxLength: 5000 }
     PacketReviewActionInput:
       type: object
       additionalProperties: false
@@ -1759,7 +1895,7 @@ components:
           required: [total_records, role]
           properties:
             total_records: { type: integer, minimum: 0, maximum: 100 }
-            role: { type: string, enum: [PO, FTO, FTO_COORDINATOR, FTO_COC, POLICENET, POLICENET_ADMIN_SGT] }
+            role: { type: string, enum: [PO, FTO, FTO_SGT, FTO_COORDINATOR, FTO_COC, POLICENET, POLICENET_ADMIN_SGT] }
             has_more: { type: boolean }
             next_cursor: { type: ["string", "null"], maxLength: 256 }
         data:

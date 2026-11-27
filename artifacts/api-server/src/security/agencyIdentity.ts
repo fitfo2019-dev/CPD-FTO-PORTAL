@@ -3,7 +3,7 @@ import type { Request, RequestHandler } from "express";
 import type { Principal } from "./authorization.js";
 import { isReservedTestRole } from "./testAuthority.js";
 
-export type AgencyRole = "PO" | "FTO" | "FTO_COORDINATOR" | "FTO_COC" | "POLICENET" | "POLICENET_ADMIN_SGT";
+export type AgencyRole = "PO" | "FTO" | "FTO_SGT" | "FTO_COORDINATOR" | "FTO_COC" | "POLICENET" | "POLICENET_ADMIN_SGT";
 export type AgencyIdentity = { id: string; badge: string; role: AgencyRole };
 
 export function claimAt(claims: unknown, path: string | undefined): unknown {
@@ -24,7 +24,7 @@ export function agencyIdentityFromClaims(id: string, claims: unknown): AgencyIde
   // Test identities never become agency identities, even with a verified flag.
   if (isReservedTestRole(role)) return null;
   if (typeof role !== "string" ||
-    !["PO", "FTO", "FTO_COORDINATOR", "FTO_COC", "POLICENET", "POLICENET_ADMIN_SGT"].includes(role) ||
+    !["PO", "FTO", "FTO_SGT", "FTO_COORDINATOR", "FTO_COC", "POLICENET", "POLICENET_ADMIN_SGT"].includes(role) ||
     typeof badge !== "string" || !/^[A-Za-z0-9-]{1,40}$/.test(badge) ||
     !id || id.length > 256) return null;
   return { id, badge, role: role as AgencyRole };

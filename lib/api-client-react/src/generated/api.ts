@@ -30,6 +30,7 @@ import type {
   AssignmentTransitionEnvelope,
   AssignmentTransitionHistoryPage,
   AuditLogsEnvelope,
+  CloseTrainingAlertInput,
   DispatchEventIngressEnvelope,
   DispatchEventIngressInput,
   DispatchIncidentEnvelope,
@@ -38,9 +39,11 @@ import type {
   GetOperationalProfileHistoryParams,
   HealthEnvelope,
   ListPacketSubmissionsParams,
+  ListTrainingAlertsParams,
   ListTrainingPacketsParams,
   MockLoginEnvelope,
   MockLoginInput,
+  NrtReviewRequestInput,
   OperationalProfileClearInput,
   OperationalProfileContext,
   OperationalProfileHistory,
@@ -68,6 +71,8 @@ import type {
   TestAdminParticipantInput,
   TestAdminRecordVersionsEnvelope,
   TestAdminScenarioEnvelope,
+  TrainingAlert,
+  TrainingAlertPage,
   TrainingPacketAcknowledgmentInput,
   TrainingPacketFinalizationInput,
   TrainingPacketFinalizationReceipt,
@@ -76,7 +81,9 @@ import type {
   TrainingPacketSyncInput,
   TrainingPacketSyncReadinessEnvelope,
   TrainingPacketWithdrawalInput,
-  TrainingPacketsEnvelope
+  TrainingPacketsEnvelope,
+  Week15RecommendationInput,
+  Week15RecommendationResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -941,6 +948,355 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getActOnPacketSubmissionMutationOptions(options), queryClient);
+    }
+
+export const getListTrainingAlertsUrl = (params?: ListTrainingAlertsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/alerts?${stringifiedParams}` : `/api/v1/alerts`
+}
+
+export const listTrainingAlerts = async (params?: ListTrainingAlertsParams, options?: Parameters<typeof customFetch>[1]): Promise<TrainingAlertPage> => {
+
+  return customFetch<TrainingAlertPage>(getListTrainingAlertsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTrainingAlertsQueryKey = (params?: ListTrainingAlertsParams,) => {
+    return [
+    `/api/v1/alerts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListTrainingAlertsQueryOptions = <TData = Awaited<ReturnType<typeof listTrainingAlerts>>, TError = ErrorType<void>>(params?: ListTrainingAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingAlerts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTrainingAlertsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTrainingAlerts>>> = ({ signal }) => listTrainingAlerts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTrainingAlerts>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListTrainingAlertsQueryResult = NonNullable<Awaited<ReturnType<typeof listTrainingAlerts>>>
+export type ListTrainingAlertsQueryError = ErrorType<void>
+
+
+export function useListTrainingAlerts<TData = Awaited<ReturnType<typeof listTrainingAlerts>>, TError = ErrorType<void>>(
+ params: undefined |  ListTrainingAlertsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingAlerts>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTrainingAlerts>>,
+          TError,
+          Awaited<ReturnType<typeof listTrainingAlerts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTrainingAlerts<TData = Awaited<ReturnType<typeof listTrainingAlerts>>, TError = ErrorType<void>>(
+ params?: ListTrainingAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingAlerts>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTrainingAlerts>>,
+          TError,
+          Awaited<ReturnType<typeof listTrainingAlerts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTrainingAlerts<TData = Awaited<ReturnType<typeof listTrainingAlerts>>, TError = ErrorType<void>>(
+ params?: ListTrainingAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingAlerts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useListTrainingAlerts<TData = Awaited<ReturnType<typeof listTrainingAlerts>>, TError = ErrorType<void>>(
+ params?: ListTrainingAlertsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTrainingAlerts>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListTrainingAlertsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateNrtReviewRequestUrl = () => {
+
+
+
+
+  return `/api/v1/alerts/nrt-review-request`
+}
+
+export const createNrtReviewRequest = async (nrtReviewRequestInput: NrtReviewRequestInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingAlert> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingAlert>(getCreateNrtReviewRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(nrtReviewRequestInput)
+  }
+);}
+
+
+
+
+
+export const getCreateNrtReviewRequestMutationKey = () => ['createNrtReviewRequest'] as const;
+
+export const getCreateNrtReviewRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNrtReviewRequest>>, TError,CreateNrtReviewRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createNrtReviewRequest>>, TError,CreateNrtReviewRequestMutationVariables, TContext> => {
+
+const mutationKey = getCreateNrtReviewRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createNrtReviewRequest>>, CreateNrtReviewRequestMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createNrtReviewRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateNrtReviewRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createNrtReviewRequest>>>
+    export type CreateNrtReviewRequestMutationBody = BodyType<NrtReviewRequestInput>
+    export type CreateNrtReviewRequestMutationError = ErrorType<void>
+    export type CreateNrtReviewRequestMutationVariables = {data: BodyType<NrtReviewRequestInput>}
+
+    export const useCreateNrtReviewRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createNrtReviewRequest>>, TError,CreateNrtReviewRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createNrtReviewRequest>>,
+        TError,
+        CreateNrtReviewRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateNrtReviewRequestMutationOptions(options), queryClient);
+    }
+
+export const getSaveWeek15RecommendationUrl = () => {
+
+
+
+
+  return `/api/v1/alerts/week15`
+}
+
+export const saveWeek15Recommendation = async (week15RecommendationInput: Week15RecommendationInput, options?: Parameters<typeof customFetch>[1]): Promise<Week15RecommendationResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Week15RecommendationResult>(getSaveWeek15RecommendationUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(week15RecommendationInput)
+  }
+);}
+
+
+
+
+
+export const getSaveWeek15RecommendationMutationKey = () => ['saveWeek15Recommendation'] as const;
+
+export const getSaveWeek15RecommendationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveWeek15Recommendation>>, TError,SaveWeek15RecommendationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveWeek15Recommendation>>, TError,SaveWeek15RecommendationMutationVariables, TContext> => {
+
+const mutationKey = getSaveWeek15RecommendationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveWeek15Recommendation>>, SaveWeek15RecommendationMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveWeek15Recommendation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveWeek15RecommendationMutationResult = NonNullable<Awaited<ReturnType<typeof saveWeek15Recommendation>>>
+    export type SaveWeek15RecommendationMutationBody = BodyType<Week15RecommendationInput>
+    export type SaveWeek15RecommendationMutationError = ErrorType<void>
+    export type SaveWeek15RecommendationMutationVariables = {data: BodyType<Week15RecommendationInput>}
+
+    export const useSaveWeek15Recommendation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveWeek15Recommendation>>, TError,SaveWeek15RecommendationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof saveWeek15Recommendation>>,
+        TError,
+        SaveWeek15RecommendationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveWeek15RecommendationMutationOptions(options), queryClient);
+    }
+
+export const getCloseTrainingAlertUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/alerts/${id}/close`
+}
+
+export const closeTrainingAlert = async (id: string,
+    closeTrainingAlertInput: CloseTrainingAlertInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingAlert> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingAlert>(getCloseTrainingAlertUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(closeTrainingAlertInput)
+  }
+);}
+
+
+
+
+
+export const getCloseTrainingAlertMutationKey = () => ['closeTrainingAlert'] as const;
+
+export const getCloseTrainingAlertMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeTrainingAlert>>, TError,CloseTrainingAlertMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof closeTrainingAlert>>, TError,CloseTrainingAlertMutationVariables, TContext> => {
+
+const mutationKey = getCloseTrainingAlertMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof closeTrainingAlert>>, CloseTrainingAlertMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  closeTrainingAlert(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CloseTrainingAlertMutationResult = NonNullable<Awaited<ReturnType<typeof closeTrainingAlert>>>
+    export type CloseTrainingAlertMutationBody = BodyType<CloseTrainingAlertInput>
+    export type CloseTrainingAlertMutationError = ErrorType<void>
+    export type CloseTrainingAlertMutationVariables = {id: string;data: BodyType<CloseTrainingAlertInput>}
+
+    export const useCloseTrainingAlert = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeTrainingAlert>>, TError,CloseTrainingAlertMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof closeTrainingAlert>>,
+        TError,
+        CloseTrainingAlertMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCloseTrainingAlertMutationOptions(options), queryClient);
     }
 
 export const getGetAssignmentTransitionContextUrl = () => {

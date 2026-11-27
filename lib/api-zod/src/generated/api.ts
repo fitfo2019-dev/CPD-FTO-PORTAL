@@ -154,7 +154,7 @@ export const getPacketReviewContextResponsePendingCountMin = 0;
 export const GetPacketReviewContextResponse = zod.object({
   "available": zod.boolean(),
   "account_id": zod.string(),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
+  "role": zod.enum(['PO', 'FTO', 'FTO_SGT', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "coordinators": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string()
@@ -515,6 +515,169 @@ export const ActOnPacketSubmissionResponse = zod.object({
   "review_note": zod.string(),
   "released_at": zod.string().nullable(),
   "po_acknowledged_at": zod.string().nullable()
+})
+
+
+export const listTrainingAlertsQueryStateDefault = `open`;
+
+export const ListTrainingAlertsQueryParams = zod.object({
+  "state": zod.enum(['open', 'closed']).default(listTrainingAlertsQueryStateDefault)
+})
+
+export const listTrainingAlertsResponseItemsItemPhaseMax = 4;
+
+
+
+export const ListTrainingAlertsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.uuid(),
+  "kind": zod.enum(['NRT', 'NRT_REVIEW_REQUEST', 'NOT_RELEASE']),
+  "po_name": zod.string(),
+  "po_badge": zod.string(),
+  "class_name": zod.string(),
+  "phase": zod.int().min(1).max(listTrainingAlertsResponseItemsItemPhaseMax),
+  "fto_name": zod.string(),
+  "coordinator_id": zod.string(),
+  "category": zod.union([zod.string(),zod.null()]),
+  "record_date": zod.union([zod.string(),zod.null()]),
+  "report_ids": zod.array(zod.string()),
+  "summary": zod.string(),
+  "week15_choice": zod.union([zod.enum(['release', 'not_release']),zod.null()]),
+  "week15_changed_at": zod.union([zod.string(),zod.null()]),
+  "created_at": zod.string(),
+  "state": zod.enum(['open', 'closed']),
+  "closed_by_name": zod.union([zod.string(),zod.null()]),
+  "closed_by_role": zod.union([zod.enum(['FTO_COORDINATOR', 'FTO_SGT']),zod.null()]),
+  "closed_at": zod.union([zod.string(),zod.null()]),
+  "close_note": zod.string()
+}))
+})
+
+
+export const createNrtReviewRequestBodyPoBadgeMax = 40;
+
+
+export const createNrtReviewRequestBodyPoBadgeRegExp = new RegExp('^[A-Za-z0-9-]+$');
+export const createNrtReviewRequestBodyReportIdsItemMax = 200;
+
+export const createNrtReviewRequestBodyReportIdsMax = 50;
+
+export const createNrtReviewRequestBodySummaryMax = 5000;
+
+
+
+export const CreateNrtReviewRequestBody = zod.object({
+  "po_badge": zod.string().min(1).max(createNrtReviewRequestBodyPoBadgeMax).regex(createNrtReviewRequestBodyPoBadgeRegExp),
+  "report_ids": zod.array(zod.string().min(1).max(createNrtReviewRequestBodyReportIdsItemMax)).min(1).max(createNrtReviewRequestBodyReportIdsMax),
+  "summary": zod.string().max(createNrtReviewRequestBodySummaryMax)
+})
+
+export const createNrtReviewRequestResponsePhaseMax = 4;
+
+
+
+export const CreateNrtReviewRequestResponse = zod.object({
+  "id": zod.uuid(),
+  "kind": zod.enum(['NRT', 'NRT_REVIEW_REQUEST', 'NOT_RELEASE']),
+  "po_name": zod.string(),
+  "po_badge": zod.string(),
+  "class_name": zod.string(),
+  "phase": zod.int().min(1).max(createNrtReviewRequestResponsePhaseMax),
+  "fto_name": zod.string(),
+  "coordinator_id": zod.string(),
+  "category": zod.union([zod.string(),zod.null()]),
+  "record_date": zod.union([zod.string(),zod.null()]),
+  "report_ids": zod.array(zod.string()),
+  "summary": zod.string(),
+  "week15_choice": zod.union([zod.enum(['release', 'not_release']),zod.null()]),
+  "week15_changed_at": zod.union([zod.string(),zod.null()]),
+  "created_at": zod.string(),
+  "state": zod.enum(['open', 'closed']),
+  "closed_by_name": zod.union([zod.string(),zod.null()]),
+  "closed_by_role": zod.union([zod.enum(['FTO_COORDINATOR', 'FTO_SGT']),zod.null()]),
+  "closed_at": zod.union([zod.string(),zod.null()]),
+  "close_note": zod.string()
+})
+
+
+export const saveWeek15RecommendationBodyPoBadgeMax = 40;
+
+
+export const saveWeek15RecommendationBodyPoBadgeRegExp = new RegExp('^[A-Za-z0-9-]+$');
+
+
+export const SaveWeek15RecommendationBody = zod.object({
+  "po_badge": zod.string().min(1).max(saveWeek15RecommendationBodyPoBadgeMax).regex(saveWeek15RecommendationBodyPoBadgeRegExp),
+  "choice": zod.enum(['release', 'not_release'])
+})
+
+export const saveWeek15RecommendationResponseAlertOnePhaseMax = 4;
+
+
+
+export const SaveWeek15RecommendationResponse = zod.object({
+  "alert": zod.union([zod.object({
+  "id": zod.uuid(),
+  "kind": zod.enum(['NRT', 'NRT_REVIEW_REQUEST', 'NOT_RELEASE']),
+  "po_name": zod.string(),
+  "po_badge": zod.string(),
+  "class_name": zod.string(),
+  "phase": zod.int().min(1).max(saveWeek15RecommendationResponseAlertOnePhaseMax),
+  "fto_name": zod.string(),
+  "coordinator_id": zod.string(),
+  "category": zod.union([zod.string(),zod.null()]),
+  "record_date": zod.union([zod.string(),zod.null()]),
+  "report_ids": zod.array(zod.string()),
+  "summary": zod.string(),
+  "week15_choice": zod.union([zod.enum(['release', 'not_release']),zod.null()]),
+  "week15_changed_at": zod.union([zod.string(),zod.null()]),
+  "created_at": zod.string(),
+  "state": zod.enum(['open', 'closed']),
+  "closed_by_name": zod.union([zod.string(),zod.null()]),
+  "closed_by_role": zod.union([zod.enum(['FTO_COORDINATOR', 'FTO_SGT']),zod.null()]),
+  "closed_at": zod.union([zod.string(),zod.null()]),
+  "close_note": zod.string()
+}),zod.null()])
+})
+
+
+export const CloseTrainingAlertParams = zod.object({
+  "id": zod.uuid()
+})
+
+export const closeTrainingAlertBodyNoteMax = 5000;
+
+
+
+export const CloseTrainingAlertBody = zod.object({
+  "note": zod.string().min(1).max(closeTrainingAlertBodyNoteMax)
+})
+
+export const closeTrainingAlertResponsePhaseMax = 4;
+
+
+
+export const CloseTrainingAlertResponse = zod.object({
+  "id": zod.uuid(),
+  "kind": zod.enum(['NRT', 'NRT_REVIEW_REQUEST', 'NOT_RELEASE']),
+  "po_name": zod.string(),
+  "po_badge": zod.string(),
+  "class_name": zod.string(),
+  "phase": zod.int().min(1).max(closeTrainingAlertResponsePhaseMax),
+  "fto_name": zod.string(),
+  "coordinator_id": zod.string(),
+  "category": zod.union([zod.string(),zod.null()]),
+  "record_date": zod.union([zod.string(),zod.null()]),
+  "report_ids": zod.array(zod.string()),
+  "summary": zod.string(),
+  "week15_choice": zod.union([zod.enum(['release', 'not_release']),zod.null()]),
+  "week15_changed_at": zod.union([zod.string(),zod.null()]),
+  "created_at": zod.string(),
+  "state": zod.enum(['open', 'closed']),
+  "closed_by_name": zod.union([zod.string(),zod.null()]),
+  "closed_by_role": zod.union([zod.enum(['FTO_COORDINATOR', 'FTO_SGT']),zod.null()]),
+  "closed_at": zod.union([zod.string(),zod.null()]),
+  "close_note": zod.string()
 })
 
 
@@ -1738,7 +1901,7 @@ export const ListTrainingPacketsResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.int().min(listTrainingPacketsResponseMetadataTotalRecordsMin).max(listTrainingPacketsResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
+  "role": zod.enum(['PO', 'FTO', 'FTO_SGT', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(listTrainingPacketsResponseMetadataNextCursorMax).nullish()
 }),
@@ -2129,7 +2292,7 @@ export const ReleaseTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.int().min(releaseTrainingPacketResponseMetadataTotalRecordsMin).max(releaseTrainingPacketResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
+  "role": zod.enum(['PO', 'FTO', 'FTO_SGT', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(releaseTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
@@ -2394,7 +2557,7 @@ export const AcknowledgeTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.int().min(acknowledgeTrainingPacketResponseMetadataTotalRecordsMin).max(acknowledgeTrainingPacketResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
+  "role": zod.enum(['PO', 'FTO', 'FTO_SGT', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(acknowledgeTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
@@ -2658,7 +2821,7 @@ export const WithdrawTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.int().min(withdrawTrainingPacketResponseMetadataTotalRecordsMin).max(withdrawTrainingPacketResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
+  "role": zod.enum(['PO', 'FTO', 'FTO_SGT', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(withdrawTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),
@@ -2950,7 +3113,7 @@ export const GetTrainingPacketResponse = zod.object({
   "status": zod.enum(['success']),
   "metadata": zod.object({
   "total_records": zod.int().min(getTrainingPacketResponseMetadataTotalRecordsMin).max(getTrainingPacketResponseMetadataTotalRecordsMax),
-  "role": zod.enum(['PO', 'FTO', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
+  "role": zod.enum(['PO', 'FTO', 'FTO_SGT', 'FTO_COORDINATOR', 'FTO_COC', 'POLICENET', 'POLICENET_ADMIN_SGT']),
   "has_more": zod.boolean().optional(),
   "next_cursor": zod.string().max(getTrainingPacketResponseMetadataNextCursorMax).nullish()
 }),

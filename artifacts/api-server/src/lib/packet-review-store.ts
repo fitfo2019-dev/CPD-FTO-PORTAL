@@ -2,6 +2,7 @@ import type pg from "pg";
 import { randomUUID } from "node:crypto";
 import type { PacketSubmission, PacketReviewActionInput } from "@workspace/api-zod";
 import type { AgencyIdentity } from "../security/agencyIdentity.js";
+import { recordNrtAlertsForSubmission } from "./training-alert-store.js";
 import { PacketError } from "./packet-errors.js";
 import { getAgencyDatabasePool } from "./agency-database.js";
 import { hashUserIdentifier } from "../utils/cryptoUtils.js";
@@ -92,6 +93,9 @@ export async function registerPacketSubmission(
     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`,
     [id,input.id,input.version,input.poId,identity.id,coordinator,JSON.stringify({...input.report,status:"locked"})]);
   await event(client,identity,id,"SUBMITTED");
+  // FTO Manual p. 19: the FTO Coordinators and FTO Sergeant are notified of an NRT rating.
+  await recordNrtAlertsForSubmission(client,identity,{packetId:input.id,poId:input.poId,poBadge:input.poBadge,
+    coordinatorId:coordinator,report:input.report});
 }
 
 export function createPacketReviewStore(pool:pg.Pool) {

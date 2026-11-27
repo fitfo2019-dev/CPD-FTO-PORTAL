@@ -711,8 +711,8 @@ export interface Week15Recommendation {
   choice: 'release'|'not_release';
   statement: string;
   history: Week15RecommendationChange[];
-  /** Alerts are queued locally until the agency server delivers them. */
-  alertStatus: 'none'|'queued';
+  /** 'sent' only after the agency server recorded the alert; 'queued' is saved on this device only. */
+  alertStatus: 'none'|'queued'|'sent';
   finalizedAt?: string;
   updatedAt: string;
 }
@@ -726,7 +726,8 @@ export interface NrtReviewRequest {
   summary: string;
   requestedBy: RecordActor;
   createdAt: string;
-  alertStatus: 'queued';
+  /** 'sent' only after the agency server recorded the request; 'queued' is saved on this device only. */
+  alertStatus: 'queued'|'sent';
 }
 /** A supervisor closed an alert; the required note is saved with the closer's name and the time. */
 export interface AlertClosure {
