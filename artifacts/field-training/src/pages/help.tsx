@@ -8,6 +8,7 @@ import ResourcesLibraryPage from '@/pages/resources-library-preview.js';
 import { GeographyMapPanel } from '@/components/geography-map-panel.js';
 import { LawHandbookPanel } from '@/components/law-handbook-panel.js';
 import { ChargingLookup } from '@/components/charging-lookup.js';
+import { DownloadManualButton } from '@/components/download-manual-button.js';
 
 export default function HelpPage() {
   const { ws } = useWorkspace();
@@ -15,6 +16,7 @@ export default function HelpPage() {
   return (
     <div className="mx-auto max-w-[1440px]">
       <PageHead kicker="Field Training Officer Portal · Columbus" title="Resources" photo="cruiser-lights">
+        <DownloadManualButton role={ws.role} />
         <a
           href={DIRECTIVE_PDF_INDEX_SOURCE}
           target="_blank"

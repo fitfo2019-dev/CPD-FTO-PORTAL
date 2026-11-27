@@ -37,7 +37,7 @@ export const APPLICATION_HELP_WORKFLOWS: readonly ApplicationHelpWorkflow[] = [
       { text: 'Complete the Reporting for Duty form.', topic: 'fto-reporting-duty' },
       { text: 'Document each run with its checklist forms and narrative.', topic: 'fto-runs' },
       { text: 'Enter the Daily Activity Summary totals.', topic: 'fto-activity' },
-      { text: 'Rate the 38 performance categories, except on limbo days.', topic: 'fto-seg' },
+      { text: 'Rate the 30 performance categories, except on limbo days.', topic: 'fto-seg' },
       { text: 'Review the shift and save it on this device.', topic: 'local-save' },
       { text: 'Sync the draft, then Finalize and Submit to Coordinator.', topic: 'fto-finalize' },
     ],
@@ -324,7 +324,7 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
     roles: ['fto'],
     keywords: 'SEG evaluation rating acceptable responding unacceptable NRT not observed limbo',
     steps: [
-      'On SEG evaluation, rate each of the 38 categories using the Standard Evaluation Guidelines. Only one rating per category.',
+      'On SEG evaluation, rate each of the 30 categories using the Standard Evaluation Guidelines. Only one rating per category.',
       'Responding to Training cannot be used in Officer Safety or Driving Skills.',
       'Support every UA and NRT with documentation and corrective training in the narrative.',
       'On a limbo day, leave all categories blank.',
