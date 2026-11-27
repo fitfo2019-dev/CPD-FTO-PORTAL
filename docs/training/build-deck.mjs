@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const VERSION = "Version 3 · November 26, 2026 · portal main 5d7b086";
+const VERSION = "Version 4 · November 26, 2026 · portal main 9999e49";
 
 const NAVY = "1F3A68";
 S.setTheme({
@@ -107,7 +107,7 @@ S.layouts.agenda(deck.addSlide(), {
   const f = fr({
     kicker: "THE PORTAL / ROLES",
     headline: "Each role sees only the pages its job needs",
-    note: "Pages marked preview are built and visible in the preview build until their server routes are connected. The approved PO and FTO Chain of Command sidebar redesign will be previewed before it is merged.",
+    note: "Pages marked preview are built and visible in the preview build until their server routes are connected. Resources holds each role's own workflows and how-to's.",
     sources: [{ name: "Portal sidebar (components/shell.tsx)", kind: "internal" }, LOG],
   });
   S.layouts.table(s, {
@@ -116,11 +116,12 @@ S.layouts.agenda(deck.addSlide(), {
       headers: ["Role", "Main pages", "What the role does there"],
       colW: [0.2, 0.42, 0.38],
       rows: [
-        ["PO", "Agency Packets, Packet Status, Help Desk", "Reads and signs their own packets and adds comments"],
-        ["FTO", "Daily Packet, Shifts & Runs, Weekly Packets, Phase Sign-Up (preview)", "Documents each tour and submits packets"],
-        ["FTO Coordinator", "Review Desk, Phase Setup (preview), PO Progress (preview), Monthly Reports", "Reviews packets, sets up phases, watches PO standing"],
-        ["FTO Sergeant", "Sergeant Dashboard, Phase Setup, PO Progress, Weekly Packets", "Oversees the program and receives NRT notices"],
-        ["FTO Chain of Command", "Submitted Packets, Help Desk", "Reads finished packets"],
+        ["PO", "My Training (Review and Sign), Resources", "Reviews and confirms their own UA totals"],
+        ["FTO", "Daily Packet, Shifts & Runs, Scheduling, Weekly Packets", "Documents each tour and submits packets"],
+        ["FTO Coordinator", "Dashboard, Review Desk, Probationary Officers, Assignments", "Reviews packets, sets up phases, watches PO standing"],
+        ["FTO Sergeant", "Dashboard, PO Progress (preview), Weekly Packets", "Oversees the program and reviews alerts"],
+        ["FTO Chain of Command", "Submitted Packets, Resources", "Reads finished packets"],
+        ["POLICENET", "Technical Access, Help Desk", "Prepares and tests technical changes"],
       ],
     },
   });
@@ -535,14 +536,14 @@ S.layouts.agenda(deck.addSlide(), {
   const f = fr({
     kicker: "STATUS OF THE BUILD",
     headline: "The rules are live in the portal; several screens still await preview approval",
-    note: "As of portal main 5d7b086 and website main 11d7cd1. This slide is updated each time a change is merged.",
+    note: "As of portal main 9999e49 and website main 11d7cd1. This slide is updated each time a change is merged.",
     sources: [LOG],
   });
   S.layouts.comparison(s, {
     frame: f,
     criteria: ["Paperwork", "PO standing", "Roles", "Notices"],
-    a: { tag: "LIVE", heading: "Merged and published", rows: ["Two-stage packets, charging lookup, Resources", "PO-STD-2, PO-SCORE-2, Show Calculation, My Training", "Current sidebars for all five roles", "NRT rule logic and its tests"] },
-    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Real form exporter; Shifts & Runs redesign", "PO status label and phase tracker on My Training", "Redesigned PO and FTO Chain of Command sidebars", "NRT and cease-training screens and notices"] },
+    a: { tag: "LIVE", heading: "Merged and published", rows: ["Two-stage packets, charging lookup, Resources", "PO-STD-2, PO-SCORE-2, Show Calculation, My Training", "Role tabs; Help Desk workflows per role", "NRT rule logic and its tests"] },
+    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Real form exporter; Shifts & Runs redesign", "PO status label and phase tracker on My Training", "Role manual PDFs; Vercel role cards", "Server NRT and Week 15 alerts; cease-training"] },
   });
 }
 
