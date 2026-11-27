@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "NODE_ENV=development BASE_PATH=/ VITE_CLERK_PUBLISHABLE_KEY=pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk pnpm --filter @workspace/field-training run build",
+  "buildCommand": "BASE_PATH=/ VITE_CLERK_PUBLISHABLE_KEY=pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk pnpm --filter @workspace/field-training run build",
   "outputDirectory": "artifacts/field-training/dist/public",
   "redirects": [
     { "source": "/", "destination": "/ui-preview", "permanent": false },
