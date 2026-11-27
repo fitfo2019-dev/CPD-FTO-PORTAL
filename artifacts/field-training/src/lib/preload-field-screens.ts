@@ -3,6 +3,10 @@
 const loaders = [
   () => import('@/components/charging-lookup.js'),
   () => import('@/components/run-ua-box-panel.js'),
+  () => import('@/lib/daily-row-export.js'),
+  () => import('@/lib/fto-incentive-workbook.js'),
+  () => import('@/lib/exportWorkbook.js'),
+  () => import('@/lib/monthly-export.js'),
 ];
 
 let loaded = false;

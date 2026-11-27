@@ -1,7 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
-import { exportDailyRow } from '@/lib/daily-row-export.js';
 import { useOperationalStateMachine, useWorkspace } from '@/state/workspace.js';
 import { type RunUaBox, CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
 import { PageHead, Panel, StatusPill } from '@/components/bits.js';
@@ -933,7 +932,7 @@ export default function ReportEditor() {
             <option value="xlsx">Excel row</option>
           </select>
           <button type="button" data-testid="button-print-daily-log" onClick={() => {
-            if (exportFormat==='xlsx') { const filename=exportDailyRow(r); toast({title:'Excel row exported',description:filename}); return; }
+            if (exportFormat==='xlsx') { void import('@/lib/daily-row-export.js').then(({ exportDailyRow }) => { const filename=exportDailyRow(r); toast({title:'Excel row exported',description:filename}); }).catch(() => toast({title:'Excel export unavailable',description:'Reconnect and try again.',variant:'destructive'})); return; }
             if(operationalPacket?.blockingIssues.length){toast({title:'Complete the phase-start packet',description:operationalPacket.blockingIssues.join(' '),variant:'destructive'});return;}
             window.print();
           }} className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-sm font-bold">{exportFormat==='xlsx'?<FileSpreadsheet className="h-4 w-4" />:<Printer className="h-4 w-4" />}Export</button>
