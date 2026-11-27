@@ -749,6 +749,8 @@ export interface WeeklyPerformanceLogEntry {
   autoSourceNarrative?:string;
   autoSourceGroup?:string;
   sourceEvidenceActive?:boolean;
+  autoSourceTime?:string;
+  notCounted?:UaNotCountedReason;
 }
 export interface WeeklyPerformanceLog {
   id:string;
@@ -890,6 +892,24 @@ export interface ChecklistDeficiencyGroup {
   tasks: { id: string; label: string; reference?: string; failureActions?: string[] }[];
   narrative: string;
   reviewed?: boolean;
+  /** Present for a UA the FTO added on the ratings screen. */
+  addedId?: string;
+  correctiveTraining?: string;
+  minutes?: number;
+  /** Set by the counting rules; the UA is listed and documented but not counted. */
+  notCounted?: UaNotCountedReason;
+}
+export type UaNotCountedReason = 'same_run' | 'officer_safety_day';
+export interface AddedDeficiency {
+  id: string;
+  runId: string;
+  category: Category;
+  whatHappened: string;
+  correctiveTraining: string;
+  minutes: number;
+  /** Earlier UA this one repeats, for the NRT pattern. */
+  sameIssueAs?: string;
+  createdAt: string;
 }
 export interface Report {
   operationalIdentity?: OperationalIdentity;
@@ -911,6 +931,7 @@ export interface Report {
   deficiencyOverrides?: Record<string, Category>;
   deficiencyNarratives?: Record<string, string>;
   checklistDeficiencies?: ChecklistDeficiencyGroup[];
+  addedDeficiencies?: AddedDeficiency[];
   deficiencyPriorRatings?: Partial<Record<Category, RatingEntry>>;
   deficiencyGeneratedText?: Partial<Record<Category, string>>;
   deficiencySafetyLocks?: Category[];

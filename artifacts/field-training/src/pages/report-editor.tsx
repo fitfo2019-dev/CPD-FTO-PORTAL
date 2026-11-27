@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
 import { exportDailyRow } from '@/lib/daily-row-export.js';
@@ -28,6 +28,8 @@ import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_N
 import { alignRunDateToShift, parseRunDateTime } from '@/lib/run-details.js';
 import { useDeficiencyEditor } from '@/hooks/use-deficiency-editor.js';
 import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
+import type { AddedUaDraft } from '@/components/added-ua-dialog.js';
+import { addedUaIssueOptions, addedUaRunOptions, parseAddedUaMinutes, removeAddedDeficiency, saveAddedDeficiency } from '@/lib/added-deficiencies.js';
 import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
 import { authoredReportSnapshot } from '@/lib/protected-packets.js';
 import { getRunWorkflowSteps, runSheetReviewSnapshot, type RunSheetKey, type RunWorkflowDraft } from '@/lib/run-workflow.js';
@@ -45,7 +47,7 @@ import { runFailureActionChoices, runChecklistFailureSummaries, type RunChecklis
 import { RunChecklistUncheckedDialog, type UncheckedChoice, type UncheckedItem } from '@/components/run-checklist-unchecked-dialog.js';
 import { applyTrafficDataCollectionRule } from '@/lib/traffic-data-collection.js';
 import { activeFailureStatementEdits, activeNotApplicable, runFailureStatements } from '@/lib/run-failure-statements.js';
-import { SEG_TASK_DIRECTORY } from '@/lib/seg-deficiencies.js';
+import { SEG_TASK_DIRECTORY, UA_NOT_COUNTED_LABEL } from '@/lib/seg-deficiencies.js';
 import '@/components/run-sheet-workflow.css';
 
 import { PacketSubmitControl } from '@/components/packet-review/submit-control.js';
@@ -56,6 +58,8 @@ import { RunOptionsDialog } from '@/components/run-options-dialog.js';
 import { savedOrientationHref } from '@/lib/saved-orientation.js';
 
 import { searchTrainingRunsByIncidentNumber } from '@/lib/training-run-search.js';
+
+const AddedUaDialog = lazy(() => import('@/components/added-ua-dialog.js').then(m => ({ default: m.AddedUaDialog })));
 
 type EditorStage = 'shift'|'duty'|'runs'|'activity'|'evaluation'|'narrative';
 type FailurePromptTarget = { form:RunChecklistSourceForm;key:string;label:string;choices:readonly string[];mode:'clear'|'edit' };
@@ -248,6 +252,7 @@ export default function ReportEditor() {
   }, [legacyReviewSheets,workflowDraft]);
   const supplementCheckItems = RUN_SUPPLEMENT_CHECKLIST_ITEMS;
   const isLimboDay=!!r?.limboDay;
+  const [addedUa, setAddedUa] = useState<{ category: Category; editingId?: string } | null>(null);
   const citationSummonsRecorded=isEligibleCitationSummons({runKind,clearanceCode});
   useEffect(()=>{
     if(runKind!=='traffic_stop')return;
@@ -316,6 +321,14 @@ export default function ReportEditor() {
     || existing?.syncAttemptPending === true || existing?.finalizationAttemptPending === true;
   const editable = !locked && r.status === 'draft' && ws.role === 'fto';
   const commentsEditable = !locked && r.status === 'fto_signed' && ws.role === 'po';
+  const addedUaRuns = addedUaRunOptions(r, operationalPacket);
+  const addedUaEditing = addedUa?.editingId ? r.addedDeficiencies?.find(item => item.id === addedUa.editingId) : undefined;
+  const saveAddedUa = (draft: AddedUaDraft) => {
+    const minutes = parseAddedUaMinutes(draft.minutes);
+    if (!addedUa || minutes === undefined) return;
+    setR(current => current && saveAddedDeficiency(current, addedUa.category, { runId: draft.runId, whatHappened: draft.whatHappened, correctiveTraining: draft.correctiveTraining, minutes, ...(draft.sameIssueAs ? { sameIssueAs: draft.sameIssueAs } : {}) }, addedUa.editingId, uid(), new Date().toISOString()));
+    setAddedUa(null);
+  };
   const set = <K extends keyof Report>(k: K, v: Report[K]) => setR(x => x && ({ ...x, deficiencyAutomationEnabled:k==='reportingForDuty'?true:x.deficiencyAutomationEnabled, ratingsReviewedAt: undefined, [k]: v }));
   const applyShiftDate = (value: string) => {
     const parsed = parseDateDMY(value);
@@ -889,6 +902,7 @@ export default function ReportEditor() {
 
   return (
     <div className="report-editor-page max-w-5xl" data-auth-recovery-form={`report:${r.id}`}>
+      {addedUa && <Suspense fallback={null}><AddedUaDialog category={addedUa?.category} editing={addedUaEditing} runs={addedUaRuns} issues={addedUa?addedUaIssueOptions(ws.reports,r,addedUa.category,addedUa.editingId):[]} onSave={saveAddedUa} onClose={()=>setAddedUa(null)}/></Suspense>}
       <DeficiencyDialog group={deficiencyEditor.active} onNarrative={deficiencyEditor.setNarrative} onOverride={deficiencyEditor.override} onClose={deficiencyEditor.close}/>
       <Link href="/reports" className="text-sm font-semibold inline-flex items-center gap-1 mb-2 hover:underline" data-testid="link-back"><ArrowLeft className="h-4 w-4" />Saved records</Link>
       <PageHead kicker="Shift workspace · Daily Performance Summary · U-10.174" title={r.recruitName ? `PO ${r.recruitName} #${r.recruitBadge}` : 'Probationary Officer shift'} titleIsData>
@@ -970,7 +984,7 @@ export default function ReportEditor() {
              <F l="Unit / cruiser assignment"><input value={r.reportingForDuty.cruiserId||r.reportingForDuty.unitNumber||''} maxLength={40} className={inp+' mono'} onChange={event=>set('reportingForDuty',{...r.reportingForDuty,unitNumber:event.target.value,cruiserId:event.target.value,reviewedAt:undefined})} placeholder="Enter assigned unit or cruiser" data-testid="input-unit-number"/></F>
               <F l="Shotgun Training"><select className={inp} value={r.reportingForDuty.shotgunTraining??''} onChange={event=>{const value=event.target.value;if(value==='Y'||value==='N')setShotgunTraining(value);}} data-testid="select-shotgun-training"><option value="" disabled>Select Y / N</option><option value="Y">Y</option><option value="N">N</option></select></F>
            </fieldset>
-            {deficiencyEditor.groups.length>0&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.map(group=><button type="button" key={group.id} disabled={!editable||!group.reviewed} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
+            {deficiencyEditor.groups.some(group=>!group.addedId)&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.filter(group=>!group.addedId).map(group=><button type="button" key={group.id} disabled={!editable||!group.reviewed} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded border bg-muted/20 p-3">
               <span className="text-sm font-semibold">Reporting for Duty form checkboxes</span>
               <button type="button" disabled={!editable} onClick={toggleDutyChecklist} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-duty-checklist">{dutyAllChecked?'Deselect all':'Select all'}</button>
@@ -1246,7 +1260,7 @@ export default function ReportEditor() {
                    </div>}
                   {run.narrative && <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{run.narrative}</p>}
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-x-12 gap-y-2 border-t pt-3">
-                    <button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>setR(current=>current&&({...current,runs:current.runs.filter(item=>item.id!==run.id)}))})} className="min-h-10 rounded border border-destructive/60 px-3 py-2 text-xs font-semibold text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}>Remove run</button>
+                    <button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>setR(current=>current&&({...current,ratingsReviewedAt:undefined,runs:current.runs.filter(item=>item.id!==run.id),addedDeficiencies:current.addedDeficiencies?.filter(item=>item.runId!==run.id)}))})} className="min-h-10 rounded border border-destructive/60 px-3 py-2 text-xs font-semibold text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}>Remove run</button>
                     <button type="button" disabled={!editable} onClick={()=>requestEditRun(run)} className="min-h-10 rounded border px-3 py-2 text-xs font-semibold disabled:opacity-50" data-testid={`button-edit-run-${run.id}`}>Edit</button>
                   </div>
                 </li>;
@@ -1313,6 +1327,33 @@ export default function ReportEditor() {
                       })}
                     </div>
                   </div>
+                  {!isLimboDay && (()=>{
+                    const uas=deficiencyEditor.groups.filter(group=>group.category===c);
+                    const canAdd=editable&&addedUaRuns.length>0;
+                    if(!uas.length&&!canAdd)return null;
+                    return <div className="border-x border-b bg-card px-3 py-2 text-sm" data-testid={`category-uas-${c}`}>
+                      {uas.map(group=>{
+                        const reference=[...new Set(group.tasks.map(task=>task.reference).filter(Boolean))].join(', ');
+                        const added=group.addedId?r.addedDeficiencies?.find(item=>item.id===group.addedId):undefined;
+                        return <div key={group.id} className="flex flex-wrap items-start justify-between gap-2 border-b py-2 last:border-b-0" data-testid={`ua-entry-${group.id}`}>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {reference&&<b className="mono">{reference}</b>}
+                              <span className="label-caps text-muted-foreground">{group.addedId?'Added UA':'Checklist UA'}</span>
+                              <span className={cn('rounded border px-2 py-0.5 text-xs font-semibold',group.notCounted?'border-border bg-muted text-foreground':'border-destructive/40 bg-destructive/5 text-destructive')} data-testid={`status-ua-count-${group.id}`}>{group.notCounted?UA_NOT_COUNTED_LABEL[group.notCounted]:'Counted'}</span>
+                            </div>
+                            {group.narrative.trim()&&<p className="mt-1 whitespace-pre-wrap text-xs leading-5">{group.narrative}</p>}
+                            {group.addedId&&<p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">Corrective training: {group.correctiveTraining} · {group.minutes} min</p>}
+                          </div>
+                          {added&&editable&&<div className="flex gap-2">
+                            <button type="button" onClick={()=>setAddedUa({category:c,editingId:added.id})} className="min-h-10 rounded border bg-card px-3 text-xs font-semibold" data-testid={`button-edit-added-ua-${added.id}`}>Edit</button>
+                            <button type="button" onClick={()=>setConfirmAction({title:'Remove this added UA?',body:'The UA leaves this daily record and the Weekly Performance Log. Save the daily log to keep the removal.',label:'Remove UA',action:()=>setR(current=>current&&removeAddedDeficiency(current,added.id))})} className="min-h-10 rounded border border-destructive/60 px-3 text-xs font-semibold text-destructive" data-testid={`button-remove-added-ua-${added.id}`}>Remove</button>
+                          </div>}
+                        </div>;
+                      })}
+                      {canAdd&&<button type="button" onClick={()=>setAddedUa({category:c})} className="my-1 min-h-10 rounded border border-destructive/50 bg-card px-3 text-xs font-bold text-destructive hover:bg-destructive/5" data-testid={`button-add-ua-${c}`}>Add UA</button>}
+                    </div>;
+                  })()}
                   {v.rating==='NRT' && <div className="border-x border-b border-destructive/30 bg-destructive/5 p-3 text-sm">
                     <b>NRT is exclusive; do not also mark this evaluation UA.</b>
                     <p className="mt-1">Link earlier UA entries for this PO and category, document retraining, and submit the FTO Office review request.</p>

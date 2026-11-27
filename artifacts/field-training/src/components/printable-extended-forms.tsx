@@ -5,6 +5,7 @@ import { SUBSTATION_ORIENTATION_GROUPED_SECTIONS } from '@/lib/substation-orient
 import { orientationPrintLayout } from '@/lib/orientation-print-layout.js';
 import { substationDisplay } from '@/lib/substations.js';
 import { categoryNumberLabel, paginateWeeklyLogEntries, type PrintableLogEntry } from '@/lib/weekly-log-layout.js';
+import { UA_NOT_COUNTED_LABEL } from '@/lib/seg-deficiencies.js';
 import { PrintableColumbusFooterMarks, PrintableColumbusHeader } from '@/components/printable-columbus-header.js';
 import { PrintDocument } from '@/components/print-template.js';
 
@@ -130,7 +131,7 @@ function LogEntry({row,showTime}:{row:PrintableLogEntry;showTime:boolean}) {
   return <tr className="print-weekly-log-entry">
     <td>{categoryNumberLabel(row.entry.category)}</td>
     {showTime&&<td>{row.entry.totalTime||'—'}</td>}
-    <td className="print-weekly-log-narrative">{references&&<b>{references}{row.continuation?' (continued)':''}</b>}{row.narrativePart&&<> {row.narrativePart}</>}{!references&&!row.narrativePart?'—':null}</td>
+    <td className="print-weekly-log-narrative">{references&&<b>{references}{row.continuation?' (continued)':''}</b>}{row.entry.notCounted&&!row.continuation&&<> <span className="print-weekly-log-not-counted">({UA_NOT_COUNTED_LABEL[row.entry.notCounted]})</span></>}{row.narrativePart&&<> {row.narrativePart}</>}{!references&&!row.narrativePart?'—':null}</td>
   </tr>;
 }
 

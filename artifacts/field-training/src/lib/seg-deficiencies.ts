@@ -1,6 +1,6 @@
 import {
   CATEGORIES, DAILY_DUTY_CHECKLIST, PRIMARY_RUN_FORMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, SUPPLEMENTAL_RUN_FORMS,
-  type Category, type ChecklistDeficiencyGroup, type PrimaryRunForm, type Report, type SupplementalRunForm,
+  type AddedDeficiency, type Category, type ChecklistDeficiencyGroup, type UaNotCountedReason, type PrimaryRunForm, type Report, type SupplementalRunForm,
 } from './model.js';
 import type { OperationalPacket } from './operational-state-machine.js';
 import { approvedItemCategory } from './approved-checklist-merges.js';
@@ -166,7 +166,62 @@ export function collectDeficiencies(report: Report, packet: OperationalPacket): 
     });
     groups.set(id, group);
   }
-  return [...groups.values()];
+  const pageOfRun = new Map(packet.pages.filter(page => page.kind === 'run' && page.runId).map(page => [page.runId!, page]));
+  for (const added of report.addedDeficiencies ?? []) {
+    const page = pageOfRun.get(added.runId);
+    if (!page || !runs.has(added.runId)) continue;
+    const id = addedDeficiencyGroupId(added);
+    groups.set(id, {
+      id, runId: added.runId, category: added.category, addedId: added.id,
+      tasks: [{ id: added.id, label: added.whatHappened, ...(page.reference ? { reference: page.reference } : {}) }],
+      narrative: added.whatHappened, correctiveTraining: added.correctiveTraining, minutes: added.minutes, reviewed: true,
+    });
+  }
+  return applyUaCounting([...groups.values()], report);
+}
+
+export const addedDeficiencyGroupId = (added: Pick<AddedDeficiency, 'id' | 'runId' | 'category'>) => `${added.runId}:${added.category}:added:${added.id}`;
+
+/**
+ * Owner rules, Nov 26, 2026. One UA per category per run counts; the checklist UA counts before an added UA,
+ * and added UA's count in the order they were entered. Officer Safety categories count one UA per category per day,
+ * on the first run by page. Every other UA is kept, listed and documented, and marked not counted.
+ */
+export function applyUaCounting(groups: readonly ChecklistDeficiencyGroup[], report: Pick<Report, 'runs' | 'addedDeficiencies'>): ChecklistDeficiencyGroup[] {
+  const runOrder = new Map([...report.runs].sort((left, right) => Date.parse(left.occurredAt) - Date.parse(right.occurredAt)).map((run, index) => [run.id, index]));
+  const entered = new Map((report.addedDeficiencies ?? []).map(added => [added.id, added.createdAt]));
+  const position = (group: ChecklistDeficiencyGroup) => group.runId ? runOrder.get(group.runId) ?? Number.MAX_SAFE_INTEGER : -1;
+  const ordered = groups.map((group, index) => ({ group, index })).sort((left, right) =>
+    position(left.group) - position(right.group)
+    || Number(!!left.group.addedId) - Number(!!right.group.addedId)
+    || (entered.get(left.group.addedId ?? '') ?? '').localeCompare(entered.get(right.group.addedId ?? '') ?? '')
+    || left.index - right.index);
+  const countedRuns = new Set<string>();
+  const countedDays = new Set<Category>();
+  const reasons = new Map<string, UaNotCountedReason>();
+  for (const { group } of ordered) {
+    const runKey = `${group.runId ?? 'duty'}:${group.category}`;
+    if (countedRuns.has(runKey)) { reasons.set(group.id, 'same_run'); continue; }
+    if (OFFICER_SAFETY_LOCK_CATEGORIES.includes(group.category) && countedDays.has(group.category)) { reasons.set(group.id, 'officer_safety_day'); continue; }
+    countedRuns.add(runKey);
+    if (OFFICER_SAFETY_LOCK_CATEGORIES.includes(group.category)) countedDays.add(group.category);
+  }
+  return groups.map(group => {
+    const reason = reasons.get(group.id);
+    if (reason === group.notCounted) return group;
+    const { notCounted: _previous, ...rest } = group;
+    return reason ? { ...rest, notCounted: reason } : rest;
+  });
+}
+
+export const UA_NOT_COUNTED_LABEL: Readonly<Record<UaNotCountedReason, string>> = Object.freeze({
+  same_run: 'Not counted · Same run, counted once',
+  officer_safety_day: 'Not counted · Officer Safety, counted once per day',
+});
+
+/** Counted UA's for a saved report, recalculated from its stored groups so earlier records follow the current rules. */
+export function countedUaGroups(report: Report): ChecklistDeficiencyGroup[] {
+  return applyUaCounting(report.checklistDeficiencies ?? [], report).filter(group => !group.notCounted);
 }
 
 /** Reversible UA projection: authored ratings/text are not destroyed by rerouting or rechecking a task. */

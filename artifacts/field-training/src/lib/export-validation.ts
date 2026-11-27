@@ -163,6 +163,8 @@ const dutyRecordSchema = z.object({
   reviewedAt: z.string().optional(),
 }).loose();
 
+const uaNotCountedSchema=z.enum(['same_run','officer_safety_day']);
+
 const reportSchema = z.object({
   deficiencyAutomationEnabled:z.boolean().optional(),
   deficiencyOverrides:z.record(z.string(),categorySchema).optional(),
@@ -175,6 +177,13 @@ const reportSchema = z.object({
     id:z.string(),runId:z.string().optional(),category:categorySchema,narrative:z.string(),
     tasks:z.array(z.object({id:z.string(),label:z.string(),reference:z.string().optional(),failureActions:z.array(z.string().min(1)).min(1).optional()})),
     reviewed:z.boolean().optional(),
+    addedId:z.string().optional(),correctiveTraining:z.string().optional(),minutes:z.number().int().positive().optional(),
+    notCounted:uaNotCountedSchema.optional(),
+  })).optional(),
+  addedDeficiencies:z.array(z.object({
+    id:z.string().min(1),runId:z.string().min(1),category:categorySchema,
+    whatHappened:z.string().trim().min(1),correctiveTraining:z.string().trim().min(1),minutes:z.number().int().positive(),
+    sameIssueAs:z.string().optional(),createdAt:z.string().min(1),
   })).optional(),
   id: z.string(),
   date: z.string(),
@@ -283,6 +292,8 @@ const weeklyLogSchema = z.object({
     autoSourceNarrative:z.string().optional(),
     autoSourceGroup:z.string().optional(),
     sourceEvidenceActive:z.boolean().optional(),
+    autoSourceTime:z.string().optional(),
+    notCounted:uaNotCountedSchema.optional(),
   }).loose()),
   updatedAt: z.string(),
 }).loose();
