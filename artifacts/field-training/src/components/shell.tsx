@@ -3,7 +3,7 @@ import { useClerk, useUser } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
-import { LayoutGrid, LineChart, CalendarCheck, CalendarClock, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp, FlaskConical } from 'lucide-react';
+import { LayoutGrid, LineChart, CalendarCheck, CalendarClock, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp, FlaskConical, MoreHorizontal } from 'lucide-react';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils.js';
 import { caseSafe } from './bits.js';
 import { useToast } from '@/hooks/use-toast.js';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog.js';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet.js';
 import { operatorErrorToast } from '@/lib/operator-errors.js';
 import { probeTestAdmin } from '@/features/test-admin/api.js';
 
@@ -95,6 +96,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const [confirmLock, setConfirmLock] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [recoveryReviewOpen, setRecoveryReviewOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [restoringRecoveryId, setRestoringRecoveryId] = useState<string | null>(null);
   const [leavePage,setLeavePage]=useState<string|null>(null);
   const [testAdminAvailable, setTestAdminAvailable] = useState(false);
@@ -143,6 +145,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const mobileNav = visibleNav.length > 5
     ? [...visibleNav.slice(0, 4), RESOURCES, ...visibleNav.slice(4).filter(item => item.href !== RESOURCES.href)]
     : visibleNav;
+  const mobilePrimary = mobileNav.length > 4 ? mobileNav.slice(0, 3) : mobileNav;
+  const mobileMore = mobileNav.length > 4 ? mobileNav.slice(3) : [];
   const activePage = visibleNav.find(n => isActive(n.href)) ?? visibleNav[0];
   const currentPage = isCommand && loc!=='/resources'
     ? 'Submitted packets'
@@ -408,11 +412,27 @@ export function Shell({ children }: { children: ReactNode }) {
         {children}
       </main>
       </div>
-      <nav aria-label="Mobile navigation" data-testid="nav-mobile" className="fixed inset-x-0 bottom-0 z-40 flex overflow-x-auto border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] text-sidebar-foreground md:hidden">
-        {mobileNav.map(item => (
+      <nav aria-label="Mobile navigation" data-testid="nav-mobile" className="fixed inset-x-0 bottom-0 z-40 grid auto-cols-fr grid-flow-col border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] text-sidebar-foreground md:hidden">
+        {mobilePrimary.map(item => (
           <MobileLink key={item.href} {...item} active={isActive(item.href)} />
         ))}
+        {mobileMore.length > 0 && (
+          <button type="button" data-testid="button-mobile-nav-more" aria-expanded={mobileMoreOpen} onClick={() => setMobileMoreOpen(true)}
+            className={cn('flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[0.65rem] font-semibold leading-tight', mobileMore.some(item => isActive(item.href)) ? 'text-sidebar-primary' : 'opacity-80')}>
+            <MoreHorizontal className="h-5 w-5 shrink-0" aria-hidden="true" /><span>{caseSafe('More')}</span>
+          </button>
+        )}
       </nav>
+      <Sheet open={mobileMoreOpen} onOpenChange={setMobileMoreOpen}>
+        <SheetContent side="bottom" data-testid="sheet-mobile-nav-more" className="max-h-[80vh] overflow-y-auto border-sidebar-border bg-sidebar pb-[calc(1rem+env(safe-area-inset-bottom))] text-sidebar-foreground md:hidden" aria-describedby={undefined}>
+          <SheetTitle className="text-xs font-bold uppercase tracking-wider text-sidebar-foreground/80">{caseSafe('More')}</SheetTitle>
+          <div className="mt-3 grid grid-cols-1 gap-1">
+            {mobileMore.map(item => (
+              <MobileSheetLink key={item.href} {...item} active={isActive(item.href)} onNavigate={() => setMobileMoreOpen(false)} />
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
       <VaultDialog />
       <Dialog open={recoveryReviewOpen} onOpenChange={setRecoveryReviewOpen}>
         <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto" data-testid="dialog-recovery-snapshot">
@@ -505,7 +525,12 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 function MobileLink({ href, label, icon: Icon, active }: { href: string; label: string; icon: typeof LayoutGrid; active: boolean }) {
   const shortLabel = label;
-  return <Link href={href} data-testid={`link-mobile-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`} aria-current={active ? 'page' : undefined} className={cn('flex min-h-16 min-w-[76px] shrink-0 flex-col items-center justify-center gap-1 px-2 py-2 text-center text-[0.65rem] font-semibold leading-tight', active ? 'text-sidebar-primary' : 'opacity-80')}>
+  return <Link href={href} data-testid={`link-mobile-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`} aria-current={active ? 'page' : undefined} className={cn('flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[0.65rem] font-semibold leading-tight', active ? 'text-sidebar-primary' : 'opacity-80')}>
     <Icon className="h-5 w-5 shrink-0" /><span>{caseSafe(shortLabel)}</span>
+  </Link>;
+}
+function MobileSheetLink({ href, label, icon: Icon, active, onNavigate }: { href: string; label: string; icon: typeof LayoutGrid; active: boolean; onNavigate: () => void }) {
+  return <Link href={href} onClick={onNavigate} data-testid={`link-mobile-more-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`} aria-current={active ? 'page' : undefined} className={cn('flex min-h-12 items-center gap-3 rounded-md px-3 text-sm font-semibold', active ? 'bg-white/10 text-sidebar-primary' : 'hover:bg-white/5')}>
+    <Icon className="h-5 w-5 shrink-0" aria-hidden="true" /><span>{caseSafe(label)}</span>
   </Link>;
 }
