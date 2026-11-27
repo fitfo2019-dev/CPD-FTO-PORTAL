@@ -173,7 +173,9 @@ export function Shell({ children }: { children: ReactNode }) {
   };
   const isCommand=w.ws.role==='fto_coc';
   const patrolViewEnabled = usePatrolViewEnabled();
-  const roleNav = patrolViewEnabled ? withPatrolView(navFor(w.ws.role)) : navFor(w.ws.role);
+  // Signed-out fictional workspaces keep the tab visible but never reach the private server link.
+  const patrolViewLinkOff = w.previewOnly && !import.meta.env.DEV;
+  const roleNav = patrolViewEnabled || patrolViewLinkOff ? withPatrolView(navFor(w.ws.role)) : navFor(w.ws.role);
   const visibleNav = testAdminAvailable
     ? [...roleNav, { href: '/test-admin', label: 'Test Admin', icon: FlaskConical }]
     : roleNav;
@@ -279,7 +281,11 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
         <nav aria-label="Main navigation" className="portal-side-nav" data-testid="nav-desktop">
-            {visibleNav.map(n => n.external ? (
+            {visibleNav.map(n => n.external && patrolViewLinkOff ? (
+              <span key={n.href} role="link" aria-disabled="true" data-testid={navTestId(n.href)} className="portal-side-link cursor-not-allowed opacity-60">
+                <n.icon className="h-4 w-4" />{caseSafe(n.label)}
+              </span>
+            ) : n.external ? (
               <a key={n.href} href={apiEndpoint(PATROL_VIEW_OPEN)} {...externalLinkProps} data-testid={navTestId(n.href)} className="portal-side-link">
                 <n.icon className="h-4 w-4" />{caseSafe(n.label)}
               </a>
@@ -453,7 +459,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </div>
       <nav aria-label="Mobile navigation" data-testid="nav-mobile" className="fixed inset-x-0 bottom-0 z-40 grid auto-cols-fr grid-flow-col border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)] text-sidebar-foreground md:hidden">
         {mobilePrimary.map(item => (
-          <MobileLink key={item.href} {...item} active={isActive(item.href)} />
+          <MobileLink key={item.href} {...item} active={isActive(item.href)} linkOff={patrolViewLinkOff} />
         ))}
         {mobileMore.length > 0 && (
           <button type="button" data-testid="button-mobile-nav-more" aria-expanded={mobileMoreOpen} onClick={() => setMobileMoreOpen(true)}
@@ -562,8 +568,11 @@ export function Shell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-function MobileLink({ href, label, icon: Icon, active, external }: { href: string; label: string; icon: typeof LayoutGrid; active: boolean; external?: boolean }) {
+function MobileLink({ href, label, icon: Icon, active, external, linkOff }: { href: string; label: string; icon: typeof LayoutGrid; active: boolean; external?: boolean; linkOff?: boolean }) {
   const shortLabel = label;
+  if (external && linkOff) return <span role="link" aria-disabled="true" data-testid={`link-mobile-nav-${href.slice(1)}`} className="flex min-h-16 min-w-0 cursor-not-allowed flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[0.65rem] font-semibold leading-tight opacity-50">
+    <Icon className="h-5 w-5 shrink-0" /><span>{caseSafe(shortLabel)}</span>
+  </span>;
   if (external) return <a href={apiEndpoint(PATROL_VIEW_OPEN)} {...externalLinkProps} data-testid={`link-mobile-nav-${href.slice(1)}`} className="flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[0.65rem] font-semibold leading-tight opacity-80">
     <Icon className="h-5 w-5 shrink-0" /><span>{caseSafe(shortLabel)}</span>
   </a>;

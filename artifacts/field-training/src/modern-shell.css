@@ -89,6 +89,7 @@
   }
   .portal-side-link svg { width: 1rem; height: 1rem; flex-shrink: 0; opacity: .85; }
   .portal-side-link:hover { background: hsl(var(--sidebar-accent)); color: #fff; }
+  .portal-side-link[aria-disabled="true"]:hover { background: transparent; color: inherit; }
   .portal-side-link:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
   .portal-side-link.is-active { background: #fff; color: hsl(var(--sidebar)); }
   .portal-side-link.is-active svg { opacity: 1; }

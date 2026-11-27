@@ -546,7 +546,9 @@ main button.seg-rating-choice {
 /* Fixed shell links only: never inherit casing into manual forms or entered data. */
 @media screen {
   [data-testid="nav-desktop"] > a,
+  [data-testid="nav-desktop"] > span[role="link"],
   [data-testid="nav-mobile"] > a,
+  [data-testid="nav-mobile"] > span[role="link"],
   [data-testid="nav-mobile"] > button,
   [data-testid="sheet-mobile-nav-more"] a { text-transform: uppercase; }
 }
