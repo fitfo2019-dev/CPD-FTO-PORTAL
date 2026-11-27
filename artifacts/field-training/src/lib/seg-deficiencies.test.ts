@@ -184,26 +184,29 @@ test('Shotgun Training N/A excludes Resource Equipment from ratings unless a rea
   assert.equal(weeklyRatingCount([deficiency],'resourceEquipmentUsage','A'),0);
 });
 
-test('multiple failed checks in one safety category on one run count once, separate runs count independently',()=>{
+test('Officer Safety counts one UA per category per day; the later run is documented only (owner, Nov 26, 2026)',()=>{
   const first=failingRun('safety-first');
   const second=failingRun('safety-second');
   const source={...base(),runs:[first,second]};
   const next=reconcileDeficiencyRatings(source,packet(source));
   assert.equal(next.checklistDeficiencies?.filter(group=>group.category==='buildingSearch').length,2);
+  assert.deepEqual(next.checklistDeficiencies?.filter(group=>group.category==='buildingSearch').map(group=>group.notCounted),[undefined,'officer_safety_day']);
   const reviewed={...next,ratingsReviewedAt:'2026-11-09T17:00:00Z'};
-  assert.equal(weeklyRatingCount([reviewed],'buildingSearch','UA'),2);
+  assert.equal(weeklyRatingCount([reviewed],'buildingSearch','UA'),1);
 });
 
-test('distinct incidents remain distinct weekly evidence, with no fabricated training time',()=>{
+test('same-day runs with the same category share one page 42 entry; a later Officer Safety run is listed, marked not counted',()=>{
   const source={...base(),runs:[failingRun('first'),failingRun('second')]};
   const report={...reconcileDeficiencyRatings(source,packet(source)),ratingsReviewedAt:'2026-11-09T17:00:00Z'};
   const log={id:'week',weekStart:'2026-11-08',weekEnd:'2026-11-14',weekNumber:1,phase:report.phase,className:report.className??'',recruitName:report.recruitName,recruitBadge:report.recruitBadge,ftoName:report.ftoName,ftoBadge:report.ftoBadge,entries:[],updatedAt:report.updatedAt};
   const merged=mergeReviewedUaEntries(log,[report],[]);
-  assert.equal(merged.entries.length,2);
-  assert.deepEqual(merged.entries.map(entry=>entry.totalTime),['','']);
-  assert.deepEqual(merged.entries.map(entry=>entry.sourceReferences),[['W1D1P2'],['W1D1P3']]);
+  assert.equal(merged.entries.length,1);
+  assert.equal(merged.entries[0].totalTime,'');
+  assert.deepEqual(merged.entries[0].sourceReferences,['W1D1P2','W1D1P3']);
+  assert.match(merged.entries[0].narrative,/W1D1P3- \(Not counted: \d+ · Officer Safety, counted once per day\)/);
+  assert.deepEqual(report.checklistDeficiencies!.map(group=>group.notCounted),[undefined,'officer_safety_day']);
   assert.equal(mergeReviewedUaEntries(merged,[report],[]),merged);
-  assert.equal(weeklyRatingCount([report],'buildingSearch','UA'),2);
+  assert.equal(weeklyRatingCount([report],'buildingSearch','UA'),1);
 });
 
 test('explicit arrest classifications count one event and rebuild only approved draft documents',()=>{

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import type { PhaseCaseFolder, Report } from '@/lib/model.js';
-import { buildIncentiveRows, exportIncentiveWorkbook } from '@/lib/fto-incentive.js';
+import { buildIncentiveRows } from '@/lib/fto-incentive.js';
 import { Panel } from '@/components/bits.js';
 import { useToast } from '@/hooks/use-toast.js';
 
@@ -30,7 +30,7 @@ export function IncentiveReportPanel({ reports, folders }: { reports: readonly R
       </label>
       <span className="mono pb-2 text-xs text-muted-foreground" data-testid="text-incentive-count">{rows.length} FTO · {rows.filter(r => r.fullPhase).length} full phase</span>
       <button type="button" className="ml-auto inline-flex h-10 items-center gap-1.5 rounded border bg-card px-3 font-bold uppercase tracking-wider hover:bg-muted disabled:opacity-50"
-        disabled={!selected} onClick={() => { const filename = exportIncentiveWorkbook(rows, selected, phase); toast({ title: 'Excel exported', description: filename }); }}
+        disabled={!selected} onClick={() => { void import('@/lib/fto-incentive-workbook.js').then(({ exportIncentiveWorkbook }) => { const filename = exportIncentiveWorkbook(rows, selected, phase); toast({ title: 'Excel exported', description: filename }); }).catch(() => toast({ title: 'Excel export unavailable', description: 'Reconnect and try again.', variant: 'destructive' })); }}
         data-testid="button-export-incentive"><FileSpreadsheet className="h-4 w-4" />Export Excel</button>
     </div>
   </Panel>;

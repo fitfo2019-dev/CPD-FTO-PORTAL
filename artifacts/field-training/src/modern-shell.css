@@ -141,7 +141,8 @@
   .page-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
   .page-head-actions :is(button, a) { border-radius: .5rem; text-transform: uppercase; letter-spacing: .05em; font-size: .75rem; }
   .editor-stage-nav .editor-stage { text-transform: uppercase; letter-spacing: .05em; font-size: .72rem; }
-  main :is([data-testid^="button-stage-"], [data-testid^="button-run-"], [data-testid^="button-save"], [data-testid="button-review-ratings"]) { text-transform: uppercase; letter-spacing: .05em; font-size: .75rem; border-radius: .5rem; }
+  /* The same-issue choice shows the FTO's own words, so it keeps their case. */
+  main :is([data-testid^="button-stage-"], [data-testid^="button-run-"], [data-testid^="button-save"], [data-testid="button-review-ratings"]):not([data-testid^="button-run-ua-same-issue-"]) { text-transform: uppercase; letter-spacing: .05em; font-size: .75rem; border-radius: .5rem; }
 
   /* Vercel-style count tiles, tables and tags */
   .count-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .75rem; margin-bottom: 1rem; }

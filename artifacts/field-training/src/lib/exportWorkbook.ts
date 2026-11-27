@@ -31,6 +31,7 @@ import { spreadsheetText } from './spreadsheet-text.js';
 import { categoryIsNotApplicable, effectiveCategoryRating, weeklyRatingCount } from './weekly-rating-counts.js';
 import { collectDeficiencies, collectSelectedFailureActions } from './seg-deficiencies.js';
 import { buildClearanceDocuments } from './run-activity.js';
+import { fullRunNarrative } from './run-ua-box.js';
 
 const safeText = (value: unknown): string | number => {
   if (typeof value === 'number') return value;
@@ -333,7 +334,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
         const form = SUPPLEMENTAL_RUN_FORMS.find(item => item.key === key);
         return form ? [form] : [];
       });
-      const runNarrativeParts = splitExcelText(run.narrative);
+      const runNarrativeParts = splitExcelText(fullRunNarrative(run));
       runNarrativeParts.forEach((narrativePart, partIndex) => runRows.push([
          safeText(report.recruitName), safeText(report.recruitBadge), formatDateDMY(report.date),
          safeText(report.shift), safeText(assignmentValue(report)), safeText(formatDateTimeMDY(run.occurredAt)), safeText(primary?.label ?? 'Unassigned primary form'),

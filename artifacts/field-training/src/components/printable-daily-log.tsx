@@ -107,7 +107,7 @@ export function PrintableDailyLog({ report, dayReference, packet:providedPacket 
                     <td key={`category-${blockIndex}-${key}`} className="print-rating-label-cell">{label}{notApplicable?' (N/A)':''}</td>,
                     ...RATINGS.map(rating => (
                       <td key={`rating-${blockIndex}-${key}-${rating}`} className="print-rating-cell">
-                        <span className={report.ratings[key]?.rating === rating ? 'is-selected' : ''} aria-label={report.ratings[key]?.rating === rating ? `Selected ${rating}` : 'Not selected'} />
+                        <span className={(notApplicable ? 'NO' : report.ratings[key]?.rating) === rating ? 'is-selected' : ''} aria-label={(notApplicable ? 'NO' : report.ratings[key]?.rating) === rating ? `Selected ${rating}` : 'Not selected'} />
                       </td>
                     )),
                   ];

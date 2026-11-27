@@ -352,10 +352,12 @@ export function setRevisedRow(
   return { ...state, ...Object.fromEntries(indices.map(index => [`${prefix}${index}`, checked])) };
 }
 
-/** Display state of one box: failed when any of its items is unchecked and applied; not applicable when all were marked so. */
-export function unitState(state: Record<string, boolean>, prefix: string, unit: readonly number[], notApplicable?: Readonly<Record<string, true>>) {
+/** Display state of one box: failed when any unchecked item is neither not applicable nor FTO performed. */
+export function unitState(state: Record<string, boolean>, prefix: string, unit: readonly number[], notApplicable?: Readonly<Record<string, true>>, ftoPerformed?: Readonly<Record<string, true>>) {
   const keys = unit.map(index => `${prefix}${index}`);
   const unchecked = keys.filter(key => state[key] === false);
+  const excused = (key: string) => notApplicable?.[key] === true || ftoPerformed?.[key] === true;
   const na = unchecked.length > 0 && unchecked.every(key => notApplicable?.[key] === true);
-  return { failed: unchecked.length > 0 && !na, notApplicable: na };
+  const fto = !na && unchecked.length > 0 && unchecked.every(excused);
+  return { failed: unchecked.length > 0 && !unchecked.every(excused), notApplicable: na, ftoPerformed: fto };
 }

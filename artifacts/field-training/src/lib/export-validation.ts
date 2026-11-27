@@ -106,7 +106,15 @@ const trainingRunSchema = z.object({
   checklist: booleanRecordSchema,
   checklistFailures: z.record(z.string(), z.array(z.string().min(1)).min(1)).optional(),
   checklistNotApplicable: z.record(z.string(), z.literal(true)).optional(),
+  checklistFtoPerformed: z.record(z.string(), z.literal(true)).optional(),
   failureStatements: z.record(z.string(), z.string()).optional(),
+  uaBox: z.object({
+    addedCategories: z.array(categorySchema).optional(),
+    whatHappened: z.string().optional(),
+    correctiveTraining: z.string().optional(),
+    minutes: z.number().int().positive().optional(),
+    sameIssueAs: z.partialRecord(categorySchema, z.string().min(1)).optional(),
+  }).optional(),
   directiveReviews: z.partialRecord(
     z.enum([...PRIMARY_RUN_FORMS.map(form => form.key), ...SUPPLEMENTAL_RUN_FORMS.map(form => form.key)]),
     directiveReviewSchema,
@@ -163,6 +171,8 @@ const dutyRecordSchema = z.object({
   reviewedAt: z.string().optional(),
 }).loose();
 
+const uaNotCountedSchema=z.enum(['same_run','officer_safety_day']);
+
 const reportSchema = z.object({
   deficiencyAutomationEnabled:z.boolean().optional(),
   deficiencyOverrides:z.record(z.string(),categorySchema).optional(),
@@ -175,6 +185,8 @@ const reportSchema = z.object({
     id:z.string(),runId:z.string().optional(),category:categorySchema,narrative:z.string(),
     tasks:z.array(z.object({id:z.string(),label:z.string(),reference:z.string().optional(),failureActions:z.array(z.string().min(1)).min(1).optional()})),
     reviewed:z.boolean().optional(),
+    added:z.literal(true).optional(),
+    notCounted:uaNotCountedSchema.optional(),
   })).optional(),
   id: z.string(),
   date: z.string(),
@@ -283,6 +295,10 @@ const weeklyLogSchema = z.object({
     autoSourceNarrative:z.string().optional(),
     autoSourceGroup:z.string().optional(),
     sourceEvidenceActive:z.boolean().optional(),
+    autoSourceTime:z.string().optional(),
+    notCounted:uaNotCountedSchema.optional(),
+    categories:z.array(categorySchema).optional(),
+    inlineReferences:z.boolean().optional(),
   }).loose()),
   updatedAt: z.string(),
 }).loose();

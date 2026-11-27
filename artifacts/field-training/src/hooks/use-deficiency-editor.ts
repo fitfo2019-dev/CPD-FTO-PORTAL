@@ -30,16 +30,8 @@ export function useDeficiencyEditor(
       if(activeId)setActiveId(null);
       return;
     }
-    if (activeId && groups.some(group => group.id === activeId && group.reviewed)) return;
-    if (activeId) {
-      setActiveId(null);
-      return;
-    }
-    const pending = groups.find(group => group.reviewed && !seen.current.has(group.id) && !group.narrative.trim());
-    if (pending) {
-      seen.current.add(pending.id);
-      setActiveId(pending.id);
-    } else if (activeId) setActiveId(null);
+    // The run UA box replaces the automatic popup (owner, Nov 27, 2026); the dialog opens only on request.
+    if (activeId && !groups.some(group => group.id === activeId && group.reviewed)) setActiveId(null);
   }, [activeId, groups, editable, report?.limboDay]);
   const active = groups.find(group => group.id === activeId && group.reviewed);
   const setNarrative = (text: string) => {
@@ -49,6 +41,14 @@ export function useDeficiencyEditor(
       deficiencyNarratives: { ...current.deficiencyNarratives, [active.id]: text },
     });
   };
+  /** Inline articulation for a group shown on screen (Reporting for Duty UA's). */
+  const setGroupNarrative = (id: string, text: string) => {
+    if (!editable || !groups.some(group => group.id === id && group.reviewed)) return;
+    setReport(current => !current ? current : {
+      ...current, ratingsReviewedAt: undefined,
+      deficiencyNarratives: { ...current.deficiencyNarratives, [id]: text },
+    });
+  };
   const override = (category: Category) => {
     if (!active || !editable) return;
     const id = deficiencyGroupId(active.runId, category);
@@ -56,6 +56,6 @@ export function useDeficiencyEditor(
     setReport(current => current ? overrideDeficiency(current, active, category) : current);
     setActiveId(id);
   };
-  return { groups, active, setNarrative, override, close: () => setActiveId(null), open: (id: string) => { if(groups.some(group=>group.id===id&&group.reviewed))setActiveId(id); },
+  return { groups, active, setNarrative, setGroupNarrative, override, close: () => setActiveId(null), open: (id: string) => { if(groups.some(group=>group.id===id&&group.reviewed))setActiveId(id); },
     resetIncident: () => { seen.current.clear(); setActiveId(null); } };
 }

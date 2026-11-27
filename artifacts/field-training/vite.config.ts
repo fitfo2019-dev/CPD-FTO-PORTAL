@@ -115,6 +115,10 @@ export default defineConfig(async ({ command }) => {
       },
       output: {
         manualChunks(id) {
+          // Shared CommonJS helpers stay with the React chunk (no imports of its own)
+          // so the spreadsheet tools are not pulled into the start-up download
+          // and no chunk import loop forms.
+          if (id.startsWith("\0commonjs") || id.includes("__vite-browser-external")) return "vendor-react";
           if (!id.includes("/node_modules/")) return;
           if (
             id.includes("/node_modules/@radix-ui/") ||

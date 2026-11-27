@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as XLSX from 'xlsx';
 import { emptyDailyActivitySummary, emptyReportingForDutyRecord, type PhaseCaseFolder, type Report } from './model.js';
-import { buildIncentiveRows, buildIncentiveWorkbook, incentiveThreshold, scheduleFromDaysOff } from './fto-incentive.js';
+import { buildIncentiveRows, incentiveThreshold, scheduleFromDaysOff } from './fto-incentive.js';
+import { buildIncentiveWorkbook } from './fto-incentive-workbook.js';
 
 const CLASS = 'TEST ONLY 135th Class';
 function report(date: string, overrides: Partial<Report> = {}): Report {

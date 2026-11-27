@@ -113,7 +113,7 @@ test("a deferred automatic sync preserves the mounted editor and saves newly typ
     await act(async()=>{dom.window.dispatchEvent(new dom.window.Event("offline"));});
     await act(async()=>{element<HTMLButtonElement>("button-save-run").click();});
     assert.equal(dom.window.document.querySelector('[data-testid="text-run-error"]'),null);
-    await act(async()=>{element<HTMLButtonElement>("button-stage-narrative").click();});
+    await act(async()=>{element<HTMLButtonElement>("button-stage-finish").click();});
     assert.equal(element<HTMLTextAreaElement>("input-narrative").value,text);
     await act(async()=>{element<HTMLButtonElement>("button-save-draft").click();});
     assert.equal(current!.ws.reports[0].narrative,text);
