@@ -1,9 +1,10 @@
 import {
   CATEGORIES, DAILY_DUTY_CHECKLIST, PRIMARY_RUN_FORMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, SUPPLEMENTAL_RUN_FORMS,
-  type AddedDeficiency, type Category, type ChecklistDeficiencyGroup, type UaNotCountedReason, type PrimaryRunForm, type Report, type SupplementalRunForm,
+  type Category, type ChecklistDeficiencyGroup, type UaNotCountedReason, type PrimaryRunForm, type Report, type SupplementalRunForm,
 } from './model.js';
 import type { OperationalPacket } from './operational-state-machine.js';
 import { approvedItemCategory } from './approved-checklist-merges.js';
+import { runFailureStatements } from './run-failure-statements.js';
 
 type SourceForm = 'duty' | PrimaryRunForm | SupplementalRunForm;
 
@@ -142,6 +143,7 @@ export function collectSelectedFailureActions(
 export function collectDeficiencies(report: Report, packet: OperationalPacket): ChecklistDeficiencyGroup[] {
   if (!report.deficiencyAutomationEnabled) return [];
   const groups = new Map<string, ChecklistDeficiencyGroup>();
+  const taskKeys = new Map<string, string[]>();
   const runs = new Map(report.runs.map(run => [run.id, run]));
   const pages = new Map(packet.pages.map(page => [page.page, page]));
   for (const exception of packet.exceptions) {
@@ -154,9 +156,7 @@ export function collectDeficiencies(report: Report, packet: OperationalPacket): 
     if (override && !CATEGORIES.includes(override)) throw new Error('Invalid SEG override category.');
     const category = override ?? defaultCategory;
     const id = deficiencyGroupId(exception.runId, category);
-    const group = groups.get(id) ?? {
-      id, runId: exception.runId, category, tasks: [], narrative: report.deficiencyNarratives?.[id] ?? '', reviewed:true,
-    };
+    const group = groups.get(id) ?? { id, runId: exception.runId, category, tasks: [], narrative: '', reviewed:true };
     group.reviewed=group.reviewed&&exception.reviewed;
     group.tasks.push({
       id: exception.id,
@@ -165,36 +165,48 @@ export function collectDeficiencies(report: Report, packet: OperationalPacket): 
       ...(exception.failureActions?.length?{failureActions:[...exception.failureActions]}:{}),
     });
     groups.set(id, group);
+    taskKeys.set(id, [...(taskKeys.get(id) ?? []), exception.taskKey]);
   }
-  const pageOfRun = new Map(packet.pages.filter(page => page.kind === 'run' && page.runId).map(page => [page.runId!, page]));
-  for (const added of report.addedDeficiencies ?? []) {
-    const page = pageOfRun.get(added.runId);
-    if (!page || !runs.has(added.runId)) continue;
-    const id = addedDeficiencyGroupId(added);
-    groups.set(id, {
-      id, runId: added.runId, category: added.category, addedId: added.id,
-      tasks: [{ id: added.id, label: added.whatHappened, ...(page.reference ? { reference: page.reference } : {}) }],
-      narrative: added.whatHappened, correctiveTraining: added.correctiveTraining, minutes: added.minutes, reviewed: true,
-    });
+  // The group's articulation defaults to the run's "PO failed to" sentences for its boxes, in checklist order.
+  for (const group of groups.values()) {
+    const saved = report.deficiencyNarratives?.[group.id];
+    if (saved?.trim()) { group.narrative = saved; continue; }
+    const run = group.runId ? runs.get(group.runId) : undefined;
+    const keys = new Set(taskKeys.get(group.id) ?? []);
+    group.narrative = run ? runFailureStatements(run).filter(statement => statement.keys.some(key => keys.has(key))).map(statement => statement.text.trim()).filter(Boolean).join(' ') : '';
+  }
+  const pageOfRun = new Map(packet.pages.filter(page => page.kind === 'run' && page.runId && !page.supplement).map(page => [page.runId!, page]));
+  for (const run of report.runs) {
+    const page = pageOfRun.get(run.id);
+    if (!page) continue;
+    const checklistCategories = new Set([...groups.values()].filter(group => group.runId === run.id).map(group => group.category));
+    for (const category of new Set(run.uaBox?.addedCategories ?? [])) {
+      if (!CATEGORIES.includes(category) || checklistCategories.has(category)) continue;
+      const id = addedUaGroupId(run.id, category);
+      const whatHappened = run.uaBox?.whatHappened?.trim() ?? '';
+      groups.set(id, {
+        id, runId: run.id, category, added: true,
+        tasks: [{ id, label: whatHappened || 'Added UA', ...(page.reference ? { reference: page.reference } : {}) }],
+        narrative: whatHappened, reviewed: true,
+      });
+    }
   }
   return applyUaCounting([...groups.values()], report);
 }
 
-export const addedDeficiencyGroupId = (added: Pick<AddedDeficiency, 'id' | 'runId' | 'category'>) => `${added.runId}:${added.category}:added:${added.id}`;
+export const addedUaGroupId = (runId: string, category: Category) => `${runId}:${category}:added`;
 
 /**
- * Owner rules, Nov 26, 2026. One UA per category per run counts; the checklist UA counts before an added UA,
- * and added UA's count in the order they were entered. Officer Safety categories count one UA per category per day,
- * on the first run by page. Every other UA is kept, listed and documented, and marked not counted.
+ * Owner rules, Nov 26-27, 2026. One UA per category per run counts (one UA box per run). Officer Safety categories
+ * count one UA per category per day, on the first run by page. Every other UA is kept, listed and documented, and
+ * marked not counted.
  */
-export function applyUaCounting(groups: readonly ChecklistDeficiencyGroup[], report: Pick<Report, 'runs' | 'addedDeficiencies'>): ChecklistDeficiencyGroup[] {
+export function applyUaCounting(groups: readonly ChecklistDeficiencyGroup[], report: Pick<Report, 'runs'>): ChecklistDeficiencyGroup[] {
   const runOrder = new Map([...report.runs].sort((left, right) => Date.parse(left.occurredAt) - Date.parse(right.occurredAt)).map((run, index) => [run.id, index]));
-  const entered = new Map((report.addedDeficiencies ?? []).map(added => [added.id, added.createdAt]));
   const position = (group: ChecklistDeficiencyGroup) => group.runId ? runOrder.get(group.runId) ?? Number.MAX_SAFE_INTEGER : -1;
   const ordered = groups.map((group, index) => ({ group, index })).sort((left, right) =>
     position(left.group) - position(right.group)
-    || Number(!!left.group.addedId) - Number(!!right.group.addedId)
-    || (entered.get(left.group.addedId ?? '') ?? '').localeCompare(entered.get(right.group.addedId ?? '') ?? '')
+    || Number(!!left.group.added) - Number(!!right.group.added)
     || left.index - right.index);
   const countedRuns = new Set<string>();
   const countedDays = new Set<Category>();

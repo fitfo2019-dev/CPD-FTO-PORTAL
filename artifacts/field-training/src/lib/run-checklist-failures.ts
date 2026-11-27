@@ -301,7 +301,7 @@ export function runChecklistFailureSummaries(run:TrainingRun):RunChecklistFailur
     for(const section of RUN_CHECKLIST_SECTIONS[run.runKind]){
       for(const item of section.items){
         const key=`task-${index++}`;
-        if(run.checklist[key]===false&&run.checklistNotApplicable?.[key]!==true)summaries.push({key,label:item.label,failureActions:run.checklistFailures?.[key]??[]});
+        if(run.checklist[key]===false&&run.checklistNotApplicable?.[key]!==true&&run.checklistFtoPerformed?.[key]!==true)summaries.push({key,label:item.label,failureActions:run.checklistFailures?.[key]??[]});
       }
     }
   }
@@ -311,7 +311,7 @@ export function runChecklistFailureSummaries(run:TrainingRun):RunChecklistFailur
     for(const section of RUN_SUPPLEMENT_CHECKLIST_SECTIONS[form]){
       for(const item of section.items){
         const key=`supp-${form}-${index++}`;
-        if(run.checklist[key]===false&&run.checklistNotApplicable?.[key]!==true)summaries.push({key,label:item.label,failureActions:run.checklistFailures?.[key]??[]});
+        if(run.checklist[key]===false&&run.checklistNotApplicable?.[key]!==true&&run.checklistFtoPerformed?.[key]!==true)summaries.push({key,label:item.label,failureActions:run.checklistFailures?.[key]??[]});
       }
     }
   }

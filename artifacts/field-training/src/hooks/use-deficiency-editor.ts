@@ -35,7 +35,8 @@ export function useDeficiencyEditor(
       setActiveId(null);
       return;
     }
-    const pending = groups.find(group => group.reviewed && !seen.current.has(group.id) && !group.narrative.trim());
+    // Held for owner testing (Nov 27, 2026): opens once for each new checklist UA category, even when prefilled.
+    const pending = groups.find(group => group.reviewed && !group.added && !seen.current.has(group.id));
     if (pending) {
       seen.current.add(pending.id);
       setActiveId(pending.id);

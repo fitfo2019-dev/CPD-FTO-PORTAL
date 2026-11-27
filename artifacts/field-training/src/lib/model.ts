@@ -476,11 +476,26 @@ export interface TrainingRun {
   checklistFailures?: Record<string, string[]>;
   /** Unchecked items the FTO marked as not applying to this run (left blank on the form, no UA). */
   checklistNotApplicable?: Record<string, true>;
+  /** Unchecked items the FTO performed for training (left blank on the form, no UA, no sentence). */
+  checklistFtoPerformed?: Record<string, true>;
   /** FTO edits to the generated "PO failed to" sentence, keyed by checklist item. */
   failureStatements?: Record<string, string>;
+  /** One UA box per run: every UA on the run, its corrective training and total minutes. */
+  uaBox?: RunUaBox;
   directiveReviews?:DirectiveReviews;
   checklistReviewedAt?: string;
   narrative: string;
+}
+export interface RunUaBox {
+  /** UA categories the FTO added that no unchecked box captured. */
+  addedCategories?: Category[];
+  /** FTO's articulation added after the "PO failed to" sentences. */
+  whatHappened?: string;
+  correctiveTraining?: string;
+  /** Total corrective-training minutes for every UA on the run. */
+  minutes?: number;
+  /** Earlier UA (group id) each category repeats, for the NRT pattern; set only by the FTO. */
+  sameIssueAs?: Partial<Record<Category, string>>;
 }
 export const DAILY_DUTY_CHECKLIST = [
   { section:'Appearance/Equipment', items:[
@@ -751,6 +766,10 @@ export interface WeeklyPerformanceLogEntry {
   sourceEvidenceActive?:boolean;
   autoSourceTime?:string;
   notCounted?:UaNotCountedReason;
+  /** Page 42 grouping: every category of the entry's category set (slash format on print). */
+  categories?:Category[];
+  /** Each run paragraph in the narrative already starts with its W#D#P# reference. */
+  inlineReferences?:boolean;
 }
 export interface WeeklyPerformanceLog {
   id:string;
@@ -892,25 +911,12 @@ export interface ChecklistDeficiencyGroup {
   tasks: { id: string; label: string; reference?: string; failureActions?: string[] }[];
   narrative: string;
   reviewed?: boolean;
-  /** Present for a UA the FTO added on the ratings screen. */
-  addedId?: string;
-  correctiveTraining?: string;
-  minutes?: number;
+  /** Present for a category the FTO added in the run's UA box. */
+  added?: true;
   /** Set by the counting rules; the UA is listed and documented but not counted. */
   notCounted?: UaNotCountedReason;
 }
 export type UaNotCountedReason = 'same_run' | 'officer_safety_day';
-export interface AddedDeficiency {
-  id: string;
-  runId: string;
-  category: Category;
-  whatHappened: string;
-  correctiveTraining: string;
-  minutes: number;
-  /** Earlier UA this one repeats, for the NRT pattern. */
-  sameIssueAs?: string;
-  createdAt: string;
-}
 export interface Report {
   operationalIdentity?: OperationalIdentity;
   /** Server-authorized replacement metadata; present only for an approved correction. */
@@ -931,7 +937,6 @@ export interface Report {
   deficiencyOverrides?: Record<string, Category>;
   deficiencyNarratives?: Record<string, string>;
   checklistDeficiencies?: ChecklistDeficiencyGroup[];
-  addedDeficiencies?: AddedDeficiency[];
   deficiencyPriorRatings?: Partial<Record<Category, RatingEntry>>;
   deficiencyGeneratedText?: Partial<Record<Category, string>>;
   deficiencySafetyLocks?: Category[];

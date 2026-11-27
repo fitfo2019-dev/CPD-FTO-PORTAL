@@ -1,76 +1,100 @@
-import { CATEGORIES, PHASE_PROGRAM_WEEK_START, type PhaseCaseFolder, type Report, type TrainingAssignment, type WeeklyPerformanceLog } from './model.js';
+import { CATEGORIES, PHASE_PROGRAM_WEEK_START, type Category, type ChecklistDeficiencyGroup, type PhaseCaseFolder, type Report, type TrainingAssignment, type UaNotCountedReason, type WeeklyPerformanceLog, type WeeklyPerformanceLogEntry } from './model.js';
+import { categoryNumberLabel } from './weekly-log-layout.js';
+import { runUaParagraph } from './run-ua-box.js';
 import { nrtReference } from './nrt-reference.js';
 import { getSundaySaturdayWeek, getTrainingWeekNumber } from './training-calendar.js';
 import { effectiveCategoryRating } from './weekly-rating-counts.js';
 import { applyUaCounting } from './seg-deficiencies.js';
 
-/** Add each reviewed UA articulation once; preserve all saved FTO edits and timing. */
+type RunUnit = { at: string; reportId: string; reference?: string; categories: Category[]; minutes?: number; text: string };
+
+const NOT_COUNTED_SHORT: Readonly<Record<UaNotCountedReason, string>> = { same_run: 'Same run, counted once', officer_safety_day: 'Officer Safety, counted once per day' };
+const categoryOrder = (left: Category, right: Category) => CATEGORIES.indexOf(left) - CATEGORIES.indexOf(right);
+
+/** One paragraph per run: "W#D#P#- (Not counted: ...) PO failed to ... corrective training." */
+function runUnits(report: Report): RunUnit[] {
+  const groups = applyUaCounting(report.checklistDeficiencies ?? [], report);
+  const byRun = new Map<string, ChecklistDeficiencyGroup[]>();
+  for (const group of groups) byRun.set(group.runId ?? 'duty', [...(byRun.get(group.runId ?? 'duty') ?? []), group]);
+  const units: RunUnit[] = [];
+  for (const [runId, mine] of byRun) {
+    const run = report.runs.find(item => item.id === runId);
+    const reference = mine.flatMap(group => group.tasks.map(task => task.reference)).find((value): value is string => !!value);
+    const categories = [...new Set(mine.map(group => group.category))].sort(categoryOrder);
+    const notCounted = mine.filter(group => group.notCounted).map(group => `${categoryNumberLabel(group.category)} · ${NOT_COUNTED_SHORT[group.notCounted!]}`);
+    const body = run ? runUaParagraph(run) : [...new Set(mine.map(group => group.narrative.trim()).filter(Boolean))].join(' ');
+    const note = notCounted.length ? `(Not counted: ${notCounted.join('; ')})` : '';
+    const lead = reference ? `${reference}- ` : '';
+    units.push({ at: run?.occurredAt ?? `${report.date}T00:00:00`, reportId: report.id, ...(reference ? { reference } : {}), categories,
+      ...(run?.uaBox?.minutes ? { minutes: run.uaBox.minutes } : {}), text: `${lead}${[note, body].filter(Boolean).join(' ')}`.trim() });
+  }
+  return units;
+}
+
+/**
+ * Page 42 grouping (owner, Nov 27, 2026): one corrective entry per category set for the week. Each run is its own
+ * paragraph in day and page order, and the total time is the sum of the runs' corrective-training minutes. Saved FTO
+ * edits are kept; an edited entry whose source is gone is flagged instead of removed.
+ */
 export function mergeReviewedUaEntries(
   log: WeeklyPerformanceLog,
   reports: Report[],
   assignments: TrainingAssignment[],
   folder?: PhaseCaseFolder,
 ): WeeklyPerformanceLog {
-  const entries = [...log.entries];
-  for (const report of reports) {
-    if (!report.ratingsReviewedAt || report.limboDay) continue;
-    const activeSourceIds=new Set((report.checklistDeficiencies??[]).map(group=>group.id));
-    for(let index=0;index<entries.length;index++){
-      const entry=entries[index];
-      if(entry.autoSourceGroup&&entry.sourceReportIds.includes(report.id)&&!activeSourceIds.has(entry.autoSourceGroup)&&entry.sourceEvidenceActive!==false){
-        entries[index]={...entry,sourceEvidenceActive:false,sourceReferenceReviewed:false};
-      }
-    }
-    for (const group of applyUaCounting(report.checklistDeficiencies ?? [], report)) {
-      const id = `auto-deficiency-${report.id}-${group.id}`;
-      const references = [...new Set(group.tasks.flatMap(task => task.reference ? [task.reference] : []))];
-      const sourceNarrative = group.addedId && group.correctiveTraining ? `${group.narrative}\n\nCorrective training: ${group.correctiveTraining}` : group.narrative;
-      const counting = group.notCounted ? { notCounted: group.notCounted } : {};
-      const existingIndex = entries.findIndex(entry => entry.id === id);
-      if (existingIndex >= 0) {
-        const existing = entries[existingIndex];
-        const narrative=existing.narrative===existing.autoSourceNarrative ? sourceNarrative : existing.narrative;
-        if (JSON.stringify(existing.sourceReferences) !== JSON.stringify(references)||existing.autoSourceNarrative!==sourceNarrative||existing.sourceEvidenceActive===false) {
-          const { notCounted: _prior, ...rest } = existing;
-          entries[existingIndex] = { ...rest, ...counting, narrative, autoSourceNarrative:sourceNarrative, sourceEvidenceActive:true, sourceReferences: references, sourceReferenceReviewed: false,
-            ...(group.addedId && existing.totalTime===existing.autoSourceTime ? { totalTime: `${group.minutes} min`, autoSourceTime: `${group.minutes} min` } : {}) };
-        } else if (existing.notCounted !== group.notCounted) {
-          const { notCounted: _prior, ...rest } = existing;
-          entries[existingIndex] = { ...rest, ...counting };
-        }
-      } else {
-        entries.push({
-          id, kind: 'corrective', category: group.category, totalTime: group.addedId ? `${group.minutes} min` : '',
-          narrative: sourceNarrative, sourceReportIds: [report.id],
-          sourceReferences: references, sourceReferenceReviewed: false, autoGeneratedFromUa: true,
-          autoSourceNarrative:sourceNarrative,autoSourceGroup:group.id,sourceEvidenceActive:true,
-          ...(group.addedId ? { autoSourceTime: `${group.minutes} min` } : {}), ...counting,
-        });
-      }
-    }
+  const reviewed = reports.filter(report => report.ratingsReviewedAt && !report.limboDay).sort((left, right) => left.date.localeCompare(right.date));
+  const units = reviewed.flatMap(report => runUnits(report).map(unit => ({ ...unit, date: report.date })))
+    .sort((left, right) => left.date.localeCompare(right.date) || left.at.localeCompare(right.at));
+  const sets = new Map<string, typeof units>();
+  for (const unit of units) sets.set(unit.categories.join('/'), [...(sets.get(unit.categories.join('/')) ?? []), unit]);
+  const reportIds = new Set(reports.map(report => report.id));
+  const entries: WeeklyPerformanceLogEntry[] = [];
+  const existingById = new Map(log.entries.map(entry => [entry.id, entry]));
+  for (const [key, members] of sets) {
+    const id = `auto-ua-set-${log.id}-${key}`;
+    const categories = members[0]!.categories;
+    const minutes = members.reduce((sum, unit) => sum + (unit.minutes ?? 0), 0);
+    const time = members.every(unit => unit.minutes) ? `${minutes} min` : '';
+    const narrative = members.map(unit => unit.text).join('\n\n');
+    const references = [...new Set(members.flatMap(unit => unit.reference ? [unit.reference] : []))];
+    const sourceReportIds = [...new Set(members.map(unit => unit.reportId))];
+    const existing = existingById.get(id);
+    const editedNarrative = existing && existing.narrative !== existing.autoSourceNarrative;
+    const editedTime = existing && existing.totalTime !== existing.autoSourceTime;
+    const unchanged = existing && existing.autoSourceNarrative === narrative && existing.autoSourceTime === time && JSON.stringify(existing.sourceReferences) === JSON.stringify(references);
+    const next: WeeklyPerformanceLogEntry = {
+      id, kind: 'corrective', category: categories[0]!, ...(categories.length > 1 ? { categories } : {}),
+      totalTime: editedTime ? existing!.totalTime : time, narrative: editedNarrative ? existing!.narrative : narrative,
+      sourceReportIds, sourceReferences: references, sourceReferenceReviewed: unchanged ? existing!.sourceReferenceReviewed === true : false,
+      autoGeneratedFromUa: true, autoSourceNarrative: narrative, autoSourceGroup: key, autoSourceTime: time, sourceEvidenceActive: true, inlineReferences: true,
+    };
+    entries.push(existing && JSON.stringify(existing) === JSON.stringify(next) ? existing : next);
+  }
+  const nextById = new Map(entries.map(entry => [entry.id, entry]));
+  const merged: WeeklyPerformanceLogEntry[] = [];
+  for (const entry of log.entries) {
+    const replacement = nextById.get(entry.id);
+    if (replacement) { merged.push(replacement); nextById.delete(entry.id); continue; }
+    const fromThisWeek = entry.autoSourceGroup && entry.sourceReportIds.length > 0 && entry.sourceReportIds.every(id => reportIds.has(id));
+    if (!fromThisWeek) { merged.push(entry); continue; }
+    if (entry.narrative === entry.autoSourceNarrative) continue;
+    merged.push(entry.sourceEvidenceActive === false ? entry : { ...entry, sourceEvidenceActive: false, sourceReferenceReviewed: false });
+  }
+  merged.push(...nextById.values());
+  for (const report of reviewed) {
     for (const category of CATEGORIES) {
       const rating = report.ratings[category];
       if (effectiveCategoryRating(report,category) !== 'UA') continue;
-      const exists = entries.some(entry =>
-        entry.kind === 'corrective' &&
-        entry.category === category &&
-        entry.sourceReportIds.includes(report.id),
-      );
+      const exists = merged.some(entry => entry.kind === 'corrective' && (entry.category === category || entry.categories?.includes(category)) && entry.sourceReportIds.includes(report.id));
       if (exists) continue;
-      entries.push({
-        id: `auto-ua-${report.id}-${category}`,
-        kind: 'corrective',
-        category,
-        totalTime: '15 min',
-        narrative: rating.justification ?? '',
-        sourceReportIds: [report.id],
-        sourceReferences: [nrtReference(report, assignments, folder)],
-        sourceReferenceReviewed: false,
-        autoGeneratedFromUa: true,
+      merged.push({
+        id: `auto-ua-${report.id}-${category}`, kind: 'corrective', category, totalTime: '',
+        narrative: rating.justification ?? '', sourceReportIds: [report.id],
+        sourceReferences: [nrtReference(report, assignments, folder)], sourceReferenceReviewed: false, autoGeneratedFromUa: true,
       });
     }
   }
-  return entries.length === log.entries.length && entries.every((entry,index)=>entry===log.entries[index]) ? log : { ...log, entries };
+  return JSON.stringify(merged) === JSON.stringify(log.entries) ? log : { ...log, entries: merged };
 }
 
 /** Prepare any missing weekly UA log rows before class-wide exports. */

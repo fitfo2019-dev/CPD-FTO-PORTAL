@@ -19,6 +19,7 @@ import {
   type TrainingFolderDayReference,
 } from './training-calendar.js';
 import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from './narrative-continuation.js';
+import { fullRunNarrative } from './run-ua-box.js';
 import { orientationPrintLayout } from './orientation-print-layout.js';
 import { trafficDataCollectionNotApplicable } from './traffic-data-collection.js';
 import { runFailureActionChoices } from './run-checklist-failures.js';
@@ -137,7 +138,7 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
       for (const section of sections) {
         for (const item of section.items) {
           const key = `${prefix}${index++}`;
-          if (run.checklist[key] === false && run.checklistNotApplicable?.[key] !== true && !(prefix === 'task-' && trafficDataCollectionNotApplicable(run, key))) {
+          if (run.checklist[key] === false && run.checklistNotApplicable?.[key] !== true && run.checklistFtoPerformed?.[key] !== true && !(prefix === 'task-' && trafficDataCollectionNotApplicable(run, key))) {
             const failureActions=run.checklistFailures?.[key];
             if(failureActions) {
               const form=page.kind==='supplement'?(page.supplement??run.runKind):run.runKind;
@@ -162,8 +163,8 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
       });
       captureRunTasks(supplement, RUN_SUPPLEMENT_CHECKLIST_SECTIONS[form], `supp-${form}-`, run.checklist[`na-supp-${form}`] === true);
     }
-    if (needsRunNarrativeContinuation(run.narrative, run.narrativeAdditionRequired)) {
-      splitNarrativeContinuation(run.narrative).forEach((_, index) => append({
+    if (needsRunNarrativeContinuation(fullRunNarrative(run), run.narrativeAdditionRequired)) {
+      splitNarrativeContinuation(fullRunNarrative(run)).forEach((_, index) => append({
         id: `run:${run.id}:continuation:${index + 1}`,
         kind: 'run_continuation',
         title: 'Narrative Addition / Continuation',

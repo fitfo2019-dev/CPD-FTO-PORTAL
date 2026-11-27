@@ -195,15 +195,16 @@ test('Officer Safety counts one UA per category per day; the later run is docume
   assert.equal(weeklyRatingCount([reviewed],'buildingSearch','UA'),1);
 });
 
-test('distinct incidents remain distinct weekly evidence; a later Officer Safety run is listed, marked not counted',()=>{
+test('same-day runs with the same category share one page 42 entry; a later Officer Safety run is listed, marked not counted',()=>{
   const source={...base(),runs:[failingRun('first'),failingRun('second')]};
   const report={...reconcileDeficiencyRatings(source,packet(source)),ratingsReviewedAt:'2026-11-09T17:00:00Z'};
   const log={id:'week',weekStart:'2026-11-08',weekEnd:'2026-11-14',weekNumber:1,phase:report.phase,className:report.className??'',recruitName:report.recruitName,recruitBadge:report.recruitBadge,ftoName:report.ftoName,ftoBadge:report.ftoBadge,entries:[],updatedAt:report.updatedAt};
   const merged=mergeReviewedUaEntries(log,[report],[]);
-  assert.equal(merged.entries.length,2);
-  assert.deepEqual(merged.entries.map(entry=>entry.totalTime),['','']);
-  assert.deepEqual(merged.entries.map(entry=>entry.sourceReferences),[['W1D1P2'],['W1D1P3']]);
-  assert.deepEqual(merged.entries.map(entry=>entry.notCounted),[undefined,'officer_safety_day']);
+  assert.equal(merged.entries.length,1);
+  assert.equal(merged.entries[0].totalTime,'');
+  assert.deepEqual(merged.entries[0].sourceReferences,['W1D1P2','W1D1P3']);
+  assert.match(merged.entries[0].narrative,/W1D1P3- \(Not counted: \d+ · Officer Safety, counted once per day\)/);
+  assert.deepEqual(report.checklistDeficiencies!.map(group=>group.notCounted),[undefined,'officer_safety_day']);
   assert.equal(mergeReviewedUaEntries(merged,[report],[]),merged);
   assert.equal(weeklyRatingCount([report],'buildingSearch','UA'),1);
 });

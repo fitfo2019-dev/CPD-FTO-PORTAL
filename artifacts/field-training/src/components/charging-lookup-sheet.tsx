@@ -1,6 +1,6 @@
 import { Gavel } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet.js';
-import { ChargingLookup } from '@/components/charging-lookup.js';
+import { LazyChargingLookup as ChargingLookup } from '@/components/lazy-charging-lookup.js';
 
 export function ChargingLookupSheet({ testId }: { testId: string }) {
   return (

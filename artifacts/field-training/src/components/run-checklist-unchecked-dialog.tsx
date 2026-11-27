@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog.js';
 
-export type UncheckedChoice = 'fail' | 'na';
+export type UncheckedChoice = 'fail' | 'na' | 'fto';
 export type UncheckedItem = { key: string; keys: readonly string[]; label: string };
 
 export function RunChecklistUncheckedDialog({
@@ -21,7 +21,7 @@ export function RunChecklistUncheckedDialog({
     onChoicesChange({ ...choices, [key]: choices[key] === value ? undefined : value });
   const toggleAll = (checked: boolean) =>
     onChoicesChange(Object.fromEntries(items.map(item => [item.key, checked ? 'fail' : undefined])));
-  const btn = (active: boolean, tone: 'fail' | 'na') =>
+  const btn = (active: boolean, tone: UncheckedChoice) =>
     `min-h-9 px-3 text-xs font-bold uppercase tracking-wide ${active
       ? tone === 'fail' ? 'bg-destructive text-destructive-foreground' : 'bg-muted-foreground text-background'
       : 'bg-card text-muted-foreground'}`;
@@ -40,13 +40,15 @@ export function RunChecklistUncheckedDialog({
         {items.map((item, index) => {
           const choice = choices[item.key];
           return <div key={item.key} className={`flex flex-wrap items-center justify-between gap-3 p-3 ${choice === 'fail' ? 'bg-destructive/5' : ''}`}>
-            <span className={`min-w-0 flex-1 text-sm leading-5 ${choice === 'fail' ? 'font-semibold text-destructive' : ''} ${choice === 'na' ? 'font-bold line-through decoration-2' : ''}`}
+            <span className={`min-w-0 flex-1 text-sm leading-5 ${choice === 'fail' ? 'font-semibold text-destructive' : ''} ${choice === 'na' ? 'font-bold line-through decoration-2' : ''} ${choice === 'fto' ? 'font-semibold text-muted-foreground' : ''}`}
               data-testid={`text-unchecked-item-${index}`}>{item.label}</span>
-            <span className="inline-flex overflow-hidden rounded border">
+            <span className="inline-flex flex-wrap overflow-hidden rounded border">
               <button type="button" aria-pressed={choice === 'fail'} className={btn(choice === 'fail', 'fail')}
                 onClick={() => set(item.key, 'fail')} data-testid={`button-unchecked-fail-${index}`}>Not satisfactory</button>
               <button type="button" aria-pressed={choice === 'na'} className={`${btn(choice === 'na', 'na')} border-l`}
                 onClick={() => set(item.key, 'na')} data-testid={`button-unchecked-na-${index}`}>Did not apply</button>
+              <button type="button" aria-pressed={choice === 'fto'} className={`${btn(choice === 'fto', 'fto')} border-l`}
+                onClick={() => set(item.key, 'fto')} data-testid={`button-unchecked-fto-${index}`}>FTO performed</button>
             </span>
           </div>;
         })}

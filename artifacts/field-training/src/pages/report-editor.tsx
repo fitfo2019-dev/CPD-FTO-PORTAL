@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
 import { exportDailyRow } from '@/lib/daily-row-export.js';
 import { useOperationalStateMachine, useWorkspace } from '@/state/workspace.js';
-import { CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
+import { type RunUaBox, CATEGORIES, CATEGORY_LABEL, DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, DAILY_DUTY_CHECKLIST, DIRECTIVE_REVIEW_LABEL, PHASE_PROGRAM_WEEK_START, defaultDirectiveReviewRecord, defaultRatings, dutyChecklistChecked, emptyRatings, emptyDailyActivitySummary, emptyReportingForDutyRecord, hasRunChecklistEdits, requiredSupplementalForms, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel, RATINGS, RATING_LEGEND, WEEKDAYS, shiftDisplayLabel, needsJustification, ratingLabel, scanPII, uid, validateReport, PRIMARY_RUN_FORMS, RUN_FORM_GUIDANCE, SUPPLEMENTAL_FORM_GUIDANCE, SUPPLEMENTAL_RUN_FORMS, RUN_CHECKLIST_ITEMS, RUN_CHECKLIST_SECTIONS, RUN_SUPPLEMENT_CHECKLIST_ITEMS, RUN_SUPPLEMENT_CHECKLIST_SECTIONS, newRunChecklist, type ActivityKey, type Category, type DirectiveReviewField, type DirectiveReviewForm, type DirectiveReviewRecord, type PhaseCaseFolder, type Rating, type Report, type TrainingRun, type PrimaryRunForm, type SupplementalRunForm } from '@/lib/model.js';
 import { PageHead, Panel, StatusPill } from '@/components/bits.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
 import { applyCurrentDateTimeShortcut } from '@/lib/date-time-shortcut.js';
@@ -28,8 +28,7 @@ import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_N
 import { alignRunDateToShift, parseRunDateTime } from '@/lib/run-details.js';
 import { useDeficiencyEditor } from '@/hooks/use-deficiency-editor.js';
 import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
-import type { AddedUaDraft } from '@/components/added-ua-dialog.js';
-import { addedUaIssueOptions, addedUaRunOptions, parseAddedUaMinutes, removeAddedDeficiency, saveAddedDeficiency } from '@/lib/added-deficiencies.js';
+import { normalizeUaBox, runUaBoxGaps, runUaParagraph, uaIssueSuggestions } from '@/lib/run-ua-box.js';
 import { createDailyReportDraft } from '@/lib/daily-report-draft.js';
 import { authoredReportSnapshot } from '@/lib/protected-packets.js';
 import { getRunWorkflowSteps, runSheetReviewSnapshot, type RunSheetKey, type RunWorkflowDraft } from '@/lib/run-workflow.js';
@@ -46,7 +45,7 @@ import { formatTimeEntry24H } from '@/lib/training-calendar.js';
 import { runFailureActionChoices, runChecklistFailureSummaries, type RunChecklistSourceForm } from '@/lib/run-checklist-failures.js';
 import { RunChecklistUncheckedDialog, type UncheckedChoice, type UncheckedItem } from '@/components/run-checklist-unchecked-dialog.js';
 import { applyTrafficDataCollectionRule } from '@/lib/traffic-data-collection.js';
-import { activeFailureStatementEdits, activeNotApplicable, runFailureStatements } from '@/lib/run-failure-statements.js';
+import { activeFailureStatementEdits, activeFtoPerformed, activeNotApplicable, runFailureStatements } from '@/lib/run-failure-statements.js';
 import { SEG_TASK_DIRECTORY, UA_NOT_COUNTED_LABEL } from '@/lib/seg-deficiencies.js';
 import '@/components/run-sheet-workflow.css';
 
@@ -59,7 +58,7 @@ import { savedOrientationHref } from '@/lib/saved-orientation.js';
 
 import { searchTrainingRunsByIncidentNumber } from '@/lib/training-run-search.js';
 
-const AddedUaDialog = lazy(() => import('@/components/added-ua-dialog.js').then(m => ({ default: m.AddedUaDialog })));
+const RunUaBoxPanel = lazy(() => import('@/components/run-ua-box-panel.js').then(m => ({ default: m.RunUaBoxPanel })));
 
 type EditorStage = 'shift'|'duty'|'runs'|'activity'|'evaluation'|'narrative';
 type FailurePromptTarget = { form:RunChecklistSourceForm;key:string;label:string;choices:readonly string[];mode:'clear'|'edit' };
@@ -180,6 +179,8 @@ export default function ReportEditor() {
   const [failurePromptQueue, setFailurePromptQueue] = useState<FailurePromptTarget[]>([]);
   const [runChecklistNA, setRunChecklistNAState] = useState<Record<string, true>>({});
   const [runFailureEdits, setRunFailureEdits] = useState<Record<string, string>>({});
+  const [runChecklistFto, setRunChecklistFtoState] = useState<Record<string, true>>({});
+  const [runUaBox, setRunUaBoxState] = useState<RunUaBox>({});
   const [uncheckedPrompt, setUncheckedPrompt] = useState<{form:RunChecklistSourceForm;naKey:string;rowLabel:string;items:UncheckedItem[];itemLabels:Record<string,string>}|null>(null);
   const [uncheckedChoices, setUncheckedChoices] = useState<Record<string, UncheckedChoice|undefined>>({});
   const setRunChecklist: typeof setRunChecklistState = update => {
@@ -194,11 +195,19 @@ export default function ReportEditor() {
     setRunChecklistNAState(update);
     setR(current => current && ({ ...current, deficiencyAutomationEnabled: true, ratingsReviewedAt: undefined }));
   };
+  const setRunChecklistFto: typeof setRunChecklistFtoState = update => {
+    setRunChecklistFtoState(update);
+    setR(current => current && ({ ...current, deficiencyAutomationEnabled: true, ratingsReviewedAt: undefined }));
+  };
+  const setRunUaBox: typeof setRunUaBoxState = update => {
+    setRunUaBoxState(update);
+    setR(current => current && ({ ...current, deficiencyAutomationEnabled: true, ratingsReviewedAt: undefined }));
+  };
   const [directiveReviews,setDirectiveReviews]=useState<Partial<Record<DirectiveReviewForm,DirectiveReviewRecord>>>({});
   const generatedNarrativeRef = useRef('');
   const candidateRun = useMemo<TrainingRun | undefined>(() => {
     const occurredAt=parseRunDateTime(runDateTimeText);
-    if (!r || !occurredAt || (!editingRunId && !Object.entries(runChecklist).some(([key, value]) => !value && /^(task-|supp-)/.test(key)))) return undefined;
+    if (!r || !occurredAt || (!editingRunId && !runUaBox.addedCategories?.length && !Object.entries(runChecklist).some(([key, value]) => !value && /^(task-|supp-)/.test(key)))) return undefined;
     return {
       clearanceRulesVersion:editingRunId?r?.runs.find(run=>run.id===editingRunId)?.clearanceRulesVersion:1,
       id: editingRunId ?? runDraftId, occurredAt,
@@ -207,10 +216,10 @@ export default function ReportEditor() {
       transportDestination:arrestMade&&transported?transportDestination.trim()||undefined:undefined,
       transportDestinationType:arrestMade&&transported?transportDestinationType:undefined,
       clearanceCode,
-       oviProcessed, narrativeAdditionRequired, checklist: runChecklist, checklistFailures:runChecklistFailures, checklistNotApplicable:runChecklistNA, failureStatements:runFailureEdits, narrative: runNarrative, directiveReviews,
+       oviProcessed, narrativeAdditionRequired, checklist: runChecklist, checklistFailures:runChecklistFailures, checklistNotApplicable:runChecklistNA, checklistFtoPerformed:runChecklistFto, failureStatements:runFailureEdits, uaBox:runUaBox, narrative: runNarrative, directiveReviews,
       formStatus: runNarrative.trim() ? 'complete' : 'in_progress',
     };
-  }, [runChecklistNA, runFailureEdits, r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, transportDestinationType, clearanceCode, arrestProcessRequired, buildingSearchRequired, oviProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runChecklistFailures, runNarrative, directiveReviews]);
+  }, [runChecklistNA, runChecklistFto, runUaBox, runFailureEdits, r?.date, editingRunId, runDraftId, runDateTimeText, runKind, runDispatched, trafficMode, arrestMade, transported, transportDestination, transportDestinationType, clearanceCode, arrestProcessRequired, buildingSearchRequired, oviProcessRequired, oviProcessed, narrativeAdditionRequired, runChecklist, runChecklistFailures, runNarrative, directiveReviews]);
   const deficiencyEditor = useDeficiencyEditor(r, setR, getOperationalPacket, candidateRun, r?.status === 'draft' && ws.role === 'fto');
   const parsedDate = parseDateDMY(dateText);
   const runDateTimeParts = splitDateTimeEntryMDY(runDateTimeText);
@@ -225,7 +234,7 @@ export default function ReportEditor() {
   const runMeta = { runKind, trafficMode, isDispatched:runDispatched, arrestMade, transportedAfterArrest:arrestMade && transported, arrestProcessRequired, buildingSearchRequired, oviProcessed, oviProcessRequired, narrativeAdditionRequired };
   const requiredSupplements = requiredSupplementalForms(runMeta);
   const workflowDraft: RunWorkflowDraft = {
-    ...runMeta, checklist: runChecklist, checklistFailures:runChecklistFailures, checklistNotApplicable:runChecklistNA, failureStatements:runFailureEdits, directiveReviews, narrative: runNarrative,
+    ...runMeta, checklist: runChecklist, checklistFailures:runChecklistFailures, checklistNotApplicable:runChecklistNA, checklistFtoPerformed:runChecklistFto, failureStatements:runFailureEdits, uaBox:runUaBox, directiveReviews, narrative: runNarrative,
     arrestClassificationVersion: editingRunId ? r?.runs.find(run=>run.id===editingRunId)?.arrestClassificationVersion ?? 1 : 1,
     arrestSeverity, arrestType,
     incidentNumber: incidentNumber.trim() || undefined, location: runLocation.trim() || undefined,
@@ -252,7 +261,6 @@ export default function ReportEditor() {
   }, [legacyReviewSheets,workflowDraft]);
   const supplementCheckItems = RUN_SUPPLEMENT_CHECKLIST_ITEMS;
   const isLimboDay=!!r?.limboDay;
-  const [addedUa, setAddedUa] = useState<{ category: Category; editingId?: string } | null>(null);
   const citationSummonsRecorded=isEligibleCitationSummons({runKind,clearanceCode});
   useEffect(()=>{
     if(runKind!=='traffic_stop')return;
@@ -267,7 +275,7 @@ export default function ReportEditor() {
   },[existing?.syncStatus,existing?.serverVersion]);
   const previousRun=editingRunId?r?.runs.find(item=>item.id===editingRunId):undefined;
   const directiveReviewsDirty=JSON.stringify(directiveReviews)!==JSON.stringify(previousRun?.directiveReviews??{});
-  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== '' || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestSeverity !== '' || arrestType !== '' || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runLocationCity.trim() !== '' || runLocationState.trim() !== '' || runLocationZip.trim() !== '' || runZone.trim() !== '' || runCruiserDistrict.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist) || Object.keys(runFailureEdits).length>0;
+  const runFormDirty = editingRunId !== null || !!dispatchedCode || situationFoundCode !== '' || !!clearanceCode || Object.values(activityFlags).some(Boolean) || runDateTimeText !== (r ? formatDateDMY(r.date) : '') || runTimeText !== '' || runKind !== 'call_for_service' || !runDispatched || trafficMode !== 'none' || arrestMade || transported || transportDestination.trim() !== '' || !!transportDestinationType || arrestSeverity !== '' || arrestType !== '' || arrestProcessRequired || buildingSearchRequired || oviProcessRequired || runUnitNumber.trim() !== '' || runDispatchedAtText.trim() !== '' || runClearedAtText.trim() !== '' || oviProcessed || narrativeAdditionRequired || incidentNumber.trim() !== '' || runLocation.trim() !== '' || runLocationCity.trim() !== '' || runLocationState.trim() !== '' || runLocationZip.trim() !== '' || runZone.trim() !== '' || runCruiserDistrict.trim() !== '' || runNarrative.trim() !== '' || directiveReviewsDirty || hasRunChecklistEdits(runChecklist) || Object.keys(runFailureEdits).length>0 || Object.keys(runUaBox).length>0;
   const matchingRuns = useMemo(
     () => searchTrainingRunsByIncidentNumber(r?.runs ?? [], runIncidentSearch),
     [r?.runs, runIncidentSearch],
@@ -303,7 +311,7 @@ export default function ReportEditor() {
   const errs = useMemo(() => r ? [
     ...validateReport(r),
     ...(operationalPacket?.blockingIssues ?? []),
-    ...(!r.limboDay && deficiencyEditor.groups.some(group=>!group.narrative.trim()) ? ['Complete the FTO articulation for each checklist deficiency category'] : []),
+    ...(!r.limboDay && r.runs.some(run=>runUaBoxGaps(run,deficiencyEditor.groups).length>0) ? ['Complete the UA box on each run with a UA: what happened, corrective training and minutes'] : []),
     ...(r.deficiencyAutomationEnabled && !r.reportingForDuty.shotgunTraining ? ['Record Shotgun Training as Y or N'] : []),
     ...(!r.reportingForDuty?.reviewedAt ? ['Reporting for Duty checklist must be reviewed and confirmed'] : []),
      ...(r.runs??[]).filter(run=>run.formStatus!=='complete'||!run.checklistReviewedAt).map(run=>`${PRIMARY_RUN_FORMS.find(form=>form.key===run.runKind)?.label??'Run'} must be completed and reviewed before submission`),
@@ -321,14 +329,6 @@ export default function ReportEditor() {
     || existing?.syncAttemptPending === true || existing?.finalizationAttemptPending === true;
   const editable = !locked && r.status === 'draft' && ws.role === 'fto';
   const commentsEditable = !locked && r.status === 'fto_signed' && ws.role === 'po';
-  const addedUaRuns = addedUaRunOptions(r, operationalPacket);
-  const addedUaEditing = addedUa?.editingId ? r.addedDeficiencies?.find(item => item.id === addedUa.editingId) : undefined;
-  const saveAddedUa = (draft: AddedUaDraft) => {
-    const minutes = parseAddedUaMinutes(draft.minutes);
-    if (!addedUa || minutes === undefined) return;
-    setR(current => current && saveAddedDeficiency(current, addedUa.category, { runId: draft.runId, whatHappened: draft.whatHappened, correctiveTraining: draft.correctiveTraining, minutes, ...(draft.sameIssueAs ? { sameIssueAs: draft.sameIssueAs } : {}) }, addedUa.editingId, uid(), new Date().toISOString()));
-    setAddedUa(null);
-  };
   const set = <K extends keyof Report>(k: K, v: Report[K]) => setR(x => x && ({ ...x, deficiencyAutomationEnabled:k==='reportingForDuty'?true:x.deficiencyAutomationEnabled, ratingsReviewedAt: undefined, [k]: v }));
   const applyShiftDate = (value: string) => {
     const parsed = parseDateDMY(value);
@@ -501,6 +501,10 @@ export default function ReportEditor() {
       if(!targets.some(target=>target.key in current))return current;
       const next={...current};targets.forEach(target=>{delete next[target.key];});return next;
     });
+    setRunChecklistFto(current=>{
+      if(!targets.some(target=>target.key in current))return current;
+      const next={...current};targets.forEach(target=>{delete next[target.key];});return next;
+    });
     const changed=targets.filter(target=>runChecklist[target.key]!==false);
     const updates:Record<string,boolean>={[notApplicableKey]:false};
     const queued:FailurePromptTarget[]=[];
@@ -533,6 +537,10 @@ export default function ReportEditor() {
       if(!targets.some(target=>target.key in current))return current;
       const next={...current};targets.forEach(target=>{delete next[target.key];});return next;
     });
+    setRunChecklistFto(current=>{
+      if(!targets.some(target=>target.key in current))return current;
+      const next={...current};targets.forEach(target=>{delete next[target.key];});return next;
+    });
     setRunFailureEdits(current=>{
       if(!targets.some(target=>target.key in current))return current;
       const next={...current};targets.forEach(target=>{delete next[target.key];});return next;
@@ -561,7 +569,7 @@ export default function ReportEditor() {
     const itemLabels=Object.fromEntries(row.indices.map(index=>[`${prefix}${index}`,labels[index]??`Checklist item ${index+1}`]));
     setUncheckedChoices(Object.fromEntries(items.map(item=>{
       const unchecked=item.keys.filter(key=>runChecklist[key]===false);
-      return [item.key,unchecked.length===0?undefined:unchecked.every(key=>runChecklistNA[key])?'na':'fail'];
+      return [item.key,unchecked.length===0?undefined:unchecked.every(key=>runChecklistNA[key])?'na':unchecked.every(key=>runChecklistFto[key])?'fto':'fail'];
     })));
     setUncheckedPrompt({form,naKey,rowLabel:row.label,items,itemLabels});
   };
@@ -571,22 +579,25 @@ export default function ReportEditor() {
     const targetsFor=(choice:UncheckedChoice|undefined)=>items.filter(item=>uncheckedChoices[item.key]===choice).flatMap(item=>item.keys.map(key=>({form,key,label:itemLabels[key]??''})));
     const failed=targetsFor('fail');
     const notApplicable=targetsFor('na');
+    const ftoPerformed=targetsFor('fto');
     const satisfied=targetsFor(undefined);
     setUncheckedPrompt(null);
     if(satisfied.length)selectChecklistItems(satisfied,naKey);
-    if(notApplicable.length){
-      setRunChecklist(current=>({...current,[naKey]:false,...Object.fromEntries(notApplicable.map(item=>[item.key,false]))}));
-      setRunChecklistNA(current=>({...current,...Object.fromEntries(notApplicable.map(item=>[item.key,true as const]))}));
-      setRunChecklistFailures(current=>{const next={...current};notApplicable.forEach(item=>{delete next[item.key];});return next;});
-      setRunFailureEdits(current=>{const next={...current};notApplicable.forEach(item=>{delete next[item.key];});return next;});
+    const excused=[...notApplicable,...ftoPerformed];
+    if(excused.length){
+      setRunChecklist(current=>({...current,[naKey]:false,...Object.fromEntries(excused.map(item=>[item.key,false]))}));
+      setRunChecklistNA(current=>{const next={...current};ftoPerformed.forEach(item=>{delete next[item.key];});notApplicable.forEach(item=>{next[item.key]=true;});return next;});
+      setRunChecklistFto(current=>{const next={...current};notApplicable.forEach(item=>{delete next[item.key];});ftoPerformed.forEach(item=>{next[item.key]=true;});return next;});
+      setRunChecklistFailures(current=>{const next={...current};excused.forEach(item=>{delete next[item.key];});return next;});
+      setRunFailureEdits(current=>{const next={...current};excused.forEach(item=>{delete next[item.key];});return next;});
     }
     if(failed.length)clearChecklistItems(failed,naKey);
   };
   const failureStatements=runFailureStatements(workflowDraft as Parameters<typeof runFailureStatements>[0]);
-  const statementCategory=(key:string)=>{
+  const runUaText=runUaParagraph(workflowDraft as Parameters<typeof runUaParagraph>[0]);
+  const statementCategory=(key:string):Category|undefined=>{
     const supplement=/^supp-(.+)-\d+$/.exec(key)?.[1];
-    const category=SEG_TASK_DIRECTORY[`${supplement??runKind}:${key}`];
-    return category?CATEGORY_LABEL[category]:undefined;
+    return SEG_TASK_DIRECTORY[`${supplement??runKind}:${key}`];
   };
   const renderChecklistFailureDetails=(form:RunChecklistSourceForm,prefix:string,indices:readonly number[],labels:readonly string[])=>(
     <div className="ml-6 space-y-1">
@@ -682,8 +693,12 @@ export default function ReportEditor() {
     if (Object.keys(activeFailures).length) nextRun.checklistFailures = activeFailures;
     const savedNotApplicable=activeNotApplicable({checklist:nextRun.checklist,checklistNotApplicable:runChecklistNA});
     if(savedNotApplicable)nextRun.checklistNotApplicable=savedNotApplicable;
-    const savedStatements=activeFailureStatementEdits({...nextRun,checklistNotApplicable:savedNotApplicable,failureStatements:runFailureEdits});
+    const savedFto=activeFtoPerformed({checklist:nextRun.checklist,checklistFtoPerformed:runChecklistFto});
+    if(savedFto)nextRun.checklistFtoPerformed=savedFto;
+    const savedStatements=activeFailureStatementEdits({...nextRun,checklistNotApplicable:savedNotApplicable,checklistFtoPerformed:savedFto,failureStatements:runFailureEdits});
     if(savedStatements)nextRun.failureStatements=savedStatements;
+    const savedUaBox=normalizeUaBox(runUaBox,deficiencyEditor.groups.filter(group=>group.runId===nextRun.id&&!group.added).map(group=>group.category));
+    if(savedUaBox)nextRun.uaBox=savedUaBox;
     nextRun.generatedDocuments=buildClearanceDocuments(nextRun);
     setR(current=>current && ({...current,ratingsReviewedAt:undefined,runs: previous ? current.runs.map(item => item.id === previous.id ? nextRun : item) : [...current.runs, nextRun]}));
     resetRunForm();
@@ -724,6 +739,8 @@ export default function ReportEditor() {
     setRunChecklist(newRunChecklist('call_for_service'));
     setRunChecklistFailures({});
     setRunChecklistNA({});
+    setRunChecklistFto({});
+    setRunUaBox({});
     setRunFailureEdits({});
     setUncheckedPrompt(null);
     setFailurePrompt(null);
@@ -731,7 +748,7 @@ export default function ReportEditor() {
     setFailurePromptSelection([]);
     setDirectiveReviews({});
   };
-  const editRun = (run: TrainingRun) => {
+  const editRun = (run: TrainingRun, openUaBox = false) => {
     setRiskPrompt(false);setRiskCodeDirty(false);setRiskCandidate('');
     setRunOpen(true);
     deficiencyEditor.resetIncident();
@@ -753,17 +770,21 @@ export default function ReportEditor() {
     setTransported(run.transportedAfterArrest); setTransportDestination(run.transportDestination??''); setTransportDestinationType(run.transportDestinationType); setArrestProcessRequired(!!run.arrestProcessRequired); setBuildingSearchRequired(!!run.buildingSearchRequired); setOviProcessRequired(!!run.oviProcessRequired); setOviProcessed(run.oviProcessed);
     setNarrativeAdditionRequired(run.narrativeAdditionRequired);
     setDirectiveReviews(run.directiveReviews??{});
-    setRunNarrative(run.narrative); setRunChecklist(run.checklist ?? {});setRunChecklistFailures(run.checklistFailures??{});setRunChecklistNA(run.checklistNotApplicable??{});setRunFailureEdits(run.failureStatements??{});
+    setRunNarrative(run.narrative); setRunChecklist(run.checklist ?? {});setRunChecklistFailures(run.checklistFailures??{});setRunChecklistNA(run.checklistNotApplicable??{});setRunChecklistFto(run.checklistFtoPerformed??{});setRunUaBox(run.uaBox??{});setRunFailureEdits(run.failureStatements??{});
     setSheetReviews({});
     setLegacyReviewSheets(run.checklistReviewedAt ? ['primary' as RunSheetKey, ...requiredSupplementalForms(run)] : null);
     setStage('runs');
+    if (openUaBox) {
+      setRunStep('finish');
+      window.setTimeout(() => document.querySelector('[data-testid="section-run-ua-box"],[data-testid="section-run-ua-box-empty"]')?.scrollIntoView({ block: 'center' }), 150);
+    }
   };
-  const requestEditRun = (run: TrainingRun) => {
+  const requestEditRun = (run: TrainingRun, openUaBox = false) => {
     if (runFormDirty && editingRunId !== run.id) {
-      setConfirmAction({title:'Replace the open run draft?',body:'The run currently open has unsaved entries. Opening another run discards them. Add the open run to the daily log first to keep it.',label:'Discard and open',action:()=>editRun(run)});
+      setConfirmAction({title:'Replace the open run draft?',body:'The run currently open has unsaved entries. Opening another run discards them. Add the open run to the daily log first to keep it.',label:'Discard and open',action:()=>editRun(run,openUaBox)});
       return;
     }
-    editRun(run);
+    editRun(run,openUaBox);
   };
   const startNewRun = (seed: NewRunSeed) => {
     resetRunForm();
@@ -902,7 +923,6 @@ export default function ReportEditor() {
 
   return (
     <div className="report-editor-page max-w-5xl" data-auth-recovery-form={`report:${r.id}`}>
-      {addedUa && <Suspense fallback={null}><AddedUaDialog category={addedUa?.category} editing={addedUaEditing} runs={addedUaRuns} issues={addedUa?addedUaIssueOptions(ws.reports,r,addedUa.category,addedUa.editingId):[]} onSave={saveAddedUa} onClose={()=>setAddedUa(null)}/></Suspense>}
       <DeficiencyDialog group={deficiencyEditor.active} onNarrative={deficiencyEditor.setNarrative} onOverride={deficiencyEditor.override} onClose={deficiencyEditor.close}/>
       <Link href="/reports" className="text-sm font-semibold inline-flex items-center gap-1 mb-2 hover:underline" data-testid="link-back"><ArrowLeft className="h-4 w-4" />Saved records</Link>
       <PageHead kicker="Shift workspace · Daily Performance Summary · U-10.174" title={r.recruitName ? `PO ${r.recruitName} #${r.recruitBadge}` : 'Probationary Officer shift'} titleIsData>
@@ -984,7 +1004,7 @@ export default function ReportEditor() {
              <F l="Unit / cruiser assignment"><input value={r.reportingForDuty.cruiserId||r.reportingForDuty.unitNumber||''} maxLength={40} className={inp+' mono'} onChange={event=>set('reportingForDuty',{...r.reportingForDuty,unitNumber:event.target.value,cruiserId:event.target.value,reviewedAt:undefined})} placeholder="Enter assigned unit or cruiser" data-testid="input-unit-number"/></F>
               <F l="Shotgun Training"><select className={inp} value={r.reportingForDuty.shotgunTraining??''} onChange={event=>{const value=event.target.value;if(value==='Y'||value==='N')setShotgunTraining(value);}} data-testid="select-shotgun-training"><option value="" disabled>Select Y / N</option><option value="Y">Y</option><option value="N">N</option></select></F>
            </fieldset>
-            {deficiencyEditor.groups.some(group=>!group.addedId)&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.filter(group=>!group.addedId).map(group=><button type="button" key={group.id} disabled={!editable||!group.reviewed} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
+            {deficiencyEditor.groups.some(group=>!group.added)&&<div className="flex flex-wrap gap-2">{deficiencyEditor.groups.filter(group=>!group.added).map(group=><button type="button" key={group.id} disabled={!editable||!group.reviewed} className="min-h-11 rounded border bg-card px-3 text-sm font-semibold" onClick={()=>deficiencyEditor.open(group.id)} data-testid={`review-deficiency-${group.id}`}>Review {CATEGORY_LABEL[group.category]} articulation</button>)}</div>}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded border bg-muted/20 p-3">
               <span className="text-sm font-semibold">Reporting for Duty form checkboxes</span>
               <button type="button" disabled={!editable} onClick={toggleDutyChecklist} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-duty-checklist">{dutyAllChecked?'Deselect all':'Select all'}</button>
@@ -1137,7 +1157,7 @@ export default function ReportEditor() {
                           if(checked)selectChecklistItems(targets,'na-task');else openUncheckedPrompt(runKind,'task-','na-task',checklistRowFor(primaryChecklistGroups,indices),checkItems);
                           if(indices.includes(primaryDirectiveIndex))setDirectiveReviewFlags(runKind,checked);
                         }}
-                        notApplicable={runChecklistNA}
+                        notApplicable={runChecklistNA} ftoPerformed={runChecklistFto}
                         renderItemDetails={indices=>renderChecklistFailureDetails(runKind,'task-',indices,checkItems)}/>
                      {primaryDirectiveIndex>=0&&<DirectiveReviewEditor value={primaryDirectiveReview} disabled={!editable||runChecklist[`task-${primaryDirectiveIndex}`]===false} dataTestId={`directive-review-${runKind}`} onChange={(field,value)=>updateDirectiveReview(runKind,field,value)}/>}
                </div>
@@ -1170,7 +1190,7 @@ export default function ReportEditor() {
                            if(checked)selectChecklistItems(targets,`na-supp-${supplement}`);else openUncheckedPrompt(supplement,`supp-${supplement}-`,`na-supp-${supplement}`,checklistRowFor(groups,indices),supplementItems);
                           if(indices.includes(supplementDirectiveIndex))setDirectiveReviewFlags(supplement,checked);
                          }}
-                         notApplicable={runChecklistNA}
+                         notApplicable={runChecklistNA} ftoPerformed={runChecklistFto}
                          renderItemDetails={indices=>renderChecklistFailureDetails(supplement,`supp-${supplement}-`,indices,supplementItems)}/>
                      {supplementDirectiveIndex>=0&&<DirectiveReviewEditor value={supplementDirectiveReview} disabled={!editable||runChecklist[`supp-${supplement}-${supplementDirectiveIndex}`]===false} dataTestId={`directive-review-${supplement}`} onChange={(field,value)=>updateDirectiveReview(supplement,field,value)}/>}</>:<p className="mt-2 text-xs text-muted-foreground">The submitted form has no separate checkbox list here.</p>}
                      {supplement==='narrative_addition'&&<p className="mt-2 rounded border bg-card p-2 text-xs">The continuation pages print the run narrative written on the Narrative &amp; save sheet. Changing that narrative requires this sheet to be reviewed again.</p>}
@@ -1187,22 +1207,14 @@ export default function ReportEditor() {
                 <button type="button" disabled={!editable||!allSheetsReviewed} onClick={draftNarrative} className="min-h-10 rounded border bg-card px-3 text-sm font-semibold disabled:opacity-50" data-testid="button-draft-run-narrative">Draft narrative outline from reviewed sheets</button>
                 <span className="text-xs text-muted-foreground">Only fills an empty narrative or an unedited outline. Written text is never replaced.</span>
               </div>
-            {failureStatements.length>0&&<section className="my-3 rounded border border-destructive/40 bg-destructive/5 p-3" data-testid="section-po-failed-to">
-              <h4 className="text-xs font-bold uppercase tracking-wide text-destructive">PO failed to</h4>
-              <ul className="mt-2 space-y-2">
-                {failureStatements.map((statement,index)=>{
-                  const category=statementCategory(statement.key);
-                  return <li key={statement.keys.join('|')} className="flex flex-col gap-1">
-                    {category&&<span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground" data-testid={`text-po-failed-category-${index}`}>UA · {category}</span>}
-                    <textarea rows={Math.max(2,Math.ceil(statement.text.length/85))} disabled={!editable} className="w-full rounded border bg-card p-2 text-sm" value={statement.text}
-                      aria-label={`PO failed to statement ${index+1}`}
-                      onChange={event=>{const value=event.target.value;setRunFailureEdits(current=>({...current,...Object.fromEntries(statement.keys.map(key=>[key,value]))}));}}
-                      data-testid={`input-po-failed-${index}`}/>
-                  </li>;
-                })}
-              </ul>
-            </section>}
+            <Suspense fallback={null}><RunUaBoxPanel editable={editable}
+              statements={failureStatements.map(statement=>({...statement,category:statementCategory(statement.key)}))}
+              onStatementChange={(keys,value)=>setRunFailureEdits(current=>({...current,...Object.fromEntries(keys.map(key=>[key,value]))}))}
+              checklistCategories={[...new Set(deficiencyEditor.groups.filter(group=>group.runId===(editingRunId??runDraftId)&&!group.added).map(group=>group.category))]}
+              box={runUaBox} onChange={setRunUaBox}
+              suggestions={category=>uaIssueSuggestions(ws.reports,r,editingRunId??runDraftId,category)}/></Suspense>
             <F l="Training narrative · performance, coaching, response"><textarea rows={3} disabled={!editable} className="mt-3 w-full rounded border bg-card p-2.5 text-sm" value={runNarrative} onChange={e=>setRunNarrative(e.target.value)} placeholder="Describe observed performance, response, and coaching." data-testid="input-run-narrative" /></F>
+            {runUaText&&<p className="mt-2 whitespace-pre-wrap rounded border bg-muted/30 p-2.5 text-sm" data-testid="text-run-ua-appended">{runUaText}</p>}
             {narrativeAdditionRequired&&<button type="button" onClick={()=>{document.body.classList.add('print-narrative-only');window.addEventListener('afterprint',()=>document.body.classList.remove('print-narrative-only'),{once:true});window.print();}} className="mt-2 min-h-10 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-print-narrative-continuation">Print narrative continuation pages only</button>}
             </div>}
             <div className="run-stepbar" data-testid="bar-run-steps">
@@ -1260,7 +1272,7 @@ export default function ReportEditor() {
                    </div>}
                   {run.narrative && <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{run.narrative}</p>}
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-x-12 gap-y-2 border-t pt-3">
-                    <button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>setR(current=>current&&({...current,ratingsReviewedAt:undefined,runs:current.runs.filter(item=>item.id!==run.id),addedDeficiencies:current.addedDeficiencies?.filter(item=>item.runId!==run.id)}))})} className="min-h-10 rounded border border-destructive/60 px-3 py-2 text-xs font-semibold text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}>Remove run</button>
+                    <button type="button" disabled={!editable} onClick={()=>setConfirmAction({title:'Remove this run from the daily log?',body:'The run and its attached sheets leave this daily record. Save the daily log to keep the removal.',label:'Remove run',action:()=>setR(current=>current&&({...current,ratingsReviewedAt:undefined,runs:current.runs.filter(item=>item.id!==run.id)}))})} className="min-h-10 rounded border border-destructive/60 px-3 py-2 text-xs font-semibold text-destructive disabled:opacity-50" data-testid={`button-delete-run-${run.id}`}>Remove run</button>
                     <button type="button" disabled={!editable} onClick={()=>requestEditRun(run)} className="min-h-10 rounded border px-3 py-2 text-xs font-semibold disabled:opacity-50" data-testid={`button-edit-run-${run.id}`}>Edit</button>
                   </div>
                 </li>;
@@ -1329,29 +1341,22 @@ export default function ReportEditor() {
                   </div>
                   {!isLimboDay && (()=>{
                     const uas=deficiencyEditor.groups.filter(group=>group.category===c);
-                    const canAdd=editable&&addedUaRuns.length>0;
-                    if(!uas.length&&!canAdd)return null;
+                    if(!uas.length)return null;
                     return <div className="border-x border-b bg-card px-3 py-2 text-sm" data-testid={`category-uas-${c}`}>
                       {uas.map(group=>{
                         const reference=[...new Set(group.tasks.map(task=>task.reference).filter(Boolean))].join(', ');
-                        const added=group.addedId?r.addedDeficiencies?.find(item=>item.id===group.addedId):undefined;
+                        const run=group.runId?r.runs.find(item=>item.id===group.runId):undefined;
                         return <div key={group.id} className="flex flex-wrap items-start justify-between gap-2 border-b py-2 last:border-b-0" data-testid={`ua-entry-${group.id}`}>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               {reference&&<b className="mono">{reference}</b>}
-                              <span className="label-caps text-muted-foreground">{group.addedId?'Added UA':'Checklist UA'}</span>
                               <span className={cn('rounded border px-2 py-0.5 text-xs font-semibold',group.notCounted?'border-border bg-muted text-foreground':'border-destructive/40 bg-destructive/5 text-destructive')} data-testid={`status-ua-count-${group.id}`}>{group.notCounted?UA_NOT_COUNTED_LABEL[group.notCounted]:'Counted'}</span>
                             </div>
                             {group.narrative.trim()&&<p className="mt-1 whitespace-pre-wrap text-xs leading-5">{group.narrative}</p>}
-                            {group.addedId&&<p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">Corrective training: {group.correctiveTraining} · {group.minutes} min</p>}
                           </div>
-                          {added&&editable&&<div className="flex gap-2">
-                            <button type="button" onClick={()=>setAddedUa({category:c,editingId:added.id})} className="min-h-10 rounded border bg-card px-3 text-xs font-semibold" data-testid={`button-edit-added-ua-${added.id}`}>Edit</button>
-                            <button type="button" onClick={()=>setConfirmAction({title:'Remove this added UA?',body:'The UA leaves this daily record and the Weekly Performance Log. Save the daily log to keep the removal.',label:'Remove UA',action:()=>setR(current=>current&&removeAddedDeficiency(current,added.id))})} className="min-h-10 rounded border border-destructive/60 px-3 text-xs font-semibold text-destructive" data-testid={`button-remove-added-ua-${added.id}`}>Remove</button>
-                          </div>}
+                          {run&&editable&&<button type="button" onClick={()=>requestEditRun(run,true)} className="min-h-10 rounded border bg-card px-3 text-xs font-semibold" data-testid={`button-edit-ua-${group.id}`}>Edit</button>}
                         </div>;
                       })}
-                      {canAdd&&<button type="button" onClick={()=>setAddedUa({category:c})} className="my-1 min-h-10 rounded border border-destructive/50 bg-card px-3 text-xs font-bold text-destructive hover:bg-destructive/5" data-testid={`button-add-ua-${c}`}>Add UA</button>}
                     </div>;
                   })()}
                   {v.rating==='NRT' && <div className="border-x border-b border-destructive/30 bg-destructive/5 p-3 text-sm">

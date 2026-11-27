@@ -7,7 +7,7 @@ import { useWorkspace } from '@/state/workspace.js';
 import ResourcesLibraryPage from '@/pages/resources-library-preview.js';
 import { GeographyMapPanel } from '@/components/geography-map-panel.js';
 import { LawHandbookPanel } from '@/components/law-handbook-panel.js';
-import { ChargingLookup } from '@/components/charging-lookup.js';
+import { LazyChargingLookup as ChargingLookup } from '@/components/lazy-charging-lookup.js';
 import { DownloadManualButton } from '@/components/download-manual-button.js';
 
 export default function HelpPage() {

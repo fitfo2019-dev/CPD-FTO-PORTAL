@@ -2,7 +2,7 @@ import { CATEGORY_LABEL, type WeeklyPerformanceLog, type SubstationOrientationRe
 import { SUBSTATION_ORIENTATION_SECTIONS } from './substation-orientation.js';
 import { substationDisplay } from './substations.js';
 import { formatDateDMY, formatDateTimeMDY } from './training-calendar.js';
-import { categoryNumberLabel, weeklyLogNarrativeWithReference } from './weekly-log-layout.js';
+import { entryCategoryLabel, weeklyLogNarrativeWithReference } from './weekly-log-layout.js';
 
 export function weeklyPerformanceLogXlsxRows(logs:WeeklyPerformanceLog[]) {
   const rows:(string|number)[][]=[['Class','PO','PO badge','FTO','FTO badge','Phase','Week','Week start','Week end','Entry type','SEG number(s)','SEG category','Total time','Source references','Reference reviewed','Narrative part','Narrative','Source daily report IDs']];
@@ -12,7 +12,7 @@ export function weeklyPerformanceLogXlsxRows(logs:WeeklyPerformanceLog[]) {
     chunks.forEach((part,index)=>rows.push([
       log.className,log.recruitName,log.recruitBadge,log.ftoName,log.ftoBadge,log.phase,log.weekNumber,
       formatDateDMY(log.weekStart),formatDateDMY(log.weekEnd),entry.kind==='strength'?'Strength':'Corrective training',
-        categoryNumberLabel(entry.category),CATEGORY_LABEL[entry.category]??entry.category,entry.totalTime,entry.sourceReferences?.join('; ')??'',entry.sourceReferenceReviewed?'Yes':'No',`${index+1} of ${chunks.length}`,part,entry.sourceReportIds.join('; '),
+        entryCategoryLabel(entry),(entry.categories?.length?entry.categories:[entry.category]).map(category=>CATEGORY_LABEL[category]??category).join(' / '),entry.totalTime,entry.sourceReferences?.join('; ')??'',entry.sourceReferenceReviewed?'Yes':'No',`${index+1} of ${chunks.length}`,part,entry.sourceReportIds.join('; '),
     ]));
   }
   return rows;

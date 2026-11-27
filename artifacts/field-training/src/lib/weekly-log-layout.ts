@@ -59,14 +59,21 @@ export function categoryNumberLabel(category: Category): string {
   return [...new Set(numbers)].join(', ') || '—';
 }
 
+/** Category column: slash-joined numbers for a page 42 category set, e.g. "19/24/25". */
+export function entryCategoryLabel(entry: Pick<WeeklyPerformanceLogEntry, 'category' | 'categories'>): string {
+  return entry.categories?.length ? entry.categories.map(categoryNumberLabel).join('/') : categoryNumberLabel(entry.category);
+}
+
 function narrativeWithoutDuplicateReference(entry: WeeklyPerformanceLogEntry): string {
   const narrative = entry.narrative ?? '';
+  if (entry.inlineReferences) return narrative;
   const references = entry.sourceReferences?.map(value => value.trim()).filter(Boolean) ?? [];
   const prefix = references.join(', ');
   return prefix && narrative.startsWith(`${prefix} `) ? narrative.slice(prefix.length + 1) : narrative;
 }
 
 export function weeklyLogNarrativeWithReference(entry: WeeklyPerformanceLogEntry): string {
+  if (entry.inlineReferences) return entry.narrative ?? '';
   const references = entry.sourceReferences?.map(value => value.trim()).filter(Boolean) ?? [];
   const narrative = narrativeWithoutDuplicateReference(entry);
   const prefix = references.join(', ');

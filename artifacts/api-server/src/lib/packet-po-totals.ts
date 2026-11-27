@@ -94,6 +94,43 @@ function reportActivity(report: JsonRecord, activity: PacketPoPeriodTotals["acti
   }
 }
 
+/** Officer Safety categories count one UA per day (client OFFICER_SAFETY_LOCK_CATEGORIES). */
+const OFFICER_SAFETY_CATEGORIES = new Set([
+  "threatAssessment", "initiatingArrests", "handlingPrisoners", "vehicleStops", "runApproach", "buildingSearch", "patDownSearches",
+]);
+
+function hasDeficiency(report: JsonRecord, category: string): boolean {
+  const groups = Array.isArray(report.checklistDeficiencies) ? report.checklistDeficiencies : [];
+  return groups.some(group => isRecord(group) && group.category === category);
+}
+
+/**
+ * Mirrors the client applyUaCounting rule (owner, Nov 26-27, 2026): one UA per category per run, checklist UA's
+ * before added ones, and Officer Safety categories once per day on the first run by time.
+ */
+function countedUaByCategory(report: JsonRecord): Map<string, number> {
+  const runs = Array.isArray(report.runs) ? report.runs.filter(isRecord) : [];
+  const order = new Map([...runs].sort((left, right) => Date.parse(String(left.occurredAt ?? "")) - Date.parse(String(right.occurredAt ?? "")))
+    .map((run, index) => [String(run.id), index]));
+  const groups = (Array.isArray(report.checklistDeficiencies) ? report.checklistDeficiencies : []).filter(isRecord)
+    .filter(group => typeof group.category === "string");
+  const position = (group: JsonRecord) => typeof group.runId === "string" ? order.get(group.runId) ?? Number.MAX_SAFE_INTEGER : -1;
+  const ordered = groups.map((group, index) => ({ group, index })).sort((left, right) =>
+    position(left.group) - position(right.group) || Number(left.group.added === true) - Number(right.group.added === true) || left.index - right.index);
+  const runKeys = new Set<string>();
+  const days = new Set<string>();
+  const counts = new Map<string, number>();
+  for (const { group } of ordered) {
+    const category = String(group.category);
+    const runKey = `${typeof group.runId === "string" ? group.runId : "duty"}:${category}`;
+    if (runKeys.has(runKey) || (OFFICER_SAFETY_CATEGORIES.has(category) && days.has(category))) continue;
+    runKeys.add(runKey);
+    if (OFFICER_SAFETY_CATEGORIES.has(category)) days.add(category);
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+  }
+  return counts;
+}
+
 function ratingOf(value: unknown): RatingCode | null {
   const code = isRecord(value) ? value.rating : value;
   return typeof code === "string" && (RATING_CODES as readonly string[]).includes(code)
@@ -116,8 +153,13 @@ function makeTotals(rows: PacketReportRow[], start: string, end: string): Packet
     if (report.ratingsReviewedAt && report.limboDay !== true) {
       totals.reviewed_log_count++;
       if (isRecord(report.ratings)) {
-        for (const entry of Object.values(report.ratings)) {
+        const counted = countedUaByCategory(report);
+        const notApplicable = new Set(Array.isArray(report.notApplicableCategories) ? report.notApplicableCategories : []);
+        for (const [category, entry] of Object.entries(report.ratings)) {
           const rating = ratingOf(entry);
+          const groups = counted.get(category) ?? 0;
+          if (groups > 0 && rating !== "NRT") { totals.rating_counts.UA += groups; continue; }
+          if (notApplicable.has(category) && rating !== "UA" && !hasDeficiency(report, category)) continue;
           if (rating) totals.rating_counts[rating]++;
         }
       }

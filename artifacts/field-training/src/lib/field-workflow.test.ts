@@ -155,7 +155,7 @@ test('updated worksheet has exactly the 30 requested categories and defaults req
   assert.equal(evaluationProgress(report),'Complete');
 });
 
-test('weekly performance log gathers reviewed UA articulations once with editable 15-minute training time',()=>{
+test('weekly performance log gathers reviewed UA articulations once; the FTO enters training minutes (no default)',()=>{
   const report=seedReports()[0];
   report.ratingsReviewedAt='2026-11-18T12:00:00.000Z';
   report.ratings[CATEGORIES[0]]={...report.ratings[CATEGORIES[0]],rating:'UA',justification:'Did not complete the required documentation; retrained on the form.'};
@@ -170,7 +170,7 @@ test('weekly performance log gathers reviewed UA articulations once with editabl
   assert.equal(exportLogs[0].entries.length,1);
   assert.equal(generated.entries.length,1);
   assert.equal(generated.entries[0].kind,'corrective');
-  assert.equal(generated.entries[0].totalTime,'15 min');
+  assert.equal(generated.entries[0].totalTime,'');
   assert.equal(generated.entries[0].narrative,report.ratings[CATEGORIES[0]].justification);
   assert.deepEqual(generated.entries[0].sourceReportIds,[report.id]);
   const edited={...generated,entries:[{...generated.entries[0],totalTime:'25 min',narrative:'Updated weekly articulation.'}]};

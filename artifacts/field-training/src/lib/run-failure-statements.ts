@@ -48,12 +48,12 @@ export type RunFailureStatement = { key: string; keys: string[]; labels: string[
 type FailedBox = { key: string; keys: string[]; label: string; sentence: string };
 
 /** Failed boxes (single items or approved merges) that are not marked "did not apply", in form order. */
-export function runFailedItems(run: Pick<TrainingRun, 'runKind' | 'checklist' | 'checklistNotApplicable'> & Parameters<typeof requiredSupplementalForms>[0]): FailedBox[] {
+export function runFailedItems(run: Pick<TrainingRun, 'runKind' | 'checklist' | 'checklistNotApplicable' | 'checklistFtoPerformed'> & Parameters<typeof requiredSupplementalForms>[0]): FailedBox[] {
   const boxes: FailedBox[] = [];
   const collect = (sections: readonly RevisedChecklistSection[], prefix: string) => {
     for (const section of sections) for (const row of section.items) row.units.forEach((unit, position) => {
-      if (!unitState(run.checklist, prefix, unit, run.checklistNotApplicable).failed) return;
-      const keys = unit.map(index => `${prefix}${index}`).filter(key => run.checklist[key] === false && run.checklistNotApplicable?.[key] !== true);
+      if (!unitState(run.checklist, prefix, unit, run.checklistNotApplicable, run.checklistFtoPerformed).failed) return;
+      const keys = unit.map(index => `${prefix}${index}`).filter(key => run.checklist[key] === false && run.checklistNotApplicable?.[key] !== true && run.checklistFtoPerformed?.[key] !== true);
       const label = row.unitLabels[position] ?? '';
       const sentence = row.unitSentences[position] ?? (unit.length > 1 ? `PO failed to satisfactorily complete: ${label.trim()}.` : defaultFailureStatement(label));
       boxes.push({ key: keys[0]!, keys, label, sentence });
@@ -69,7 +69,7 @@ export function runFailedItems(run: Pick<TrainingRun, 'runKind' | 'checklist' | 
 
 /** One sentence per failed box; boxes that share a default sentence are listed once. */
 export function runFailureStatements(
-  run: Pick<TrainingRun, 'runKind' | 'checklist' | 'checklistNotApplicable' | 'failureStatements'> & Parameters<typeof requiredSupplementalForms>[0],
+  run: Pick<TrainingRun, 'runKind' | 'checklist' | 'checklistNotApplicable' | 'checklistFtoPerformed' | 'failureStatements'> & Parameters<typeof requiredSupplementalForms>[0],
 ): RunFailureStatement[] {
   const byDefault = new Map<string, RunFailureStatement>();
   const out: RunFailureStatement[] = [];
@@ -95,5 +95,10 @@ export function activeFailureStatementEdits(
 
 export function activeNotApplicable(run: Pick<TrainingRun, 'checklist' | 'checklistNotApplicable'>): Record<string, true> | undefined {
   const kept = Object.keys(run.checklistNotApplicable ?? {}).filter(key => run.checklist[key] === false);
+  return kept.length ? Object.fromEntries(kept.map(key => [key, true as const])) : undefined;
+}
+
+export function activeFtoPerformed(run: Pick<TrainingRun, 'checklist' | 'checklistFtoPerformed'>): Record<string, true> | undefined {
+  const kept = Object.keys(run.checklistFtoPerformed ?? {}).filter(key => run.checklist[key] === false);
   return kept.length ? Object.fromEntries(kept.map(key => [key, true as const])) : undefined;
 }
