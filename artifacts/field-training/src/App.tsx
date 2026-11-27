@@ -29,6 +29,7 @@ import ClassOverview from '@/pages/class-overview.js';
 import SubstituteFtoPage from '@/pages/substitute-fto.js';
 import SchedulingPage from '@/pages/scheduling.js';
 import PoTrainingPage from '@/pages/po-training.js';
+import AppHelpPage from '@/pages/app-help.js';
 import NrtFollowUpPage from '@/pages/nrt-follow-up.js';
 import NrtUaPortalPage from '@/pages/nrt-ua-portal.js';
 import PhaseSetupPage from '@/pages/phase-setup.js';
@@ -249,6 +250,8 @@ function WorkspaceRoutes() {
   // Fail closed in the COC preview: no draft/class route is rendered.
   // This UI boundary is not a substitute for server-side packet authorization.
   if (isTechnicalRole(ws.role)) return <RoutedErrorBoundary><Switch>
+    <Route path="/resources" component={AppHelpPage}/>
+    <Route path="/help"><Redirect to="/resources"/></Route>
     <Route path="/technical-access" component={RoleAccessPage}/>
     <Route component={RoleAccessPage}/>
   </Switch></RoutedErrorBoundary>;
