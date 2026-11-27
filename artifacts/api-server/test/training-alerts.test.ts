@@ -213,3 +213,44 @@ async function serve(app: express.Express, run: (url: string) => Promise<void>) 
     await run(`http://127.0.0.1:${address.port}`);
   } finally { if (server) await new Promise<void>((resolve, reject) => server!.close(e => e ? reject(e) : resolve())); }
 }
+
+test("test email sender renders notices without names and leaves them queued for the relay", async () => {
+  const { db, query, packets, alerts } = await setup();
+  try {
+    const { alertEmailMode, renderNotice, runTestEmailPass, TEST_MODE_MARK } = await import("../src/lib/alert-email-sender.js");
+    assert.deepEqual(alertEmailMode({}), { mode: "off" });
+    assert.deepEqual(alertEmailMode({ ALERT_EMAIL_MODE: "Test" }), { mode: "test" });
+    assert.deepEqual(alertEmailMode({ ALERT_EMAIL_MODE: "relay" }), { mode: "off", unknown: "relay" });
+    assert.equal(renderNotice("NRT", "http://insecure.example.test").text.includes("http://"), false);
+    assert.match(renderNotice("NRT", "https://portal.example.test").text, /https:\/\/portal\.example\.test$/);
+
+    await alerts.registerRecipient(coord, "coordinator@example.test");
+    await alerts.registerRecipient(sgt, "sergeant@example.test");
+    await packets.sync(fto, audit(), [{ operation_id: randomUUID(), base_version: 0, report }]);
+    const hashRow = await query("SELECT content_hash FROM agency_training.packets WHERE id=$1", [report.id]);
+    await packets.finalize(fto, audit(), report.id, { operation_id: randomUUID(), base_version: 1, content_hash: String(hashRow.rows[0].content_hash) });
+
+    const seen: any[] = [];
+    const pool = { query } as unknown as pg.Pool;
+    assert.deepEqual(await runTestEmailPass(pool, m => seen.push(m)), { rendered: 4 });
+    assert.equal(seen.length, 4);
+    for (const message of seen) {
+      const all = JSON.stringify(message);
+      for (const secret of ["TEST PO", "TEST FTO", po.badge, fto.badge, "officerSafety", "example.test", coord.id, sgt.id])
+        assert.equal(all.includes(secret), false, `notice leaked ${secret}`);
+      assert.equal(message.subject, "FTO Portal alert: NRT rating");
+    }
+    const rows = await query("SELECT status,attempts,last_error_code,sent_at FROM agency_training.alert_email_outbox");
+    assert.ok(rows.rows.every((r: any) => r.status === "queued" && r.attempts === 0 && r.last_error_code === TEST_MODE_MARK && r.sent_at === null));
+    assert.deepEqual(await runTestEmailPass(pool, m => seen.push(m)), { rendered: 0 });
+  } finally { await db.close(); }
+});
+
+test("test email sender does nothing before the alert migration is applied", async () => {
+  const db = new PGlite();
+  try {
+    const { runTestEmailPass } = await import("../src/lib/alert-email-sender.js");
+    const pool = { query: async (sql: string, params: unknown[] = []) => db.query(sql, params) } as unknown as pg.Pool;
+    assert.deepEqual(await runTestEmailPass(pool, () => assert.fail("no notices")), { rendered: 0 });
+  } finally { await db.close(); }
+});
