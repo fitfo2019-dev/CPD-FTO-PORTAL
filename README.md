@@ -31,7 +31,7 @@ They contain selected source files only—not secrets, browser drafts or databas
 data—and are not a full-site backup. Omit/purge them before transferring a full
 workspace directory. No private developer access is retained in the IT handover.
 
-This pnpm workspace contains the Express API Server, the React/Vite Component Preview Sandbox, and the Field Training Officer Portal. `callbox\pv3` is an internal-server application and is not included in this source tree.
+This pnpm workspace contains the Express API Server, the React/Vite Component Preview Sandbox, and the Field Training Officer Portal. Division Patrol View runs on an internal Division server and is not included in this source tree.
 
 ## Current scope
 
