@@ -3,7 +3,9 @@ import { useClerk, useUser } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.js';
 import { Link, useLocation } from 'wouter';
-import { LayoutGrid, LineChart, CalendarCheck, CalendarClock, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp, FlaskConical, MoreHorizontal } from 'lucide-react';
+import { LayoutGrid, LineChart, CalendarCheck, CalendarClock, UserRound, FileText, Settings, Sun, Moon, Lock, Unlock, Save, Wifi, WifiOff, ShieldAlert, AlertTriangle, Users, FolderOpen, ClipboardList, Clock3, FileClock, RotateCcw, ShieldCheck, CircleHelp, FlaskConical, MoreHorizontal, RadioTower } from 'lucide-react';
+import { apiEndpoint } from '@workspace/api-client-react';
+import { usePatrolViewEnabled } from '@/lib/patrol-view-link.js';
 import { useTheme, useWorkspace } from '@/state/workspace.js';
 import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { isTechnicalRole, ROLES, ROLE_LABEL, type Role } from '@/lib/model.js';
@@ -17,12 +19,20 @@ import { operatorErrorToast } from '@/lib/operator-errors.js';
 import { probeTestAdmin } from '@/features/test-admin/api.js';
 import { preloadFieldScreens } from '@/lib/preload-field-screens.js';
 
-type NavItem = { href: string; label: string; icon: typeof LayoutGrid; devOnly?: boolean };
+type NavItem = { href: string; label: string; icon: typeof LayoutGrid; devOnly?: boolean; external?: boolean };
 
 const RESOURCES: NavItem = { href: '/resources', label: 'Resources', icon: CircleHelp };
 // Technical roles: application-use help on the same route, without training Resources.
 const APP_HELP: NavItem = { href: '/resources', label: 'Help Desk', icon: CircleHelp };
 const SETTINGS: NavItem = { href: '/settings', label: 'Account Settings', icon: Settings };
+// Opens Division Patrol View in a new browser tab through the signed-in server link.
+const PATROL_VIEW: NavItem = { href: '/patrol-view', label: 'Patrol View', icon: RadioTower, external: true };
+const PATROL_VIEW_OPEN = '/v1/patrol-view/open';
+const externalLinkProps = { target: '_blank', rel: 'noopener noreferrer' } as const;
+function withPatrolView(nav: NavItem[]): NavItem[] {
+  const at = nav.findIndex(item => item.href === '/resources');
+  return at < 0 ? [...nav, PATROL_VIEW] : [...nav.slice(0, at), PATROL_VIEW, ...nav.slice(at)];
+}
 // Vercel names and order first, then the Replit-only pages. Items marked devOnly are
 // rebuild screens that stay preview-only until their server routes are integrated.
 const ROLE_NAV: Record<Role, NavItem[]> = {
@@ -92,11 +102,13 @@ const MOBILE_PRIMARY: Partial<Record<Role, string[]>> = {
 const SCHEDULING_PAGES = ['/phase-sign-up', '/substitute-fto'];
 
 function mobileTabs(role: Role, nav: NavItem[]): { primary: NavItem[]; more: NavItem[] } {
-  const items = role === 'fto' ? [...nav.filter(item => !SCHEDULING_PAGES.includes(item.href)), SCHEDULING] : nav;
-  if (items.length <= 4) return { primary: items, more: [] };
+  const pinned = nav.filter(item => item.external);
+  const pages = nav.filter(item => !item.external);
+  const items = role === 'fto' ? [...pages.filter(item => !SCHEDULING_PAGES.includes(item.href)), SCHEDULING] : pages;
+  if (items.length <= 4) return { primary: [...items, ...pinned], more: [] };
   const wanted = (MOBILE_PRIMARY[role] ?? []).map(href => items.find(item => item.href === href)).filter((item): item is NavItem => Boolean(item));
   const primary = [...wanted, ...items.filter(item => !wanted.includes(item))].slice(0, 3);
-  return { primary, more: items.filter(item => !primary.includes(item)) };
+  return { primary: [...primary, ...pinned], more: items.filter(item => !primary.includes(item)) };
 }
 const navFor = (role: Role): NavItem[] => ROLE_NAV[role].filter(item => !item.devOnly || import.meta.env.DEV);
 
@@ -160,13 +172,15 @@ export function Shell({ children }: { children: ReactNode }) {
     return loc===h;
   };
   const isCommand=w.ws.role==='fto_coc';
+  const patrolViewEnabled = usePatrolViewEnabled();
+  const roleNav = patrolViewEnabled ? withPatrolView(navFor(w.ws.role)) : navFor(w.ws.role);
   const visibleNav = testAdminAvailable
-    ? [...navFor(w.ws.role), { href: '/test-admin', label: 'Test Admin', icon: FlaskConical }]
-    : navFor(w.ws.role);
+    ? [...roleNav, { href: '/test-admin', label: 'Test Admin', icon: FlaskConical }]
+    : roleNav;
   const { primary: mobilePrimary, more: mobileMore } = mobileTabs(w.ws.role, visibleNav);
   // PO's reach Account Settings from the account area instead of a menu tab.
   const accountMenuSettings = w.ws.role === 'po';
-  const activePage = visibleNav.find(n => isActive(n.href)) ?? (loc === SCHEDULING.href ? SCHEDULING : visibleNav[0]);
+  const activePage = visibleNav.find(n => !n.external && isActive(n.href)) ?? (loc === SCHEDULING.href ? SCHEDULING : visibleNav[0]);
   const currentPage = isCommand && loc!=='/resources'
     ? 'Submitted packets'
     : loc === '/reports/weekly-ack'
@@ -265,7 +279,11 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
         <nav aria-label="Main navigation" className="portal-side-nav" data-testid="nav-desktop">
-            {visibleNav.map(n => (
+            {visibleNav.map(n => n.external ? (
+              <a key={n.href} href={apiEndpoint(PATROL_VIEW_OPEN)} {...externalLinkProps} data-testid={navTestId(n.href)} className="portal-side-link">
+                <n.icon className="h-4 w-4" />{caseSafe(n.label)}
+              </a>
+            ) : (
               <Link key={n.href} href={n.href} data-testid={navTestId(n.href)} aria-current={isActive(n.href) ? 'page' : undefined} className={cn('portal-side-link', isActive(n.href) && 'is-active')}>
                 <n.icon className="h-4 w-4" />{caseSafe(n.label)}
               </Link>
@@ -544,8 +562,11 @@ export function Shell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-function MobileLink({ href, label, icon: Icon, active }: { href: string; label: string; icon: typeof LayoutGrid; active: boolean }) {
+function MobileLink({ href, label, icon: Icon, active, external }: { href: string; label: string; icon: typeof LayoutGrid; active: boolean; external?: boolean }) {
   const shortLabel = label;
+  if (external) return <a href={apiEndpoint(PATROL_VIEW_OPEN)} {...externalLinkProps} data-testid={`link-mobile-nav-${href.slice(1)}`} className="flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[0.65rem] font-semibold leading-tight opacity-80">
+    <Icon className="h-5 w-5 shrink-0" /><span>{caseSafe(shortLabel)}</span>
+  </a>;
   return <Link href={href} data-testid={`link-mobile-nav-${href === '/' ? 'home' : href.slice(1).replaceAll('/', '-')}`} aria-current={active ? 'page' : undefined} className={cn('flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[0.65rem] font-semibold leading-tight', active ? 'text-sidebar-primary' : 'opacity-80')}>
     <Icon className="h-5 w-5 shrink-0" /><span>{caseSafe(shortLabel)}</span>
   </Link>;

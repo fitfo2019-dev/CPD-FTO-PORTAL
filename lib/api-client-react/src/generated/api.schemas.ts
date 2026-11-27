@@ -1835,3 +1835,19 @@ date_from?: string;
 date_to?: string;
 };
 
+export type GetPatrolViewStatus200Status = typeof GetPatrolViewStatus200Status[keyof typeof GetPatrolViewStatus200Status];
+
+
+export const GetPatrolViewStatus200Status = {
+  success: 'success',
+} as const;
+
+export type GetPatrolViewStatus200Data = {
+  enabled: boolean;
+};
+
+export type GetPatrolViewStatus200 = {
+  status: GetPatrolViewStatus200Status;
+  data: GetPatrolViewStatus200Data;
+};
+

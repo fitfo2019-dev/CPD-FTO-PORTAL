@@ -3421,6 +3421,25 @@ export const DispatchEventIngressResponse = zod.object({
 
 
 /**
+ * Reports whether the Division Patrol View link is configured for this deployment. The address itself is not returned.
+ * @summary Patrol View link availability
+ */
+export const GetPatrolViewStatusResponse = zod.object({
+  "status": zod.enum(['success']),
+  "data": zod.object({
+  "enabled": zod.boolean()
+})
+})
+
+
+/**
+ * Redirects a signed-in user to the Division Patrol View address held in private server settings.
+ * @summary Open Division Patrol View
+ */
+export const OpenPatrolViewResponse = zod.void()
+
+
+/**
  * Returns the resource documents available to signed-in users. Every item maps to a server-side allowlisted file.
  * @summary List reference documents
  */

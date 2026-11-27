@@ -18,6 +18,8 @@ tags:
     description: Protected dispatch event prefill
   - name: resources
     description: Clerk-authenticated reference document catalog and downloads
+  - name: patrol-view
+    description: Signed-in link to Division Patrol View
   - name: training-packets
     description: Agency-roster-authorized training packet sync and reads
   - name: account
@@ -1051,6 +1053,57 @@ paths:
                 $ref: "#/components/schemas/ApiError"
         "504":
           description: The approved dispatch adapter timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/patrol-view/status:
+    get:
+      operationId: getPatrolViewStatus
+      tags: [patrol-view]
+      summary: Patrol View link availability
+      description: Reports whether the Division Patrol View link is configured for this deployment. The address itself is not returned.
+      responses:
+        "200":
+          description: Link availability
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status:
+                    type: string
+                    enum: [success]
+                  data:
+                    type: object
+                    required: [enabled]
+                    properties:
+                      enabled:
+                        type: boolean
+        "401":
+          description: A valid Clerk session is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /v1/patrol-view/open:
+    get:
+      operationId: openPatrolView
+      tags: [patrol-view]
+      summary: Open Division Patrol View
+      description: Redirects a signed-in user to the Division Patrol View address held in private server settings.
+      responses:
+        "302":
+          description: Redirect to Division Patrol View
+        "401":
+          description: A valid Clerk session is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Patrol View is not configured
           content:
             application/json:
               schema:
