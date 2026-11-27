@@ -12,6 +12,7 @@ export type PacketReviewContextRole = typeof PacketReviewContextRole[keyof typeo
 export const PacketReviewContextRole = {
   PO: 'PO',
   FTO: 'FTO',
+  FTO_SGT: 'FTO_SGT',
   FTO_COORDINATOR: 'FTO_COORDINATOR',
   FTO_COC: 'FTO_COC',
   POLICENET: 'POLICENET',

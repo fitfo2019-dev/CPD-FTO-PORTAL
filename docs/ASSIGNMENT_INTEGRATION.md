@@ -129,6 +129,27 @@ operational access, and the UI does not claim notifications were checked.
   successor from the trusted active roster, shortens the old assignment's date
   range when it overlaps, and records immutable before/after snapshots. It does
   not update packet rows or mark a PO as having passed a phase.
+- Then apply `migrations/agency-training-alerts.sql` once, as the agency
+  database owner/admin. It adds training alerts (NRT on finalize, FTO NRT
+  review requests, Phase IV Not release), the recipient list and the
+  notice-only email queue. Until it is applied, finalization still succeeds
+  and the alert routes answer `ALERTS_NOT_INSTALLED`. Runtime grants:
+  - `training_alerts`: SELECT/INSERT and column-only UPDATE(`week15_choice`,
+    `week15_changed_at`,`summary`,`report_ids`,`state`,`closed_by_hash`,
+    `closed_by_name`,`closed_by_role`,`closed_at`,`close_note`);
+  - `alert_recipients`: SELECT/INSERT and column-only UPDATE(`role`,`email`,
+    `active`,`updated_at`);
+  - `alert_email_outbox`: SELECT/INSERT and column-only UPDATE(`status`,
+    `attempts`,`last_error_code`,`sent_at`);
+  - `training_alert_events`: SELECT/INSERT only; `po_coordinators` SELECT.
+  Never grant DELETE or TRUNCATE on any alert table.
+- Alert recipients are the PO's assigned FTO Coordinator and every account
+  whose verified agency role is `FTO_SGT`. A Coordinator or Sergeant is added
+  to the email list with the Clerk-verified primary sign-in email the first
+  time they open alerts; an account that has never opened alerts receives no
+  email notice until it does; its portal alerts are waiting when it signs in.
+  Emails are queued with notice-only text and no names; no message leaves the server until the department mail relay is
+  configured and a sender is approved.
 - The upgrade preserves previously sealed packets as submitted; new uploads
   default to editable drafts. It permits increasing draft versions.
 - Keep a separate non-owner runtime role. It needs packet SELECT/INSERT/UPDATE,

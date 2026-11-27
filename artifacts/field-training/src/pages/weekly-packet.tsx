@@ -21,6 +21,9 @@ import { resolveOperationalPacket } from '@/lib/operational-state-machine.js';
 import { week15Statement, week15StartDate, week15Window, weeklyPacketDueDate, weeklyPacketDueState, type DueState, type Week15Choice } from '@/lib/weekly-packet.js';
 import { buildTimelineInterpolation, TIMELINE_DRAFT_PREAMBLE_PATTERN } from '@/lib/timeline-interpolation.js';
 import { useWorkspace } from '@/state/workspace.js';
+import { useAlertSender, useTrainingAlerts } from '@/state/training-alerts.js';
+import { formatStamp, isFinalized, type AlertView } from '@/lib/training-alerts.js';
+import { AlertPanelStatus, CloseAlertDialog, useAlertActor } from '@/components/close-alert-dialog.js';
 
 type Tone = 'ok' | 'warn' | 'bad' | 'mut';
 const TONE: Record<Tone, string> = {
@@ -37,7 +40,6 @@ const BTN_PRIMARY = 'inline-flex h-10 items-center gap-2 rounded-sm bg-primary p
 const BTN_ALERT = 'inline-flex h-10 items-center gap-2 rounded-sm border border-destructive bg-card px-4 text-xs font-bold uppercase tracking-wider text-destructive';
 
 const ownerKey = (item: { className?: string; recruitBadge: string }) => `${item.className ?? ''}::${item.recruitBadge}`;
-const isFinalized = (report: Report) => report.syncStatus === 'submitted_complete' || report.syncStatus === 'synchronized_complete';
 const dayName = (iso: string) => WEEKDAYS[new Date(`${iso}T12:00:00Z`).getUTCDay()]?.label.slice(0, 3) ?? '';
 const shortDate = (iso: string) => `${dayName(iso)} ${formatDateDMY(iso)}`;
 
@@ -107,6 +109,7 @@ export default function WeeklyPacketPage() {
 function FtoWeeklyPacket() {
   const { ws, upsertWeeklyAcknowledgement, upsertWeek15Recommendation, addNrtReviewRequest } = useWorkspace();
   const { toast } = useToast();
+  const sender = useAlertSender();
   const today = localISODate();
   const owners = useMemo(() => [...new Map(
     [...ws.phaseFolders, ...ws.reports].map(item => [ownerKey(item), { key: ownerKey(item), name: item.recruitName, badge: item.recruitBadge, className: item.className ?? '' }]),
@@ -188,10 +191,18 @@ function FtoWeeklyPacket() {
     if (!folder) return;
     const at = new Date().toISOString();
     const statement = week15Statement(choice, owner.name);
-    const next = recommendation
-      ? { ...recommendation, choice, statement, history: [{ choice, at, by: actor }, ...recommendation.history], alertStatus: (choice === 'not_release' || recommendation.choice === 'not_release') ? 'queued' as const : recommendation.alertStatus, updatedAt: at }
-      : { id: uid(), className: owner.className, recruitName: owner.name, recruitBadge: owner.badge, choice, statement, history: [{ choice, at, by: actor }], alertStatus: choice === 'not_release' ? 'queued' as const : 'none' as const, updatedAt: at };
-    upsertWeek15Recommendation(next);
+    const alerted = choice === 'not_release' || recommendation?.choice === 'not_release' || recommendation?.history.some(change => change.choice === 'not_release');
+    const base = recommendation
+      ? { ...recommendation, choice, statement, history: [{ choice, at, by: actor }, ...recommendation.history], updatedAt: at }
+      : { id: uid(), className: owner.className, recruitName: owner.name, recruitBadge: owner.badge, choice, statement, history: [{ choice, at, by: actor }], updatedAt: at };
+    const status = alerted ? 'queued' as const : 'none' as const;
+    upsertWeek15Recommendation({ ...base, alertStatus: status });
+    if (status === 'none') return;
+    // FTO Manual p. 48: the FTO Office must know in advance of a Not release.
+    if (!sender.ready) { toast({ title: 'Not sent', description: 'Saved on this device only.' }); return; }
+    sender.saveWeek15({ po_badge: owner.badge, choice }).then(
+      () => { upsertWeek15Recommendation({ ...base, alertStatus: 'sent' }); toast({ title: 'Sent to the FTO Coordinator and FTO Sergeants' }); },
+      () => toast({ title: 'Not sent', description: 'The agency server did not record the alert. Saved on this device only.', variant: 'destructive' }));
   };
 
   const phaseFourFolder = ws.phaseFolders.find(item => item.phase === 4 && ownerKey(item) === owner.key);
@@ -269,8 +280,8 @@ function FtoWeeklyPacket() {
               <span><span className="block text-xs font-extrabold uppercase tracking-wider">{choice === 'release' ? 'Release' : 'Not release'}</span><span className="text-sm">“{week15Statement(choice, owner.name)}”</span></span>
             </label>;
           })}
-          {recommendation?.alertStatus === 'queued' && <div className="flex items-center gap-2 rounded-sm border border-destructive bg-red-50 p-3 text-sm" data-testid="week15-alert"><Chip tone="bad">Queued</Chip>FTO Coordinators and FTO Sergeant · {formatDateDMY(recommendation.updatedAt.slice(0, 10))} {recommendation.updatedAt.slice(11, 16)}</div>}
-          {recommendation && <ol className="border-t pt-2 text-xs text-muted-foreground" data-testid="week15-history">{recommendation.history.map(change => <li key={change.at}>{change.choice === 'release' ? 'RELEASE' : 'NOT RELEASE'} · {change.by.name} #{change.by.badge} · {formatDateDMY(change.at.slice(0, 10))} {change.at.slice(11, 16)}</li>)}</ol>}
+          {recommendation && recommendation.alertStatus !== 'none' && <div className="flex flex-wrap items-center gap-2 rounded-sm border border-destructive bg-red-50 p-3 text-sm" data-testid="week15-alert"><Chip tone={recommendation.alertStatus === 'sent' ? 'ok' : 'bad'}>{recommendation.alertStatus === 'sent' ? 'Sent' : 'Not sent · this device'}</Chip>FTO Coordinator and FTO Sergeants · {formatStamp(recommendation.updatedAt)}</div>}
+          {recommendation && <ol className="border-t pt-2 text-xs text-muted-foreground" data-testid="week15-history">{recommendation.history.map(change => <li key={change.at}>{change.choice === 'release' ? 'RELEASE' : 'NOT RELEASE'} · {change.by.name} #{change.by.badge} · {formatStamp(change.at)}</li>)}</ol>}
         </div>
       </Panel>}
 
@@ -298,9 +309,16 @@ function FtoWeeklyPacket() {
       </Panel>
 
       <NrtReviewDialog open={nrtOpen} onOpenChange={setNrtOpen} reports={ownerReports} onSubmit={(reportIds, summary) => {
-        addNrtReviewRequest({ id: uid(), className: owner.className, recruitName: owner.name, recruitBadge: owner.badge, phase: first.phase, reportIds, summary, requestedBy: actor, createdAt: new Date().toISOString(), alertStatus: 'queued' });
+        const request = { id: uid(), className: owner.className, recruitName: owner.name, recruitBadge: owner.badge, phase: first.phase, reportIds, summary, requestedBy: actor, createdAt: new Date().toISOString() };
         setNrtOpen(false);
-        toast({ title: 'NRT review request queued' });
+        if (!sender.ready) {
+          addNrtReviewRequest({ ...request, alertStatus: 'queued' });
+          toast({ title: 'NRT review request not sent', description: 'Saved on this device only.' });
+          return;
+        }
+        sender.requestNrtReview({ po_badge: owner.badge, report_ids: reportIds, summary }).then(
+          () => { addNrtReviewRequest({ ...request, alertStatus: 'sent' }); toast({ title: 'NRT review request sent to the FTO Coordinator and FTO Sergeants' }); },
+          () => { addNrtReviewRequest({ ...request, alertStatus: 'queued' }); toast({ title: 'NRT review request not sent', description: 'The agency server did not record it. Saved on this device only.', variant: 'destructive' }); });
       }} />
 
       <PrintableWeeklyAcknowledgement acknowledgement={ack} />
@@ -341,14 +359,17 @@ function NrtReviewDialog({ open, onOpenChange, reports, onSubmit }: { open: bool
   </Dialog>;
 }
 
+const ALERT_LABEL: Record<AlertView['kind'], string> = { NRT: 'NRT', NRT_REVIEW_REQUEST: 'NRT review request', NOT_RELEASE: 'Not release', FTO_WITHDRAWAL: 'FTO Withdrawal' };
+
 function OfficeWeeklyPackets() {
   const { ws } = useWorkspace();
   const today = localISODate();
-  const alerts = [
-    ...ws.week15Recommendations.filter(item => item.choice === 'not_release').map(item => ({ key: item.id, tone: 'bad' as Tone, label: 'Not release', who: `PO ${item.recruitName} #${item.recruitBadge}`, detail: item.history[0] ? `${item.history[0].by.name} #${item.history[0].by.badge} · Phase IV` : 'Phase IV', at: item.updatedAt })),
-    ...ws.nrtReviewRequests.map(item => ({ key: item.id, tone: 'bad' as Tone, label: 'NRT review request', who: `PO ${item.recruitName} #${item.recruitBadge}`, detail: `${item.reportIds.length} Daily Performance Summaries linked · Phase ${['', 'I', 'II', 'III', 'IV'][item.phase]}`, at: item.createdAt })),
-    ...ws.reports.filter(report => isFinalized(report) && !report.limboDay).flatMap(report => CATEGORIES.filter(category => report.ratings[category]?.rating === 'NRT').map(category => ({ key: `${report.id}-${category}`, tone: 'bad' as Tone, label: 'NRT', who: `PO ${report.recruitName} #${report.recruitBadge}`, detail: `${CATEGORY_LABEL[category]} · Daily Performance Summary ${formatDateDMY(report.date)}`, at: report.updatedAt ?? report.date }))),
-  ].sort((a, b) => b.at.localeCompare(a.at));
+  const { toast } = useToast();
+  const actor = useAlertActor(ws.role);
+  const [closing, setClosing] = useState<AlertView | null>(null);
+  const { source, alerts: all, close } = useTrainingAlerts({ includeWithdrawals: false });
+  const alerts = all.filter(alert => !alert.closure);
+  const closedAlerts = all.filter(alert => alert.closure);
 
   const rows = ws.phaseFolders.map(folder => {
     const folderReports = ws.reports.filter(report => report.phase === folder.phase && ownerKey(report) === ownerKey(folder));
@@ -363,12 +384,31 @@ function OfficeWeeklyPackets() {
 
   return <div className="min-w-0 max-w-6xl" data-testid="weekly-packet-office">
     <PageHead kicker="Weekly Packets" title="Packet status" />
-    <Panel title="Alerts">
+    <Panel title="Alerts" action={<AlertPanelStatus source={source} open={alerts.length} />}>
       {alerts.length === 0 ? <div className="p-4 text-sm text-muted-foreground">None</div> :
         <table className="w-full text-sm" data-testid="table-packet-alerts"><tbody>{alerts.map(alert => <tr key={alert.key} className="border-b last:border-0">
-          <td className="p-3"><Chip tone={alert.tone}>{alert.label}</Chip></td><td className="p-3"><b>{alert.who}</b> · {caseSafe(alert.detail)}</td><td className="p-3 text-xs text-muted-foreground">{formatDateDMY(alert.at.slice(0, 10))}</td>
+          <td className="p-3"><div className="flex flex-wrap gap-1"><Chip tone="bad">{ALERT_LABEL[alert.kind]}</Chip>{alert.changedToRelease && <Chip tone="mut">Changed to Release</Chip>}</div></td>
+          <td className="p-3"><b>{alert.who}</b>{alert.detail ? <> · {caseSafe(alert.detail)}</> : null}</td>
+          <td className="p-3 text-xs text-muted-foreground">{formatStamp(alert.at)}</td>
+          <td className="p-3 text-right"><button type="button" className={BTN} onClick={() => setClosing(alert)} data-testid={`button-close-alert-${alert.key}`}>Close alert</button></td>
         </tr>)}</tbody></table>}
+      {closedAlerts.length > 0 && <details className="border-t text-sm" data-testid="list-packet-closed-alerts">
+        <summary className="label-caps cursor-pointer px-4 py-3">Closed · {closedAlerts.length}</summary>
+        <ul className="divide-y">{closedAlerts.map(alert => <li key={alert.key} className="px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2"><Chip tone="mut">{ALERT_LABEL[alert.kind]}</Chip>{alert.changedToRelease && <Chip tone="mut">Changed to Release</Chip>}<span className="break-words"><b>{alert.who}</b>{alert.detail ? <> · {caseSafe(alert.detail)}</> : null}</span></div>
+          <p className="mt-1 whitespace-pre-wrap break-words">{alert.closure!.note}</p>
+          <p className="mono mt-1 text-xs text-muted-foreground">{alert.closure!.line}</p>
+        </li>)}</ul>
+      </details>}
     </Panel>
+    <CloseAlertDialog open={closing !== null} alertLabel={closing ? `${ALERT_LABEL[closing.kind]} · ${closing.who}${closing.detail ? ` · ${closing.detail}` : ''}` : ''}
+      onOpenChange={open => { if (!open) setClosing(null); }}
+      onClose={note => {
+        const target = closing; setClosing(null);
+        if (target) void close(target, note, actor).then(
+          () => toast({ title: target.serverId ? 'Alert closed for all recipients' : 'Alert closed on this device' }),
+          () => toast({ title: 'Alert not closed', description: 'The agency server did not save the closing note.', variant: 'destructive' }));
+      }} />
     <Panel title="Weekly packets" className="mt-4">
       <div className="overflow-x-auto"><table className="w-full text-sm" data-testid="table-office-packets">
         <thead><tr className="border-b text-left">{['PO', 'FTO', 'Phase', 'Due', 'FTO', 'PO', 'FTO Office'].map((head, index) => <th key={index} className="label-caps p-3">{head}</th>)}</tr></thead>

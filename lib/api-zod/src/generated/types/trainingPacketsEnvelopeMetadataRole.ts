@@ -12,6 +12,7 @@ export type TrainingPacketsEnvelopeMetadataRole = typeof TrainingPacketsEnvelope
 export const TrainingPacketsEnvelopeMetadataRole = {
   PO: 'PO',
   FTO: 'FTO',
+  FTO_SGT: 'FTO_SGT',
   FTO_COORDINATOR: 'FTO_COORDINATOR',
   FTO_COC: 'FTO_COC',
   POLICENET: 'POLICENET',

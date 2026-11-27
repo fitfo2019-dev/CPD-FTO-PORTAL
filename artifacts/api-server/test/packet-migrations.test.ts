@@ -14,6 +14,7 @@ const freshInstallMigrations = [
   'agency-training-phase-extensions.sql',
   'agency-training-phase-extension-denial-explanations.sql',
   'agency-training-legacy-coordinator-reconciliation.sql',
+  'agency-training-alerts.sql',
   'operational-profiles.sql',
   'operational-profile-optional-sides.sql',
   'operational-profile-history.sql',
@@ -31,6 +32,7 @@ const legacyUpgradeMigrations = [
   'agency-training-phase-extensions.sql',
   'agency-training-phase-extension-denial-explanations.sql',
   'agency-training-legacy-coordinator-reconciliation.sql',
+  'agency-training-alerts.sql',
   'operational-profiles.sql',
   'operational-profile-optional-sides.sql',
   'operational-profile-history.sql',
@@ -189,6 +191,10 @@ test('the complete ordered migration sequence installs a fresh database', async 
       'phase_extension_requests',
       'operational_profiles',
       'operational_profile_history',
+      'training_alerts',
+      'alert_recipients',
+      'alert_email_outbox',
+      'training_alert_events',
     ]) {
       assert.ok(tables.has(table), `Migration sequence for ${state} did not create ${table}.`);
     }

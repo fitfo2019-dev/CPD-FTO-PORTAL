@@ -386,8 +386,8 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
       'Make the PO aware of consistent UA or NRT ratings and agree on a training plan.',
       'For an NRT in any category, contact the FTO Office immediately.',
     ],
-    expectedResult: 'The PO confirms the review of their UA totals in My Training.',
-    recovery: 'The NRT review request on Weekly Packets is saved on this device only. Contact the FTO Office directly.',
+    expectedResult: "The PO confirms the review of their UA totals in My Training. Finalizing a Daily Performance Summary with an NRT alerts the PO's FTO Coordinator and the FTO Sergeants.",
+    recovery: 'If the NRT review request shows Not sent, it is saved on this device only. Contact the FTO Office directly.',
     manual: 'FTO Manual p. 15, item 9; p. 19',
   },
   {
@@ -415,8 +415,8 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
       'Choose Release or Not release. The manual wording is filled in for the FTO comment.',
       'Before recommending Not release, notify the FTO Office in advance.',
     ],
-    expectedResult: 'The choice and its history show in the panel.',
-    recovery: 'Contact the FTO Office directly for a Not release; the alert is saved on this device only.',
+    expectedResult: "The choice and its history show in the panel. Sent means the PO's FTO Coordinator and the FTO Sergeants have the alert, including a later change to Release.",
+    recovery: 'If the panel shows Not sent, the alert is saved on this device only. Contact the FTO Office directly.',
     manual: 'FTO Manual p. 48',
   },
   {
@@ -606,9 +606,10 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
     steps: [
       'Open Weekly Packets to see each PO\u2019s weekly packet and its alerts.',
       'Review packets for program guidelines, goals, problems and negative patterns.',
+      'Choose Close alert once it is handled and enter a note. Closing applies to every Coordinator and Sergeant.',
     ],
-    expectedResult: 'NRT review requests and Not release recommendations are listed as alerts.',
-    recovery: 'Alerts are saved on the device where they were created. Confirm with the FTO directly.',
+    expectedResult: 'NRT ratings, NRT review requests and Not release recommendations are listed as alerts. Closed alerts show the note, who closed them and when.',
+    recovery: 'Agency server means alerts come from every FTO. This device means only alerts saved on this device are shown; confirm with the FTO directly.',
     manual: 'FTO Manual pp. 7-8',
   },
 
@@ -620,11 +621,11 @@ export const APPLICATION_HELP_TOPICS: readonly ApplicationHelpTopic[] = [
     keywords: 'sergeant dashboard alerts NRT non-release withdrawal close alert',
     steps: [
       'Review the counts for open NRT, Non-Release and FTO Withdrawals.',
-      'Open an alert to see the PO, then choose Close alert once it is handled.',
-      'Closed alerts stay listed under Closed.',
+      'Open an alert to see the PO, then choose Close alert once it is handled and enter a note.',
+      'Closed alerts stay listed under Closed with the note, who closed them and when.',
     ],
-    expectedResult: 'Each alert links to the PO it concerns.',
-    recovery: 'Alerts are saved on the device where they were created. Confirm with the FTO or Coordinator directly.',
+    expectedResult: 'Each alert links to the PO it concerns. Closing applies to every Coordinator and Sergeant.',
+    recovery: 'Agency server means alerts come from every FTO. This device means only alerts saved on this device are shown; confirm with the FTO or Coordinator directly. FTO Withdrawals are shown from this device only.',
     manual: 'FTO Manual p. 7',
   },
   {

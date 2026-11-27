@@ -161,6 +161,7 @@ export type PacketReviewContextRole = typeof PacketReviewContextRole[keyof typeo
 export const PacketReviewContextRole = {
   PO: 'PO',
   FTO: 'FTO',
+  FTO_SGT: 'FTO_SGT',
   FTO_COORDINATOR: 'FTO_COORDINATOR',
   FTO_COC: 'FTO_COC',
   POLICENET: 'POLICENET',
@@ -365,6 +366,118 @@ export interface PacketSubmissionDetail {
   report: TrainingPacketReport | null;
   po_totals: PacketPoTotals | null;
   history: PacketSubmissionHistory[];
+}
+
+export type TrainingAlertKind = typeof TrainingAlertKind[keyof typeof TrainingAlertKind];
+
+
+export const TrainingAlertKind = {
+  NRT: 'NRT',
+  NRT_REVIEW_REQUEST: 'NRT_REVIEW_REQUEST',
+  NOT_RELEASE: 'NOT_RELEASE',
+} as const;
+
+export type TrainingAlertWeek15Choice = typeof TrainingAlertWeek15Choice[keyof typeof TrainingAlertWeek15Choice] | null;
+
+
+export const TrainingAlertWeek15Choice = {
+  release: 'release',
+  not_release: 'not_release',
+} as const;
+
+export type TrainingAlertState = typeof TrainingAlertState[keyof typeof TrainingAlertState];
+
+
+export const TrainingAlertState = {
+  open: 'open',
+  closed: 'closed',
+} as const;
+
+export type TrainingAlertClosedByRole = typeof TrainingAlertClosedByRole[keyof typeof TrainingAlertClosedByRole] | null;
+
+
+export const TrainingAlertClosedByRole = {
+  FTO_COORDINATOR: 'FTO_COORDINATOR',
+  FTO_SGT: 'FTO_SGT',
+} as const;
+
+export interface TrainingAlert {
+  id: string;
+  kind: TrainingAlertKind;
+  po_name: string;
+  po_badge: string;
+  class_name: string;
+  /**
+     * @minimum 1
+     * @maximum 4
+     */
+  phase: number;
+  fto_name: string;
+  coordinator_id: string;
+  category: string | null;
+  record_date: string | null;
+  report_ids: string[];
+  summary: string;
+  week15_choice: TrainingAlertWeek15Choice;
+  week15_changed_at: string | null;
+  created_at: string;
+  state: TrainingAlertState;
+  closed_by_name: string | null;
+  closed_by_role: TrainingAlertClosedByRole;
+  closed_at: string | null;
+  close_note: string;
+}
+
+export interface TrainingAlertPage {
+  items: TrainingAlert[];
+}
+
+export interface NrtReviewRequestInput {
+  /**
+     * @minLength 1
+     * @maxLength 40
+     * @pattern ^[A-Za-z0-9-]+$
+     */
+  po_badge: string;
+  /**
+     * @minItems 1
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 200
+     */
+  report_ids: string[];
+  /** @maxLength 5000 */
+  summary: string;
+}
+
+export type Week15RecommendationInputChoice = typeof Week15RecommendationInputChoice[keyof typeof Week15RecommendationInputChoice];
+
+
+export const Week15RecommendationInputChoice = {
+  release: 'release',
+  not_release: 'not_release',
+} as const;
+
+export interface Week15RecommendationInput {
+  /**
+     * @minLength 1
+     * @maxLength 40
+     * @pattern ^[A-Za-z0-9-]+$
+     */
+  po_badge: string;
+  choice: Week15RecommendationInputChoice;
+}
+
+export interface Week15RecommendationResult {
+  alert: TrainingAlert | null;
+}
+
+export interface CloseTrainingAlertInput {
+  /**
+     * @minLength 1
+     * @maxLength 5000
+     */
+  note: string;
 }
 
 export type PacketReviewActionInputAction = typeof PacketReviewActionInputAction[keyof typeof PacketReviewActionInputAction];
@@ -984,6 +1097,7 @@ export type TrainingPacketsEnvelopeMetadataRole = typeof TrainingPacketsEnvelope
 export const TrainingPacketsEnvelopeMetadataRole = {
   PO: 'PO',
   FTO: 'FTO',
+  FTO_SGT: 'FTO_SGT',
   FTO_COORDINATOR: 'FTO_COORDINATOR',
   FTO_COC: 'FTO_COC',
   POLICENET: 'POLICENET',
@@ -1668,6 +1782,18 @@ export type ListPacketSubmissionsParams = {
  */
 offset?: number;
 };
+
+export type ListTrainingAlertsParams = {
+state?: ListTrainingAlertsState;
+};
+
+export type ListTrainingAlertsState = typeof ListTrainingAlertsState[keyof typeof ListTrainingAlertsState];
+
+
+export const ListTrainingAlertsState = {
+  open: 'open',
+  closed: 'closed',
+} as const;
 
 export type GetAssignmentTransitionHistoryParams = {
 /**

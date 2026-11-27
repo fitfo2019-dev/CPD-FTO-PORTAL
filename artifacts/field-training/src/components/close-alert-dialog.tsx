@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useUser } from '@clerk/react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog.js';
-import { ROLE_LABEL, type AlertClosure, type RecordActor, type Role } from '@/lib/model.js';
-import { formatDateDMY } from '@/lib/training-calendar.js';
+import { ROLE_LABEL, type RecordActor, type Role } from '@/lib/model.js';
+import type { AlertSource } from '@/state/training-alerts.js';
 
 const BTN = 'inline-flex h-10 items-center gap-2 rounded-sm border bg-card px-4 text-xs font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50';
 const BTN_PRIMARY = 'inline-flex h-10 items-center gap-2 rounded-sm bg-primary px-4 text-xs font-bold uppercase tracking-wider text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50';
@@ -15,8 +15,12 @@ export function useAlertActor(role: Role): RecordActor {
   return { name, badge: '', role };
 }
 
-export function closureLine(closure: AlertClosure): string {
-  return `${closure.closedBy.name}${closure.closedBy.badge ? ` #${closure.closedBy.badge}` : ''} · ${formatDateDMY(closure.closedAt.slice(0, 10))} ${closure.closedAt.slice(11, 16)}`;
+/** Open count plus where the alerts are stored: the agency server, or only this device. */
+export function AlertPanelStatus({ source, open }: { source: AlertSource; open: number }) {
+  return <span className="flex items-center gap-2">
+    <span className={`portal-tag${source === 'server' ? ' is-ok' : ''}`} data-testid="tag-alert-source">{source === 'server' ? 'Agency server' : 'This device'}</span>
+    {open > 0 && <span className="portal-tag is-alert">{open}</span>}
+  </span>;
 }
 
 export function CloseAlertDialog({ alertLabel, open, onOpenChange, onClose }: {
