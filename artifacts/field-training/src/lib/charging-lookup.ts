@@ -11,6 +11,8 @@ export interface ComplaintEntry {
   conflict: boolean;
   example: boolean;
   ambiguous: boolean;
+  processedBy?: 'DICE';
+  citationOnly?: boolean;
 }
 
 export interface ChargeCode {
@@ -58,6 +60,16 @@ function correctEntry(entry: ComplaintEntry, from: string, to: string): Complain
     heading: entry.heading.replace(pattern, to),
     citations: entry.citations.map(citation => citation.replace(pattern, to)),
   };
+}
+
+export function mergeComplaintSources(
+  ...sources: ReadonlyArray<Record<string, ComplaintEntry[]> | undefined>
+): Record<string, ComplaintEntry[]> {
+  const merged: Record<string, ComplaintEntry[]> = {};
+  sources.forEach(source => Object.entries(source ?? {}).forEach(([key, entries]) => {
+    merged[key] = [...(merged[key] ?? []), ...entries];
+  }));
+  return merged;
 }
 
 export function normalizeComplaintCodes(codes: Record<string, ComplaintEntry[]>): ChargeCode[] {
@@ -122,6 +134,9 @@ export function clauseLabels(text: string): string[] {
 
 function labelLevel(label: string, previous: { level: number; label: string } | undefined): number {
   if (/^\d+$/.test(label)) return 2;
+  const deepUpperRoman = /^[IVX]+$/.test(label) && previous !== undefined && previous.level >= 4
+    && (label === 'I' || previous.level === 5);
+  if (deepUpperRoman) return 5;
   if (/^[A-Z]+$/.test(label)) return 1;
   if (ROMAN.test(label)) {
     const prior = previous?.label ?? '';
@@ -217,7 +232,8 @@ export function penaltySentences(statute: StatuteClauses): string[] {
 }
 
 export function canCopyWording(entry: ComplaintEntry): boolean {
-  return !entry.conflict && !entry.ambiguous && !entry.example && entry.text.trim().length > 0;
+  return !entry.conflict && !entry.ambiguous && !entry.example && !entry.processedBy && !entry.citationOnly
+    && entry.text.trim().length > 0;
 }
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', sect: '§' };

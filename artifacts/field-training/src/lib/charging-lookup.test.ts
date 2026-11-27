@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  canCopyWording, citationPath, clauseLabels, clausesFromStatuteHtml, elementsComplete, elementsForCitation,
+  canCopyWording, citationPath, clauseLabels, clausesFromStatuteHtml, elementsComplete, elementsForCitation, mergeComplaintSources,
   normalizeComplaintCodes, penaltySentences, resolveStatute, searchCharges, type ComplaintEntry, type StatuteClauses,
 } from './charging-lookup';
 
@@ -129,4 +129,26 @@ test('wording corrections: 2919.121 cited correctly, split wording rejoined', ()
   assert.ok(bail.entries.every(entry => /in violation of Section 2927\.27\([AB]\)/i.test(entry.text)));
   const murder = codes.find(code => code.key === 'ORC:2903.01')!;
   assert.ok(murder.entries.every(entry => !entry.notes.startsWith('–')));
+});
+
+test('OVI: misdemeanor is citation only, felony OVI wording is word for word and processed by D.I.C.E.', () => {
+  const felony = data('felony-traffic.json') as { codes: Record<string, ComplaintEntry[]> };
+  const merged = normalizeComplaintCodes(mergeComplaintSources(complaints.codes, felony.codes));
+  const oviCode = merged.find(code => code.key === 'ORC:4511.19')!;
+  assert.ok(searchCharges(merged, 'ovi').some(code => code.key === 'ORC:4511.19'));
+  assert.equal(oviCode.entries.length, 4);
+  assert.ok(oviCode.entries[0].citationOnly && !canCopyWording(oviCode.entries[0]));
+  oviCode.entries.slice(1).forEach(entry => {
+    assert.equal(entry.processedBy, 'DICE');
+    assert.ok(!canCopyWording(entry));
+    assert.match(entry.text, /^Operate a vehicle, to wit: \(Year, Make, Tag: \(State and number\) at \(location\) while under the influence/);
+  });
+  const group = elementsForCitation(ovi, citationPath(oviCode.entries[1].citations[0], '4511.19'));
+  assert.equal(group.lead.length, 1);
+  assert.ok(group.requiresOne && group.alternatives.some(line => /under the influence of alcohol, a drug of abuse/.test(line.text)));
+  const viii = group.alternatives.findIndex(line => line.text.startsWith('(viii)'));
+  assert.ok(viii > 0);
+  assert.deepEqual(group.alternatives.slice(viii + 1, viii + 4).map(line => [line.text.slice(0, line.text.indexOf(')') + 1), line.depth]),
+    [['(I)', 4], ['(II)', 4], ['(ix)', 3]]);
+  assert.ok(merged.some(code => code.key === 'ORC:2913.02'));
 });
