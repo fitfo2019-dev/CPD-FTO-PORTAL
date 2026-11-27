@@ -66,7 +66,7 @@ export const uaIssueKey = (reportId: string, groupId: string) => `${reportId}|${
  * Earlier UA's for this PO, class and phase in the same category, offered as a one-tap "Same issue as" suggestion.
  * Nothing is linked until the FTO taps it (owner, Nov 27, 2026).
  */
-export function uaIssueSuggestions(reports: readonly Report[], report: Report, runId: string, category: Category, draftOccurredAt?: string): { id: string; label: string }[] {
+export function uaIssueSuggestions(reports: readonly Report[], report: Report, runId: string, category: Category, draftOccurredAt?: string): { id: string; label: string; shortLabel: string }[] {
   const sameTrainee = (item: Report) => item.recruitBadge === report.recruitBadge && (item.className ?? '') === (report.className ?? '') && item.phase === report.phase;
   const earlier = reports.filter(item => item.id !== report.id && sameTrainee(item) && item.date < report.date && !item.limboDay)
     .sort((left, right) => left.date.localeCompare(right.date));
@@ -76,13 +76,14 @@ export function uaIssueSuggestions(reports: readonly Report[], report: Report, r
     const at = report.runs.find(run => run.id === group.runId)?.occurredAt ?? '';
     return group.runId !== runId && at < runAt;
   };
-  const options: { id: string; label: string }[] = [];
+  const options: { id: string; label: string; shortLabel: string }[] = [];
   for (const item of [...earlier, report]) {
     for (const group of item.checklistDeficiencies ?? []) {
       if (group.category !== category || (item.id === report.id && !sameDayEarlier(group))) continue;
       const reference = [...new Set(group.tasks.map(task => task.reference).filter(Boolean))].join(', ') || 'Reference pending';
       const text = group.narrative.trim().replace(/\s+/g, ' ');
-      options.push({ id: uaIssueKey(item.id, group.id), label: `${reference} · ${text.length > 70 ? `${text.slice(0, 69)}…` : text}` });
+      // The button shows the full sentence; the earlier-UA list keeps a short form.
+      options.push({ id: uaIssueKey(item.id, group.id), label: `${reference} · ${text}`, shortLabel: `${reference} · ${text.length > 70 ? `${text.slice(0, 69)}…` : text}` });
     }
   }
   return options;

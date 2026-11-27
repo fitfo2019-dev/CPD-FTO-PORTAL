@@ -13,7 +13,7 @@ type Props = {
   box: RunUaBox;
   onChange: (next: RunUaBox) => void;
   /** Earlier UA's in the same category this phase, newest last; nothing is linked until the FTO taps one. */
-  suggestions: (category: Category) => { id: string; label: string }[];
+  suggestions: (category: Category) => { id: string; label: string; shortLabel: string }[];
 };
 
 const categoryName = (category: Category) => `${categoryNumberLabel(category)} · ${CATEGORY_LABEL[category]}`;
@@ -95,12 +95,12 @@ export function RunUaBoxPanel({ editable, statements, onStatementChange, checkli
         <span className="text-xs font-bold uppercase tracking-wide">Same issue as · {categoryNumberLabel(category)}</span>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" disabled={!editable} aria-pressed={linked === latest.id} onClick={() => setLink(linked === latest.id ? undefined : latest.id)}
-            className={`min-h-10 rounded border px-3 text-left text-xs font-semibold ${linked === latest.id ? 'bg-primary text-primary-foreground' : 'bg-card'}`}
+            className={`min-h-10 max-w-full whitespace-normal break-words rounded border px-3 py-2 text-left text-xs font-semibold ${linked === latest.id ? 'bg-primary text-primary-foreground' : 'bg-card'}`}
             data-testid={`button-run-ua-same-issue-${category}`}>{latest.label}</button>
           {options.length > 1 && <select disabled={!editable} value={linked && linked !== latest.id ? linked : ''} aria-label="Earlier UA"
             onChange={event => setLink(event.target.value || undefined)} className="h-10 max-w-full rounded border bg-card px-2 text-xs" data-testid={`select-run-ua-same-issue-${category}`}>
             <option value="">Earlier UA</option>
-            {options.slice(0, -1).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+            {options.slice(0, -1).map(option => <option key={option.id} value={option.id}>{option.shortLabel}</option>)}
           </select>}
         </div>
       </div>;
