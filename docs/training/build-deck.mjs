@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const VERSION = "Version 3 · November 26, 2026 · portal main c17d89a";
+const VERSION = "Version 3 · November 26, 2026 · portal main 5d7b086";
 
 const NAVY = "1F3A68";
 S.setTheme({
@@ -462,8 +462,8 @@ S.layouts.agenda(deck.addSlide(), {
   const f = fr({
     kicker: "RESOURCES / CHARGING LOOKUP",
     headline: "The charging lookup goes from offense to elements to wording",
-    note: "FTO-only on the Arrest and OVI run pages; PO's use it under FTO direction during training. OVI is charged on a traffic citation, so it has no complaint wording.",
-    sources: [{ name: "Columbus Criminal Complaint Manual (Resources)", kind: "user" }, { name: "Ohio Revised Code, codes.ohio.gov", kind: "user" }, LOG],
+    note: "FTO-only on the Arrest and OVI run pages; PO's use it under FTO direction during training. Entries that conflict with the current code stay locked until the FTO Office approves the wording.",
+    sources: [{ name: "Columbus Criminal Complaint Manual (Resources)", kind: "user" }, { name: "Felony Traffic Processing Guidelines and Wording Manual, Rev. 02/2023", kind: "user" }, { name: "Ohio Revised Code, codes.ohio.gov", kind: "user" }, LOG],
   });
   S.layouts.table(s, {
     frame: f,
@@ -471,10 +471,11 @@ S.layouts.agenda(deck.addSlide(), {
       headers: ["Step", "What the FTO sees", "Teaching point"],
       colW: [0.18, 0.46, 0.36],
       rows: [
-        ["1 Offense and level", "Offense, section and penalty sentences, word for word", "Confirm the level before writing"],
-        ["2 Statute text", "The statute split into its divisions as a checklist", "Check each element the facts support"],
-        ["3 Complaint wording", "Manual wording; Copy unlocks after the checks", "Fill every blank with the run's facts"],
-        ["Resources", "Complaint manual, street cards, felony traffic manual, warrant examples", "Example contacts are placeholders"],
+        ["1 Offense", "Offense, section and penalty, word for word", "Confirm the level before writing"],
+        ["2 Statute", "Statute divisions as a checklist", "Check each element the facts support"],
+        ["3 Wording", "Manual wording; Copy after the checks", "Fill every blank with the facts"],
+        ["OVI", "Citation if misdemeanor; felony by D.I.C.E.", "No Copy for OVI wording"],
+        ["Resources", "Complaint and felony traffic manuals, street cards", "Example contacts are placeholders"],
         ["Substation", "Filled from the assignment; still editable", "Correct it for a different substation"],
       ],
     },
@@ -534,7 +535,7 @@ S.layouts.agenda(deck.addSlide(), {
   const f = fr({
     kicker: "STATUS OF THE BUILD",
     headline: "The rules are live in the portal; several screens still await preview approval",
-    note: "As of portal main c17d89a and website main 11d7cd1. This slide is updated each time a change is merged.",
+    note: "As of portal main 5d7b086 and website main 11d7cd1. This slide is updated each time a change is merged.",
     sources: [LOG],
   });
   S.layouts.comparison(s, {
