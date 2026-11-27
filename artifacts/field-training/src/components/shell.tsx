@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet.js';
 import { operatorErrorToast } from '@/lib/operator-errors.js';
 import { probeTestAdmin } from '@/features/test-admin/api.js';
+import { preloadFieldScreens } from '@/lib/preload-field-screens.js';
 
 type NavItem = { href: string; label: string; icon: typeof LayoutGrid; devOnly?: boolean };
 
@@ -116,6 +117,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const [restoringRecoveryId, setRestoringRecoveryId] = useState<string | null>(null);
   const [leavePage,setLeavePage]=useState<string|null>(null);
   const [testAdminAvailable, setTestAdminAvailable] = useState(false);
+  useEffect(() => {
+    if (isSignedIn) void preloadFieldScreens();
+  }, [isSignedIn]);
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const controller = new AbortController();
