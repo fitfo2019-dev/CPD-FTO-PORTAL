@@ -295,7 +295,7 @@ This workspace is a security-oriented, data-validated prototype foundation for s
 - **Field Training Officer Portal:** a React/Vite portal with Clerk sign-in and encrypted, device-local drafts. It does not synchronize those drafts with the API.
 - **Backend API Enterprise Gateway:** an Express service that exposes same-origin JSON routes, validates and normalizes data, applies security middleware, and pseudonymizes request audit fields.
 
-These are separate workspace artifacts, not a connected production records application. The `callbox\pv3` application exists on the internal server, but its source and runtime are outside this workspace. The XML-to-JSON Government System gateway is a planned architectural boundary; no Government System connection or XML/binary normalization is active.
+These are separate workspace artifacts, not a connected production records application. Division Patrol View runs on an internal Division server; its source and runtime are outside this workspace. The PATROL VIEW tab appears for signed-in users only when the private `PATROL_VIEW_URL` server setting is set. The XML-to-JSON Government System gateway is a planned architectural boundary; no Government System connection or XML/binary normalization is active.
 
 Clerk sign-in is present, but no agency identity mapping, department role policy, database-backed training-record service, or certified compliance controls are configured. Mock data and demonstration credentials must not be treated as production records or access controls.
 

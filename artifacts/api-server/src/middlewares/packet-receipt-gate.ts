@@ -13,7 +13,7 @@ export function createPacketReceiptGate(
   resolveStore:()=>PacketReviewStore|null=getPacketReviewStore,
 ):RequestHandler{return async(req,res,next)=>{
   const path=req.path;
-  if(path==="/healthz"||path==="/v1/packet-review/context"||
+  if(path==="/healthz"||path==="/v1/packet-review/context"||path.startsWith("/v1/patrol-view/")||
     (req.method==="POST"&&/^\/v1\/packet-review\/submissions\/[^/]+$/.test(path)&&
       req.body?.action==="acknowledge")){next();return;}
   let identity;

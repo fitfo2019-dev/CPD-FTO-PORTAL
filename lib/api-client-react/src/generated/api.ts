@@ -37,6 +37,7 @@ import type {
   DispatchIncidentLookupInput,
   GetAssignmentTransitionHistoryParams,
   GetOperationalProfileHistoryParams,
+  GetPatrolViewStatus200,
   HealthEnvelope,
   ListPacketSubmissionsParams,
   ListTrainingAlertsParams,
@@ -4433,6 +4434,210 @@ export const useDispatchEventIngress = <TError = ErrorType<ApiError>,
       > => {
       return useMutation(getDispatchEventIngressMutationOptions(options), queryClient);
     }
+
+export const getGetPatrolViewStatusUrl = () => {
+
+
+
+
+  return `/api/v1/patrol-view/status`
+}
+
+/**
+ * Reports whether the Division Patrol View link is configured for this deployment. The address itself is not returned.
+ * @summary Patrol View link availability
+ */
+export const getPatrolViewStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetPatrolViewStatus200> => {
+
+  return customFetch<GetPatrolViewStatus200>(getGetPatrolViewStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPatrolViewStatusQueryKey = () => {
+    return [
+    `/api/v1/patrol-view/status`
+    ] as const;
+    }
+
+
+export const getGetPatrolViewStatusQueryOptions = <TData = Awaited<ReturnType<typeof getPatrolViewStatus>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPatrolViewStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPatrolViewStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPatrolViewStatus>>> = ({ signal }) => getPatrolViewStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPatrolViewStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPatrolViewStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getPatrolViewStatus>>>
+export type GetPatrolViewStatusQueryError = ErrorType<ApiError>
+
+
+export function useGetPatrolViewStatus<TData = Awaited<ReturnType<typeof getPatrolViewStatus>>, TError = ErrorType<ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPatrolViewStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPatrolViewStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getPatrolViewStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPatrolViewStatus<TData = Awaited<ReturnType<typeof getPatrolViewStatus>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPatrolViewStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPatrolViewStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getPatrolViewStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPatrolViewStatus<TData = Awaited<ReturnType<typeof getPatrolViewStatus>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPatrolViewStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Patrol View link availability
+ */
+
+export function useGetPatrolViewStatus<TData = Awaited<ReturnType<typeof getPatrolViewStatus>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPatrolViewStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPatrolViewStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getOpenPatrolViewUrl = () => {
+
+
+
+
+  return `/api/v1/patrol-view/open`
+}
+
+/**
+ * Redirects a signed-in user to the Division Patrol View address held in private server settings.
+ * @summary Open Division Patrol View
+ */
+export const openPatrolView = async ( options?: Parameters<typeof customFetch>[1]): Promise<unknown> => {
+
+  return customFetch<unknown>(getOpenPatrolViewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getOpenPatrolViewQueryKey = () => {
+    return [
+    `/api/v1/patrol-view/open`
+    ] as const;
+    }
+
+
+export const getOpenPatrolViewQueryOptions = <TData = Awaited<ReturnType<typeof openPatrolView>>, TError = ErrorType<void | ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof openPatrolView>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getOpenPatrolViewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof openPatrolView>>> = ({ signal }) => openPatrolView({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof openPatrolView>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type OpenPatrolViewQueryResult = NonNullable<Awaited<ReturnType<typeof openPatrolView>>>
+export type OpenPatrolViewQueryError = ErrorType<void | ApiError>
+
+
+export function useOpenPatrolView<TData = Awaited<ReturnType<typeof openPatrolView>>, TError = ErrorType<void | ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof openPatrolView>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof openPatrolView>>,
+          TError,
+          Awaited<ReturnType<typeof openPatrolView>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOpenPatrolView<TData = Awaited<ReturnType<typeof openPatrolView>>, TError = ErrorType<void | ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof openPatrolView>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof openPatrolView>>,
+          TError,
+          Awaited<ReturnType<typeof openPatrolView>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOpenPatrolView<TData = Awaited<ReturnType<typeof openPatrolView>>, TError = ErrorType<void | ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof openPatrolView>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Open Division Patrol View
+ */
+
+export function useOpenPatrolView<TData = Awaited<ReturnType<typeof openPatrolView>>, TError = ErrorType<void | ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof openPatrolView>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getOpenPatrolViewQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListResourcesUrl = () => {
 
