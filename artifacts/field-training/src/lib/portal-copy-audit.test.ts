@@ -344,7 +344,9 @@ test('every training role can find Resources on desktop and mobile navigation', 
   assert.match(shell, /function mobileTabs\(/);
   assert.equal((app.match(/<Route path="\/resources" component=\{HelpPage\}/g) ?? []).length, 4);
   const technicalGate = app.slice(app.indexOf('if (isTechnicalRole(ws.role))'), app.indexOf("if (ws.role === 'po')"));
-  assert.doesNotMatch(technicalGate, /\/resources/);
+  assert.match(technicalGate, /<Route path="\/resources" component=\{AppHelpPage\}\/>/);
+  assert.doesNotMatch(technicalGate, /\{HelpPage\}/);
+  assert.match(roleNavSource, /policenet:\s*\[[^\]]*APP_HELP/);
   const sergeantGate = app.slice(app.indexOf("if (ws.role === 'fto_sgt')"), app.indexOf('// This route authorizes'));
   assert.match(sergeantGate, /<Route path="\/resources" component=\{HelpPage\}/);
   assert.match(sergeantGate, /<Redirect to="\/resources"\/>/);
