@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   getApplicationHelpTopicForRole,
   getApplicationHelpTopicsForRole,
+  getApplicationHelpWorkflowsForRole,
 } from '@/lib/application-help.js';
 import type { Role } from '@/lib/model.js';
 
@@ -15,6 +16,12 @@ export function ApplicationHelpDesk({ role }: { role: Role }) {
   const query = search.role === role ? search.query : '';
   const [selectedId, setSelectedId] = useState(() => requestedTopic(role));
   const availableTopics = useMemo(() => getApplicationHelpTopicsForRole(role), [role]);
+  const workflows = useMemo(() => getApplicationHelpWorkflowsForRole(role), [role]);
+  const openTopic = (id: string) => {
+    setSearch({ role, query: '' });
+    setSelectedId(id);
+    document.getElementById('application-help-topic')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
   const matches = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return availableTopics.filter(topic => !needle
@@ -75,12 +82,42 @@ export function ApplicationHelpDesk({ role }: { role: Role }) {
         </label>
       </header>
 
-      <div className="grid md:grid-cols-[minmax(14rem,.72fr)_minmax(0,1.7fr)]">
+      {workflows.length > 0 && (
+        <section aria-labelledby="application-help-workflows" className="border-b p-4" data-testid="section-help-workflows">
+          <h3 id="application-help-workflows" className="label-caps mb-3 text-muted-foreground">Workflows</h3>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {workflows.map(workflow => (
+              <div key={workflow.id} className="border bg-muted/20 p-3" data-testid={`card-help-workflow-${workflow.id}`}>
+                <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                  <h4 className="font-semibold text-primary">{workflow.title}</h4>
+                  {workflow.manual && <span className="rounded-sm border bg-background px-2 py-0.5 text-[.65rem] font-bold uppercase tracking-wide text-muted-foreground">{workflow.manual}</span>}
+                </div>
+                <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed">
+                  {workflow.steps.map((step, index) => (
+                    <li key={`${workflow.id}-${index}`}>
+                      <button
+                        type="button"
+                        onClick={() => openTopic(step.topic)}
+                        className="block w-full text-left underline decoration-border underline-offset-2 hover:text-primary hover:decoration-primary"
+                        data-testid={`button-help-workflow-step-${workflow.id}-${index}`}
+                      >
+                        {step.text}
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div id="application-help-topic" className="grid scroll-mt-24 md:grid-cols-[minmax(14rem,.72fr)_minmax(0,1.7fr)]">
         <nav
           aria-label="Help Desk topics"
           className="border-b bg-muted/20 p-2 md:border-b-0 md:border-r"
         >
-          <p className="label-caps px-2 py-1 text-muted-foreground">Common tasks</p>
+          <p className="label-caps px-2 py-1 text-muted-foreground">How-to's</p>
           <div className="grid grid-cols-2 gap-1 md:grid-cols-1">
             {matches.map(topic => (
               <button
@@ -111,9 +148,16 @@ export function ApplicationHelpDesk({ role }: { role: Role }) {
                 >
                   {selected.title}
                 </h3>
-                <span className="rounded-sm border bg-muted px-2 py-1 text-[.65rem] font-bold uppercase tracking-wide text-muted-foreground">
-                  Application use · not policy
-                </span>
+                <div className="flex flex-wrap gap-1">
+                  {selected.manual && (
+                    <span className="rounded-sm border bg-background px-2 py-1 text-[.65rem] font-bold uppercase tracking-wide text-primary" data-testid="text-help-topic-manual">
+                      {selected.manual}
+                    </span>
+                  )}
+                  <span className="rounded-sm border bg-muted px-2 py-1 text-[.65rem] font-bold uppercase tracking-wide text-muted-foreground">
+                    Application use · not policy
+                  </span>
+                </div>
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <section className="border bg-muted/20 p-3">

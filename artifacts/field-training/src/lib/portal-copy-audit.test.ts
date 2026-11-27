@@ -8,6 +8,7 @@ import {
   APPLICATION_HELP_TOPICS,
   getApplicationHelpTopicForRole,
   getApplicationHelpTopicsForRole,
+  getApplicationHelpWorkflowsForRole,
 } from './application-help.js';
 import { ROLES, type Role } from './model.js';
 
@@ -149,28 +150,48 @@ test('Help Desk topics are limited to their declared roles with shared guidance 
     assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'roster-import'));
     assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'phase-request'));
   }
-  for (const role of ['fto', 'fto_sgt', 'fto_coordinator', 'fto_coc'] as const) {
-    assert.ok(getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'roster-import'));
-    assert.ok(getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'phase-request'));
+  for (const role of ['fto_sgt', 'fto_coc'] as const) {
+    assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'roster-import'));
+    assert.ok(!getApplicationHelpTopicsForRole(role).some(topic => topic.id === 'phase-request'));
   }
-  const sergeantTopics = getApplicationHelpTopicsForRole('fto_sgt');
-  assert.deepEqual(
-    sergeantTopics.map(topic => topic.id),
-    APPLICATION_HELP_TOPICS.map(topic => topic.id),
-  );
-  assert.ok(sergeantTopics.some(topic => topic.roles !== 'all' && topic.roles.includes('fto_sgt')));
+  assert.ok(!getApplicationHelpTopicsForRole('fto').some(topic => topic.id === 'roster-import'));
+  const only = (role: (typeof ROLES)[number]) => getApplicationHelpTopicsForRole(role)
+    .filter(topic => topic.roles !== 'all' && topic.roles.length === 1 && topic.roles[0] === role).map(topic => topic.id);
+  for (const role of ['fto', 'fto_coordinator', 'fto_sgt', 'po', 'fto_coc'] as const) {
+    assert.ok(only(role).length > 0, `${role} should have its own role-specific how-to's`);
+    for (const other of ['fto', 'fto_coordinator', 'fto_sgt', 'po', 'fto_coc'] as const) {
+      if (other === role) continue;
+      const otherIds = new Set(getApplicationHelpTopicsForRole(other).map(topic => topic.id));
+      assert.ok(only(role).every(id => !otherIds.has(id)), `${other} must not see ${role}-only how-to's`);
+    }
+  }
   for (const role of ['fto', 'fto_sgt', 'fto_coordinator', 'fto_coc'] as const) {
-    assert.deepEqual(
+    assert.notDeepEqual(
       getApplicationHelpTopicsForRole(role).map(topic => topic.id),
       APPLICATION_HELP_TOPICS.map(topic => topic.id),
-      `${role} should see all Help Desk guidance`,
+      `${role} should see only its own Help Desk guidance`,
     );
   }
   assert.deepEqual(
     getApplicationHelpTopicsForRole('po').map(topic => topic.id),
-    ['local-save', 'record-status', 'account-access', 'packet-status', 'page-resources', 'page-daily-records', 'page-agency-packets', 'page-account-settings', 'page-po-access'],
+    ['local-save', 'record-status', 'use-resources', 'account-settings', 'packet-status', 'po-review-sign', 'account-access'],
     'PO should see only shared topics and topics explicitly assigned to PO',
   );
+  const topicIds = new Set(APPLICATION_HELP_TOPICS.map(topic => topic.id));
+  for (const role of ROLES) {
+    const roleIds = new Set(getApplicationHelpTopicsForRole(role).map(topic => topic.id));
+    for (const workflow of getApplicationHelpWorkflowsForRole(role)) {
+      for (const step of workflow.steps) {
+        assert.ok(topicIds.has(step.topic) && roleIds.has(step.topic), `${workflow.id} links ${step.topic}, which ${role} cannot open`);
+      }
+    }
+  }
+  for (const role of ['fto', 'fto_coordinator', 'fto_sgt', 'po', 'fto_coc'] as const) {
+    assert.ok(getApplicationHelpWorkflowsForRole(role).length > 0, `${role} should have workflows`);
+  }
+  for (const role of ['policenet', 'policenet_admin_sgt'] as const) {
+    assert.equal(getApplicationHelpWorkflowsForRole(role).length, 0);
+  }
   for (const role of ['policenet', 'policenet_admin_sgt'] as const) {
     assert.deepEqual(
       getApplicationHelpTopicsForRole(role).map(topic => topic.id),
@@ -214,7 +235,7 @@ test('Help Desk deep links show an allowed answer when the role cannot access th
 
 test('Help Desk follows back and forward topic navigation for the active role', async () => {
   await withMountedHelpDesk('?topic=local-save', async (container, renderRole) => {
-    await renderRole('fto');
+    await renderRole('fto_coordinator');
     window.history.pushState({}, '', '/resources?topic=roster-import');
     window.history.pushState({}, '', '/resources?topic=record-status');
 
@@ -247,7 +268,7 @@ test('Help Desk history navigation keeps restricted topic answers hidden', async
 
 test('Help Desk immediately replaces a restricted answer after an in-place role change', async () => {
   await withMountedHelpDesk('?topic=roster-import', async (container, renderRole) => {
-    await renderRole('fto');
+    await renderRole('fto_coordinator');
     assert.equal(container.querySelector('article h3')?.textContent, 'Import a roster');
 
     await renderRole('po');
@@ -280,7 +301,7 @@ test('Help Desk clears a previous role-only search and shows topics available to
     assert.equal(input.value, 'xlsx');
     assert.deepEqual(
       Array.from(container.querySelectorAll('nav button')).map(button => button.textContent),
-      ['Import a roster', 'Assignments page notes'],
+      ['Import a roster'],
     );
     assert.equal(container.querySelector('article h3')?.textContent, 'Import a roster');
 
@@ -292,13 +313,11 @@ test('Help Desk clears a previous role-only search and shows topics available to
       [
         'Save and reopen a local draft',
         'Check record status',
+        'Use Resources',
+        'Use Account Settings',
+        'Check a packet action',
+        'Review and confirm your UA totals',
         'Activate an account',
-        'Check an agency packet action',
-        'Resources page notes',
-        'Daily records and packet transfer notes',
-        'Agency packets and packet status notes',
-        'Account settings notes',
-        'PO account access notes',
       ],
     );
     assert.equal(container.querySelector('article h3')?.textContent, 'Save and reopen a local draft');
