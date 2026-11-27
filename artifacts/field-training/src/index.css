@@ -546,7 +546,9 @@ main button.seg-rating-choice {
 /* Fixed shell links only: never inherit casing into manual forms or entered data. */
 @media screen {
   [data-testid="nav-desktop"] > a,
-  [data-testid="nav-mobile"] > a { text-transform: uppercase; }
+  [data-testid="nav-mobile"] > a,
+  [data-testid="nav-mobile"] > button,
+  [data-testid="sheet-mobile-nav-more"] a { text-transform: uppercase; }
 }
 .text-ok { color: hsl(var(--ok)); } .text-warn { color: hsl(var(--warn)); }
 .hazard { background-image: repeating-linear-gradient(135deg, hsl(var(--accent)) 0 10px, hsl(var(--foreground)) 10px 20px); }
