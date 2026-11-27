@@ -150,6 +150,13 @@ operational access, and the UI does not claim notifications were checked.
   email notice until it does; its portal alerts are waiting when it signs in.
   Emails are queued with notice-only text and no names; no message leaves the server until the department mail relay is
   configured and a sender is approved.
+  `ALERT_EMAIL_MODE=test` starts a test sender that renders each queued
+  notice into the server log once a minute (outbox number, notice type, a
+  hash of the recipient, subject and text; never the address) and never
+  contacts a mail server. It marks the row `last_error_code=TEST_MODE_NOT_SENT`
+  and leaves it `queued` with no attempt counted, so the relay sender still
+  delivers it later. `ALERT_EMAIL_PORTAL_URL` (https only) adds a sign-in
+  link. Any other value, or no value, keeps alert email off.
 - The upgrade preserves previously sealed packets as submitted; new uploads
   default to editable drafts. It permits increasing draft versions.
 - Keep a separate non-owner runtime role. It needs packet SELECT/INSERT/UPDATE,

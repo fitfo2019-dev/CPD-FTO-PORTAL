@@ -100,6 +100,30 @@ async function startServer(): Promise<void> {
   server.once("listening", () => {
     logger.info({ port: PORT }, "Server listening");
   });
+  await startAlertEmailSender();
+}
+
+async function startAlertEmailSender() {
+  const [{ alertEmailMode, runTestEmailPass }, { getAgencyDatabasePool }] = await Promise.all([
+    import("./lib/alert-email-sender.js"),
+    import("./lib/agency-database.js"),
+  ]);
+  const { mode, unknown } = alertEmailMode();
+  if (unknown) logger.warn({ alert_email_mode: unknown }, "Unknown ALERT_EMAIL_MODE; alert email stays off");
+  if (mode !== "test") return;
+  const pool = getAgencyDatabasePool();
+  if (!pool) return;
+  const portalUrl = process.env.ALERT_EMAIL_PORTAL_URL?.trim() || undefined;
+  let running = false;
+  const pass = () => { if (running) return Promise.resolve(); running = true; return runTestEmailPass(pool, message =>
+    logger.info({ alert_email: "test", outbox_id: message.outboxId, notice: message.notice,
+      recipient_hash: message.recipientHash, subject: message.subject, text: message.text },
+      "Alert email rendered in test mode; not sent"), { portalUrl })
+    .catch(() => logger.warn({ alert_email: "test" }, "Alert email test pass failed"))
+    .finally(() => { running = false; }); };
+  logger.info({ alert_email: "test" }, "Alert email test sender running; no mail is sent");
+  void pass();
+  setInterval(() => void pass(), 60_000).unref();
 }
 
 void startServer().catch((error: unknown) =>
