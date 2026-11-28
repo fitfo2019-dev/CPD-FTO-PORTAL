@@ -28,13 +28,13 @@ export default function HelpPage() {
         </a>
       </PageHead>
 
-      <ChargingLookup />
       <div id="resources-preview-map" tabIndex={-1} data-testid="section-map-embed">
         <GeographyMapPanel />
       </div>
+      <ChargingLookup />
       <LawHandbookPanel />
-      <ApplicationHelpDesk role={ws.role} />
       <ResourcesLibraryPage />
+      <ApplicationHelpDesk role={ws.role} />
 
       {ws.role !== 'fto_coc' && (
         <nav className="library-related-links" aria-label="Related portal pages">
