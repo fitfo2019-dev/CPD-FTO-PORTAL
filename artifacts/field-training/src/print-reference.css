@@ -419,9 +419,13 @@
   .print-document.print-reference-pilot .print-run-checklist-groups {
     display: grid; columns: auto; grid-template-columns: repeat(3,minmax(0,1fr));
     grid-auto-rows: minmax(0,1fr); gap: 6pt; flex: 1 1 0; min-height: 0; align-items: stretch; --print-checklist-size: 8pt; --print-checklist-leading: 1.05;
-    break-inside: avoid-page; page-break-inside: avoid;
+    break-inside: auto; page-break-inside: auto;
   }
-  .print-document.print-reference-pilot .print-run-checkgroup { break-inside: avoid-page; page-break-inside: avoid; }
+  .print-document.print-reference-pilot .print-run-checkgroup { break-inside: auto; page-break-inside: auto; }
+  /* Cards fill a fixed-height sheet. Allowing fragmentation keeps Chromium
+     from pushing the whole card grid to a second sheet and overlapping the
+     next form; the sheet height still keeps each form on one page. */
+  .print-document.print-reference-pilot :is(.print-run-checkgroup,.print-checklist-row,.print-run-checklist,.print-run-checklist-groups) { break-inside: auto !important; page-break-inside: auto !important; }
   .print-document.print-reference-pilot .print-run-checklist-groups:is([data-category-count="7"],[data-category-count="8"]) { grid-template-columns: repeat(4,minmax(0,1fr)); --print-checklist-size: 7.5pt; --print-checklist-leading: 1; }
   .print-document.print-reference-pilot .print-run-checklist-groups:is([data-category-count="7"],[data-category-count="8"]) .print-run-checkgroup ul { padding: 1pt 4pt !important; }
   .print-document.print-reference-pilot .print-run-checklist-groups[data-category-count="9"] { --print-checklist-size: 7.5pt; --print-checklist-leading: 1; }
@@ -572,3 +576,16 @@
 .print-item-failed { font-weight: 700; color: #b42318; }
 .print-item-na { font-weight: 700; text-decoration: line-through; text-decoration-thickness: 1.5px; }
 .print-po-failed-line { font-weight: 700; }
+
+/* Landscape sheets (daily, weekly and monthly summaries): the footer keeps
+   room for the badge (42pt) without pushing the last rows onto a second sheet. */
+@media print {
+  .print-document.print-reference-pilot:is(.print-document-landscape,.print-summary,.print-monthly) .print-template-footer { min-height: 48pt !important; margin-top: 4pt !important; }
+}
+
+/* Narrative continuation sheets print with the same 8pt Lato, 1.25 leading
+   that the continuation splitter measures (RUN_NARRATIVE_LAYOUT), so each
+   continuation stays on its own single sheet. */
+@media print {
+  .print-document.print-reference-pilot .print-narrative-continuation p { font: 8pt/1.25 Lato, Arial, sans-serif !important; min-height: 0 !important; white-space: pre-wrap; }
+}
