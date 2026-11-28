@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDownToLine, ExternalLink, FileCheck2, Files, LibraryBig, MapPinned, ShieldCheck, X,
+  ArrowDownToLine, ChevronRight, ExternalLink, FileCheck2, FileText, Files, LibraryBig, MapPinned, ShieldCheck, X,
 } from 'lucide-react';
 import {
   apiEndpoint,
@@ -10,7 +10,6 @@ import {
 import {
   EmptyState,
   LibraryNavigation,
-  ResourceCard,
   SearchControls,
   type LibraryResource,
 } from '@workspace/fto-law-library-schema/components/library';
@@ -31,7 +30,30 @@ type CatalogRecord = LibraryResource & {
   fileType?: string;
   handlingNote?: string;
   url?: string;
+  code?: string;
+  groupKey: string;
 };
+
+type RecordGroup = { key: string; kicker?: string; title: string; records: CatalogRecord[] };
+
+/** Chapter names as published on the Division directives index. */
+const DIRECTIVE_CHAPTERS: Record<string, string> = {
+  '1': 'Employee Conduct',
+  '2': 'Use of Force',
+  '3': 'Arrests, Detention and Searches',
+  '4': 'Police Operations and Investigations',
+  '5': 'Vehicle Operations and Investigations',
+  '6': 'Property and Evidence',
+  '7': 'Division Organization and Responsibilities',
+  '8': 'Human Resources',
+  '9': 'Fiscal and Personnel Management',
+  '10': 'Information and Records',
+  '11': 'Division Equipment and Uniforms',
+};
+const FILES_GROUP = 'reference-files';
+const MAP_GROUP = 'geography-map';
+const chapterOf = (number: string) => number.split('.')[0];
+const directiveOrder = (number: string) => number.split('.').map(Number);
 
 const CATEGORIES: ResourceCategory[] = [
   'All resources',
@@ -50,6 +72,7 @@ function libraryRecord(item: ResourceCatalogItem): CatalogRecord {
     description: item.description,
     handlingNote: item.handling_note,
     fileType: item.file_type,
+    groupKey: FILES_GROUP,
     searchText: `${item.title} Reference Files ${item.file_type} ${item.description} ${item.handling_note}`,
   };
 }
@@ -60,8 +83,11 @@ const DIRECTIVE_RECORDS: CatalogRecord[] = DIRECTIVE_PDF_LINKS.map((directive) =
   group: 'Division directives',
   category: 'Division directives',
   note: `Directive ${directive.number}`,
+  code: directive.number,
+  fileType: 'PDF',
+  groupKey: `chapter-${chapterOf(directive.number)}`,
   description: `Official Columbus Division of Police directive PDF, number ${directive.number}.`,
-  searchText: `${directive.number} ${directive.title} Division directives`,
+  searchText: `${directive.number} ${directive.title} Division directives Chapter ${chapterOf(directive.number)} ${DIRECTIVE_CHAPTERS[chapterOf(directive.number)] ?? ''}`,
   url: directive.url,
 }));
 
@@ -71,7 +97,8 @@ const MAP_RECORD: CatalogRecord = {
   group: 'Geography map',
   category: 'Geography map',
   note: 'Interactive map',
-  description: 'Explore the supplied Columbus Police geography map in the embedded viewer.',
+  groupKey: MAP_GROUP,
+  description: 'Explore the Columbus Police geography map in the embedded viewer.',
   searchText: 'Columbus Police Geography Map Geography map interactive map',
 };
 
@@ -115,6 +142,41 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
       ? [...filtered].sort((left, right) => left.title.localeCompare(right.title, undefined, { sensitivity: 'base' }))
       : filtered;
   }, [category, normalizedQuery, records, sorted]);
+
+  const groups = useMemo<RecordGroup[]>(() => {
+    const byKey = new Map<string, CatalogRecord[]>();
+    for (const record of visibleRecords) byKey.set(record.groupKey, [...(byKey.get(record.groupKey) ?? []), record]);
+    const ordered: RecordGroup[] = [];
+    const files = byKey.get(FILES_GROUP);
+    if (files) ordered.push({ key: FILES_GROUP, title: 'Reference Files', records: files });
+    Object.keys(DIRECTIVE_CHAPTERS).forEach((chapter) => {
+      const records = byKey.get(`chapter-${chapter}`);
+      if (!records) return;
+      ordered.push({
+        key: `chapter-${chapter}`,
+        kicker: `Chapter ${chapter}`,
+        title: DIRECTIVE_CHAPTERS[chapter],
+        records: sorted ? records : [...records].sort((left, right) => {
+          const [la, lb] = directiveOrder(left.code ?? '');
+          const [ra, rb] = directiveOrder(right.code ?? '');
+          return la - ra || lb - rb;
+        }),
+      });
+    });
+    const map = byKey.get(MAP_GROUP);
+    if (map) ordered.push({ key: MAP_GROUP, title: 'Geography map', records: map });
+    return ordered;
+  }, [visibleRecords, sorted]);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set<string>());
+  const searching = normalizedQuery.length > 0;
+  const isOpen = (key: string) => searching || category !== 'All resources' && groups.length === 1 || openGroups.has(key);
+  const allOpen = groups.every((group) => isOpen(group.key));
+  const toggleGroup = (key: string) => setOpenGroups((current) => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  const toggleAll = () => setOpenGroups(allOpen ? new Set() : new Set(groups.map((group) => group.key)));
 
   const counts: Record<ResourceCategory, string | number> = {
     'All resources': isLoading || isError
@@ -214,7 +276,7 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
             onQueryChange={setQuery}
             sorted={sorted}
             onToggleSort={() => setSorted((current) => !current)}
-            placeholder="Search reference files, directives, or map"
+            placeholder="Search resources"
             ariaLabel="Search reference files, directives, or map"
           />
 
@@ -230,7 +292,14 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
                       : `${visibleRecords.length} ${visibleRecords.length === 1 ? 'resource' : 'resources'} shown`}
                 </p>
               </div>
-              {sorted && <span className="resources-preview-sort-label">Alphabetical order</span>}
+              <div className="rl-head-tools">
+                {sorted && <span className="resources-preview-sort-label">Alphabetical order</span>}
+                {groups.length > 1 && !searching && (
+                  <button type="button" className="rl-toggle-all" onClick={toggleAll} data-testid="button-toggle-all-groups">
+                    {allOpen ? 'Collapse all' : 'Expand all'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {isLoading && (category === 'All resources' || category === 'Reference Files') && (
@@ -253,14 +322,72 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
               </div>
             )}
 
-            <div className="fls-grid resources-preview-grid">
-              {visibleRecords.map((record) => (
-                <ResourceCard
-                  key={record.id}
-                  resource={record}
-                  onSelect={selectResource}
-                />
-              ))}
+            <div className="rl-groups">
+              {groups.map((group) => {
+                const open = isOpen(group.key);
+                return (
+                  <section className="rl-group" key={group.key} data-testid={`group-${group.key}`}>
+                    <h3 className="rl-group-heading">
+                      <button
+                        type="button"
+                        className="rl-group-toggle"
+                        aria-expanded={open}
+                        aria-controls={`rl-rows-${group.key}`}
+                        onClick={() => { if (!searching) toggleGroup(group.key); }}
+                        aria-disabled={searching || undefined}
+                        data-testid={`button-toggle-${group.key}`}
+                      >
+                        <ChevronRight className="rl-chevron" size={16} aria-hidden="true" />
+                        {group.kicker && <span className="rl-group-kicker">{group.kicker}</span>}
+                        <span className="rl-group-title">{group.title}</span>
+                        <span className="rl-group-count">{group.records.length}</span>
+                      </button>
+                    </h3>
+                    {open && (
+                      <ul className="rl-rows" id={`rl-rows-${group.key}`}>
+                        {group.records.map((record) => (
+                          <li className="rl-row" key={record.id}>
+                            <button
+                              type="button"
+                              className="rl-row-main"
+                              onClick={() => selectResource(record)}
+                              data-testid={`row-resource-${record.id}`}
+                            >
+                              <span className={record.code ? 'rl-code' : 'rl-code rl-code-icon'} aria-hidden={!record.code}>
+                                {record.code ?? (record.category === 'Geography map'
+                                  ? <MapPinned size={16} aria-hidden="true" />
+                                  : <FileText size={16} aria-hidden="true" />)}
+                              </span>
+                              <span className="rl-text">
+                                <span className="rl-title">{record.title}</span>
+                                {record.category === 'Reference Files' && record.description && (
+                                  <span className="rl-desc">{record.description}</span>
+                                )}
+                              </span>
+                            </button>
+                            {record.category === 'Reference Files' && record.fileType && <span className="rl-type">{record.fileType}</span>}
+                            {record.category === 'Division directives' && (
+                              <a className="rl-action" href={record.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${record.title} PDF`} data-testid={`link-row-directive-${record.code}`}>
+                                <ExternalLink size={15} aria-hidden="true" /><span>Open</span>
+                              </a>
+                            )}
+                            {record.category === 'Reference Files' && (
+                              <a className="rl-action" href={apiEndpoint(`/v1/resources/${encodeURIComponent(record.id.slice('file-'.length))}/download`)} download aria-label={`Download ${record.title}`} data-testid={`link-row-file-${record.id.slice('file-'.length)}`}>
+                                <ArrowDownToLine size={15} aria-hidden="true" /><span>Download</span>
+                              </a>
+                            )}
+                            {record.category === 'Geography map' && (
+                              <a className="rl-action" href="#resources-preview-map" aria-label="View the geography map" data-testid="link-row-map">
+                                <MapPinned size={15} aria-hidden="true" /><span>View</span>
+                              </a>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                );
+              })}
               {!isLoading && !(isError && category === 'Reference Files') && visibleRecords.length === 0 && (
                 <EmptyState
                   title={normalizedQuery ? 'No matching resources' : 'No resources in this category'}

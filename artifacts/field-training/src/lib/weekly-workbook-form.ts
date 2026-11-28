@@ -5,7 +5,7 @@ import { activityTotals } from './run-activity.js';
 import { weeklyRatingCount } from './weekly-rating-counts.js';
 import { spreadsheetText } from './spreadsheet-text.js';
 
-// Three category columns and four activity columns follow the supplied worksheet photo.
+// Three category columns and four activity columns follow the paper weekly worksheet.
 export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XLSX.WorkSheet {
   const first = reports[0];
   if (!first) throw new Error('At least one daily log is required to build the weekly summary.');
