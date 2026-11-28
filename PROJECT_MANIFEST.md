@@ -73,7 +73,6 @@ This is a security-oriented prototype foundation for sensitive-records managemen
 - `lib/db/` — PostgreSQL and Drizzle schema foundation; not connected to current API routes.
 - `database/migrations/` — Portable SQL schema and database constraints.
 - `scripts/` — Workspace utility scripts, including standalone API packaging and the retained `hello.ts` command.
-- `attached_assets/` — User-provided source materials; do not remove as cleanup.
 - `HANDOVER_MANUAL.md` — Functional overview and handover boundaries.
 - `replit.md` — Collaborator guidance that points to this manifest.
 

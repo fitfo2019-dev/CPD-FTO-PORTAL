@@ -1,18 +1,18 @@
 import { useMemo, useState } from "react";
 import { BookOpen, ChevronRight, FileText, FolderOpen, Library, Search, ShieldCheck, X, ArrowUpRight, SlidersHorizontal, Clock3 } from "lucide-react";
 
-type Resource = { title: string; group: "Law Library" | "Uploaded reference documents"; note?: string };
+type Resource = { title: string; group: "Law Library" | "Reference documents"; note?: string };
 const resources: Resource[] = [
-  { title: "Amy's Law Factors", group: "Uploaded reference documents" },
-  { title: "BMV 2255", group: "Uploaded reference documents", note: "2 files" },
-  { title: "Domestic Violence Protocol", group: "Uploaded reference documents" },
-  { title: "Drug Possession Weights", group: "Uploaded reference documents" },
-  { title: "DV Strangulation Diagram", group: "Uploaded reference documents" },
-  { title: "Key Criminal Law Issues (2024)", group: "Uploaded reference documents" },
-  { title: "Ohio Constitutional Opinions", group: "Uploaded reference documents" },
-  { title: "Ohio Supreme Court Felony Quick Reference", group: "Uploaded reference documents" },
-  { title: "Police Phone Directory", group: "Uploaded reference documents" },
-  { title: "Prior Offenses Constituting WUD", group: "Uploaded reference documents" },
+  { title: "Amy's Law Factors", group: "Reference documents" },
+  { title: "BMV 2255", group: "Reference documents", note: "2 files" },
+  { title: "Domestic Violence Protocol", group: "Reference documents" },
+  { title: "Drug Possession Weights", group: "Reference documents" },
+  { title: "DV Strangulation Diagram", group: "Reference documents" },
+  { title: "Key Criminal Law Issues (2024)", group: "Reference documents" },
+  { title: "Ohio Constitutional Opinions", group: "Reference documents" },
+  { title: "Ohio Supreme Court Felony Quick Reference", group: "Reference documents" },
+  { title: "Police Phone Directory", group: "Reference documents" },
+  { title: "Prior Offenses Constituting WUD", group: "Reference documents" },
 ];
 
 export function ResourceLibraryPreview() {
@@ -50,7 +50,7 @@ export function ResourceLibraryPreview() {
         <div><div className="rl-brand"><div className="rl-brand-mark"><ShieldCheck size={18}/></div><div><div className="rl-brand-name">Field Reference</div><div className="rl-brand-sub">COLUMBUS · LAW LIBRARY</div></div></div>
           <p className="rl-section-label">Browse library</p>
           <nav className="rl-nav">
-            {[{name:"All resources",icon:<FolderOpen size={15}/>,count:"10"},{name:"Law Library",icon:<Library size={15}/>,count:"—"},{name:"Uploaded reference documents",icon:<FileText size={15}/>,count:"10"}].map((item)=><button type="button" key={item.name} className={category===item.name?"active":""} onClick={()=>setCategory(item.name)} aria-pressed={category===item.name}>{item.icon}{item.name}<span className="rl-nav-count">{item.count}</span></button>)}
+            {[{name:"All resources",icon:<FolderOpen size={15}/>,count:"10"},{name:"Law Library",icon:<Library size={15}/>,count:"—"},{name:"Reference documents",icon:<FileText size={15}/>,count:"10"}].map((item)=><button type="button" key={item.name} className={category===item.name?"active":""} onClick={()=>setCategory(item.name)} aria-pressed={category===item.name}>{item.icon}{item.name}<span className="rl-nav-count">{item.count}</span></button>)}
           </nav>
         </div>
         <div className="rl-sidebar-foot"><div className="rl-secure"><ShieldCheck size={13}/>Training reference view</div>Sandbox preview · Resource availability is not connected.</div>

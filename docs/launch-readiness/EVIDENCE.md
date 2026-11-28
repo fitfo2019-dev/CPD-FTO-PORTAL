@@ -9,8 +9,7 @@ Source/behavior observations are not evidence that agency infrastructure is conf
 - Commit timestamp: `2026-11-23T13:43:34Z`
 - Initial rehearsal start: `2026-11-23T13:49:46Z`
 - Node `v24.22.3`; pnpm `10.26.1`.
-- Working tree **already modified**: `.agents/memory/MEMORY.md`,
-  `.replit-context.md`, `HANDOVER_MANUAL.md`, `PROJECT_MANIFEST.md`, `README.md`,
+- Working tree **already modified**: `.replit-context.md`, `HANDOVER_MANUAL.md`, `PROJECT_MANIFEST.md`, `README.md`,
   packet migration/store/router/identity/tests and daily-report-draft, plus new
   packet-boundary memory. These inherited changes were not authored or edited
   by this assessment. Do not attribute them to assessment remediation.

@@ -22,7 +22,7 @@ import {
 import '@workspace/fto-law-library-schema/library.css';
 import './resources-library-preview.css';
 
-type ResourceCategory = 'All resources' | 'Uploaded files' | 'Division directives' | 'Geography map';
+type ResourceCategory = 'All resources' | 'Reference Files' | 'Division directives' | 'Geography map';
 type CatalogRecord = LibraryResource & {
   id: string;
   category: Exclude<ResourceCategory, 'All resources'>;
@@ -35,22 +35,22 @@ type CatalogRecord = LibraryResource & {
 
 const CATEGORIES: ResourceCategory[] = [
   'All resources',
-  'Uploaded files',
+  'Reference Files',
   'Division directives',
   'Geography map',
 ];
 
-function uploadedRecord(item: ResourceCatalogItem): CatalogRecord {
+function libraryRecord(item: ResourceCatalogItem): CatalogRecord {
   return {
-    id: `upload-${item.id}`,
+    id: `file-${item.id}`,
     title: item.title,
-    group: 'Uploaded files',
-    category: 'Uploaded files',
+    group: 'Reference Files',
+    category: 'Reference Files',
     note: item.file_type,
     description: item.description,
     handlingNote: item.handling_note,
     fileType: item.file_type,
-    searchText: `${item.title} Uploaded files ${item.file_type} ${item.description} ${item.handling_note}`,
+    searchText: `${item.title} Reference Files ${item.file_type} ${item.description} ${item.handling_note}`,
   };
 }
 
@@ -94,15 +94,15 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
   const pageRef = useRef<HTMLElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
 
-  const uploadedResources = useMemo(
+  const libraryResources = useMemo(
     () => Array.isArray(resourceResponse?.data)
-      ? resourceResponse.data.filter(isResourceCatalogItem).map(uploadedRecord)
+      ? resourceResponse.data.filter(isResourceCatalogItem).map(libraryRecord)
       : [],
     [resourceResponse],
   );
   const records = useMemo(
-    () => [...uploadedResources, ...DIRECTIVE_RECORDS, MAP_RECORD],
-    [uploadedResources],
+    () => [...libraryResources, ...DIRECTIVE_RECORDS, MAP_RECORD],
+    [libraryResources],
   );
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleRecords = useMemo(() => {
@@ -119,8 +119,8 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
   const counts: Record<ResourceCategory, string | number> = {
     'All resources': isLoading || isError
       ? '—'
-      : uploadedResources.length + DIRECTIVE_RECORDS.length + 1,
-    'Uploaded files': isLoading ? 'Loading' : isError ? 'Unavailable' : uploadedResources.length,
+      : libraryResources.length + DIRECTIVE_RECORDS.length + 1,
+    'Reference Files': isLoading ? 'Loading' : isError ? 'Unavailable' : libraryResources.length,
     'Division directives': DIRECTIVE_RECORDS.length,
     'Geography map': 1,
   };
@@ -171,7 +171,7 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
     count: counts[name],
     icon: name === 'All resources'
       ? <LibraryBig size={15} aria-hidden="true" />
-      : name === 'Uploaded files'
+      : name === 'Reference Files'
         ? <Files size={15} aria-hidden="true" />
         : name === 'Division directives'
           ? <FileCheck2 size={15} aria-hidden="true" />
@@ -214,8 +214,8 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
             onQueryChange={setQuery}
             sorted={sorted}
             onToggleSort={() => setSorted((current) => !current)}
-            placeholder="Search uploaded files, directives, or map"
-            ariaLabel="Search uploaded files, directives, or map"
+            placeholder="Search reference files, directives, or map"
+            ariaLabel="Search reference files, directives, or map"
           />
 
           <div className="resources-preview-results">
@@ -223,28 +223,28 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
               <div>
                 <h2>{category}</h2>
                 <p aria-live="polite" data-testid="text-result-count">
-                  {isLoading && (category === 'All resources' || category === 'Uploaded files')
-                    ? 'Loading uploaded files'
-                    : isError && category === 'Uploaded files'
-                      ? 'Uploaded files unavailable'
+                  {isLoading && (category === 'All resources' || category === 'Reference Files')
+                    ? 'Loading reference files'
+                    : isError && category === 'Reference Files'
+                      ? 'Reference files unavailable'
                       : `${visibleRecords.length} ${visibleRecords.length === 1 ? 'resource' : 'resources'} shown`}
                 </p>
               </div>
               {sorted && <span className="resources-preview-sort-label">Alphabetical order</span>}
             </div>
 
-            {isLoading && (category === 'All resources' || category === 'Uploaded files') && (
-              <div className="resources-preview-loading" aria-busy="true" aria-label="Loading uploaded resources">
+            {isLoading && (category === 'All resources' || category === 'Reference Files') && (
+              <div className="resources-preview-loading" aria-busy="true" aria-label="Loading reference files">
                 {Array.from({ length: 3 }, (_, index) => (
                   <div className="resources-preview-skeleton" key={index} />
                 ))}
               </div>
             )}
 
-            {isError && (category === 'All resources' || category === 'Uploaded files') && (
-              <div className="resources-preview-error" role="alert" data-testid="error-uploaded-resources">
+            {isError && (category === 'All resources' || category === 'Reference Files') && (
+              <div className="resources-preview-error" role="alert" data-testid="error-library-files">
                 <div>
-                  <strong>Uploaded files could not be loaded.</strong>
+                  <strong>Reference files could not be loaded.</strong>
                   <p>Files use your current portal sign-in. Try again; if your session has ended, return to sign in.</p>
                 </div>
                 <button type="button" onClick={() => { void refetch(); }} data-testid="button-retry-resources">
@@ -261,12 +261,12 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
                   onSelect={selectResource}
                 />
               ))}
-              {!isLoading && !(isError && category === 'Uploaded files') && visibleRecords.length === 0 && (
+              {!isLoading && !(isError && category === 'Reference Files') && visibleRecords.length === 0 && (
                 <EmptyState
                   title={normalizedQuery ? 'No matching resources' : 'No resources in this category'}
                   description={normalizedQuery
                     ? 'Try a different search or choose another collection.'
-                    : 'Uploaded files available to your signed-in account will appear here.'}
+                    : 'Reference files available to your signed-in account will appear here.'}
                 />
               )}
             </div>
@@ -311,18 +311,18 @@ export default function ResourcesLibraryPage({ previewOnly = false }: { previewO
               <div className="fls-info">
                 <div className="fls-info-row"><span>Collection</span><span>{selected.category}</span></div>
                 {selected.fileType && <div className="fls-info-row"><span>File type</span><span>{selected.fileType}</span></div>}
-                {selected.note && selected.category !== 'Uploaded files' && <div className="fls-info-row"><span>Reference</span><span>{selected.note}</span></div>}
+                {selected.note && selected.category !== 'Reference Files' && <div className="fls-info-row"><span>Reference</span><span>{selected.note}</span></div>}
                 {selected.handlingNote && <div className="resources-preview-handling">{selected.handlingNote}</div>}
               </div>
 
-              {selected.category === 'Uploaded files' && (
+              {selected.category === 'Reference Files' && (
                 <a
                   className="resources-preview-action"
-                  href={apiEndpoint(`/v1/resources/${encodeURIComponent(selected.id.slice('upload-'.length))}/download`)}
+                  href={apiEndpoint(`/v1/resources/${encodeURIComponent(selected.id.slice('file-'.length))}/download`)}
                   download
-                  data-testid={`link-download-resource-${selected.id.slice('upload-'.length)}`}
+                  data-testid={`link-download-resource-${selected.id.slice('file-'.length)}`}
                 >
-                  <ArrowDownToLine size={16} aria-hidden="true" /> Download uploaded file
+                  <ArrowDownToLine size={16} aria-hidden="true" /> Download file
                 </a>
               )}
               {selected.category === 'Division directives' && (

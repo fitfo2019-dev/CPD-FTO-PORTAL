@@ -8,6 +8,6 @@ export default function NavigationDemo() {
     <div style={{maxWidth:380}}><LibraryNavigation category={category} onCategoryChange={setCategory} collections={[
       { name:"All resources", icon:<FolderOpen size={15}/>, count:10 },
       { name:"Law Library", icon:<Library size={15}/>, count:"—" },
-      { name:"Uploaded reference documents", icon:<FileText size={15}/>, count:10 },
+      { name:"Reference documents", icon:<FileText size={15}/>, count:10 },
     ]}/></div><p className="ds-muted" role="status">Selected collection: {category}</p></>;
 }

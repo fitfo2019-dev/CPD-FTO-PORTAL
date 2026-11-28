@@ -16,7 +16,7 @@ test('print page sizes and margins remain explicit for browser/PDF exports', asy
 
 test('form export guidance distinguishes reconstructed layouts from source PDFs', async () => {
   const guidance = await readFile(resolve(workspaceRoot, 'docs/FTO-FORM-EXPORT-COVERAGE.md'), 'utf8');
-  assert.match(guidance, /They are reconstructed layouts, not filled copies of the uploaded originals/);
+  assert.match(guidance, /They are reconstructed layouts, not filled copies of the original forms/);
   assert.match(guidance, /must still be checked against each target printer/);
   assert.match(guidance, /unselected checkboxes, long narratives, margins and page\s+numbering have been checked/);
 });

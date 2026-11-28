@@ -77,6 +77,9 @@
 }
 
 .resources-preview-catalog { min-width: 0; }
+.resources-preview .fls-brand strong { color: hsl(var(--sidebar-foreground)); }
+.resources-preview .fls-brand small,
+.resources-preview .fls-sidebar .fls-section-label { color: hsl(var(--sidebar-foreground) / 0.78); }
 .resources-preview .fls-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .resources-preview .fls-card { min-height: 8.5rem; }
 .resources-preview .fls-card-meta { flex-wrap: wrap; }

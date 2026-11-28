@@ -49,7 +49,7 @@ const scopeRows = [
   ["Packet review", "Retain server-confirmed status and consequential warnings. Do not merge or redesign packet controls."],
   ["Empty & error states", "State what is unavailable and one recovery action. Put extended troubleshooting in Help."],
   ["Dialogs & warnings", "Lead with the consequence and a clear safe choice, especially for unsaved work and irreversible actions."],
-  ["Packet-upload screenshot reference", "Shorten the reference to user-facing save and upload status. Keep upload controls separate and outside this copy proposal."],
+  ["Packet-upload screen reference", "Shorten the reference to user-facing save and upload status. Keep upload controls separate and outside this copy proposal."],
 ];
 
 export function CopyReviewPreview() {
@@ -296,11 +296,11 @@ export function CopyReviewPreview() {
             <div className="cpa-panel-head"><h2 id="library-title">Resources / Law Library</h2><small>Existing sources</small></div>
             <div className="cpa-library-body">
               <span className="cpa-source-kind">Official operational source</span>
-              <div className="cpa-source-lead"><strong>FTO Manual</strong><span>Source: Uploaded Final FTO Manual · updated 03/10/2026</span></div>
+              <div className="cpa-source-lead"><strong>FTO Manual</strong><span>Source: Final FTO Manual · updated 03/10/2026</span></div>
               <div className="cpa-source-lead"><strong>Columbus Division of Police Directives</strong><span>Directive PDF index · checked 11/19/2026</span><span><a href="https://www.columbus.gov/Services/Public-Safety/Police/About-the-Columbus-Division-of-Police/Directives" target="_blank" rel="noreferrer">Open the official directive index</a></span></div>
               <span className="cpa-source-kind">Existing searchable Law Library sources</span>
               <div className="cpa-library-list">{librarySources.map(source=><a className="cpa-library-link" key={source.label} href={source.url} target="_blank" rel="noreferrer"><span><strong>{source.label}</strong><br/><span style={{fontWeight:400,color:"#5c6770"}}>{source.source}</span></span><ChevronRight aria-hidden="true"/></a>)}</div>
-              <p className="cpa-source-disclaimer">Forms & guidance: Uploaded Substation Orientation · U-10.181, page 1; Uploaded Reporting for Duty · U-10.191, page 1.</p>
+              <p className="cpa-source-disclaimer">Forms & guidance: Substation Orientation form · U-10.181, page 1; Reporting for Duty form · U-10.191, page 1.</p>
             </div>
           </aside>
         </div>

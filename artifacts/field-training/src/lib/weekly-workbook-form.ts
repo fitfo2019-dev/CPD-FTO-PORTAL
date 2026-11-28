@@ -54,7 +54,7 @@ export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XL
     }).flat());
   }
   rows.push([], ['Ratings are counts of descriptive selections, not performance scores, averages, or rankings.'],
-    ['Summons Re-issued appears twice in the supplied photo; it is collected and counted once.']);
+    ['Summons Re-issued appears twice on the paper form; it is collected and counted once.']);
   const safeRows = rows.map(row => row.map(value => typeof value === 'string' ? safe(value) : value));
   const worksheet=XLSX.utils.aoa_to_sheet(safeRows);
   worksheet['!cols']=Array.from({length:21},(_,column)=>({wch:column%7===0 ? 31 : 8}));

@@ -11,7 +11,7 @@ import { activityTotals, manualActivityEntryForTotal, runActivityValidationError
 import { cruiserDistrictForFtoAssignment, ftoAssignmentsForPrecinct, isValidAssignment, isValidFtoAssignment } from './cpd-geography.js';
 import { getRunDirectivePrompts } from './directive-prompts.js';
 import { normalizePreviewRole, ROLES } from './model.js';
-import { FTO_HELP, UPLOADED_FORM_SOURCES } from './fto-help.js';
+import { FTO_HELP, FORM_SOURCES } from './fto-help.js';
 import { alignRunDateToShift, parseRunDateTime, runDetailError } from './run-details.js';
 import { splitExcelText } from './extended-form-rows.js';
 import { defaultSubstationOrientationChecklist, SUBSTATION_ORIENTATION_KEYS } from './substation-orientation.js';
@@ -59,9 +59,9 @@ test('a new workspace starts without generated training records',()=>{
   assert.deepEqual(workspace.tasks,[]);
 });
 
-test('Help cites the manual/forms and inventories every uploaded PDF',()=>{
-  assert.equal(UPLOADED_FORM_SOURCES.length,14);
-  assert.ok(FTO_HELP.every(item=>/FTO Manual|Uploaded/.test(item.source)));
+test('Help cites the manual/forms and inventories every form',()=>{
+  assert.equal(FORM_SOURCES.length,14);
+  assert.ok(FTO_HELP.every(item=>/FTO Manual| form/.test(item.source)));
   assert.match(FTO_HELP.find(item=>item.id==='rt')!.text,/minimal FTO/);
   assert.ok(dailyDutyItems.some(item=>item.key==='docked_bwc'));
 });

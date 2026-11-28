@@ -4,10 +4,10 @@ import tokens from "../generated/tokens.js";
 import { EmptyState, LibraryNavigation, ResourceCard, ResourceDrawer, SearchControls, type LibraryResource } from "../components/library.js";
 
 export const exampleResources: LibraryResource[] = [
-  { title: "Domestic Violence Protocol", group: "Uploaded reference documents" },
-  { title: "Ohio Constitutional Opinions", group: "Uploaded reference documents" },
-  { title: "Police Phone Directory", group: "Uploaded reference documents" },
-  { title: "BMV 2255", group: "Uploaded reference documents", note: "2 files" },
+  { title: "Domestic Violence Protocol", group: "Reference documents" },
+  { title: "Ohio Constitutional Opinions", group: "Reference documents" },
+  { title: "Police Phone Directory", group: "Reference documents" },
+  { title: "BMV 2255", group: "Reference documents", note: "2 files" },
 ];
 export function PageTitle({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return <header className="ds-page-title"><p>{eyebrow}</p><h1>{title}</h1><div>{description}</div></header>;
@@ -27,7 +27,7 @@ export function LibrarySpecimen() {
     <LibraryNavigation category={category} onCategoryChange={setCategory} collections={[
       { name:"All resources", icon:<FolderOpen size={15}/>, count:4 },
       { name:"Law Library", icon:<Library size={15}/>, count:"—" },
-      { name:"Uploaded reference documents", icon:<FileText size={15}/>, count:4 },
+      { name:"Reference documents", icon:<FileText size={15}/>, count:4 },
     ]}/>
     <section className="ds-specimen-main">
       <div className="ds-specimen-top"><span><BookOpen size={13}/>RESOURCE DISCOVERY</span><span>INTERACTIVE SPECIMEN</span></div>
