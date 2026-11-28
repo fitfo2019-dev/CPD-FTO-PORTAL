@@ -268,11 +268,11 @@ The workbook listed "Summons Re-Issued" twice, so it appears once here. Solve Ci
 
 The Phase IV FTO must choose one of the following statements in the "Field Training Officer Comments" section of the Week 15 Weekly Packet Acknowledgement. They are reproduced word for word. The blank is the PO's last name, auto-filled and locked.
 
-> "On Phase four PO _______ demonstrated they could perform at an acceptable level in the 38 categories that make up the Standard Evaluation Guidelines and have shown they can operate as a safe efficient one officer unit with little to no FTO assistance."
+> "On Phase four PO _______ demonstrated they could perform at an acceptable level in the 30 categories that make up the Standard Evaluation Guidelines and have shown they can operate as a safe efficient one officer unit with little to no FTO assistance."
 >
 > -or-
 >
-> "On Phase four PO _______ did not demonstrate they could perform at an acceptable level in the 38 categories that make up the Standard Evaluation Guidelines and have not shown they can operate as a safe efficient one officer car without significant FTO assistance."
+> "On Phase four PO _______ did not demonstrate they could perform at an acceptable level in the 30 categories that make up the Standard Evaluation Guidelines and have not shown they can operate as a safe efficient one officer car without significant FTO assistance."
 
 - **Exact wording:** the statements are not reworded or "corrected", even though the portal uses 30 categories and the two statements say "unit" and "car".
 - **Required:** the Week 15 weekly cannot be sent until a statement is chosen.

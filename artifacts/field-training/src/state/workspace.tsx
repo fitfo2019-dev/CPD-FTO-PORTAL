@@ -16,6 +16,7 @@ import { validateReportsForExport } from '@/lib/export-validation.js';
 import { validateReport } from '@/lib/model.js';
 import { packetSubmissionReady } from '@workspace/api-zod/packet-readiness';
 import { assertAssignmentMetadata, assertTacticalAssignmentMetadata } from '@/lib/assignment-metadata.js';
+import { isDispatchedRunMissingIncidentNumber } from '@/lib/dispatch-prefill.js';
 import { OperatorFacingError, operatorErrorMessage, reportUnexpectedOperatorError } from '@/lib/operator-errors.js';
 import { AUTHENTICATION_REQUIRED_MESSAGE, AuthenticationRequiredError, isAuthenticationRejection, validateClerkSession, type ClerkSessionIdentity, type ValidateClerkSession } from '@/lib/auth-session.js';
 
@@ -953,6 +954,8 @@ export function WorkspaceProvider({
     if(report.syncStatus==='synchronized_complete'||report.syncStatus==='submitted_complete') throw new Error('This packet is already submitted. Open packet submissions for its status.');
     const errors=validateReport(report);
     if(errors.length) throw new Error(errors[0]);
+    if(!report.narrative?.trim()) throw new Error('Shift narrative is required');
+    if(report.runs?.some(isDispatchedRunMissingIncidentNumber)) throw new Error('A dispatched run is missing its incident number');
     if(!packetSubmissionReady(report as unknown as Record<string,unknown>))
       throw new Error('Review and save the duty sheet, every run form, and the daily evaluation before final submission.');
     syncing.current=true;

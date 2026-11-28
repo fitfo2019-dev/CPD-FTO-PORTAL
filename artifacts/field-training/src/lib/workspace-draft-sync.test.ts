@@ -56,6 +56,7 @@ test("offline local saves stay local and reconnect syncs an editable draft witho
     const folder = createUiPreviewWorkspace().caseFolder!;
     const report = createDailyReportDraft(folder, "2026-11-23");
     report.shiftStartTime="07:00";
+    report.narrative="Synthetic shift narrative for the draft sync test.";
     report.reportingForDuty.reviewedAt="2026-11-23T17:00:00Z";
     report.ratingsReviewedAt="2026-11-23T17:00:00Z";
     for(const category of CATEGORIES)report.ratings[category].rating="A";

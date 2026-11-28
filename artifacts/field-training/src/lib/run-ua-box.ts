@@ -25,8 +25,10 @@ export function runUaParagraph(run: RunText): string {
 }
 
 /** Run narrative as printed: the FTO's summary of the run, then the UA box text (written once, page 63). */
-export function fullRunNarrative(run: RunText & Pick<TrainingRun, 'narrative'>): string {
-  return [run.narrative?.trim(), runUaParagraph(run)].filter(Boolean).join('\n\n');
+export function fullRunNarrative(run: RunText & Pick<TrainingRun, 'narrative'>, options: { limboDay?: boolean } = {}): string {
+  const ua = runUaParagraph(run);
+  // Limbo Day UA's are documented but never counted against the PO (owner, Nov 28, 2026).
+  return [run.narrative?.trim(), ua && options.limboDay ? `(Not counted: Limbo Day) ${ua}` : ua].filter(Boolean).join('\n\n');
 }
 
 export type UaBoxGap = 'whatHappened' | 'correctiveTraining' | 'minutes';

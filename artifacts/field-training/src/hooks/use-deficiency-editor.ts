@@ -26,13 +26,14 @@ export function useDeficiencyEditor(
     });
   }, [report, preview, packet, editable, setReport]);
   useEffect(() => {
-    if (!editable || report?.limboDay) {
+    // Limbo Days still document UA's (owner, Nov 28, 2026); they are listed but not counted.
+    if (!editable) {
       if(activeId)setActiveId(null);
       return;
     }
     // The run UA box replaces the automatic popup (owner, Nov 27, 2026); the dialog opens only on request.
     if (activeId && !groups.some(group => group.id === activeId && group.reviewed)) setActiveId(null);
-  }, [activeId, groups, editable, report?.limboDay]);
+  }, [activeId, groups, editable]);
   const active = groups.find(group => group.id === activeId && group.reviewed);
   const setNarrative = (text: string) => {
     if (!active || !editable) return;

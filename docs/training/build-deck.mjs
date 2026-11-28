@@ -163,7 +163,7 @@ S.layouts.agenda(deck.addSlide(), {
     { h: "Add each run", b: "Three taps save the incident number and run type.", r: "DECISION LOG" },
     { h: "Finish the checklist", b: "Each unchecked item is a UA, one per category per run page.", r: "MANUAL P. 3" },
     { h: "Explain in the Daily Log", b: "One explanation per category, with corrective training and minutes.", r: "MANUAL P. 3, 41" },
-    { h: "Rate 38 categories", b: "One rating per category; none on limbo days.", r: "MANUAL P. 18, 29" },
+    { h: "Rate 30 categories", b: "One rating per category; none on limbo days.", r: "MANUAL P. 18, 29" },
     { h: "Save, then finalize", b: "Save keeps a private draft; Finalize sends it on.", r: "DECISION LOG" },
   ], { h: b.bottom - b.top - 10 });
 }
@@ -226,7 +226,7 @@ S.layouts.agenda(deck.addSlide(), {
   const s = deck.addSlide();
   const f = fr({
     kicker: "RATINGS",
-    headline: "FTO's choose one of five manual ratings for each of the 38 categories",
+    headline: "FTO's choose one of five manual ratings for each of the 30 categories",
     sources: [M(4), M(18), M(29)],
   });
   S.layouts.table(s, {

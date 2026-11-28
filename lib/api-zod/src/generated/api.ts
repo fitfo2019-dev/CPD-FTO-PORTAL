@@ -468,7 +468,8 @@ export const GetPacketSubmissionResponse = zod.object({
   "record_date": zod.string().regex(getPacketSubmissionResponsePoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
   "category_key": zod.string().min(1).max(getPacketSubmissionResponsePoTotalsOneUnacceptableDetailsItemCategoryKeyMax).regex(getPacketSubmissionResponsePoTotalsOneUnacceptableDetailsItemCategoryKeyRegExp),
   "rating": zod.enum(['UA']),
-  "justification": zod.string().max(getPacketSubmissionResponsePoTotalsOneUnacceptableDetailsItemJustificationMax)
+  "justification": zod.string().max(getPacketSubmissionResponsePoTotalsOneUnacceptableDetailsItemJustificationMax),
+  "limbo_day": zod.boolean().describe('Documented on a Limbo Day; listed for the PO but not counted against them.')
 })).max(getPacketSubmissionResponsePoTotalsOneUnacceptableDetailsMax)
 }),zod.null()]),
   "history": zod.array(zod.object({
@@ -1992,7 +1993,8 @@ export const ListTrainingPacketsResponse = zod.object({
   "record_date": zod.string().regex(listTrainingPacketsResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
   "category_key": zod.string().min(1).max(listTrainingPacketsResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyMax).regex(listTrainingPacketsResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyRegExp),
   "rating": zod.enum(['UA']),
-  "justification": zod.string().max(listTrainingPacketsResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax)
+  "justification": zod.string().max(listTrainingPacketsResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax),
+  "limbo_day": zod.boolean().describe('Documented on a Limbo Day; listed for the PO but not counted against them.')
 })).max(listTrainingPacketsResponseDataItemPoTotalsOneUnacceptableDetailsMax)
 }),zod.null()]),
   "content_hash": zod.string().regex(listTrainingPacketsResponseDataItemContentHashRegExp),
@@ -2383,7 +2385,8 @@ export const ReleaseTrainingPacketResponse = zod.object({
   "record_date": zod.string().regex(releaseTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
   "category_key": zod.string().min(1).max(releaseTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyMax).regex(releaseTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyRegExp),
   "rating": zod.enum(['UA']),
-  "justification": zod.string().max(releaseTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax)
+  "justification": zod.string().max(releaseTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax),
+  "limbo_day": zod.boolean().describe('Documented on a Limbo Day; listed for the PO but not counted against them.')
 })).max(releaseTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsMax)
 }),zod.null()]),
   "content_hash": zod.string().regex(releaseTrainingPacketResponseDataItemContentHashRegExp),
@@ -2648,7 +2651,8 @@ export const AcknowledgeTrainingPacketResponse = zod.object({
   "record_date": zod.string().regex(acknowledgeTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
   "category_key": zod.string().min(1).max(acknowledgeTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyMax).regex(acknowledgeTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyRegExp),
   "rating": zod.enum(['UA']),
-  "justification": zod.string().max(acknowledgeTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax)
+  "justification": zod.string().max(acknowledgeTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax),
+  "limbo_day": zod.boolean().describe('Documented on a Limbo Day; listed for the PO but not counted against them.')
 })).max(acknowledgeTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsMax)
 }),zod.null()]),
   "content_hash": zod.string().regex(acknowledgeTrainingPacketResponseDataItemContentHashRegExp),
@@ -2912,7 +2916,8 @@ export const WithdrawTrainingPacketResponse = zod.object({
   "record_date": zod.string().regex(withdrawTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
   "category_key": zod.string().min(1).max(withdrawTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyMax).regex(withdrawTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyRegExp),
   "rating": zod.enum(['UA']),
-  "justification": zod.string().max(withdrawTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax)
+  "justification": zod.string().max(withdrawTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax),
+  "limbo_day": zod.boolean().describe('Documented on a Limbo Day; listed for the PO but not counted against them.')
 })).max(withdrawTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsMax)
 }),zod.null()]),
   "content_hash": zod.string().regex(withdrawTrainingPacketResponseDataItemContentHashRegExp),
@@ -3204,7 +3209,8 @@ export const GetTrainingPacketResponse = zod.object({
   "record_date": zod.string().regex(getTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemRecordDateRegExp),
   "category_key": zod.string().min(1).max(getTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyMax).regex(getTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemCategoryKeyRegExp),
   "rating": zod.enum(['UA']),
-  "justification": zod.string().max(getTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax)
+  "justification": zod.string().max(getTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsItemJustificationMax),
+  "limbo_day": zod.boolean().describe('Documented on a Limbo Day; listed for the PO but not counted against them.')
 })).max(getTrainingPacketResponseDataItemPoTotalsOneUnacceptableDetailsMax)
 }),zod.null()]),
   "content_hash": zod.string().regex(getTrainingPacketResponseDataItemContentHashRegExp),

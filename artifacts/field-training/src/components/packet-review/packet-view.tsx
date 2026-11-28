@@ -2,7 +2,7 @@ import type {PacketSubmission,PacketSubmissionState,PacketSubmissionDetail,Packe
 import {CATEGORY_LABEL,type Category} from '@/lib/model.js';
 
 export const STATE_LABEL:Record<PacketSubmissionState,string>={
-  submitted:'SUBMITTED',acknowledged:'PACKET ACKNOWLEDGE',approved:'COMPLETE',correction_requested:'CORRECTION REQUESTED',withdrawn:'WITHDRAWN',
+  submitted:'SUBMITTED',acknowledged:'PACKET ACKNOWLEDGE',approved:'COMPLETE',correction_requested:'RETURNED',withdrawn:'WITHDRAWN',
 };
 const STATE_TONE:Record<PacketSubmissionState,string>={
   submitted:'border-primary text-primary',acknowledged:'border-[hsl(var(--warn))] text-warn',
@@ -16,7 +16,7 @@ export const HANDOFF_LABEL:Record<PacketHandoffStatus,string>={
   awaiting_po_totals_review:'AWAITING PO REVIEW',
   awaiting_coordinator_receipt:'AWAITING COORDINATOR RECEIPT',
   coordinator_review:'COORDINATOR REVIEW',
-  correction_requested:'CORRECTION REQUESTED',
+  correction_requested:'RETURNED',
   awaiting_po_release:'APPROVED · NOT RELEASED',
   awaiting_po_acknowledgment:'RELEASED · PO RECEIPT PENDING',
   po_acknowledged:'PO RECEIPT ACKNOWLEDGED',

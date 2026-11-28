@@ -9,9 +9,11 @@ import { formatDateDMY } from '@/lib/training-calendar.js';
 import { activityTotals } from '@/lib/run-activity.js';
 import { PacketTransferPanel } from '@/components/packet-transfer-panel.js';
 import { SavedIncidentSearch } from '@/components/saved-incident-search.js';
+import { useReturnedPackets, ReturnedBadge } from '@/components/packet-review/returned-packets.js';
 
 export default function Reports() {
   const { ws, vault, previewOnly } = useWorkspace();
+  const returned = useReturnedPackets();
   const [q, setQ] = useState(''); const [status, setStatus] = useState<'' | Status>(''); const [phase, setPhase] = useState(''); const [shift, setShift] = useState(''); const [flagged, setFlagged] = useState(false);
   const list = useMemo(() => ws.reports.filter(r => {
     if (status && r.status !== status) return false;
@@ -57,7 +59,7 @@ export default function Reports() {
                   <td className="px-3 py-2.5 whitespace-nowrap">{phaseAssignmentLabel(r.ftoAssignment,r.shift,r.cruiserDistrict)}</td>
                  <td className="px-3 py-2.5">{evaluationProgress(r)}</td>
                  <td className="px-3 py-2.5 mono">{Object.values(activityTotals(r)).reduce((sum, count) => sum + count, 0)}</td>
-                <td className="px-3 py-2.5"><StatusPill s={r.status} /></td>
+                <td className="px-3 py-2.5"><span className="inline-flex flex-wrap items-center gap-2"><StatusPill s={r.status} />{returned.has(r.id)&&r.syncStatus==='local_draft_pending'&&<ReturnedBadge testId={'badge-returned-'+r.id} />}</span></td>
                </tr>))}</tbody>
           </table></div>
         )}

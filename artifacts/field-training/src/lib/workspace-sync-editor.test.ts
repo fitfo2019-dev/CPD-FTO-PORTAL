@@ -159,6 +159,7 @@ for(const outcome of ["success","lost-response"] as const) {
     report.shiftStartTime="07:00";
     report.reportingForDuty.reviewedAt="2026-11-23T17:00:00Z";
     report.ratingsReviewedAt="2026-11-23T17:00:00Z";
+    report.narrative="Synthetic shift narrative for the finalization test.";
     for(const category of CATEGORIES)report.ratings[category].rating="A";
     const namespace=`finalize-editor-${crypto.randomUUID()}`,passphrase="fictional-finalization-recovery-test";
     let current:ReturnType<typeof useWorkspace>|undefined,showEditor=false;
