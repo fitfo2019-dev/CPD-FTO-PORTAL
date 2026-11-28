@@ -233,8 +233,7 @@ export default function ReportEditor() {
   const checkItems = RUN_CHECKLIST_ITEMS[runKind];
   const primaryDirectiveIndex=checkItems.indexOf(DIRECTIVE_REVIEW_LABEL);
   const primaryDirectiveReview=directiveReviews[runKind]??defaultDirectiveReviewRecord();
-  const primaryChecklistAllChecked=checkItems.length>0&&checkItems.every((_,index)=>runChecklist[`task-${index}`]!==false)
-    &&(primaryDirectiveIndex<0||(runChecklist[`task-${primaryDirectiveIndex}`]!==false&&primaryDirectiveReview.divisionDirectives&&primaryDirectiveReview.ohioRevisedCode&&primaryDirectiveReview.columbusCityCode&&primaryDirectiveReview.other));
+  const primaryChecklistAllChecked=checkItems.length>0&&checkItems.every((_,index)=>runChecklist[`task-${index}`]!==false);
   const primaryChecklistGroups=REVISED_PRIMARY_CHECKLISTS[runKind];
   const runMeta = { runKind, trafficMode, isDispatched:runDispatched, arrestMade, transportedAfterArrest:arrestMade && transported, arrestProcessRequired, buildingSearchRequired, oviProcessed, oviProcessRequired, narrativeAdditionRequired };
   const requiredSupplements = requiredSupplementalForms(runMeta);
@@ -1153,7 +1152,7 @@ export default function ReportEditor() {
                 <div className="font-semibold text-sm" title={RUN_FORM_GUIDANCE[runKind]}>{selectedForm.label}</div>
                 <div className="flex flex-wrap gap-2">
                 <label className="flex min-h-11 items-center gap-2 rounded border px-3 text-sm font-semibold"><input type="checkbox" disabled={!editable} checked={!!runChecklist['na-task']} onChange={event=>{const notApplicable=event.target.checked;setRunChecklist(current=>({...current,'na-task':notApplicable,...(notApplicable?Object.fromEntries(checkItems.map((_,index)=>[`task-${index}`,false])):{})}));if(notApplicable){setRunChecklistFailures(current=>{const next={...current};checkItems.forEach((_,index)=>{delete next[`task-${index}`];});return next;});}if(notApplicable&&primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);setRunError('');}} data-testid="checkbox-run-na"/>Not applicable</label>
-                     <button type="button" disabled={!editable} onClick={()=>{const targets=checkItems.map((label,index)=>({form:runKind,key:`task-${index}`,label}));if(primaryChecklistAllChecked)clearChecklistItems(targets,'na-task');else selectChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,!primaryChecklistAllChecked);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-run-checklist">{primaryChecklistAllChecked?'Deselect all':'Select all'}</button>
+                     <button type="button" disabled={!editable} onClick={()=>{const targets=checkItems.map((label,index)=>({form:runKind,key:`task-${index}`,label}));if(primaryChecklistAllChecked)clearChecklistItems(targets,'na-task');else selectChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0&&primaryChecklistAllChecked)setDirectiveReviewFlags(runKind,false);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-toggle-run-checklist">{primaryChecklistAllChecked?'Deselect all':'Select all'}</button>
                     <button type="button" disabled={!editable} onClick={()=>{const targets=checkItems.map((label,index)=>({form:runKind,key:`task-${index}`,label}));clearChecklistItems(targets,'na-task');if(primaryDirectiveIndex>=0)setDirectiveReviewFlags(runKind,false);}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid="button-clear-run-checklist">Clear all checkboxes</button>
                 </div>
               </div>
@@ -1163,7 +1162,7 @@ export default function ReportEditor() {
                         onChange={(indices,checked)=>{
                           const targets=indices.map(index=>({form:runKind,key:`task-${index}`,label:checkItems[index]}));
                           if(checked)selectChecklistItems(targets,'na-task');else openUncheckedPrompt(runKind,'task-','na-task',checklistRowFor(primaryChecklistGroups,indices),checkItems);
-                          if(indices.includes(primaryDirectiveIndex))setDirectiveReviewFlags(runKind,checked);
+                          if(!checked&&indices.includes(primaryDirectiveIndex))setDirectiveReviewFlags(runKind,false);
                         }}
                         notApplicable={runChecklistNA} ftoPerformed={runChecklistFto}
                         renderItemDetails={indices=>renderChecklistFailureDetails(runKind,'task-',indices,checkItems)}/>
@@ -1177,15 +1176,14 @@ export default function ReportEditor() {
                   const supplementItems=supplementCheckItems[supplement];
                   const supplementDirectiveIndex=supplementItems.indexOf(DIRECTIVE_REVIEW_LABEL);
                   const supplementDirectiveReview=directiveReviews[supplement]??defaultDirectiveReviewRecord();
-                  const supplementAllChecked=supplementItems.length>0&&supplementItems.every((_,index)=>runChecklist[`supp-${supplement}-${index}`]!==false)
-                    &&(supplementDirectiveIndex<0||(runChecklist[`supp-${supplement}-${supplementDirectiveIndex}`]!==false&&supplementDirectiveReview.divisionDirectives&&supplementDirectiveReview.ohioRevisedCode&&supplementDirectiveReview.columbusCityCode&&supplementDirectiveReview.other));
+                  const supplementAllChecked=supplementItems.length>0&&supplementItems.every((_,index)=>runChecklist[`supp-${supplement}-${index}`]!==false);
                  const groups=REVISED_SUPPLEMENT_CHECKLISTS[supplement];
                  return <div key={supplement} className="mt-3 rounded border border-accent/40 bg-accent/5 p-3" data-testid={`section-supplement-${supplement}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2"><div className="font-semibold text-sm" title={SUPPLEMENTAL_FORM_GUIDANCE[supplement]}>{form.label}</div>
                       {ws.role==='fto'&&(supplement==='arrest_process'||supplement==='ovi_process')&&<ChargingLookupSheet testId={`button-charging-lookup-${supplement}`}/>}
                       {supplementItems.length>0&&<div className="flex flex-wrap gap-2">
                         <label className="flex min-h-11 items-center gap-2 rounded border px-3 text-sm font-semibold"><input type="checkbox" disabled={!editable} checked={!!runChecklist[`na-supp-${supplement}`]} onChange={event=>{const notApplicable=event.target.checked;setRunChecklist(current=>({...current,[`na-supp-${supplement}`]:notApplicable,...(notApplicable?Object.fromEntries(supplementItems.map((_,index)=>[`supp-${supplement}-${index}`,false])):{})}));if(notApplicable){setRunChecklistFailures(current=>{const next={...current};supplementItems.forEach((_,index)=>{delete next[`supp-${supplement}-${index}`];});return next;});}if(notApplicable&&supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);setRunError('');}} data-testid={`checkbox-supplement-na-${supplement}`}/>Not applicable</label>
-                         <button type="button" disabled={!editable} onClick={()=>{const targets=supplementItems.map((label,index)=>({form:supplement,key:`supp-${supplement}-${index}`,label}));if(supplementAllChecked)clearChecklistItems(targets,`na-supp-${supplement}`);else selectChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,!supplementAllChecked);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-toggle-supplement-${supplement}`}>{supplementAllChecked?'Deselect all':'Select all'}</button>
+                         <button type="button" disabled={!editable} onClick={()=>{const targets=supplementItems.map((label,index)=>({form:supplement,key:`supp-${supplement}-${index}`,label}));if(supplementAllChecked)clearChecklistItems(targets,`na-supp-${supplement}`);else selectChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0&&supplementAllChecked)setDirectiveReviewFlags(supplement,false);}} className="min-h-11 rounded border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid={`button-toggle-supplement-${supplement}`}>{supplementAllChecked?'Deselect all':'Select all'}</button>
                           <button type="button" disabled={!editable} onClick={()=>{const targets=supplementItems.map((label,index)=>({form:supplement,key:`supp-${supplement}-${index}`,label}));clearChecklistItems(targets,`na-supp-${supplement}`);if(supplementDirectiveIndex>=0)setDirectiveReviewFlags(supplement,false);}} className="min-h-11 rounded border border-destructive/60 bg-destructive/5 px-4 text-sm font-bold text-destructive disabled:opacity-50" data-testid={`button-clear-supplement-${supplement}`}>Clear all checkboxes</button>
                       </div>}
                    </div>
@@ -1196,7 +1194,7 @@ export default function ReportEditor() {
                         onChange={(indices,checked)=>{
                            const targets=indices.map(index=>({form:supplement,key:`supp-${supplement}-${index}`,label:supplementItems[index]}));
                            if(checked)selectChecklistItems(targets,`na-supp-${supplement}`);else openUncheckedPrompt(supplement,`supp-${supplement}-`,`na-supp-${supplement}`,checklistRowFor(groups,indices),supplementItems);
-                          if(indices.includes(supplementDirectiveIndex))setDirectiveReviewFlags(supplement,checked);
+                          if(!checked&&indices.includes(supplementDirectiveIndex))setDirectiveReviewFlags(supplement,false);
                          }}
                          notApplicable={runChecklistNA} ftoPerformed={runChecklistFto}
                          renderItemDetails={indices=>renderChecklistFailureDetails(supplement,`supp-${supplement}-`,indices,supplementItems)}/>
@@ -1522,7 +1520,7 @@ function DirectiveReviewEditor({value,onChange,disabled,dataTestId}:{value:Direc
   const materials=reviewedTrainingMaterials(value);
   return <section className="rounded border border-primary/25 bg-muted/20 p-3" data-testid={dataTestId}>
     <h3 className="mb-2 text-sm font-bold">Directive and code references reviewed</h3>
-    <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
+    <div className="grid gap-3">
       <div className="grid content-start gap-2">
         <label className="flex min-h-10 items-center gap-2 rounded border bg-card px-3 text-sm font-semibold"><input type="checkbox" disabled={disabled} checked={value.divisionDirectives} onChange={event=>onChange('divisionDirectives',event.target.checked)} data-testid={`${dataTestId}-division-directives`}/>Division Directives</label>
         {value.divisionDirectives&&<div className="rounded border bg-card p-3">
@@ -1533,8 +1531,8 @@ function DirectiveReviewEditor({value,onChange,disabled,dataTestId}:{value:Direc
           <div className="max-h-72 space-y-2 overflow-y-auto rounded border bg-background p-2" aria-label="Division Directives list">
             {directiveGroups.size?Array.from(directiveGroups.entries()).map(([chapter,items])=><details key={chapter} open={!!query.trim()} className="rounded border p-2">
               <summary className="cursor-pointer font-semibold">Chapter {chapter} · {items.length} directives</summary>
-              <div className="mt-2 grid gap-x-3 sm:grid-cols-2">{items.map(item=><label key={item.number} className="flex min-h-9 items-start gap-2 rounded-sm py-1 text-xs leading-5">
-                <input type="checkbox" disabled={disabled} checked={selectedDirectives.includes(item.number)} onChange={event=>onChange('selectedDirectives',event.target.checked?[...selectedDirectives,item.number]:selectedDirectives.filter(number=>number!==item.number))} data-testid={`${dataTestId}-directive-${item.number.replace('.','-')}`}/>
+              <div className="mt-2 grid gap-x-3">{items.map(item=><label key={item.number} className="flex min-h-9 items-start gap-2 rounded-sm py-1 text-xs leading-5">
+                <input type="checkbox" className="mt-1 shrink-0" disabled={disabled} checked={selectedDirectives.includes(item.number)} onChange={event=>onChange('selectedDirectives',event.target.checked?[...selectedDirectives,item.number]:selectedDirectives.filter(number=>number!==item.number))} data-testid={`${dataTestId}-directive-${item.number.replace('.','-')}`}/>
                 <span><b>{item.number}</b> {item.title}</span>
               </label>)}</div>
             </details>):<p className="p-2 text-sm text-muted-foreground">No directive matches that search.</p>}

@@ -93,6 +93,6 @@ test('daily duty wording and one/two-officer checkboxes match the submitted form
     assert.ok(allItems.includes('Review of Division Directives, SOP, etc. (list)'), String(form));
   }
   assert.deepEqual(defaultDirectiveReviewRecord(),{
-    divisionDirectives:true,selectedDirectives:[],directiveDetails:'',ohioRevisedCode:true,selectedOrcReferences:[],columbusCityCode:true,selectedColumbusCodeReferences:[],other:true,otherDetails:'',
+    divisionDirectives:false,selectedDirectives:[],directiveDetails:'',ohioRevisedCode:false,selectedOrcReferences:[],columbusCityCode:false,selectedColumbusCodeReferences:[],other:false,otherDetails:'',
   });
 });
