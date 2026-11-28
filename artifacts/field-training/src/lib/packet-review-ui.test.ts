@@ -11,7 +11,7 @@ Object.assign(globalThis,{React});
 
 test('receipt never renders as COMPLETE; only approved packets use that label',()=>{
   for(const [state,label] of Object.entries({
-    submitted:'SUBMITTED',acknowledged:'PACKET ACKNOWLEDGE',approved:'COMPLETE',correction_requested:'CORRECTION REQUESTED',
+    submitted:'SUBMITTED',acknowledged:'PACKET ACKNOWLEDGE',approved:'COMPLETE',correction_requested:'RETURNED',
   })){
     const html=renderToStaticMarkup(createElement(StatusTag,{state:state as PacketSubmissionState}));
     assert.ok(html.includes(label));
@@ -24,7 +24,7 @@ test('handoff labels distinguish PO review, Coordinator receipt, approval, relea
     awaiting_po_totals_review:'AWAITING PO REVIEW',
     awaiting_coordinator_receipt:'AWAITING COORDINATOR RECEIPT',
     coordinator_review:'COORDINATOR REVIEW',
-    correction_requested:'CORRECTION REQUESTED',
+    correction_requested:'RETURNED',
     awaiting_po_release:'APPROVED · NOT RELEASED',
     awaiting_po_acknowledgment:'RELEASED · PO RECEIPT PENDING',
     po_acknowledged:'PO RECEIPT ACKNOWLEDGED',

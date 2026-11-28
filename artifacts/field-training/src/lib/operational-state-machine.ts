@@ -163,7 +163,7 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
       });
       captureRunTasks(supplement, RUN_SUPPLEMENT_CHECKLIST_SECTIONS[form], `supp-${form}-`, run.checklist[`na-supp-${form}`] === true);
     }
-    splitRunNarrativeBox(fullRunNarrative(run), run.narrativeAdditionRequired).continuation.forEach((_, index) => append({
+    splitRunNarrativeBox(fullRunNarrative(run, { limboDay: report.limboDay }), run.narrativeAdditionRequired).continuation.forEach((_, index) => append({
       id: `run:${run.id}:continuation:${index + 1}`,
       kind: 'run_continuation',
       title: 'Narrative Addition / Continuation',

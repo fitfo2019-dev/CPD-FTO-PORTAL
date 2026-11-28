@@ -152,7 +152,7 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
       {citationSummons&&<span data-print-field="Solve Citation/Summons*"><b>Solve Citation/Summons*:</b> 1</span>}
     </div>
       <Checklist title="Primary form checklist" sections={sections} state={run.checklist} failures={run.checklistFailures} itemNotApplicable={run.checklistNotApplicable} itemFtoPerformed={run.checklistFtoPerformed} prefix="task-" notApplicable={!!run.checklist['na-task']} support={support} tail={insetSupport?support:undefined}/>
-    <RunNarrativeBox run={run} title="Run narrative" narrativeReferences={narrativeReferences}/>
+    <RunNarrativeBox run={run} title="Run narrative" narrativeReferences={narrativeReferences} limboDay={report.limboDay}/>
     <PrintFooter className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.<span className="print-source-note">Division directive index revised {DIVISION_DIRECTIVE_SOURCE_REVISION}.</span></PrintFooter>
   </PrintDocument>;
 }
@@ -181,7 +181,7 @@ function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{
       <span data-print-field="Dispatched"><b>Dispatched:</b> {run.isDispatched?'Yes':'No'}</span>
     </div>
       {REVISED_SUPPLEMENT_CHECKLISTS[formKey].length>0&&<Checklist title={`${form?.label||'Supplemental'} checklist`} sections={REVISED_SUPPLEMENT_CHECKLISTS[formKey]} state={run.checklist} failures={run.checklistFailures} itemNotApplicable={run.checklistNotApplicable} itemFtoPerformed={run.checklistFtoPerformed} prefix={`supp-${formKey}-`} notApplicable={!!run.checklist[`na-supp-${formKey}`]} support={support} tail={insetSupport?support:undefined}/>}
-    <RunNarrativeBox run={run} title="Related primary narrative" narrativeReferences={narrativeReferences}/>
+    <RunNarrativeBox run={run} title="Related primary narrative" narrativeReferences={narrativeReferences} limboDay={report.limboDay}/>
     <footer className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.<span className="print-source-note">Division directive index revised {DIVISION_DIRECTIVE_SOURCE_REVISION}.</span><PrintableColumbusFooterMarks /></footer>
   </PrintDocument>;
 }
@@ -216,7 +216,7 @@ function DirectiveReviewPrint({run,formKey,prefix}:{run:TrainingRun;formKey:Dire
 }
 
 function NarrativeContinuationPages({report,run,pageReferences}:{report:Report;run:TrainingRun;pageReferences:(string|undefined)[]}) {
-  const pages=splitRunNarrativeBox(fullRunNarrative(run),run.narrativeAdditionRequired).continuation;
+  const pages=splitRunNarrativeBox(fullRunNarrative(run,{limboDay:report.limboDay}),run.narrativeAdditionRequired).continuation;
   return <Fragment>{pages.map((text,index)=>{
     const reference=pageReferences[index];
     return <PrintDocument className="print-run-page print-narrative-page" key={`${run.id}-continuation-${index}`} data-testid={`print-narrative-continuation-${run.id}-${index+1}`}>
@@ -253,8 +253,8 @@ function NarrativeText({run,text}:{run:TrainingRun;text:string}) {
 }
 
 /** Full-width narrative box across the bottom of run and supplement sheets. */
-function RunNarrativeBox({run,title,narrativeReferences}:{run:TrainingRun;title:string;narrativeReferences:(string|undefined)[]}) {
-  const split=splitRunNarrativeBox(fullRunNarrative(run),run.narrativeAdditionRequired);
+function RunNarrativeBox({run,title,narrativeReferences,limboDay}:{run:TrainingRun;title:string;narrativeReferences:(string|undefined)[];limboDay?:boolean}) {
+  const split=splitRunNarrativeBox(fullRunNarrative(run,{limboDay}),run.narrativeAdditionRequired);
   const continued=split.continuation.length>0;
   const where=narrativeReferences.filter(Boolean).join(', ')||'the following narrative continuation page';
   return <section className="print-run-narrative-box" data-narrative-continues={continued||undefined}>

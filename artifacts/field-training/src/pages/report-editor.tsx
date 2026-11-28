@@ -82,7 +82,9 @@ const QUICK_ADD = [
   {form:'ovi_process',label:'OVI Process'},
   {form:'narrative_addition',label:'Narrative Addition'},
 ] as const satisfies readonly {form:SupplementalRunForm;label:string}[];
+const MISSING_INCIDENT_NUMBER='A dispatched run is missing its incident number';
 function stageForError(message:string):EditorStage {
+  if(message===MISSING_INCIDENT_NUMBER)return 'runs';
   if(/Reporting for Duty|Shotgun|Cruiser|duty/i.test(message))return 'start';
   if(/run|Run|Call for Service|Traffic|Building Search|Domestic|Self-Initiated/.test(message)&&/complet|review/i.test(message))return 'runs';
   if(/Shift date|day off|PO |badge|class|phase|week|assignment/i.test(message))return 'start';
@@ -314,12 +316,14 @@ export default function ReportEditor() {
   const errs = useMemo(() => r ? [
     ...validateReport(r),
     ...(operationalPacket?.blockingIssues ?? []),
-    ...(!r.limboDay && r.runs.some(run=>runUaBoxGaps(run,deficiencyEditor.groups).length>0) ? ['Complete the UA box on each run with a UA: what happened, corrective training and minutes'] : []),
+    ...(r.runs.some(run=>runUaBoxGaps(run,deficiencyEditor.groups).length>0) ? ['Complete the UA box on each run with a UA: what happened, corrective training and minutes'] : []),
     ...(r.deficiencyAutomationEnabled && !r.reportingForDuty.shotgunTraining ? ['Record Shotgun Training as Y or N'] : []),
     ...(!r.reportingForDuty?.reviewedAt ? ['Reporting for Duty checklist must be reviewed and confirmed'] : []),
      ...(r.runs??[]).filter(run=>run.formStatus!=='complete'||!run.checklistReviewedAt).map(run=>`${PRIMARY_RUN_FORMS.find(form=>form.key===run.runKind)?.label??'Run'} must be completed and reviewed before submission`),
     ...(parsedDate ? [] : ['Shift date must be a valid date in MM/DD/YYYY format']),
     ...(selectedDayOff ? ['Shift date falls on a day off selected in the phase case folder'] : []),
+    ...(r.narrative.trim() ? [] : ['Shift narrative is required']),
+    ...(r.runs.some(isDispatchedRunMissingIncidentNumber) ? [MISSING_INCIDENT_NUMBER] : []),
   ] : [], [r, parsedDate, selectedDayOff, operationalPacket, deficiencyEditor.groups]);
   const pii = useMemo(() => r ? Array.from(new Set(scanPII([r.narrative, r.remedial, r.recruitComments, r.reportingForDuty?.notes, r.zone, r.precinct, r.cruiserDistrict, r.ftoAssignment, ...CATEGORIES.map(c=>r.ratings[c].justification), ...(r.runs ?? []).map(run=>run.narrative)].join('\n')))) : [], [r]);
 
@@ -1038,7 +1042,7 @@ export default function ReportEditor() {
       {stage==='runs'&&<>
       <Panel id="run-forms" title="Per-run paperwork" className="mb-4 scroll-mt-28">
          <div className="border-b px-4 py-3 text-sm text-muted-foreground">
-            <p>Record each training run and its required paperwork. Incident number and location are optional run metadata shared with its supplemental forms and narrative continuation pages.</p>
+            <p>Record each training run and its required paperwork. Dispatched runs require an incident number. The incident number and location are shared with the run's supplemental forms and narrative continuation pages.</p>
             <p className="mt-1"><b className="text-foreground">Fictional preview · no operational data.</b> Saved workspace records are encrypted on this device; printed forms and Excel exports are plain text.</p>
             <Link href="/resources?topic=local-save#application-help" className="mt-2 inline-flex text-sm font-semibold text-primary underline underline-offset-2">Save and reopen help</Link>
            <p className="mt-1"><b className="text-foreground">Daily requirements:</b> Reporting for Duty is tracked separately above; this Daily Performance Summary is completed once per tour.</p>
@@ -1437,12 +1441,12 @@ export default function ReportEditor() {
       <PacketSubmitControl
         reportId={r.id}
         disabled={isDirty||runFormDirty||isNew}
-        missingIncidentNumberCount={r.runs.filter(isDispatchedRunMissingIncidentNumber).length}
-        onReturnToMissingRun={()=>{
-          const missingRun=r.runs.find(isDispatchedRunMissingIncidentNumber);
-          if(!missingRun)return;
-          setStage('runs');
-          editRun(missingRun);
+        missing={errs}
+        onGoToMissing={item=>{
+          const missingRun=item===MISSING_INCIDENT_NUMBER?r.runs.find(isDispatchedRunMissingIncidentNumber):undefined;
+          setShowErr(true);
+          if(missingRun){setStage('runs');editRun(missingRun);}
+          else setStage(stageForError(item));
           window.scrollTo({top:0,behavior:'smooth'});
         }}
       />

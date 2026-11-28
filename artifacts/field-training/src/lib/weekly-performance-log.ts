@@ -17,13 +17,15 @@ function runUnits(report: Report): RunUnit[] {
   const byRun = new Map<string, ChecklistDeficiencyGroup[]>();
   for (const group of groups) byRun.set(group.runId ?? 'duty', [...(byRun.get(group.runId ?? 'duty') ?? []), group]);
   const units: RunUnit[] = [];
+  // Limbo Days: UA's are documented and listed on the weekly but never counted against the PO (owner, Nov 28, 2026).
+  const limbo = report.limboDay === true;
   for (const [runId, mine] of byRun) {
     const run = report.runs.find(item => item.id === runId);
     const reference = mine.flatMap(group => group.tasks.map(task => task.reference)).find((value): value is string => !!value);
     const categories = [...new Set(mine.map(group => group.category))].sort(categoryOrder);
     const notCounted = mine.filter(group => group.notCounted).map(group => `${categoryNumberLabel(group.category)} · ${NOT_COUNTED_SHORT[group.notCounted!]}`);
     const body = run ? runUaParagraph(run) : [...new Set(mine.map(group => group.narrative.trim()).filter(Boolean))].join(' ');
-    const note = notCounted.length ? `(Not counted: ${notCounted.join('; ')})` : '';
+    const note = limbo ? '(Not counted: Limbo Day)' : notCounted.length ? `(Not counted: ${notCounted.join('; ')})` : '';
     const lead = reference ? `${reference}- ` : '';
     units.push({ at: run?.occurredAt ?? `${report.date}T00:00:00`, reportId: report.id, ...(reference ? { reference } : {}), categories,
       ...(run?.uaBox?.minutes ? { minutes: run.uaBox.minutes } : {}), text: `${lead}${[note, body].filter(Boolean).join(' ')}`.trim() });
@@ -43,7 +45,8 @@ export function mergeReviewedUaEntries(
   folder?: PhaseCaseFolder,
 ): WeeklyPerformanceLog {
   const reviewed = reports.filter(report => report.ratingsReviewedAt && !report.limboDay).sort((left, right) => left.date.localeCompare(right.date));
-  const units = reviewed.flatMap(report => runUnits(report).map(unit => ({ ...unit, date: report.date })))
+  const limboDays = reports.filter(report => report.limboDay && (report.checklistDeficiencies?.length ?? 0) > 0);
+  const units = [...reviewed, ...limboDays].flatMap(report => runUnits(report).map(unit => ({ ...unit, date: report.date })))
     .sort((left, right) => left.date.localeCompare(right.date) || left.at.localeCompare(right.at));
   const sets = new Map<string, typeof units>();
   for (const unit of units) sets.set(unit.categories.join('/'), [...(sets.get(unit.categories.join('/')) ?? []), unit]);

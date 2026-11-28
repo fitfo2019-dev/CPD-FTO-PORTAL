@@ -172,13 +172,26 @@ function makeTotals(rows: PacketReportRow[], start: string, end: string): Packet
 function unacceptableDetails(rows: PacketReportRow[]): PacketPoUaDetail[] {
   return rows.flatMap(row => {
     const report = reportOf(row);
-    if (!report.ratingsReviewedAt || report.limboDay === true || !isRecord(report.ratings)) return [];
     const recordDate = dateOf(row);
+    // Limbo Days (owner, Nov 28, 2026): UA's are documented and shown to the PO, marked not counted.
+    if (report.limboDay === true) {
+      const groups = Array.isArray(report.checklistDeficiencies) ? report.checklistDeficiencies : [];
+      const runs = Array.isArray(report.runs) ? report.runs.filter(isRecord) : [];
+      return groups.flatMap(group => {
+        if (!isRecord(group) || typeof group.category !== "string" || !/^[A-Za-z][A-Za-z0-9]*$/.test(group.category)) return [];
+        const run = runs.find(item => item.id === group.runId);
+        const box = run && isRecord(run.uaBox) ? run.uaBox : {};
+        const runText = [box.whatHappened, box.correctiveTraining].filter((part): part is string => typeof part === "string" && !!part.trim()).join(" ");
+        const justification = typeof group.narrative === "string" && group.narrative.trim() ? group.narrative : runText;
+        return [{ record_date: recordDate, category_key: group.category, rating: "UA" as const, justification, limbo_day: true }];
+      });
+    }
+    if (!report.ratingsReviewedAt || !isRecord(report.ratings)) return [];
     return Object.entries(report.ratings).flatMap(([categoryKey, entry]) => {
       if (ratingOf(entry) !== "UA") return [];
       const justification = isRecord(entry) && typeof entry.justification === "string"
         ? entry.justification : "";
-      return [{ record_date: recordDate, category_key: categoryKey, rating: "UA" as const, justification }];
+      return [{ record_date: recordDate, category_key: categoryKey, rating: "UA" as const, justification, limbo_day: false }];
     });
   });
 }

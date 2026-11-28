@@ -19,4 +19,6 @@ export interface PacketPoUaDetail {
   rating: PacketPoUaDetailRating;
   /** @maxLength 100000 */
   justification: string;
+  /** Documented on a Limbo Day; listed for the PO but not counted against them. */
+  limbo_day: boolean;
 }

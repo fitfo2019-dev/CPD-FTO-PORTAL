@@ -334,7 +334,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
         const form = SUPPLEMENTAL_RUN_FORMS.find(item => item.key === key);
         return form ? [form] : [];
       });
-      const runNarrativeParts = splitExcelText(fullRunNarrative(run));
+      const runNarrativeParts = splitExcelText(fullRunNarrative(run, { limboDay: report.limboDay }));
       runNarrativeParts.forEach((narrativePart, partIndex) => runRows.push([
          safeText(report.recruitName), safeText(report.recruitBadge), formatDateDMY(report.date),
          safeText(report.shift), safeText(assignmentValue(report)), safeText(formatDateTimeMDY(run.occurredAt)), safeText(primary?.label ?? 'Unassigned primary form'),

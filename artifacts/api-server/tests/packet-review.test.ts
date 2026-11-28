@@ -530,7 +530,7 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
       assert.ok(poDetail.po_totals);
       assert.deepEqual(poDetail.po_totals?.unacceptable_details,[{
         record_date:"2026-11-23",category_key:"buildingSearch",rating:"UA",
-        justification:"Synthetic own UA explanation.",
+        justification:"Synthetic own UA explanation.",limbo_day:false,
       }]);
       assert.equal(JSON.stringify(poDetail).includes("private report"),false);
       await assert.rejects(assigned.detail({...po,id:"other-po"},poSubmission.id),denied("SUBMISSION_NOT_FOUND"));
@@ -613,7 +613,7 @@ test("packet review authorization, immutable amendments, audit and concurrent tr
       assert.ok(released.po_totals);
       assert.deepEqual(released.po_totals.unacceptable_details,[{
         record_date:"2026-11-23",category_key:"buildingSearch",rating:"UA",
-        justification:"Synthetic own UA explanation.",
+        justification:"Synthetic own UA explanation.",limbo_day:false,
       }]);
       assert.equal(JSON.stringify(released).includes("narrative"),false);
       const submission=(await assigned.list(coordinator,0)).items.find(item=>item.packet_id===report.id)!;

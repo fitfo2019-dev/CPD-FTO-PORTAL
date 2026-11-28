@@ -202,3 +202,20 @@ test('a category marked Not Applicable counts as Not Observed', () => {
   assert.equal(weeklyRatingCount([report], 'resourceEquipmentUsage', 'NO'), 1);
   assert.equal(weeklyRatingCount([report], 'resourceEquipmentUsage', 'A'), 0);
 });
+
+test('Limbo Day: UA is documented and listed on the weekly as not counted, with no rating or count against the PO', () => {
+  const limbo = { ...base([failing('a', 13, 'buildingSearch', undefined, box({ minutes: 10 }))], 'limbo'), limboDay: true, ratings: defaultRatings() };
+  const report = reconcileDeficiencyRatings(limbo, packet(limbo));
+  assert.equal(report.checklistDeficiencies!.length, 1);
+  assert.notEqual(report.ratings.buildingSearch.rating, 'UA');
+  assert.equal(weeklyRatingCount([report], 'buildingSearch', 'UA'), 0);
+  const entries = mergeReviewedUaEntries(log(report), [report], []).entries.filter(item => item.autoSourceGroup);
+  assert.equal(entries.length, 1);
+  assert.match(entries[0].narrative, /\(Not counted: Limbo Day\) PO /);
+});
+
+test('Limbo Day: the printed run narrative labels the UA text as not counted', () => {
+  const run = failing('a', 13, 'buildingSearch', undefined, box({ minutes: 10, correctiveTraining: 'Reviewed the search pattern.' }));
+  assert.doesNotMatch(fullRunNarrative(run), /Not counted/);
+  assert.match(fullRunNarrative(run, { limboDay: true }), /\(Not counted: Limbo Day\) /);
+});

@@ -183,9 +183,9 @@ test('weekly performance log gathers reviewed UA articulations once; the FTO ent
 });
 
 test('weekly log exports numbered categories, requires verified W#D#P# references, and paginates without losing narrative',()=>{
-  assert.equal(categoryNumberLabel('dutyReadiness'),'1, 2');
-  assert.equal(categoryNumberLabel('criminalTrafficCodes'),'13');
-  assert.equal(categoryNumberLabel('informationGathering'),'—');
+  assert.equal(categoryNumberLabel('dutyReadiness'),'1');
+  assert.equal(categoryNumberLabel('criminalTrafficCodes'),'9');
+  assert.equal(categoryNumberLabel('informationGathering'),'11');
   assert.equal(isValidTrainingFolderReference('W5D4P4'),true);
   assert.equal(isValidTrainingFolderReference('W5D4P?'),false);
   const longNarrative='Observed details and corrective actions. '.repeat(240);

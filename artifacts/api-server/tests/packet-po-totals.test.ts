@@ -40,13 +40,28 @@ test("PO packet totals expose daily, Sunday-week, month counts, and own UA detai
   assert.equal(totals.monthly.end_date, "2026-11-30");
   assert.deepEqual(totals.unacceptable_details, [{
     record_date: "2026-11-24", category_key: "two", rating: "UA",
-    justification: "Reviewed own unacceptable.",
+    justification: "Reviewed own unacceptable.", limbo_day: false,
   }]);
   assert.equal(JSON.stringify(totals).includes("private report narrative"), false);
   assert.equal(JSON.stringify(totals).includes("private narrative"), false);
 });
 
-test("PO unacceptable details exclude unreviewed, Limbo, and non-UA ratings", () => {
+test("PO unacceptable details list Limbo Day UA's as not counted", () => {
+  const totals = summarizePacketPoTotals([
+    { record_date: "2026-11-23", report: {
+      date: "2026-11-23", limboDay: true, ratings: {},
+      runs: [{ id: "r1", uaBox: { whatHappened: "Synthetic limbo detail.", correctiveTraining: "Synthetic training." } }],
+      checklistDeficiencies: [{ id: "g1", runId: "r1", category: "buildingSearch", tasks: [], narrative: "" }],
+    } },
+  ], "2026-11-24");
+  assert.deepEqual(totals.unacceptable_details, [{
+    record_date: "2026-11-23", category_key: "buildingSearch", rating: "UA",
+    justification: "Synthetic limbo detail. Synthetic training.", limbo_day: true,
+  }]);
+  assert.equal(totals.daily.rating_counts.UA + totals.weekly.rating_counts.UA, 0);
+});
+
+test("PO unacceptable details exclude unreviewed, Limbo ratings, and non-UA ratings", () => {
   const totals = summarizePacketPoTotals([
     { record_date: "2026-11-22", report: {
       date: "2026-11-22", ratingsReviewedAt: undefined, ratings: {

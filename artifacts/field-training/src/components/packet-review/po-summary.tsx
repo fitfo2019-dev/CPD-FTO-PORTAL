@@ -69,7 +69,7 @@ export function PoPacketSummary({ totals, testId = "po-packet-summary" }: {
         {totals.unacceptable_details.map((item, index) => <li key={`${item.record_date}-${item.category_key}-${index}`} className="py-2 first:pt-0 last:pb-0">
           <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
             <strong>{displayDate(item.record_date)} · {CATEGORY_LABEL[item.category_key as Category] ?? humanize(item.category_key)}</strong>
-            <span className="mono text-xs font-bold text-destructive">{item.rating}</span>
+            <span className="mono text-xs font-bold text-destructive" data-testid={item.limbo_day ? "po-ua-not-counted" : undefined}>{item.limbo_day ? `${item.rating} · Not counted: Limbo Day` : item.rating}</span>
           </div>
           <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{item.justification || "No written justification was recorded."}</p>
         </li>)}
