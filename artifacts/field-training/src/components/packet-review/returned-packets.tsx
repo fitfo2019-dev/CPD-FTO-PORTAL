@@ -8,7 +8,7 @@ export interface ReturnedPacket {packetId:string;returnedAt:string|null;reason:s
 /** Returned packets visible to this account, keyed by packet id. The reason
  * stays on the server and is replaced when the FTO resubmits. */
 // Used only when no query provider is mounted (offline tests and preview harnesses); it never fetches.
-const INERT_CLIENT=new QueryClient();
+const INERT_CLIENT=new QueryClient({defaultOptions:{queries:{gcTime:Infinity}}});
 
 export function useReturnedPackets():Map<string,ReturnedPacket> {
   const {context,previewOnly}=usePacketReview();
