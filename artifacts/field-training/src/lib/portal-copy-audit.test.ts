@@ -330,7 +330,7 @@ test('help keeps application-use guidance separate from sourced policy', () => {
   assert.ok(helpDesk.includes('w-full sm:min-w-[14rem] sm:flex-1 sm:max-w-md'));
   assert.match(helpPage, /<ResourcesLibraryPage \/>/);
   assert.doesNotMatch(helpDesk, /Operational requirements belong to official agency sources/);
-  assert.match(ftoHelp, /Uploaded Final FTO Manual · updated 03\/10\/2026/);
+  assert.match(ftoHelp, /Final FTO Manual · updated 03\/10\/2026/);
   assert.match(directiveIndex, /https:\/\/www\.columbus\.gov\/Services\/Public-Safety\/Police\/About-the-Columbus-Division-of-Police\/Directives/);
   assert.doesNotMatch(resourcesLibrary, /FTO_HELP|MANUAL_SOURCE|MANUAL_PASSAGES|LAW_LIBRARY_ENTRIES|loadOrcCorpus/);
   assert.doesNotMatch(resourcesLibrary, /Ohio Revised Code|Columbus City Code|Oyez Supreme Court|Casebook|Glossary/);
@@ -338,15 +338,15 @@ test('help keeps application-use guidance separate from sourced policy', () => {
   assert.match(helpPage, /GeographyMapPanel/);
   assert.match(helpPage, /LawHandbookPanel/);
   assert.ok(helpPage.indexOf('<GeographyMapPanel') < helpPage.indexOf('<ResourcesLibraryPage'));
-  assert.match(resourcesLibrary, /Uploaded files/);
+  assert.match(resourcesLibrary, /Reference Files/);
   const applicationHelpCopy = APPLICATION_HELP_TOPICS.map(topic =>
     [topic.title, topic.keywords, ...topic.steps, topic.expectedResult, topic.recovery].join(' '),
   ).join(' ');
   assert.doesNotMatch(applicationHelpCopy, /IT setup|access path|preview selector|selector implementation/i);
 });
 
-test('uploaded downloads reuse the current same-origin portal session', () => {
-  assert.match(resourcesLibrary, /apiEndpoint\(`\/v1\/resources\/\$\{encodeURIComponent\(selected\.id\.slice\('upload-'\.length\)\)\}\/download`\)/);
+test('library downloads reuse the current same-origin portal session', () => {
+  assert.match(resourcesLibrary, /apiEndpoint\(`\/v1\/resources\/\$\{encodeURIComponent\(selected\.id\.slice\('file-'\.length\)\)\}\/download`\)/);
   assert.match(resourcesApi, /router\.get\([\s\S]*?"\/v1\/resources\/:resourceId\/download",\s*requireClerkAuthentication/);
   assert.match(clerkAuthentication, /const \{ userId \} = getAuth\(req\)/);
 });

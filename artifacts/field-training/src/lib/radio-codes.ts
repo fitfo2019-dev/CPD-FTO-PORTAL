@@ -1,6 +1,6 @@
 import type { PrimaryRunForm } from './model.js';
 
-// Labels transcribed from the user-provided Columbus Division of Police Patrol SOP 2.02,
+// Labels transcribed from Columbus Division of Police Patrol SOP 2.02,
 // revised 04/15/2026. This is a reference list, not a live dispatch integration.
 export const RADIO_CODE_SOURCE_LABEL = 'Columbus Division of Police Patrol SOP 2.02 · revised 04/15/2026';
 export const RADIO_CODES: Record<string, string> = Object.fromEntries([

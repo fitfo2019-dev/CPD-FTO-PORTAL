@@ -1,14 +1,14 @@
-# Uploaded FTO form set and export coverage
+# FTO form set and export coverage
 
 ## Source policy
 
-Operational Help content must cite the supplied FTO manual/forms or documents
+Operational Help content must cite the FTO manual and forms or documents
 published through the [Division Directives index](https://www.columbus.gov/Services/Public-Safety/Police/About-the-Columbus-Division-of-Police/Directives).
 Do not present third-party explanations, inferred assignment rules, or interface
 instructions as Division policy. Usability research may guide interface design,
 but is not a policy source.
 
-The newly supplied manual is `Final_FTO_Manual_updated_3-10-26`.
+The current manual is `Final_FTO_Manual_updated_3-10-26`.
 The associated PDFs contain editable fields, not just scanned paper.
 Never execute embedded PDF actions or workbook macros during inspection.
 
@@ -31,21 +31,17 @@ Never execute embedded PDF actions or workbook macros during inspection.
 | Weekly Performance Log, page 1 | 1 | 65 | Weekly strengths/corrective training |
 | Weekly Performance Log, continuation | 1 | 72 | Weekly continuation |
 
-Also supplied: Daily Performance / first-week Limbo `.xlsm` workbook and updated
+Also in the form set: Daily Performance / first-week Limbo `.xlsm` workbook and updated
 manual `.docx`. Narrative Addition appears as a continuation page inside multiple
 run PDFs.
-
-Run `.agents/scripts/audit-fto-form-sources.py` with Python to enumerate PDF field
-names, types, positions, printed text and workbook sheet/label metadata. It also
-renders original page previews. Outputs are excluded from Git and deployment.
 
 ## Current boundaries — do not describe as complete original-form exports
 
 - The portal's print layouts cover daily reports, duty checklists, primary run
   checklists, required run supplements, and weekly acknowledgement/summary.
-  They are reconstructed layouts, not filled copies of the uploaded originals.
+  They are reconstructed layouts, not filled copies of the original forms.
 - Existing Excel exports contain portal data and aggregates. They are not the
-  supplied macro-enabled workbook with all original tabs and formulas preserved.
+  original macro-enabled workbook with all original tabs and formulas preserved.
 - Substation Orientation now has first-day local capture for the 82 checkbox
   items visible on page 1, substation/date details, directive review, and
   continuation text. The Weekly Performance Log has weekly PO filtering,

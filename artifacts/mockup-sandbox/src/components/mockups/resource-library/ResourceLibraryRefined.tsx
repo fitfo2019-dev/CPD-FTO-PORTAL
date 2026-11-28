@@ -15,28 +15,28 @@ import {
 
 type Resource = {
   title: string;
-  group: "Uploaded reference documents";
+  group: "Reference documents";
   note?: string;
 };
 
 const resources: Resource[] = [
-  { title: "Amy's Law Factors", group: "Uploaded reference documents" },
-  { title: "BMV 2255", group: "Uploaded reference documents", note: "2 files" },
-  { title: "Domestic Violence Protocol", group: "Uploaded reference documents" },
-  { title: "Drug Possession Weights", group: "Uploaded reference documents" },
-  { title: "DV Strangulation Diagram", group: "Uploaded reference documents" },
-  { title: "Key Criminal Law Issues (2024)", group: "Uploaded reference documents" },
-  { title: "Ohio Constitutional Opinions", group: "Uploaded reference documents" },
-  { title: "Ohio Supreme Court Felony Quick Reference", group: "Uploaded reference documents" },
-  { title: "Police Phone Directory", group: "Uploaded reference documents" },
-  { title: "Prior Offenses Constituting WUD", group: "Uploaded reference documents" },
+  { title: "Amy's Law Factors", group: "Reference documents" },
+  { title: "BMV 2255", group: "Reference documents", note: "2 files" },
+  { title: "Domestic Violence Protocol", group: "Reference documents" },
+  { title: "Drug Possession Weights", group: "Reference documents" },
+  { title: "DV Strangulation Diagram", group: "Reference documents" },
+  { title: "Key Criminal Law Issues (2024)", group: "Reference documents" },
+  { title: "Ohio Constitutional Opinions", group: "Reference documents" },
+  { title: "Ohio Supreme Court Felony Quick Reference", group: "Reference documents" },
+  { title: "Police Phone Directory", group: "Reference documents" },
+  { title: "Prior Offenses Constituting WUD", group: "Reference documents" },
 ];
 
 export function ResourceLibraryRefined() {
   const [query, setQuery] = useState("");
   const [sortAZ, setSortAZ] = useState(false);
   const [selected, setSelected] = useState<Resource | null>(null);
-  const [category, setCategory] = useState<"All resources" | "Uploaded reference documents">("All resources");
+  const [category, setCategory] = useState<"All resources" | "Reference documents">("All resources");
 
   const filteredResources = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -218,7 +218,7 @@ export function ResourceLibraryRefined() {
               <button type="button" aria-pressed={category === "All resources"} onClick={() => setCategory("All resources")}>
                 <FolderOpen size={15} /> All resources <span className="rlr-nav-count">10</span>
               </button>
-              <button type="button" aria-pressed={category === "Uploaded reference documents"} onClick={() => setCategory("Uploaded reference documents")}>
+              <button type="button" aria-pressed={category === "Reference documents"} onClick={() => setCategory("Reference documents")}>
                 <FileText size={15} /> Reference documents <span className="rlr-nav-count">10</span>
               </button>
             </nav>

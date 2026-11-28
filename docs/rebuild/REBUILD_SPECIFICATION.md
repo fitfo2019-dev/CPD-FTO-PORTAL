@@ -11,7 +11,7 @@ When sources disagree, the higher item wins:
 
 1. The project owner's recorded decisions (this document and `docs/rebuild/DECISIONS_LOG.md`).
 2. The 2026 FTO Manual (`Final-FTO-Manual-updated-3-10-26.docx`), for program rules.
-3. The original FTO Office Excel workbook (photo reference `Original-Excel-Weekly-Summary-Photo.jpg`), for workbook layout, tabs and checks.
+3. The original FTO Office Excel workbook, for workbook layout, tabs and checks.
 4. The current portal source, for anything not covered above.
 
 Where the owner chose to differ from the manual, the decision is marked **Owner decision** and the manual rule is quoted.
@@ -330,7 +330,7 @@ This replaces the former Excel workbook and the current four-tab monthly workboo
 
 This section combines two approved designs:
 
-- the Phase Setup and portal page layout approved on November 25, 2026 (visual reference `attached_assets/Phase-Setup-Approved-Preview.html`; full build prompt `docs/rebuild/PHASE_SETUP_REPLIT_PROMPT.md`), and
+- the Phase Setup and portal page layout approved on November 25, 2026 (full build prompt `docs/rebuild/PHASE_SETUP_REPLIT_PROMPT.md`), and
 - the rebuild decisions in Sets 8 to 10b.
 
 Where the two differ, the item is listed under "Still awaiting owner decision" below. Neither version may be built for that item until the owner decides.

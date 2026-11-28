@@ -5,7 +5,7 @@ import { activityTotals } from './run-activity.js';
 import { weeklyRatingCount } from './weekly-rating-counts.js';
 import { spreadsheetText } from './spreadsheet-text.js';
 
-// Three category columns and four activity columns follow the supplied worksheet photo.
+// Three category columns and four activity columns follow the paper weekly worksheet.
 export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XLSX.WorkSheet {
   const first = reports[0];
   if (!first) throw new Error('At least one daily log is required to build the weekly summary.');
@@ -54,7 +54,7 @@ export function weeklyWorkbookForm(reports: Report[], ratingReports=reports): XL
     }).flat());
   }
   rows.push([], ['Ratings are counts of descriptive selections, not performance scores, averages, or rankings.'],
-    ['Summons Re-issued appears twice in the supplied photo; it is collected and counted once.']);
+    ['Summons Re-issued appears twice on the paper form; it is collected and counted once.']);
   const safeRows = rows.map(row => row.map(value => typeof value === 'string' ? safe(value) : value));
   const worksheet=XLSX.utils.aoa_to_sheet(safeRows);
   worksheet['!cols']=Array.from({length:21},(_,column)=>({wch:column%7===0 ? 31 : 8}));

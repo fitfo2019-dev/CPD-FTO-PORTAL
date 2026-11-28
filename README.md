@@ -38,14 +38,14 @@ This pnpm workspace contains the Express API Server, the React/Vite Component Pr
 - The Field Training Officer Portal includes Clerk sign-in and workflow screens. Its drafts are encrypted in device-local IndexedDB; no training-record synchronization or database-backed portal routes are connected.
 - The New run dialog looks up an incident only after the FTO enters its number and starts the lookup. It matches the editable unit/cruiser assignment recorded at phase start; each PO can query the same incident independently. The API returns that unit's row with shared incident metrics copied to it, while unit-specific dispatch/clear times take precedence. Prefill can include incident date, event time, dispatched/cleared times, dispatched 10-code, address/city/state/ZIP, zone, cruiser district, and clearance code. It never imports officer identities, caller contact details, or call notes. All prefilled fields remain editable.
 - Situation Found starts blank. Enter only the code (the app adds the `10-` display prefix). Unique existing mappings suggest 17 → Domestic Incident and 4 → Traffic Crash; 6 requires the FTO to choose between Traffic Stop and High Risk Traffic Stop. Other codes default to Call for Service until the FTO selects a specific form. Enter opens the selected form; Tab retains normal navigation. A 3V clearance attaches Arrest Process and the existing transport workflow. A code alone does not mark OVI processing, building search, or other actions.
-- Live PatrolView access is not configured in this checkout; the uploaded screen is a visual example, not an API contract. Agency IT must approve and provide the production JSON adapter, unit/time semantics, credentials, and authorized-user configuration before live lookup can operate.
+- Live PatrolView access is not configured in this checkout; the screen layout is a visual example, not an API contract. Agency IT must approve and provide the production JSON adapter, unit/time semantics, credentials, and authorized-user configuration before live lookup can operate.
 - The API's `/api/v1/secure-records` route serves validated synthetic records by default. `USE_REAL_API` is fail-secure and defaults to `false`; production live mode requires server-side configuration and an approved authorization grant.
 - Clerk authentication is present, but agency employment, role, record-scope, and department identity policies are not configured here. Do not treat the prototype as approved for operational or CJIS-restricted data.
 - The XML-to-JSON gateway remains a planned boundary. No live Government System XML or binary integration is active.
 
 ## Resources tab
 
-The signed-in portal's Resources tab combines the existing Law Library with 23 downloadable DOC, DOCX, and PDF references. Twelve unique domestic-violence training PDFs were added from the DV Training archive; duplicate source files were not added twice. The catalog uses the internal API; downloads require a Clerk session and are streamed from an explicit server-side allowlist rather than a public static URL. Some references contain sensitive internal or victim-safety training material. Do not enter case-specific victim information. Authentication is not a substitute for agency role authorization, which is not yet configured, so every signed-in user with app access can download these resources.
+The signed-in portal's Resources tab combines the existing Law Library with 23 downloadable DOC, DOCX, and PDF references. Twelve domestic-violence training PDFs are included; duplicate documents are not listed twice. The catalog uses the internal API; downloads require a Clerk session and are streamed from an explicit server-side allowlist rather than a public static URL. Some references contain sensitive internal or victim-safety training material. Do not enter case-specific victim information. Authentication is not a substitute for agency role authorization, which is not yet configured, so every signed-in user with app access can download these resources.
 
 ## Validation and module format
 
@@ -112,7 +112,7 @@ confirmations require reconfirmation after the packet-index version 2 migration;
 text and training time are preserved. See `HANDOVER_MANUAL.md`, section 11, for
 the exact page scope. Section 12 documents the named-category UA rules, FTO
 override dialog, consolidated source-linked articulations, and four-tab
-monthly exporter, styled after the supplied U-10.174 reference with
+monthly exporter, styled after the U-10.174 form with
 three category panels, four activity blocks, metadata, comments, and legend.
 
 The approved orientation Example B presents 43 combined checklist rows retaining

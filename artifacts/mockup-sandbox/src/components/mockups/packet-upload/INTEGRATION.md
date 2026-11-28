@@ -50,7 +50,7 @@ unavailable-service, unconfirmed-upload, refresh-error and empty-result scenario
 To test failure, enable **Fail next upload response**, upload and acknowledge,
 then use **Review and retry upload**. Reconnecting alone changes no packet.
 
-The user approved the Title Case, two-path preview for integration. The portal's
+The owner approved the Title Case, two-path preview for integration. The portal's
 Daily Records page now uses the real provider sync hook and explicit read helpers.
 The sandbox remains a fictional reference and makes no real API requests.
 Network hardware, VPN/zero-trust infrastructure, agency identity mapping, and

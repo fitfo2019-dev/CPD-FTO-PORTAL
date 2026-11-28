@@ -8,7 +8,7 @@ import {HandoffTag,StatusTag,PacketDocument,when} from '@/components/packet-revi
 import {PoPacketSummary} from '@/components/packet-review/po-summary.js';
 
 const PAGE=50;
-function Skeleton() {return <div className="space-y-2" aria-busy="true">{[0,1,2].map(i=><div key={i} className="uploaded-resource-skeleton !min-h-14"/>)}</div>;}
+function Skeleton() {return <div className="space-y-2" aria-busy="true">{[0,1,2].map(i=><div key={i} className="library-file-skeleton !min-h-14"/>)}</div>;}
 
 function Detail({id,onClose}:{id:string;onClose():void}) {
   const {context,act,openCorrection}=usePacketReview();
