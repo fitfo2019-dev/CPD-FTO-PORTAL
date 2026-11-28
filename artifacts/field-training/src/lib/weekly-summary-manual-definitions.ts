@@ -243,10 +243,7 @@ export const ACTIVITY_MANUAL_DEFINITIONS: Record<ActivityKey, ManualDefinition> 
     definition: 'This section is used to count the number of individuals proactively sought out and/or arrested rather than the number of warrants served. This section counts arrests or attempted arrests stemming from dispatched calls for service or self-initiated activity related solely to searching for individuals with active arrest warrants (10-50/10-50A). It is not used to count individuals arrested stemming from other dispatched or self-initiated activities, such as traffic or suspicious person stops.',
     reference: 'FTO Manual, Daily Activity Summary definitions, p. 35.',
   },
-  forceDisplays: {
-    definition: 'Use of Force — Evaluates ability to apply and utilize trained Action-Response Levels of Control.',
-    reference: 'FTO Manual, SEG 31, p. 26.',
-  },
+  forceDisplays: noSeparateManualDefinition('Use of Force / Taser Firearm Display'),
   vehicleExtractions: noSeparateManualDefinition('Vehicle Extractions'),
   evo: {
     definition: 'Emergency/Pursuit — Evaluates skills in emergency vehicle operations and in pursuit driving situations. Exercises due regard to other vehicles/citizens.',
