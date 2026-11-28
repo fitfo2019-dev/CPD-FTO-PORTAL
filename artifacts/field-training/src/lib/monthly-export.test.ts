@@ -11,7 +11,7 @@ import {
   type RatingEntry,
   type Report,
 } from './model.js';
-import { buildMonthlyWorkbook, serializeMonthlyWorkbook } from './monthly-export.js';
+import { buildPhaseWorkbook, serializePhaseWorkbook } from './monthly-export.js';
 import { validateReportsForExport } from './export-validation.js';
 import { buildClassWorkbook } from './exportWorkbook.js';
 import { assertExportCopy } from '../../test-support/export-copy-boundaries.js';
@@ -57,7 +57,7 @@ function makeReport(id: string, overrides: Partial<Report> = {}): Report {
   };
 }
 
-test('monthly workbook renders four supplied weekly ranges without leaking incident details', () => {
+test('phase workbook renders the phase weekly ranges without leaking incident details', () => {
   const weekOne = makeReport('week-one', {
     phaseWeek: 1,
     ratingsReviewedAt: '2026-11-01T18:00:00.000Z',
@@ -121,9 +121,10 @@ test('monthly workbook renders four supplied weekly ranges without leaking incid
     ratingsReviewedAt: undefined,
     activity: { ...emptyDailyActivitySummary(), trafficStops: 5 },
   });
-  const outsideMonth = makeReport('outside-month', {
+  const otherPhase = makeReport('other-phase', {
     date: '2026-12-01',
-    phaseWeek: 3,
+    phase: 2,
+    phaseWeek: 1,
     ratingsReviewedAt: '2026-12-01T18:00:00.000Z',
     activity: { ...emptyDailyActivitySummary(), trafficStops: 99 },
     ratings: Object.fromEntries(CATEGORIES.map(category => [category, ratingEntry('UA')])) as Report['ratings'],
@@ -134,11 +135,11 @@ test('monthly workbook renders four supplied weekly ranges without leaking incid
     {startDate:'2026-11-15',endDate:'2026-11-21'},
     {startDate:'2026-11-22',endDate:'2026-11-28'},
   ];
-  const workbook = buildMonthlyWorkbook([weekOne, weekTwo, unreviewed, outsideMonth], '2026-11',approvedFourWeeks);
+  const workbook = buildPhaseWorkbook([weekOne, weekTwo, unreviewed, otherPhase], 1, {phaseStartDate:'2026-11-01',phaseWeekRanges:approvedFourWeeks});
   assert.deepEqual(workbook.SheetNames, ['Week 1', 'Week 2', 'Week 3', 'Week 4']);
   for(const name of workbook.SheetNames){
     const content=(XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][]).flat().join('\n');
-    assertExportCopy(`Monthly workbook ${name}`,content,[
+    assertExportCopy(`Phase workbook ${name}`,content,[
       'Columbus Division of Police',
       'PERFORMANCE CATEGORIES',
       'DAILY ACTIVITY SUMMARY',
@@ -171,7 +172,8 @@ test('monthly workbook renders four supplied weekly ranges without leaking incid
   }
   assert.equal(workbook.Sheets['Week 1']!['!cols']?.length,24);
   assert.equal(workbook.Sheets['Week 1']['!pageSetup'].orientation,'landscape');
-  const saved=serializeMonthlyWorkbook(workbook);
+  assert.equal(workbook.Sheets['Week 1']['!pageSetup'].paperSize,1);
+  const saved=serializePhaseWorkbook(workbook);
   const archive=XLSX.CFB.read(new Uint8Array(saved),{type:'array'});
   const roundTrip=XLSX.read(saved,{type:'array'});
   assert.deepEqual(roundTrip.SheetNames,workbook.SheetNames);
@@ -179,8 +181,9 @@ test('monthly workbook renders four supplied weekly ranges without leaking incid
     const xml=new TextDecoder().decode(Uint8Array.from(XLSX.CFB.find(archive,`/xl/worksheets/sheet${index+1}.xml`)!.content));
     assert.match(xml,/<pageSetup[^>]*orientation="landscape"[^>]*fitToWidth="1"[^>]*fitToHeight="1"/);
     assert.match(xml,/<pageSetUpPr fitToPage="1"/);
+    assert.match(xml,/<pageSetup paperSize="1" /);
     assert.match(xml,/<pageMargins left="0\.5" right="0\.5" top="0\.5" bottom="0\.5" header="0\.1" footer="0\.1"\/>/);
-    assert.match(xml,/<oddFooter>.*Template revised 11\/24\/2026<\/oddFooter>/);
+    assert.match(xml,/<oddFooter>.*Template revised 11\/28\/2026<\/oddFooter>/);
     assert.deepEqual(roundTrip.Sheets[name]['!merges'],workbook.Sheets[name]['!merges']);
     assert.equal(roundTrip.Sheets[name]['!ref'],workbook.Sheets[name]['!ref']);
     for(const [address,cell] of Object.entries(workbook.Sheets[name])) {
@@ -194,27 +197,39 @@ test('monthly workbook renders four supplied weekly ranges without leaking incid
   for(const sheet of Object.values(workbook.Sheets))assert.equal(Object.values(sheet).some(cell=>typeof cell==='object'&&cell!==null&&'f'in cell),false);
 });
 
-test('five-week months fail explicitly instead of combining source weeks',()=>{
+const dateCell=(workbook:XLSX.WorkBook,name:string)=>String((XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][])[2][10]);
+const trafficStopsOn=(workbook:XLSX.WorkBook,name:string)=>(XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][]).find(row=>row[0]==='Traffic Stops')?.[5];
+
+test('a phase that crosses months stays in one workbook with every day counted',()=>{
   const reports=[
-    makeReport('first',{date:'2026-11-01',activity:{...emptyDailyActivitySummary(),trafficStops:2},phase:1,phaseWeek:4}),
-    makeReport('fifth',{date:'2026-11-29',activity:{...emptyDailyActivitySummary(),trafficStops:7},phase:2,phaseWeek:1}),
+    makeReport('oct',{date:'2026-10-20',phase:2,phaseWeek:1,activity:{...emptyDailyActivitySummary(),trafficStops:2}}),
+    makeReport('nov',{date:'2026-11-12',phase:2,phaseWeek:4,activity:{...emptyDailyActivitySummary(),trafficStops:7}}),
+    makeReport('phase-one',{date:'2026-10-14',phase:1,phaseWeek:4,activity:{...emptyDailyActivitySummary(),trafficStops:50}}),
   ];
-  assert.throws(()=>buildMonthlyWorkbook(reports,'2026-11'),/more than four Sunday–Saturday weeks/);
-  assert.equal(reports[0].activity.trafficStops,2);
-  assert.equal(reports[1].activity.trafficStops,7);
+  const workbook=buildPhaseWorkbook(reports,2,{phaseStartDate:'2026-10-18'});
+  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3','Week 4']);
+  assert.equal(trafficStopsOn(workbook,'Week 1'),2);
+  assert.equal(trafficStopsOn(workbook,'Week 4'),7);
+  assert.match(dateCell(workbook,'Week 1'),/10\/18\/2026 – 10\/24\/2026 · Phase II$/);
+  assert.match(dateCell(workbook,'Week 4'),/11\/08\/2026 – 11\/14\/2026 · Phase II$/);
 });
 
-test('six-week months fail explicitly instead of dropping or merging boundary records',()=>{
+test('without saved phase ranges the weeks anchor on the recorded phase week',()=>{
   const reports=[
-    makeReport('first',{date:'2026-08-01',activity:{...emptyDailyActivitySummary(),trafficStops:3},phase:1,phaseWeek:4}),
-    makeReport('last',{date:'2026-08-31',activity:{...emptyDailyActivitySummary(),trafficStops:8},phase:2,phaseWeek:1}),
+    makeReport('w2',{date:'2026-11-03',phase:3,phaseWeek:2}),
+    makeReport('w3',{date:'2026-11-10',phase:3,phaseWeek:3}),
   ];
-  assert.throws(()=>buildMonthlyWorkbook(reports,'2026-08'),/more than four Sunday–Saturday weeks/);
-  assert.equal(reports[0].activity.trafficStops,3);
-  assert.equal(reports[1].activity.trafficStops,8);
+  const workbook=buildPhaseWorkbook(reports,3);
+  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3','Week 4']);
+  assert.match(dateCell(workbook,'Week 1'),/^10\/25\/2026/);
 });
 
-test('phase ranges exceeding four weeks do not merge extension records into a different tab',()=>{
+test('Phase IV workbooks have three tabs',()=>{
+  const workbook=buildPhaseWorkbook([makeReport('p4',{date:'2026-11-02',phase:4,phaseWeek:1})],4,{phaseStartDate:'2026-11-01'});
+  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3']);
+});
+
+test('approved extra training weeks get their own Extension Week tab',()=>{
   const phaseWeekRanges=[
     {startDate:'2027-01-03',endDate:'2027-01-09'},
     {startDate:'2027-01-10',endDate:'2027-01-16'},
@@ -223,10 +238,38 @@ test('phase ranges exceeding four weeks do not merge extension records into a di
     {startDate:'2027-01-31',endDate:'2027-02-06'},
   ];
   const reports=[
-    makeReport('week-four',{date:'2027-01-24',activity:{...emptyDailyActivitySummary(),trafficStops:4},phaseWeek:4}),
-    makeReport('extension-week',{date:'2027-01-31',activity:{...emptyDailyActivitySummary(),trafficStops:6},phaseWeek:5}),
+    makeReport('week-four',{date:'2027-01-24',phase:2,activity:{...emptyDailyActivitySummary(),trafficStops:4},phaseWeek:4}),
+    makeReport('extension-week',{date:'2027-01-31',phase:2,activity:{...emptyDailyActivitySummary(),trafficStops:6},phaseWeek:5}),
   ];
-  assert.throws(()=>buildMonthlyWorkbook(reports,'2027-01',phaseWeekRanges),/more than four Sunday–Saturday weeks/);
+  const workbook=buildPhaseWorkbook(reports,2,{phaseStartDate:'2027-01-03',phaseWeekRanges});
+  assert.deepEqual(workbook.SheetNames,['Week 1','Week 2','Week 3','Week 4','Week 5 (Extension Week)']);
+  assert.equal(trafficStopsOn(workbook,'Week 4'),4);
+  assert.equal(trafficStopsOn(workbook,'Week 5 (Extension Week)'),6);
+  assert.match(dateCell(workbook,'Week 5 (Extension Week)'),/· Phase II · Extension Week$/);
+  assert.doesNotMatch(dateCell(workbook,'Week 4'),/Extension/);
+});
+
+test('a limbo extension splits the long first week into separate tabs',()=>{
+  const phaseWeekRanges=[
+    {startDate:'2027-01-03',endDate:'2027-01-16'},
+    {startDate:'2027-01-17',endDate:'2027-01-23'},
+    {startDate:'2027-01-24',endDate:'2027-01-30'},
+    {startDate:'2027-01-31',endDate:'2027-02-06'},
+  ];
+  const reports=[
+    makeReport('limbo-1',{date:'2027-01-05',phase:3,phaseWeek:1,activity:{...emptyDailyActivitySummary(),trafficStops:1}}),
+    makeReport('limbo-2',{date:'2027-01-12',phase:3,phaseWeek:1,activity:{...emptyDailyActivitySummary(),trafficStops:5}}),
+  ];
+  const workbook=buildPhaseWorkbook(reports,3,{phaseStartDate:'2027-01-03',phaseWeekRanges,limboExtensionWeeks:1});
+  assert.deepEqual(workbook.SheetNames,['Week 1','Week 1 Extension 1','Week 2','Week 3','Week 4']);
+  assert.equal(trafficStopsOn(workbook,'Week 1'),1);
+  assert.equal(trafficStopsOn(workbook,'Week 1 Extension 1'),5);
+  assert.match(dateCell(workbook,'Week 1 Extension 1'),/^01\/10\/2027 – 01\/16\/2027 · Phase III · Extension Week$/);
+});
+
+test('a saved day outside the phase ranges stops the export instead of being dropped',()=>{
+  const reports=[makeReport('late',{date:'2026-12-20',phase:2,phaseWeek:4})];
+  assert.throws(()=>buildPhaseWorkbook(reports,2,{phaseStartDate:'2026-11-01'}),/outside the phase's weekly ranges/);
 });
 
 test('weekly export rejects malformed or nonconsecutive source ranges',()=>{
@@ -235,7 +278,7 @@ test('weekly export rejects malformed or nonconsecutive source ranges',()=>{
     {startDate:'2026-11-01',endDate:'2026-11-07'},
     {startDate:'2026-11-09',endDate:'2026-11-15'},
   ];
-  assert.throws(()=>buildMonthlyWorkbook([report],'2026-11',ranges),/gap or overlap/);
+  assert.throws(()=>buildPhaseWorkbook([report],1,{phaseStartDate:'2026-11-01',phaseWeekRanges:ranges}),/gap or overlap/);
 });
 
 test('export boundary validates the exact approved categories and count types without type assertions', () => {
