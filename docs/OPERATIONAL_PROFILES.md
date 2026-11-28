@@ -129,7 +129,7 @@ an initial empty profile also records that explicit no-vehicle decision.
 
 ## Own-account assignment history
 
-The user approved the isolated `operations/AssignmentHistoryPreview` before
+The owner approved the isolated `operations/AssignmentHistoryPreview` before
 integration. Account Settings now shows its history section beneath the existing
 assignment editor, without replacing the editor or changing packet forms.
 `GET /api/v1/account/operational-profile/history` authenticates every page and

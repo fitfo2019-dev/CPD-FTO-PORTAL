@@ -448,7 +448,7 @@ export function buildClassWorkbook(reports: Report[], acknowledgements:WeeklyPac
   }
   const formIndexRows:(string|number)[][]=[
     ['Manual form / record','Reference','Excel worksheet(s)','PDF export'],
-    ['Reporting for Duty Form','Form number not verified in the attached manual','Reporting for Duty','Daily print packet'],
+    ['Reporting for Duty Form','Form number not verified in the FTO manual','Reporting for Duty','Daily print packet'],
     ['Daily Performance Summary','U-10.174','Daily Summary Index; SEG Ratings; Daily Activity; Daily Narratives; UA NRT Follow-up','Daily Performance Summary + duty and run forms'],
     ['Weekly Performance Summary','U-10.173','Weekly Totals; Weekly Form tabs','Weekly Performance Summary print view'],
     ['Selected missed actions','Saved specific run-checklist action selections','Selected Missed Actions','Workbook export only; one row per selected action occurrence'],

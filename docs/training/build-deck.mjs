@@ -1,8 +1,9 @@
 // FTO Portal training deck. Regenerate after each merge to main:
 //   node build-deck.mjs  (writes FTO-Portal-Training-Deck.pptx next to this file)
-// Facts come from the 2026 FTO Manual (page numbers from a PDF render of the .docx)
+// Facts come from the 2026 FTO Manual (page numbers as printed)
 // and the rule code in lib/po-progress (PO-STD-2, PO-SCORE-2, PO-NRT-1).
-import * as S from "/home/user/.perplexity/skills/office/pptx/scripts/framework.mjs";
+// DECK_FRAMEWORK is the path to the slide framework module used to build this deck.
+const S = await import(process.env.DECK_FRAMEWORK);
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -18,6 +19,9 @@ S.setTheme({
 const { T, R, L, C } = S;
 const deck = S.newDeck();
 deck.title = "Field Training Portal: Rules, Workflows and FTO Instruction";
+deck.author = "Field Training Office";
+deck.company = "Field Training Office";
+deck.subject = "Field Training Office";
 
 // Status colors used by the portal tiles.
 const ST = { meets: "2E7D4F", emerging: "9E6012", below: "B23A3A", nrt: "6B3FA0" };

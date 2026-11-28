@@ -128,7 +128,7 @@ export function ColumbusGeographyMap() {
             <div>
               <p className="geo-eyebrow">GEOGRAPHY REFERENCE</p>
               <h1 id="geo-map-title">Columbus Police Geography Map</h1>
-              <p className="geo-description">Explore the supplied map in an interactive view.</p>
+              <p className="geo-description">Explore the map in an interactive view.</p>
             </div>
           </div>
           <a

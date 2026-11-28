@@ -14,7 +14,7 @@ import {
   documentRunChecklist,
 } from './revised-run-checklists.js';
 
-// Fingerprints independently computed from the uploaded Word document's JSON,
+// Fingerprints independently computed from the run checklist document's JSON,
 // including every exact label, stable row ID, section heading, and display order.
 const documentFingerprints = {
   call_for_service: 'ab27988fffac9a06550af456730c702ded65f5b0f9fdc1ff83f339417b62886b',
