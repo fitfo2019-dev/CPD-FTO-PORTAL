@@ -31,10 +31,25 @@ test('each unit on a shared incident retains its own clock values and inherits c
   assert.equal(rows[1].locationZip,'43215');
   assert.equal(rows[1].zone,'TEST-ZONE');
   assert.equal(rows[1].cruiserDistrict,'TEST-DISTRICT');
-  assert.equal(rows[1].clearanceCode,'3V');
+  assert.equal(rows[1].clearanceCode,undefined,'A run-level clearance is never copied onto every car');
   assert.equal('runKind' in rows[0],false,'Run type is selected from local verified mappings, not copied from upstream');
   assert.equal('officerName' in rows[0],false);
   assert.equal('callerName' in rows[0],false);
+});
+test('each car keeps its own clearance: CAD per-unit value first, then that unit\'s CLEARED note',()=>{
+  const rows=mapPatrolViewIncident({incidentNumber:'FICTIONAL-100',clearanceCode:'3V',
+    notes:[{text:'TEST-A -- CHANGED LOCATION'},{text:'1625 : 154B - CLEARED 2V'},'1640 : 153B - CLEARED 4V','1722 : 153B - CLEARED 1V',{text:'152B - CLEARED 2V'}],
+    units:[{unitNumber:'154B-r'},{unitNumber:'153B'},{unitNumber:'152B',clearanceCode:'3V',situationFoundCode:'30'},{unitNumber:'151B-s'}]},'FICTIONAL-100');
+  assert.deepEqual(rows.map(row=>[row.unitNumber,row.clearanceCode??'',row.situationFoundCode??'']),[['154B-r','2V','30'],['153B','1V','30'],['152B','3V','30'],['151B-s','','30']],
+    'One officer logs situation found for the run; every car, including the FTO cruiser, gets it');
+  assert.equal(rows.some(row=>'notes' in row),false,'Call notes never leave the server');
+  const runLevel=mapPatrolViewIncident({incidentNumber:'FICTIONAL-100',situationFoundCode:'10-17A',units:[{unitNumber:'TEST-A'},{unitNumber:'TEST-B',situation_found:'17a'}]},'FICTIONAL-100');
+  assert.deepEqual(runLevel.map(row=>row.situationFoundCode),['17A','17A']);
+  const conflict=mapPatrolViewIncident({incidentNumber:'FICTIONAL-100',units:[{unitNumber:'TEST-A',situationFoundCode:'17A'},{unitNumber:'TEST-B',situation_found:'29'}]},'FICTIONAL-100');
+  assert.deepEqual(conflict.map(row=>row.situationFoundCode),[undefined,undefined],'Two different codes are left for the FTO to enter');
+  const [only]=mapPatrolViewIncident({incidentNumber:'FICTIONAL-100',clearanceCode:'2V',situationFoundCode:'30',units:[{unitNumber:'TEST-A'}]},'FICTIONAL-100');
+  assert.equal(only.clearanceCode,'2V');
+  assert.equal(only.situationFoundCode,'30');
 });
 test('incident dispatch and clear times populate every PO run while unit-specific times override them',()=>{
   const shared=mapPatrolViewIncident({incidentNumber:'FICTIONAL-100',dispatchTime:'2026-11-23T14:00:00Z',clearTime:'2026-11-23T15:30:00Z',units:[{unitNumber:'TEST-A'},{unitNumber:'TEST-B',dispatchedAt:'2026-11-23T14:05:00Z'}]},'FICTIONAL-100');

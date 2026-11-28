@@ -3331,6 +3331,10 @@ export const dispatchIncidentLookupResponseDataItemZoneMax = 40;
 export const dispatchIncidentLookupResponseDataItemCruiserDistrictMax = 40;
 
 export const dispatchIncidentLookupResponseDataItemDispatchedCodeRegExp = new RegExp('^\\d{1,3}[A-Z]{0,2}$');
+export const dispatchIncidentLookupResponseDataItemSituationFoundCodeMax = 8;
+
+
+export const dispatchIncidentLookupResponseDataItemSituationFoundCodeRegExp = new RegExp('^\\d{1,3}[A-Z]{0,2}$');
 export const dispatchIncidentLookupResponseDataMax = 100;
 
 
@@ -3355,6 +3359,7 @@ export const DispatchIncidentLookupResponse = zod.object({
   "zone": zod.string().max(dispatchIncidentLookupResponseDataItemZoneMax).optional(),
   "cruiserDistrict": zod.string().max(dispatchIncidentLookupResponseDataItemCruiserDistrictMax).optional(),
   "dispatchedCode": zod.string().regex(dispatchIncidentLookupResponseDataItemDispatchedCodeRegExp).optional(),
+  "situationFoundCode": zod.string().max(dispatchIncidentLookupResponseDataItemSituationFoundCodeMax).regex(dispatchIncidentLookupResponseDataItemSituationFoundCodeRegExp).optional(),
   "clearanceCode": zod.enum(['', '1V', '2V', '3V', '4V']).optional()
 })).max(dispatchIncidentLookupResponseDataMax)
 })
@@ -3400,6 +3405,10 @@ export const dispatchEventIngressResponseDataItemDispatchedCodeMax = 8;
 
 
 export const dispatchEventIngressResponseDataItemDispatchedCodeRegExp = new RegExp('^\\d{1,3}[A-Z]{0,2}$');
+export const dispatchEventIngressResponseDataItemSituationFoundCodeMax = 8;
+
+
+export const dispatchEventIngressResponseDataItemSituationFoundCodeRegExp = new RegExp('^\\d{1,3}[A-Z]{0,2}$');
 export const dispatchEventIngressResponseDataMax = 1;
 
 
@@ -3421,6 +3430,7 @@ export const DispatchEventIngressResponse = zod.object({
   "zone": zod.string().max(dispatchEventIngressResponseDataItemZoneMax).optional(),
   "cruiserDistrict": zod.string().max(dispatchEventIngressResponseDataItemCruiserDistrictMax).optional(),
   "dispatchedCode": zod.string().max(dispatchEventIngressResponseDataItemDispatchedCodeMax).regex(dispatchEventIngressResponseDataItemDispatchedCodeRegExp).optional(),
+  "situationFoundCode": zod.string().max(dispatchEventIngressResponseDataItemSituationFoundCodeMax).regex(dispatchEventIngressResponseDataItemSituationFoundCodeRegExp).optional(),
   "clearanceCode": zod.enum(['', '1V', '2V', '3V', '4V']).optional()
 })).max(dispatchEventIngressResponseDataMax)
 })

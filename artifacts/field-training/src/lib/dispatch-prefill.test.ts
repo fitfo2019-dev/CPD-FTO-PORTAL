@@ -178,7 +178,7 @@ test('dispatch retries stay available after repeated failures and reuse the same
 test('a successful retry fills untouched fields but preserves manual corrections', () => {
   const initial: DispatchIncidentDraftFields = {
     location: '', locationCity: '', locationState: '', locationZip: '', zone: '', cruiserDistrict: '',
-    occurredAtText: '', dispatchedAtText: '', clearedAtText: '', dispatchedCode: '', clearanceCode: '',
+    occurredAtText: '', dispatchedAtText: '', clearedAtText: '', dispatchedCode: '', clearanceCode: '', situationFoundCode: '',
   };
   const corrected: DispatchIncidentDraftFields = {
     ...initial,

@@ -38,5 +38,10 @@ export interface DispatchIncidentPrefill {
   cruiserDistrict?: string;
   /** @pattern ^\d{1,3}[A-Z]{0,2}$ */
   dispatchedCode?: string;
+  /**
+     * @maxLength 8
+     * @pattern ^\d{1,3}[A-Z]{0,2}$
+     */
+  situationFoundCode?: string;
   clearanceCode?: DispatchIncidentPrefillClearanceCode;
 }

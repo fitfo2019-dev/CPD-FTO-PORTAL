@@ -66,11 +66,14 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
   const [chooseReason, setChooseReason] = useState<'choose_unit' | 'ambiguous'>('ambiguous');
   const [picked, setPicked] = useState<number | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  // Values CAD returned for the FTO's own cruiser; a field shows From CAD while it still holds that value.
+  const [cadCodes, setCadCodes] = useState({ situationFoundCode: '', clearanceCode: '' });
+  const fromCad = (value: string, cad: string) => fromDispatch && !!cad && value === cad;
   const lookupBaselineRef = useRef<DispatchIncidentDraftFields | null>(null);
   const draftFieldsNow: DispatchIncidentDraftFields = {
     location, locationCity, locationState, locationZip, zone, cruiserDistrict,
     occurredAtText: occurred, dispatchedAtText: dispatchedAt, clearedAtText: clearedAt,
-    dispatchedCode: code, clearanceCode,
+    dispatchedCode: code, situationFoundCode, clearanceCode,
   };
   const draftFieldsRef = useRef(draftFieldsNow);
   draftFieldsRef.current = draftFieldsNow;
@@ -109,6 +112,7 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
         dispatchedAtText: p.dispatchedAt ? formatDateTimeMDY(p.dispatchedAt) : undefined,
         clearedAtText: p.clearedAt ? formatDateTimeMDY(p.clearedAt) : undefined,
         dispatchedCode: p.dispatchedCode,
+        situationFoundCode: p.situationFoundCode,
         clearanceCode: p.clearanceCode,
       })
       : undefined;
@@ -124,7 +128,9 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
       setDispatchedAt(fields?.dispatchedAtText ?? dispatchedAt);
       setClearedAt(fields?.clearedAtText ?? clearedAt);
       setCode(normalizeRadioCode(fields?.dispatchedCode ?? code));
+      setSituationFoundCode(normalizeSituationFoundCode(fields?.situationFoundCode ?? situationFoundCode));
       setClearanceCode(fields?.clearanceCode ?? clearanceCode);
+      setCadCodes({ situationFoundCode: p.situationFoundCode ?? '', clearanceCode: p.clearanceCode ?? '' });
       setLookupFailure('');
       setFailure('');
       setConfirmed(false);
@@ -144,8 +150,9 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
     setDispatchedAt(fields?.dispatchedAtText ?? (p.dispatchedAt ? formatDateTimeMDY(p.dispatchedAt) : ''));
     setClearedAt(fields?.clearedAtText ?? (p.clearedAt ? formatDateTimeMDY(p.clearedAt) : ''));
     setCode(normalizeRadioCode(fields?.dispatchedCode ?? p.dispatchedCode ?? ''));
-    setSituationFoundCode('');
+    setSituationFoundCode(normalizeSituationFoundCode(fields?.situationFoundCode ?? p.situationFoundCode ?? ''));
     setClearanceCode(fields?.clearanceCode ?? p.clearanceCode ?? '');
+    setCadCodes({ situationFoundCode: p.situationFoundCode ?? '', clearanceCode: p.clearanceCode ?? '' });
     const suggestion=suggestRunTypeFromDispatchedCode(p.dispatchedCode ?? '');
     setKind(suggestion.status==='ambiguous'?'':suggestion.runKind);
     const trafficStop=normalizeRadioCode(p.dispatchedCode??'')==='6';
@@ -317,11 +324,11 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
         <label className="block space-y-1"><span className="label-caps">Cruiser district</span><input className={inp} value={cruiserDistrict} maxLength={40} onChange={e => setCruiserDistrict(e.target.value)} data-testid="input-review-cruiser-district" /></label>
         <label className="block space-y-1"><span className="label-caps">Incident date / event time</span><input className={inp + ' mono'} value={occurred} placeholder="MM/DD/YYYY HH:MM" onChange={e => setOccurred(e.target.value)} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'datetime',setOccurred)} data-testid="input-review-occurred" /></label>
         <label className="block space-y-1"><span className="label-caps">Dispatched 10-code · enter code only</span><input className={inp + ' mono uppercase'} value={code} placeholder="17 or 17A" onChange={e => updateDispatchedCode(e.target.value)} onBlur={askStopRisk} onKeyDown={e => { if(e.key==='Enter'){e.preventDefault();if(askStopRisk())return;if(!kind){setFailure('This code is ambiguous. Select the correct primary form before continuing.');return;}submitReviewedRun(true);} }} list="new-run-radio-code-list" data-testid="input-review-code" /><span className="text-xs text-muted-foreground">{code?`10-${code} · ${code==='6'?'requires a form choice':(RADIO_CODES[code]??'unlisted code; confirm against the approved code table')}`:'Enter the dispatched code without the 10- prefix.'} Press Enter to open the selected form; Tab moves to the next field.</span></label>
-        <label className="block space-y-1"><span className="label-caps">Situation found 10-code · optional</span><input className={inp + ' mono uppercase'} value={situationFoundCode} placeholder="Leave blank if not applicable" onChange={e => setSituationFoundCode(normalizeSituationFoundCode(e.target.value))} list="new-run-radio-code-list" data-testid="input-review-situation-found-code" /></label>
+        <label className="block space-y-1"><span className="label-caps">Situation found 10-code · optional{fromCad(situationFoundCode, cadCodes.situationFoundCode) && <CadTag />}</span><input className={inp + ' mono uppercase'} value={situationFoundCode} placeholder="Leave blank if not applicable" onChange={e => setSituationFoundCode(normalizeSituationFoundCode(e.target.value))} list="new-run-radio-code-list" data-testid="input-review-situation-found-code" /></label>
         <datalist id="new-run-radio-code-list">{Object.entries(RADIO_CODES).map(([value,label])=><option key={value} value={value}>{label}</option>)}</datalist>
         <label className="block space-y-1"><span className="label-caps">Dispatched at</span><input className={inp + ' mono'} value={dispatchedAt} placeholder="MM/DD/YYYY HH:MM" onChange={e => setDispatchedAt(e.target.value)} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'datetime',setDispatchedAt)} data-testid="input-review-dispatched-at" /></label>
         <label className="block space-y-1"><span className="label-caps">Cleared at</span><input className={inp + ' mono'} value={clearedAt} placeholder="MM/DD/YYYY HH:MM" onChange={e => setClearedAt(e.target.value)} onKeyDown={event=>applyCurrentDateTimeShortcut(event,'datetime',setClearedAt)} data-testid="input-review-cleared-at" /></label>
-        <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Clearance code · optional if dispatch provides it</span><select className={inp} value={clearanceCode} onChange={e => setClearanceCode(e.target.value as NewRunSeed['clearanceCode'])} data-testid="select-review-clearance-code"><option value="">Not recorded</option>{CLEARANCE_CODES.map(item=><option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}</select></label>
+        <label className="block space-y-1 sm:col-span-2"><span className="label-caps">Clearance code · optional if dispatch provides it{fromCad(clearanceCode, cadCodes.clearanceCode) && <CadTag />}</span><select className={inp} value={clearanceCode} onChange={e => setClearanceCode(e.target.value as NewRunSeed['clearanceCode'])} data-testid="select-review-clearance-code"><option value="">Not recorded</option>{CLEARANCE_CODES.map(item=><option key={item.code} value={item.code}>{item.code} · {item.label}</option>)}</select></label>
         <label className="flex items-start gap-2 rounded border bg-muted/30 p-2 text-sm sm:col-span-2"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} data-testid="checkbox-new-run-reviewed" /><span>I reviewed these details{fromDispatch ? ' returned by dispatch' : ''} and corrected anything that was wrong.</span></label>
       </div>}
 
@@ -341,4 +348,8 @@ export function NewRunDialog({ open, defaultUnit, contextKey = '', onCancel, onC
         submitReviewedRun(true,next,true);
       }}/>
   </React.Fragment>;
+}
+
+function CadTag() {
+  return <span className="ml-2 inline-block whitespace-nowrap rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary" data-testid="tag-from-cad">From CAD</span>;
 }
