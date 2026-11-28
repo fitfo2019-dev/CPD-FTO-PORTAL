@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
-import { Download, Printer } from 'lucide-react';
+import { Download, FileDown, Printer } from 'lucide-react';
+import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { PageHead, Panel } from '@/components/bits.js';
 import { PrintableMonthlySummary } from '@/components/printable-monthly-summary.js';
 import { SearchableSelect } from '@/components/searchable-select.js';
-import { DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, RATINGS, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS } from '@/lib/model.js';
+import { DAILY_ACTIVITY_COLUMNS, DAILY_ACTIVITY_FIELDS, PHASE_TIMELINE_REGISTRY, RATINGS, SEG_CATEGORIES, SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, type Phase } from '@/lib/model.js';
 import { useMonthlyExcelAggregator } from '@/hooks/use-monthly-excel-aggregator.js';
 import { formatDateDMY } from '@/lib/training-calendar.js';
 import { useWorkspace } from '@/state/workspace.js';
-import { filterReportsForMonth } from '@/lib/monthly-summary.js';
+import { printHtmlDocument } from '@/lib/print-html.js';
+
+const PRINT_WORDMARK = columbusLogoSvg
+  .replace(/<style>[\s\S]*?<\/style>/, '')
+  .replaceAll('class="st0"', 'fill="#142d4f"')
+  .replaceAll('class="st1"', 'fill="#E10012"');
 
 const ownerKey = (report: { className?: string; recruitBadge: string; recruitName: string }) =>
   JSON.stringify([report.className ?? '', report.recruitBadge, report.recruitName]);
@@ -42,6 +48,7 @@ export default function MonthlySummaryPage() {
   ).values()].sort((a, b) => a.className.localeCompare(b.className) || a.name.localeCompare(b.name)), [ws.reports, ws.caseFolder]);
   const [selectedOwner, setSelectedOwner] = useState(() => ws.caseFolder ? ownerKey(ws.caseFolder) : owners[0]?.key ?? '');
   const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedPhase, setSelectedPhase] = useState<Phase|undefined>();
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState('');
   const owner = owners.find(person => person.key === selectedOwner) ?? owners[0];
@@ -49,29 +56,41 @@ export default function MonthlySummaryPage() {
   const months = useMemo(() => [...new Set(ownerReports.map(report => report.date.slice(0, 7)))]
     .filter(month => /^\d{4}-\d{2}$/.test(month)).sort((a, b) => b.localeCompare(a)), [ownerReports]);
   const monthKey = months.includes(selectedMonth) ? selectedMonth : months[0] ?? '';
-  const monthReports=filterReportsForMonth(ownerReports,monthKey);
-  const monthPhases=[...new Set(monthReports.map(report=>report.phase))];
-  const phaseFolder=monthPhases.length===1
-    ?ws.phaseFolders.find(folder=>ownerKey(folder)===owner?.key&&folder.phase===monthPhases[0])
-      ??(ws.caseFolder&&ownerKey(ws.caseFolder)===owner?.key&&ws.caseFolder.phase===monthPhases[0]?ws.caseFolder:undefined)
-    :undefined;
-  const { reports, summary, workbookWeekRanges } = useMonthlyExcelAggregator(ownerReports, monthKey,phaseFolder?.phaseWeekRanges);
+  const { reports, summary } = useMonthlyExcelAggregator(ownerReports, monthKey);
+  const ownerPhases = useMemo(() => [...new Set(ownerReports.map(report => report.phase))].sort((a, b) => a - b), [ownerReports]);
+  const monthDefaultPhase = [...reports].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.phase;
+  const exportPhase = selectedPhase !== undefined && ownerPhases.includes(selectedPhase) ? selectedPhase : monthDefaultPhase ?? ownerPhases.at(-1);
+  const phaseFolder = exportPhase === undefined ? undefined
+    : ws.phaseFolders.find(folder => ownerKey(folder) === owner?.key && folder.phase === exportPhase)
+      ?? (ws.caseFolder && ownerKey(ws.caseFolder) === owner?.key && ws.caseFolder.phase === exportPhase ? ws.caseFolder : undefined);
+  const exportPhaseName = exportPhase === undefined ? '' : PHASE_TIMELINE_REGISTRY.find(entry => entry.phaseId === exportPhase)?.phaseName ?? '';
   const monthLabel = monthKey ? formatMonth(monthKey) : 'No monthly records';
   const rangeStart = reports[0]?.date ?? '';
   const rangeEnd = reports[reports.length - 1]?.date ?? '';
 
-  const exportWorkbook = async () => {
-    if (!reports.length || !monthKey || exporting) return;
+  const exportWorkbook = async (format:'pdf'|'excel') => {
+    if (exportPhase === undefined || exporting) return;
     setExporting(true);
     setExportMessage('');
     try {
-      const { exportMonthlyWorkbook } = await import('@/lib/monthly-export.js');
-      exportMonthlyWorkbook(reports, monthKey,workbookWeekRanges);
-      setExportMessage('Monthly Excel workbook downloaded.');
+      if (format === 'excel') {
+        const { exportPhaseWorkbook } = await import('@/lib/monthly-export.js');
+        exportPhaseWorkbook(ownerReports, exportPhase, phaseFolder);
+        setExportMessage(`${exportPhaseName} Excel workbook downloaded.`);
+      } else {
+        const [{ buildPhaseWorkbook }, { phaseSummaryHtml }] = await Promise.all([import('@/lib/monthly-export.js'), import('@/lib/phase-summary-print.js')]);
+        const base = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+        printHtmlDocument(phaseSummaryHtml(buildPhaseWorkbook(ownerReports, exportPhase, phaseFolder), `${exportPhaseName} Performance Summary`, {
+          wordmarkSvg: PRINT_WORDMARK,
+          patchUrl: `${base}branding/columbus-police-patch-white-eagle.png`,
+          badgeUrl: `${base}branding/silver-police-badge.png`,
+        }), 'phase-summary');
+        setExportMessage(`${exportPhaseName} PDF is ready to save from the print window.`);
+      }
     } catch (error) {
-      setExportMessage(error instanceof Error&&error.name==='MonthlyWorkbookRangeError'
+      setExportMessage(error instanceof Error&&error.name==='PhaseWorkbookRangeError'
         ?error.message
-        :'The workbook could not be created. Your saved daily records are unchanged.');
+        :`The ${format === 'pdf' ? 'PDF' : 'workbook'} could not be created. Your saved daily records are unchanged.`);
     } finally {
       setExporting(false);
     }
@@ -84,22 +103,31 @@ export default function MonthlySummaryPage() {
         <button type="button" disabled={!reports.length} onClick={() => window.print()} className="inline-flex h-10 items-center gap-2 rounded-sm border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-print-monthly">
           <Printer className="h-4 w-4" />Print / PDF
         </button>
-        <button type="button" disabled={!reports.length || exporting} onClick={exportWorkbook} className="inline-flex h-10 items-center gap-2 rounded-sm bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-export-monthly">
-          <Download className="h-4 w-4" />{exporting ? 'Creating workbook…' : 'Export Excel'}
+        <button type="button" disabled={exportPhase === undefined || exporting} onClick={() => exportWorkbook('pdf')} className="inline-flex h-10 items-center gap-2 rounded-sm border bg-card px-4 text-sm font-bold disabled:opacity-50" data-testid="button-export-phase-pdf">
+          <FileDown className="h-4 w-4" />{`Export ${exportPhaseName} PDF`}
+        </button>
+        <button type="button" disabled={exportPhase === undefined || exporting} onClick={() => exportWorkbook('excel')} className="inline-flex h-10 items-center gap-2 rounded-sm bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50" data-testid="button-export-monthly">
+          <Download className="h-4 w-4" />{exporting ? 'Creating file…' : `Export ${exportPhaseName} Excel`}
         </button>
       </PageHead>
 
       <div className="mb-4 flex flex-col items-start gap-3 rounded-sm border bg-card p-3 text-sm sm:flex-row sm:flex-wrap sm:items-center">
         {owners.length > 1 && <label className="flex w-full min-w-0 flex-col gap-1 font-semibold sm:w-auto">
           Probationary Officer
-          <SearchableSelect aria-label="Select Probationary Officer" className="h-10 min-w-0 max-w-full rounded-sm border bg-card px-3 text-sm" value={owner?.key ?? ''} onChange={event => { setSelectedOwner(event.target.value); setSelectedMonth(''); }} data-testid="select-monthly-officer">
+          <SearchableSelect aria-label="Select Probationary Officer" className="h-10 min-w-0 max-w-full rounded-sm border bg-card px-3 text-sm" value={owner?.key ?? ''} onChange={event => { setSelectedOwner(event.target.value); setSelectedMonth(''); setSelectedPhase(undefined); }} data-testid="select-monthly-officer">
             {owners.map(person => <option key={person.key} value={person.key}>{person.name} · {person.badge} · {person.className || 'Class not assigned'}</option>)}
           </SearchableSelect>
         </label>}
         {months.length > 1 && <label className="flex w-full min-w-0 flex-col gap-1 font-semibold sm:w-auto">
           Select month
-          <SearchableSelect className="h-10 min-w-0 max-w-full rounded-sm border bg-card px-3 text-sm" value={monthKey} onChange={event => setSelectedMonth(event.target.value)} data-testid="select-monthly-month">
+          <SearchableSelect className="h-10 min-w-0 max-w-full rounded-sm border bg-card px-3 text-sm" value={monthKey} onChange={event => { setSelectedMonth(event.target.value); setSelectedPhase(undefined); }} data-testid="select-monthly-month">
             {months.map(month => <option key={month} value={month}>{formatMonth(month)}</option>)}
+          </SearchableSelect>
+        </label>}
+        {ownerPhases.length > 1 && <label className="flex w-full min-w-0 flex-col gap-1 font-semibold sm:w-auto">
+          Export phase
+          <SearchableSelect className="h-10 min-w-0 max-w-full rounded-sm border bg-card px-3 text-sm" value={String(exportPhase ?? '')} onChange={event => setSelectedPhase(Number(event.target.value) as Phase)} data-testid="select-monthly-phase">
+            {ownerPhases.map(phase => <option key={phase} value={phase}>{PHASE_TIMELINE_REGISTRY.find(entry => entry.phaseId === phase)?.phaseName ?? phase}</option>)}
           </SearchableSelect>
         </label>}
         <span className="min-w-0 break-words text-muted-foreground">
@@ -110,7 +138,7 @@ export default function MonthlySummaryPage() {
       </div>
 
       <div role="note" className="mb-4 rounded-sm border bg-muted/60 p-3 text-sm">
-        Local workspace summary. Rating counts include reviewed daily evaluations only. Excel exports support up to four weekly ranges.
+        Local workspace summary. Rating counts include reviewed daily evaluations only.
       </div>
       {exportMessage && <p role="status" className="mb-4 rounded-sm border bg-card p-3 text-sm">{exportMessage}</p>}
 

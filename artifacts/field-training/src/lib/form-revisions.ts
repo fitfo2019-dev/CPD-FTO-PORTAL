@@ -20,7 +20,7 @@ export const FORM_TEMPLATE_REVISIONS = {
   'U-10.190': '2026-11-24',
   'U-10.192': '2026-11-24',
   monthly_summary: '2026-11-24',
-  monthly_workbook: '2026-11-24',
+  monthly_workbook: '2026-11-28',
   weekly_acknowledgement: '2026-11-24',
 } as const;
 

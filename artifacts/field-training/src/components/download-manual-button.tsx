@@ -3,6 +3,7 @@ import columbusLogoSvg from '@/assets/columbus-logo.svg?raw';
 import { roleManualHtml } from '@/lib/role-manual.js';
 import { localISODate, formatDateDMY } from '@/lib/training-calendar.js';
 import type { Role } from '@/lib/model.js';
+import { printHtmlDocument } from '@/lib/print-html.js';
 
 const WORDMARK = columbusLogoSvg
   .replace(/<style>[\s\S]*?<\/style>/, '')
@@ -18,24 +19,7 @@ export function DownloadManualButton({ role }: { role: Role }) {
       patchUrl: `${base}branding/columbus-police-patch-white-eagle.png`,
       badgeUrl: `${base}branding/silver-police-badge.png`,
     });
-    document.querySelectorAll('iframe[data-manual-print]').forEach(old => old.remove());
-    const frame = document.createElement('iframe');
-    frame.setAttribute('aria-hidden', 'true');
-    frame.dataset.manualPrint = 'true';
-    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
-    frame.srcdoc = html;
-    frame.onload = () => {
-      const win = frame.contentWindow;
-      if (!win) { frame.remove(); return; }
-      const images = [...win.document.images];
-      Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(done => { img.onload = img.onerror = () => done(undefined); })))
-        .then(() => {
-          win.addEventListener('afterprint', () => setTimeout(() => frame.remove(), 0), { once: true });
-          win.focus();
-          win.print();
-        });
-    };
-    document.body.appendChild(frame);
+    printHtmlDocument(html, 'manual');
   };
   return <button type="button" onClick={open} className="library-source-button" data-testid="button-download-manual-pdf">
     <FileDown aria-hidden="true" size={16} /> Download Manual PDF

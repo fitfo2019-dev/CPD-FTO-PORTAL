@@ -1,24 +1,50 @@
 import XLSX from 'xlsx-js-style';
 import {
-  DAILY_ACTIVITY_FIELDS, PHASE_PROGRAM_WEEK_START, RATINGS, SEG_CATEGORIES,
+  DAILY_ACTIVITY_FIELDS, PHASE_LENGTH_WEEKS, PHASE_PROGRAM_WEEK_START, PHASE_TIMELINE_REGISTRY, RATINGS, SEG_CATEGORIES,
   SEG_RATING_COLUMNS, SEG_RATING_GROUP_LABELS, phaseAssignmentLabel, phaseLabel,
-  type Report,
+  type Phase, type PhaseCaseFolder, type Report,
 } from './model.js';
-import { filterReportsForMonth } from './monthly-summary.js';
 import { validateReportsForExport } from './export-validation.js';
 import { activityTotals } from './run-activity.js';
-import { formatDateMDY, getSundaySaturdayWeek } from './training-calendar.js';
+import { formatDateMDY, getCaseFolderWeekRanges, getSundaySaturdayWeek } from './training-calendar.js';
 import { categoryIsNotApplicable, weeklyRatingCount } from './weekly-rating-counts.js';
 import { spreadsheetText } from './spreadsheet-text.js';
 import type { PhaseWeekRange } from './model.js';
 import { formTemplateRevision } from './form-revisions.js';
 
 const border = Object.fromEntries(['top','bottom','left','right'].map(edge=>[edge,{style:'thin',color:{rgb:'FF000000'}}]));
-const allColumns = 24;
-export class MonthlyWorkbookRangeError extends Error {
+const PANEL_COLUMNS = 6;
+const allColumns = PANEL_COLUMNS*3;
+const CATEGORY_WIDTH = 27;
+const RATING_WIDTH = 6;
+const columnWidth = (column:number) => column%PANEL_COLUMNS===0?CATEGORY_WIDTH:RATING_WIDTH;
+type Merge = {s:{r:number;c:number};e:{r:number;c:number}};
+/** Row height that fits wrapped text inside its cell or merged range. */
+function fittedRowHeight(rows:(string|number)[][],merges:readonly Merge[],row:number,fontSize:(column:number)=>number,minimum:number):number {
+  let lines=1,maxSize=10;
+  rows[row]?.forEach((value,column)=>{
+    const text=String(value??'');
+    if(!text)return;
+    const merge=merges.find(entry=>entry.s.r===row&&entry.s.c===column);
+    let width=0;
+    for(let c=column;c<=(merge?.e.c??column);c++)width+=columnWidth(c);
+    const size=fontSize(column);
+    const perLine=Math.max(1,Math.floor((width-1)*12/size));
+    let count=1,used=0;
+    for(const word of text.split(/\s+/)) {
+      const step=word.length+(used?1:0);
+      if(used+step>perLine&&used){count++;used=word.length;}
+      else used+=step;
+    }
+    lines=Math.max(lines,count);
+    maxSize=Math.max(maxSize,size);
+  });
+  return Math.max(minimum,Math.ceil(lines*maxSize*1.3+6));
+}
+export class PhaseWorkbookRangeError extends Error {
   constructor(message:string) {
     super(message);
-    this.name='MonthlyWorkbookRangeError';
+    this.name='PhaseWorkbookRangeError';
   }
 }
 const ratingLabel: Record<(typeof RATINGS)[number],string> = {
@@ -31,7 +57,7 @@ const uniqueDisplay = (values: (string|number|undefined)[]) => {
 
 function appendMergedRow(
   rows:(string|number)[][],
-  merges:{s:{r:number;c:number};e:{r:number;c:number}}[],
+  merges:Merge[],
   row:number,
   entries:{start:number;end:number;value:string|number}[],
 ) {
@@ -48,209 +74,198 @@ function buildCategoryPanel(week:Report[], groups:readonly string[]):PanelRow[] 
   for(const group of groups) {
     const categories=SEG_CATEGORIES.filter(category=>category.group===group);
     if(!categories.length)continue;
-    panel.push({kind:'group',cells:[SEG_RATING_GROUP_LABELS[group]??group,...Array(7).fill('')]});
-    panel.push({kind:'header',cells:['Performance category','','',...RATINGS]});
+    panel.push({kind:'group',cells:[SEG_RATING_GROUP_LABELS[group]??group,...Array(PANEL_COLUMNS-1).fill('')]});
+    panel.push({kind:'header',cells:['Performance category',...RATINGS]});
     for(const category of categories)panel.push({
-      kind:'category',cells:[`${category.label}${week.some(report=>categoryIsNotApplicable(report,category.key))?' · N/A':''}`,'','',...RATINGS.map(rating=>weeklyRatingCount(week,category.key,rating))],
+      kind:'category',cells:[`${category.label}${week.some(report=>categoryIsNotApplicable(report,category.key))?' · N/A':''}`,...RATINGS.map(rating=>weeklyRatingCount(week,category.key,rating))],
     });
   }
   return panel;
 }
 
-type WeeklyTabRange={startDate:string;endDate:string};
+type WeeklyTabRange={startDate:string;endDate:string;sheetName:string;phaseWeek:number;extension:boolean};
+type PhaseWorkbookFolder=Pick<PhaseCaseFolder,'phaseStartDate'|'scheduledWeeks'|'phaseWeekRanges'|'limboExtensionWeeks'>;
 
-function buildWeeklyTabRanges(monthKey:string,phaseWeekRanges?:readonly PhaseWeekRange[]):WeeklyTabRange[] {
-  let sourceRanges:WeeklyTabRange[];
-  if(phaseWeekRanges?.length) {
-    sourceRanges=phaseWeekRanges.map(range=>({startDate:range.startDate,endDate:range.endDate}));
+const DAY_MS=86_400_000;
+const addDays=(isoDate:string,days:number)=>new Date(Date.parse(`${isoDate}T12:00:00Z`)+days*DAY_MS).toISOString().slice(0,10);
+const isIsoDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&new Date(`${value}T12:00:00Z`).toISOString().slice(0,10)===value;
+const phaseName=(phase:Phase)=>PHASE_TIMELINE_REGISTRY.find(entry=>entry.phaseId===phase)?.phaseName??phaseLabel(phase);
+
+/** One tab per Sunday–Saturday week of the phase. A limbo extension that
+ * lengthens Week 1 is split into separate tabs after Week 1; approved extra
+ * training weeks follow the scheduled weeks. Nothing is merged or dropped. */
+function buildPhaseTabRanges(phase:Phase,selected:readonly Report[],folder?:PhaseWorkbookFolder):WeeklyTabRange[] {
+  const scheduledWeeks=Math.max(1,Math.floor(folder?.scheduledWeeks??PHASE_LENGTH_WEEKS[phase]));
+  let sourceRanges:PhaseWeekRange[];
+  if(folder) {
+    sourceRanges=getCaseFolderWeekRanges({phase,...folder});
   } else {
-    const firstWeek=getSundaySaturdayWeek(`${monthKey}-01`);
-    const [year,month]=monthKey.split('-').map(Number);
-    const lastDay=new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
-    const lastWeek=getSundaySaturdayWeek(lastDay);
-    if(!firstWeek||!lastWeek)throw new Error('The selected month is invalid.');
-    sourceRanges=[];
-    for(let start=firstWeek.start;start<=lastWeek.start;) {
-      const end=new Date(`${start}T12:00:00Z`);
-      end.setUTCDate(end.getUTCDate()+6);
-      sourceRanges.push({startDate:start,endDate:end.toISOString().slice(0,10)});
-      const next=new Date(`${start}T12:00:00Z`);
-      next.setUTCDate(next.getUTCDate()+7);
-      start=next.toISOString().slice(0,10);
-    }
+    const first=selected[0];
+    const firstWeek=getSundaySaturdayWeek(first.date);
+    if(!firstWeek)throw new PhaseWorkbookRangeError('The saved weekly ranges are invalid. No records were merged or omitted.');
+    const anchor=addDays(firstWeek.start,-7*Math.max(0,(first.phaseWeek??1)-1));
+    const lastWeek=getSundaySaturdayWeek(selected.at(-1)!.date);
+    const neededWeeks=lastWeek?Math.round((Date.parse(lastWeek.start)-Date.parse(anchor))/DAY_MS/7)+1:1;
+    sourceRanges=Array.from({length:Math.max(scheduledWeeks,neededWeeks)},(_,index)=>({startDate:addDays(anchor,index*7),endDate:addDays(anchor,index*7+6)}));
   }
+  const tabs:WeeklyTabRange[]=[];
   for(const [index,range] of sourceRanges.entries()) {
-    const start=new Date(`${range.startDate}T12:00:00Z`);
-    const end=new Date(`${range.endDate}T12:00:00Z`);
-    const expectedEnd=new Date(start);
-    expectedEnd.setUTCDate(expectedEnd.getUTCDate()+6);
-    if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())
-      ||start.toISOString().slice(0,10)!==range.startDate
-      ||end.toISOString().slice(0,10)!==range.endDate
-      ||expectedEnd.toISOString().slice(0,10)!==range.endDate) {
-      throw new MonthlyWorkbookRangeError('The saved weekly ranges are invalid. No records were merged or omitted.');
+    if(!isIsoDate(range.startDate)||!isIsoDate(range.endDate)) {
+      throw new PhaseWorkbookRangeError('The saved weekly ranges are invalid. No records were merged or omitted.');
     }
-    if(index>0) {
-      const expectedStart=new Date(`${sourceRanges[index-1].endDate}T12:00:00Z`);
-      expectedStart.setUTCDate(expectedStart.getUTCDate()+1);
-      if(expectedStart.toISOString().slice(0,10)!==range.startDate) {
-        throw new MonthlyWorkbookRangeError('The saved weekly ranges contain a gap or overlap. No records were merged or omitted.');
-      }
+    const spanDays=Math.round((Date.parse(`${range.endDate}T12:00:00Z`)-Date.parse(`${range.startDate}T12:00:00Z`))/DAY_MS)+1;
+    const weekCount=spanDays/7;
+    if(!Number.isInteger(weekCount)||weekCount<1||(index>0&&weekCount!==1)) {
+      throw new PhaseWorkbookRangeError('The saved weekly ranges are invalid. No records were merged or omitted.');
+    }
+    if(index>0&&addDays(sourceRanges[index-1].endDate,1)!==range.startDate) {
+      throw new PhaseWorkbookRangeError('The saved weekly ranges contain a gap or overlap. No records were merged or omitted.');
+    }
+    const phaseWeek=index+1;
+    for(let part=0;part<weekCount;part++) {
+      const startDate=addDays(range.startDate,part*7);
+      const limboExtension=part>0;
+      const trainingExtension=phaseWeek>scheduledWeeks;
+      tabs.push({
+        startDate,endDate:addDays(startDate,6),phaseWeek,
+        extension:limboExtension||trainingExtension,
+        sheetName:limboExtension?`Week ${phaseWeek} Extension ${part}`:trainingExtension?`Week ${phaseWeek} (Extension Week)`:`Week ${phaseWeek}`,
+      });
     }
   }
-  if(sourceRanges.length>4)throw new MonthlyWorkbookRangeError('This month spans more than four Sunday–Saturday weeks. Export stopped; no source weeks were combined or omitted.');
-  const tabs=[...sourceRanges];
-  while(tabs.length<4) {
-    const previous=tabs.at(-1);
-    if(!previous)throw new Error('No weekly date ranges are available for this workbook.');
-    const start=new Date(`${previous.endDate}T12:00:00Z`);
-    start.setUTCDate(start.getUTCDate()+1);
-    const end=new Date(start);
-    end.setUTCDate(end.getUTCDate()+6);
-    tabs.push({startDate:start.toISOString().slice(0,10),endDate:end.toISOString().slice(0,10)});
-  }
+  if(!tabs.length)throw new Error('No weekly date ranges are available for this workbook.');
   return tabs;
 }
 
 function tabForDate(date:string,tabs:readonly WeeklyTabRange[]):number {
   const exact=tabs.findIndex(range=>date>=range.startDate&&date<=range.endDate);
   if(exact>=0)return exact;
-  throw new MonthlyWorkbookRangeError(`The saved log date ${formatDateMDY(date)} is outside the exported weekly ranges.`);
+  throw new PhaseWorkbookRangeError(`The saved log date ${formatDateMDY(date)} is outside the phase's weekly ranges. No records were merged or omitted.`);
 }
 
-/** Four separate Sunday–Saturday tabs; every source date must fit one weekly range. */
-export function buildMonthlyWorkbook(reports: Report[], monthKey: string, phaseWeekRanges?:readonly PhaseWeekRange[]) {
-  const selected = filterReportsForMonth(validateReportsForExport(reports), monthKey);
-  if (!selected.length) throw new Error('There are no saved daily logs in this month to export.');
+/** One workbook per phase: every saved day of the selected phase, one tab per
+ * Sunday–Saturday week, whatever calendar month the days fall in. */
+export function buildPhaseWorkbook(reports: Report[], phase: Phase, folder?:PhaseWorkbookFolder) {
+  const selected = validateReportsForExport(reports).filter(report=>report.phase===phase).sort((a,b)=>a.date.localeCompare(b.date));
+  if (!selected.length) throw new Error(`There are no saved daily logs in ${phaseName(phase)} to export.`);
   const first = selected[0];
   if (selected.some(report => report.recruitBadge !== first.recruitBadge || (report.className ?? '') !== (first.className ?? ''))) {
-    throw new Error('Select one probationary officer and training class for the monthly workbook.');
+    throw new Error('Select one probationary officer and training class for the phase workbook.');
   }
-  const weekRanges=buildWeeklyTabRanges(monthKey,phaseWeekRanges);
-  const uncovered=selected.find(report=>!weekRanges.some(range=>report.date>=range.startDate&&report.date<=range.endDate));
-  if(uncovered)throw new MonthlyWorkbookRangeError(`The saved log date ${formatDateMDY(uncovered.date)} falls outside the four weekly ranges. No records were merged or omitted.`);
+  const weekRanges=buildPhaseTabRanges(phase,selected,folder);
+  for(const report of selected)tabForDate(report.date,weekRanges);
   const workbook=XLSX.utils.book_new();
   for (const [index,weekRange] of weekRanges.entries()) {
     const week=selected.filter(report=>tabForDate(report.date,weekRanges)===index);
-    const weekSpanDays=(Date.parse(`${weekRange.endDate}T00:00:00Z`)-Date.parse(`${weekRange.startDate}T00:00:00Z`))/86_400_000+1;
     const rows:(string|number)[][]=[];
-    const merges:{s:{r:number;c:number};e:{r:number;c:number}}[]=[];
-    const phases=uniqueDisplay(week.map(report=>phaseLabel(report.phase)));
-    const phaseWeeks=uniqueDisplay(week.map(report=>report.phaseWeek));
+    const merges:Merge[]=[];
+    const phaseWeeks=week.length?uniqueDisplay(week.map(report=>report.phaseWeek)):weekRange.phaseWeek;
     const ftoWeeks=uniqueDisplay(week.map(report=>report.ftoWeek));
     const assignments=uniqueDisplay(week.map(report=>phaseAssignmentLabel(report.ftoAssignment,report.shift,report.cruiserDistrict)));
     const ftos=uniqueDisplay(week.map(report=>report.ftoName));
     const ftoBadges=uniqueDisplay(week.map(report=>report.ftoBadge));
+    const trainingWeeks=week.length?uniqueDisplay(week.map(report=>PHASE_PROGRAM_WEEK_START[phase]+(report.phaseWeek??weekRange.phaseWeek)-1)):PHASE_PROGRAM_WEEK_START[phase]+weekRange.phaseWeek-1;
+    const labelled=(panel:number,label:string,value:string|number)=>[
+      {start:panel*PANEL_COLUMNS,end:panel*PANEL_COLUMNS,value:label},
+      {start:panel*PANEL_COLUMNS+1,end:panel*PANEL_COLUMNS+PANEL_COLUMNS-1,value},
+    ];
+    const dateText=`${formatDateMDY(weekRange.startDate)} – ${formatDateMDY(weekRange.endDate)} · ${phaseName(phase)}${weekRange.extension?' · Extension Week':''}`;
     appendMergedRow(rows,merges,0,[
-      {start:0,end:3,value:'Probationary Officer'},
-      {start:4,end:4,value:'FTO:'},{start:5,end:9,value:ftos},
-      {start:10,end:10,value:'Badge:'},{start:11,end:13,value:ftoBadges},
-      {start:14,end:17,value:'FTO Assignment:'},{start:18,end:20,value:assignments},
-      {start:21,end:21,value:'Phase:'},{start:22,end:23,value:phases},
+      {start:0,end:PANEL_COLUMNS-1,value:'Columbus Division of Police'},
+      {start:PANEL_COLUMNS,end:PANEL_COLUMNS*2-1,value:'Probationary Officer'},
+      ...labelled(2,'Date:',dateText),
     ]);
-    appendMergedRow(rows,merges,1,[
-      {start:0,end:0,value:'PO:'},{start:1,end:4,value:first.recruitName},
-      {start:5,end:5,value:'Badge:'},{start:6,end:7,value:first.recruitBadge},
-      {start:8,end:10,value:'Phase Week #:'},{start:11,end:12,value:phaseWeeks},
-      {start:13,end:15,value:'FTO Week #:'},{start:16,end:17,value:ftoWeeks},
-      {start:18,end:20,value:'Program Week:'},
-      {start:21,end:23,value:uniqueDisplay(week.map(report=>PHASE_PROGRAM_WEEK_START[report.phase]+(report.phaseWeek??1)-1))},
-    ]);
-    appendMergedRow(rows,merges,2,[
-      {start:0,end:7,value:'Columbus Division of Police'},
-      {start:8,end:9,value:'Date:'},
-      {start:10,end:23,value:`${formatDateMDY(weekRange.startDate)} – ${formatDateMDY(weekRange.endDate)} · ${monthKey}${index===3&&weekSpanDays>7?' · includes additional source weeks':''}`},
-    ]);
-    appendMergedRow(rows,merges,3,[{start:0,end:23,value:'PERFORMANCE CATEGORIES'}]);
+    appendMergedRow(rows,merges,1,[...labelled(0,'PO:',first.recruitName),...labelled(1,'Badge:',first.recruitBadge),...labelled(2,'Phase:',phaseName(phase))]);
+    appendMergedRow(rows,merges,2,[...labelled(0,'FTO:',ftos),...labelled(1,'Badge:',ftoBadges),...labelled(2,'FTO Assignment:',assignments)]);
+    appendMergedRow(rows,merges,3,[...labelled(0,'Phase Week #:',phaseWeeks),...labelled(1,'FTO Week #:',ftoWeeks),...labelled(2,'Week:',trainingWeeks)]);
+    const headerRows=4;
+    appendMergedRow(rows,merges,headerRows,[{start:0,end:allColumns-1,value:'PERFORMANCE CATEGORIES'}]);
 
     const panels=SEG_RATING_COLUMNS.map(groups=>buildCategoryPanel(week,groups));
     const panelHeight=Math.max(...panels.map(panel=>panel.length));
-    const panelStart=4;
+    const panelStart=headerRows+1;
+    const panelKinds=new Map<string,PanelRow['kind']>();
+    const kindAt=(row:number,column:number)=>panelKinds.get(`${row}:${Math.floor(column/PANEL_COLUMNS)}`);
     for(let offset=0;offset<panelHeight;offset++) {
       rows[panelStart+offset]=Array(allColumns).fill('');
       for(let panelIndex=0;panelIndex<panels.length;panelIndex++) {
         const panelRow=panels[panelIndex][offset];
         if(!panelRow)continue;
-        const columnStart=panelIndex*8;
+        const columnStart=panelIndex*PANEL_COLUMNS;
         for(let column=0;column<panelRow.cells.length;column++)rows[panelStart+offset][columnStart+column]=panelRow.cells[column];
-        if(panelRow.kind==='group')merges.push({s:{r:panelStart+offset,c:columnStart},e:{r:panelStart+offset,c:columnStart+7}});
-        if(panelRow.kind==='header'||panelRow.kind==='category')merges.push({s:{r:panelStart+offset,c:columnStart},e:{r:panelStart+offset,c:columnStart+2}});
+        panelKinds.set(`${panelStart+offset}:${panelIndex}`,panelRow.kind);
+        if(panelRow.kind==='group'){
+          merges.push({s:{r:panelStart+offset,c:columnStart},e:{r:panelStart+offset,c:columnStart+PANEL_COLUMNS-1}});
+        }
       }
     }
     const activityTitleRow=panelStart+panelHeight+1;
-    appendMergedRow(rows,merges,activityTitleRow,[{start:0,end:23,value:'DAILY ACTIVITY SUMMARY'}]);
+    appendMergedRow(rows,merges,activityTitleRow,[{start:0,end:allColumns-1,value:'DAILY ACTIVITY SUMMARY'}]);
     const activityStart=activityTitleRow+1;
-    const activityColumns=Array.from({length:4},(_,index)=>({start:index*6,end:index*6+5}));
-    const fieldsPerPanel=Math.ceil(DAILY_ACTIVITY_FIELDS.length/activityColumns.length);
-    const activityGroups=activityColumns.map((_,panelIndex)=>
-      DAILY_ACTIVITY_FIELDS.slice(panelIndex*fieldsPerPanel,(panelIndex+1)*fieldsPerPanel));
+    const fieldsPerPanel=Math.ceil(DAILY_ACTIVITY_FIELDS.length/3);
     for(let activityRow=0;activityRow<fieldsPerPanel;activityRow++) {
       rows[activityStart+activityRow]=Array(allColumns).fill('');
-      activityColumns.forEach((columns,panelIndex)=>{
-        const field=activityGroups[panelIndex][activityRow];
-        if(!field)return;
-        rows[activityStart+activityRow][columns.start]=field.label;
-        rows[activityStart+activityRow][columns.end]=week.reduce((sum,report)=>sum+activityTotals(report)[field.key],0);
-        merges.push({s:{r:activityStart+activityRow,c:columns.start},e:{r:activityStart+activityRow,c:columns.end-1}});
-      });
+      for(let panelIndex=0;panelIndex<3;panelIndex++) {
+        const field=DAILY_ACTIVITY_FIELDS[panelIndex*fieldsPerPanel+activityRow];
+        if(!field)continue;
+        const columnStart=panelIndex*PANEL_COLUMNS;
+        rows[activityStart+activityRow][columnStart]=field.label;
+        rows[activityStart+activityRow][columnStart+PANEL_COLUMNS-1]=week.reduce((sum,report)=>sum+activityTotals(report)[field.key],0);
+        merges.push({s:{r:activityStart+activityRow,c:columnStart},e:{r:activityStart+activityRow,c:columnStart+PANEL_COLUMNS-2}});
+      }
     }
     const commentsRow=activityStart+fieldsPerPanel+1;
     appendMergedRow(rows,merges,commentsRow,[
-      {start:0,end:4,value:'FTO Comments (Optional)'},
-      {start:5,end:23,value:''},
+      {start:0,end:0,value:'FTO Comments (Optional)'},
+      {start:1,end:allColumns-1,value:''},
     ]);
     const legendRow=commentsRow+2;
-    const legendEntries:{start:number;end:number;value:string}[]=[
-      {start:0,end:3,value:'Rating System:'},
-    ];
-    RATINGS.forEach((rating,ratingIndex)=>{
-      const columnStart=4+ratingIndex*4;
-      legendEntries.push({start:columnStart,end:columnStart+3,value:`${rating} — ${ratingLabel[rating]}`});
-    });
-    appendMergedRow(rows,merges,legendRow,legendEntries);
-    const sectionRows=new Set([3,activityTitleRow]);
-    const groupHeaderRows=new Set<number>();
-    const categoryHeaderRows=new Set<number>();
-    panels.forEach((_,panelIndex)=>{
-      let row=panelStart;
-      for(const group of SEG_RATING_COLUMNS[panelIndex]) {
-        const categoryCount=SEG_CATEGORIES.filter(category=>category.group===group).length;
-        if(!categoryCount)continue;
-        groupHeaderRows.add(row++);
-        categoryHeaderRows.add(row++);
-        row+=categoryCount;
-      }
-    });
+    appendMergedRow(rows,merges,legendRow,[
+      {start:0,end:0,value:'Rating System:'},
+      {start:1,end:allColumns-1,value:RATINGS.map(rating=>`${rating} — ${ratingLabel[rating]}`).join('     ')},
+    ]);
+    for(let row=0;row<rows.length;row++)rows[row]??=Array(allColumns).fill('');
+    const sectionRows=new Set([headerRows,activityTitleRow]);
+    const labelCells=new Set(['Date:','PO:','Badge:','Phase:','FTO:','FTO Assignment:','Phase Week #:','FTO Week #:','Week:','FTO Comments (Optional)','Rating System:']);
+    const fontSizeFor=(row:number,column:number)=>sectionRows.has(row)?12:kindAt(row,column)==='group'?11:10;
+    const panelEnd=panelStart+panelHeight;
+    const blankRow=(row:number)=>rows[row].every(value=>value==='');
+    const outsidePanel=(row:number,column:number)=>row>=panelStart&&row<panelEnd&&!kindAt(row,column);
     const sheet=XLSX.utils.aoa_to_sheet(rows.map(row=>row.map(value=>typeof value==='string'?spreadsheetText(value):value)));
     sheet['!merges']=merges;
     const range=XLSX.utils.decode_range(sheet['!ref']!);
     for(let row=range.s.r;row<=range.e.r;row++)for(let column=0;column<allColumns;column++){
       const address=XLSX.utils.encode_cell({r:row,c:column});
       const cell=sheet[address]??(sheet[address]={t:'s',v:''});
+      const text=typeof cell.v==='string'?cell.v:'';
+      const isNumber=typeof cell.v==='number';
+      const kind=kindAt(row,column);
+      const bold=sectionRows.has(row)||kind==='group'||kind==='header'||labelCells.has(text)||(row===0&&column<PANEL_COLUMNS*2);
+      const unbordered=(blankRow(row)&&row!==commentsRow)||outsidePanel(row,column);
       cell.s={
-        border,
-        font:{name:'Arial',sz:groupHeaderRows.has(row)||sectionRows.has(row)?11:9,bold:row<=3||sectionRows.has(row)||groupHeaderRows.has(row)||categoryHeaderRows.has(row)||row===activityTitleRow||row===legendRow},
-        alignment:{horizontal:typeof cell.v==='number'||(categoryHeaderRows.has(row)&&column%8>=3)?'center':'left',vertical:'center',wrapText:true},
-        ...(row===2&&column>=10?{fill:{patternType:'solid',fgColor:{rgb:'FFFFD966'}}}:{}),
-        ...(typeof cell.v==='number'?{numFmt:'0'}:{}),
+        ...(unbordered?{}:{border}),
+        font:{name:'Arial',sz:fontSizeFor(row,column),bold},
+        alignment:{horizontal:isNumber||(kind==='header'&&column%PANEL_COLUMNS>0)?'center':'left',vertical:row===commentsRow?'top':'center',wrapText:true},
+        ...(row===0&&column>=PANEL_COLUMNS*2+1?{fill:{patternType:'solid',fgColor:{rgb:'FFFFD966'}}}:{}),
+        ...(isNumber?{numFmt:'0'}:{}),
       };
     }
-    sheet['!cols']=Array.from({length:allColumns},(_,column)=>({wch:column%8<3?9:4.5}));
-    sheet['!rows']=rows.map((_,row)=>({hpt:row===0?24:row===3||row===activityTitleRow?22:row===commentsRow?48:groupHeaderRows.has(row)||categoryHeaderRows.has(row)?18:16}));
-    sheet['!pageSetup']={orientation:'landscape',fitToWidth:1,fitToHeight:1,paperSize:9};
+    sheet['!cols']=Array.from({length:allColumns},(_,column)=>({wch:columnWidth(column)}));
+    sheet['!rows']=rows.map((_,row)=>({hpt:row===commentsRow?60:blankRow(row)?8:fittedRowHeight(rows,merges,row,column=>fontSizeFor(row,column),sectionRows.has(row)?22:18)}));
+    sheet['!pageSetup']={orientation:'landscape',fitToWidth:1,fitToHeight:1,paperSize:1};
     sheet['!pageMargins']={left:0.5,right:0.5,top:0.5,bottom:0.5,header:0.1,footer:0.1};
-    XLSX.utils.book_append_sheet(workbook,sheet,`Week ${index+1}`);
+    XLSX.utils.book_append_sheet(workbook,sheet,weekRange.sheetName);
   }
   return workbook;
 }
 
 /** xlsx-js-style does not serialize !pageSetup. Preserve the worksheet
  * layout/styles and explicitly write the existing print settings into OOXML. */
-export function serializeMonthlyWorkbook(workbook: XLSX.WorkBook): ArrayBuffer {
+export function serializePhaseWorkbook(workbook: XLSX.WorkBook): ArrayBuffer {
   const archive=XLSX.CFB.read(new Uint8Array(XLSX.write(workbook,{type:'array',bookType:'xlsx'})),{type:'array'});
   workbook.SheetNames.forEach((_,index)=>{
     const entry=XLSX.CFB.find(archive,`/xl/worksheets/sheet${index+1}.xml`);
-    if(!entry?.content)throw new Error(`Monthly worksheet ${index+1} could not be prepared for printing.`);
+    if(!entry?.content)throw new Error(`Phase worksheet ${index+1} could not be prepared for printing.`);
     let xml=new TextDecoder().decode(Uint8Array.from(entry.content));
     const setup='<pageSetUpPr fitToPage="1"/>';
     if(/<sheetPr\b/.test(xml)) {
@@ -259,7 +274,7 @@ export function serializeMonthlyWorkbook(workbook: XLSX.WorkBook): ArrayBuffer {
       if(!xml.includes(setup))xml=xml.replace(/(<sheetPr\b[^>]*>)/,`$1${setup}`);
     } else xml=xml.replace(/(<worksheet\b[^>]*>)/,`$1<sheetPr>${setup}</sheetPr>`);
     xml=xml.replace(/<(?:pageMargins|pageSetup)\b[^>]*\/>/g,'');
-    const printSettings=`<pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="1"/><headerFooter><oddFooter>&amp;L&amp;8Template revised ${formTemplateRevision('monthly_workbook')}</oddFooter></headerFooter>`;
+    const printSettings=`<pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.1" footer="0.1"/><pageSetup paperSize="1" orientation="landscape" fitToWidth="1" fitToHeight="1"/><headerFooter><oddFooter>&amp;L&amp;8Template revised ${formTemplateRevision('monthly_workbook')}</oddFooter></headerFooter>`;
     xml=xml.replace(/(?=<ignoredErrors\b|<\/worksheet>)/,printSettings);
     entry.content=Array.from(new TextEncoder().encode(xml));
     entry.size=entry.content.length;
@@ -268,10 +283,11 @@ export function serializeMonthlyWorkbook(workbook: XLSX.WorkBook): ArrayBuffer {
   return Uint8Array.from(output instanceof ArrayBuffer?new Uint8Array(output):output).buffer;
 }
 
-export function exportMonthlyWorkbook(reports: Report[], monthKey: string, phaseWeekRanges?:readonly PhaseWeekRange[]) {
-  const workbook=buildMonthlyWorkbook(reports,monthKey,phaseWeekRanges);
-  const name=`Field_Training_Monthly_Summary_${monthKey.replaceAll('-','')}.xlsx`;
-  const url=URL.createObjectURL(new Blob([serializeMonthlyWorkbook(workbook)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+export function exportPhaseWorkbook(reports: Report[], phase: Phase, folder?:PhaseWorkbookFolder) {
+  const workbook=buildPhaseWorkbook(reports,phase,folder);
+  const badge=reports.find(report=>report.phase===phase)?.recruitBadge.replace(/[^A-Za-z0-9-]+/g,'')||'PO';
+  const name=`Field_Training_Phase_${phase}_Summary_${badge}.xlsx`;
+  const url=URL.createObjectURL(new Blob([serializePhaseWorkbook(workbook)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   const link=document.createElement('a');
   link.href=url;link.download=name;document.body.appendChild(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);

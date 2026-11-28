@@ -17,7 +17,7 @@ import {
 import { validateReport } from './model.js';
 import { validateReportsForExport } from './export-validation.js';
 import { buildClassWorkbook } from './exportWorkbook.js';
-import { buildMonthlyWorkbook } from './monthly-export.js';
+import { buildPhaseWorkbook } from './monthly-export.js';
 
 function reviewedArrest(
   id: string,
@@ -187,7 +187,7 @@ test('daily, weekly, phase, and monthly workbook totals use the same one-arrest 
     { startDate: '2026-11-15', endDate: '2026-11-21' },
     { startDate: '2026-11-22', endDate: '2026-11-28' },
   ];
-  const monthlyWorkbook = buildMonthlyWorkbook([report], '2026-11', fourWeeks);
+  const monthlyWorkbook = buildPhaseWorkbook([report], report.phase, { phaseStartDate: '2026-11-01', phaseWeekRanges: fourWeeks });
   const monthRows = XLSX.utils.sheet_to_json(monthlyWorkbook.Sheets['Week 2'], { header: 1 }) as unknown[][];
   const monthActivity = monthRows.find(row => row.includes('Misdemeanor Arrests'));
   assert.ok(monthActivity);

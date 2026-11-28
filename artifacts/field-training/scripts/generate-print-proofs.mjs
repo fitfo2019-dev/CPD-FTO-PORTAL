@@ -33,7 +33,7 @@ try {
   const { PrintableWeeklyAcknowledgement } = await load('components/printable-weekly-ack.tsx');
   const { summarizeMonthlyReports } = await load('lib/monthly-summary.ts');
   const { defaultSubstationOrientationChecklist } = await load('lib/substation-orientation.ts');
-  const {buildMonthlyWorkbook,serializeMonthlyWorkbook}=await load('lib/monthly-export.ts');
+  const {buildPhaseWorkbook,serializePhaseWorkbook}=await load('lib/monthly-export.ts');
   const now = '2026-11-23T18:00:00Z';
   const report = {
     ...seedReports()[0], id: 'fictional-print-proof', date: '2026-11-23',
@@ -47,7 +47,7 @@ try {
   const workbookDates=['2026-11-02','2026-11-09','2026-11-16','2026-11-23'];
   const workbookReports=workbookDates.map((date,index)=>({...report,id:`fictional-excel-${index}`,date,phaseWeek:index+1,ratingsReviewedAt:now,activityReviewedAt:now,activity:{...model.emptyDailyActivitySummary(),trafficStops:index+1}}));
   const workbookRanges=[['2026-11-01','2026-11-07'],['2026-11-08','2026-11-14'],['2026-11-15','2026-11-21'],['2026-11-22','2026-11-28']].map(([startDate,endDate])=>({startDate,endDate}));
-  await fs.writeFile(path.join(output,'Monthly-Excel-Landscape-Preview.xlsx'),Buffer.from(serializeMonthlyWorkbook(buildMonthlyWorkbook(workbookReports,'2026-11',workbookRanges))));
+  await fs.writeFile(path.join(output,'Monthly-Excel-Landscape-Preview.xlsx'),Buffer.from(serializePhaseWorkbook(buildPhaseWorkbook(workbookReports,report.phase,{phaseStartDate:'2026-11-01',phaseWeekRanges:workbookRanges}))));
   report.runs = forms.map((form, index) => ({
     id: `proof-${form.key}`, runKind: form.key, occurredAt: now, isDispatched: true,
     trafficMode: form.key.includes('stop') ? 'motor_vehicle' : 'none',
