@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const VERSION = "Version 4 · November 26, 2026 · portal main 921d984";
+const VERSION = "Version 11 · November 28, 2026 · portal main ff9bc1b";
 
 const NAVY = "1F3A68";
 S.setTheme({
@@ -155,15 +155,15 @@ S.layouts.agenda(deck.addSlide(), {
   const s = deck.addSlide();
   const f = fr({
     kicker: "WORKFLOWS / DAILY PACKET",
-    headline: "A daily packet goes from quick run capture to one rating per category",
+    headline: "A daily packet now takes three stages: Start Shift, Runs, Finish and Submit",
     sources: [M(3), M(29), LOG],
   });
   const b = S.frame(s, f);
   flow(s, b.top, [
-    { h: "Add each run", b: "Three taps save the incident number and run type.", r: "DECISION LOG" },
-    { h: "Finish the checklist", b: "Each unchecked item is a UA, one per category per run page.", r: "MANUAL P. 3" },
-    { h: "Explain in the Daily Log", b: "One explanation per category, with corrective training and minutes.", r: "MANUAL P. 3, 41" },
-    { h: "Rate 30 categories", b: "One rating per category; none on limbo days.", r: "MANUAL P. 18, 29" },
+    { h: "Start Shift", b: "Start time defaults from the assignment; the FTO can change it.", r: "DECISION LOG" },
+    { h: "Runs", b: "Each unchecked item is a UA, one per category per run.", r: "MANUAL P. 3" },
+    { h: "Run UA box", b: "Tap a phrase for corrective training; the FTO enters the minutes.", r: "MANUAL P. 41" },
+    { h: "Finish and Submit", b: "Ratings are Acceptable unless a box is unchecked; none on limbo days.", r: "MANUAL P. 18, 29" },
     { h: "Save, then finalize", b: "Save keeps a private draft; Finalize sends it on.", r: "DECISION LOG" },
   ], { h: b.bottom - b.top - 10 });
 }
@@ -239,7 +239,7 @@ S.layouts.agenda(deck.addSlide(), {
         ["Responding to Training (RT)", "Improving with training", "No deficiency"],
         ["Unacceptable (UA)", "Below the guidelines; documented, retrained", "One UA toward status and score"],
         ["Not Responding to Training (NRT)", "Paired with a UA; a pattern despite retraining", "Counts as 20 UA's in place of its UA"],
-        ["Not Observed (NO)", "The task did not come up that tour", "Not counted"],
+        ["Not Observed (NO)", "The task did not come up that tour; Not Applicable counts here", "Not counted"],
       ],
     },
   });
@@ -521,33 +521,57 @@ S.layouts.agenda(deck.addSlide(), {
       colW: [0.4, 0.45, 0.15],
       rows: [
         ["Log corrective training and minutes for each UA", "Without it the NRT rule asks for retraining instead", "p. 3, 41"],
-        ["Leave limbo days unrated", "Limbo days never count toward status", "p. 18, 29"],
+        ["Document limbo day UA's with minutes", "They print as Not counted: Limbo Day", "p. 18, 29"],
         ["Tick \u201csame issue\u201d on narrative-only categories", "This links repeat UA's to one task", "p. 3"],
         ["Call the FTO Office right away on an NRT", "The Office can intervene during training", "p. 15, 48"],
-        ["Finalize only when the packet is complete", "Finalize sends it to the Coordinator", "p. 29"],
+        ["Clear the missing list, then Finalize", "The button stays off until every item is done", "p. 29"],
       ],
     },
   });
 }
 
-// ---------------------------------------------------------------- 22 Built vs planned
+// ---------------------------------------------------------------- 22 Patrol View add-on
+{
+  const s = deck.addSlide();
+  const f = fr({
+    kicker: "PATROL VIEW / DISPATCH BOARD ADD-ON",
+    headline: "The approved board keeps the layout officers know, with the CAD priority colors",
+    note: "Made-up data. Approved November 27, 2026; built as an add-on for Division IT, not yet in Patrol View. Priority colors from Communications Bureau SOP Section 7 (rev. 01/31/21).",
+    sources: [{ name: "Communications Bureau SOP Section 7, Ten Code Breakdown by Priority and Color", kind: "user" }, LOG],
+  });
+  const b = S.frame(s, f);
+  const gap = 18, w = (1128 - 2 * gap) / 3;
+  const shots = [
+    ["pv-board.png", 1366, 820, "Night board", "Priority 1 red and pinned; 2 blue; 3 purple; 4 gray bar; own precinct amber"],
+    ["pv-board-day.png", 1366, 820, "Day view", "Very light slate gray; every word at least 8 to 1 contrast"],
+    ["pv-run.png", 1320, 792, "Run page", "Address, apartment, large district, Directions, Known or Anonymous caller"],
+  ];
+  shots.forEach(([file, iw, ih, head, body], i) => {
+    const x = 76 + i * (w + gap), h = Math.round(w * ih / iw);
+    s.addImage({ path: join(HERE, file), x: S.px(x), y: S.px(b.top), w: S.px(w), h: S.px(h), objectName: `shot_${i + 1}` });
+    T(s, `shot_${i + 1}_head`, head, { x, y: b.top + h + 28, role: "body", bold: true, w });
+    T(s, `shot_${i + 1}_body`, body, { x, y: b.top + h + 54, role: "compact", color: C.secondary, w, lines: 2, lh: 20 });
+  });
+}
+
+// ---------------------------------------------------------------- 23 Built vs planned
 {
   const s = deck.addSlide();
   const f = fr({
     kicker: "STATUS OF THE BUILD",
     headline: "The rules are live in the portal; several screens still await preview approval",
-    note: "As of portal main 921d984 and website main 11d7cd1. Server alerts start once the alerts migration is applied. This slide is updated each time a change is merged.",
+    note: "As of portal main ff9bc1b: missing list, RETURNED badge, Limbo Day labels, 30-entry manual. Replit is the real site; cpd-fto-website.vercel.app is the developer test site with the same build, made-up data and no sign-in. Server alerts start once the alerts migration is applied. This slide is updated each time a change is merged.",
     sources: [LOG],
   });
   S.layouts.comparison(s, {
     frame: f,
     criteria: ["Paperwork", "PO standing", "Roles", "Notices"],
-    a: { tag: "LIVE", heading: "Merged to main", rows: ["Two-stage packets, charging lookup, Resources", "PO-STD-2, PO-SCORE-2, Show Calculation, My Training", "Role tabs; Help Desk workflows; manual PDFs", "Server NRT and Week 15 alerts in the portal"] },
-    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Real form exporter; Shifts & Runs redesign", "PO status label and phase tracker on My Training", "Added UA's; Vercel role cards", "Alert email by mail relay; cease-training"] },
+    a: { tag: "LIVE", heading: "Merged to main", rows: ["Daily packet, UA box, missing list, RETURNED", "PO-STD-2, PO-SCORE-2, Show Calculation, My Training", "Role tabs, PATROL VIEW tab; Help Desk; manual PDFs", "Server NRT and Week 15 alerts in the portal"] },
+    b: { tag: "NEXT", heading: "Approved, preview pending", rows: ["Real form exporter; Shifts & Runs redesign", "PO status label and phase tracker on My Training", "Patrol View add-ons with Division IT; role cards", "Alert email by mail relay; cease-training"] },
   });
 }
 
-// ---------------------------------------------------------------- 23 Closing
+// ---------------------------------------------------------------- 24 Closing
 S.layouts.closing(deck.addSlide(), {
   kicker: "ACTION PLAN",
   headline: "Teach the three status rules and the five habits before the next class starts",
