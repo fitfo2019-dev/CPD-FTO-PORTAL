@@ -15,6 +15,7 @@ export type DispatchPrefill = {
   zone?: string;
   cruiserDistrict?: string;
   dispatchedCode?: string;
+  situationFoundCode?: string;
   clearanceCode?: ''|'1V'|'2V'|'3V'|'4V';
 };
 
@@ -36,6 +37,7 @@ export type DispatchIncidentDraftFields = {
   dispatchedAtText: string;
   clearedAtText: string;
   dispatchedCode: string;
+  situationFoundCode: string;
   clearanceCode: NonNullable<DispatchPrefill['clearanceCode']>;
 };
 
@@ -59,6 +61,7 @@ export function applyDispatchIncidentRetry(
     'dispatchedAtText',
     'clearedAtText',
     'dispatchedCode',
+    'situationFoundCode',
     'clearanceCode',
   ];
   for (const key of keys) {
@@ -269,6 +272,10 @@ export function mapDispatchPrefillResponse(value: unknown): DispatchPrefill | un
   if (record.dispatchedCode !== undefined) {
     if (typeof record.dispatchedCode !== "string" || !/^(?:10[\s-]*)?\d{1,3}[A-Za-z]{0,2}$/.test(record.dispatchedCode.trim())) return;
     result.dispatchedCode = record.dispatchedCode.trim().replace(/^10[\s-]*/i,'').toUpperCase();
+  }
+  if(record.situationFoundCode!==undefined) {
+    if(typeof record.situationFoundCode!=='string'||!/^(?:10[\s-]*)?\d{1,3}[A-Za-z]{0,2}$/.test(record.situationFoundCode.trim()))return;
+    result.situationFoundCode=record.situationFoundCode.trim().replace(/^10[\s-]*/i,'').toUpperCase();
   }
   if(record.clearanceCode!==undefined) {
     if(!['','1V','2V','3V','4V'].includes(record.clearanceCode as string))return;

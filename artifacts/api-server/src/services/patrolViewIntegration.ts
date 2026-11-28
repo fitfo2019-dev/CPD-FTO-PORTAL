@@ -19,6 +19,7 @@ export type DispatchEventPrefill = {
   zone?: string;
   cruiserDistrict?: string;
   dispatchedCode?: string;
+  situationFoundCode?: string;
   clearanceCode?: "" | "1V" | "2V" | "3V" | "4V";
 };
 
@@ -221,6 +222,13 @@ export function mapPatrolViewEvent(payload: unknown): DispatchEventPrefill {
     dispatchedCode = normalized;
   }
 
+  // Situation found is the 10-code the officer enters in CAD's situation found field when clearing.
+  const rawSituation = optionalText(data, ["situationFoundCode", "situation_found_code", "situationFound", "situation_found"], 8, "situation found code");
+  const situationFoundCode = rawSituation?.replace(/^10[\s-]*/i, "").toUpperCase();
+  if (situationFoundCode && !/^\d{1,3}[A-Z]{0,2}$/.test(situationFoundCode)) {
+    throw new PatrolViewIntegrationError("PATROLVIEW_INVALID_RESPONSE", 502, "The approved dispatch adapter returned an invalid situation found code.");
+  }
+
   const rawClearance = optionalText(data, ["clearanceCode", "clearance_code"], 8, "clearance code");
   const clearanceCode = rawClearance?.toUpperCase();
   if (clearanceCode && !["1V", "2V", "3V", "4V"].includes(clearanceCode)) {
@@ -239,6 +247,7 @@ export function mapPatrolViewEvent(payload: unknown): DispatchEventPrefill {
     ...(zone ? { zone } : {}),
     ...(cruiserDistrict ? { cruiserDistrict } : {}),
     ...(dispatchedCode ? { dispatchedCode } : {}),
+    ...(situationFoundCode ? { situationFoundCode } : {}),
     ...(clearanceCode ? { clearanceCode: clearanceCode as DispatchEventPrefill["clearanceCode"] } : {}),
   };
 }

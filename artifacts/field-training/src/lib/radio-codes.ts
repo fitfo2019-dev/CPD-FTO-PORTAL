@@ -159,3 +159,10 @@ export const formatRadioCode = (value?:string, emptyValue='—') => {
   if(!value)return emptyValue;
   return value===SITUATION_FOUND_NA ? SITUATION_FOUND_NA : `10-${value}`;
 };
+
+/** Original call type with the situation found after it, as on the run: "10-17 / Sit Found: 10-17A". */
+export function formatCallWithSituationFound(dispatchedCode?:string, situationFoundCode?:string):string {
+  const original=dispatchedCode?`10-${dispatchedCode}`:'';
+  const found=situationFoundCode&&situationFoundCode!==SITUATION_FOUND_NA&&situationFoundCode!==dispatchedCode?`Sit Found: 10-${situationFoundCode}`:'';
+  return [original,found].filter(Boolean).join(' / ');
+}

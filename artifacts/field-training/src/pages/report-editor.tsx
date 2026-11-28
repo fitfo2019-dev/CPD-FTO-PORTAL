@@ -24,7 +24,7 @@ import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS, type Revised
 import { RunChecklistFields } from '@/components/run-checklist-fields.js';
 import { buildRunNarrativeDraft } from '@/lib/run-narrative-draft.js';
 import { isRtRestricted } from '@/lib/model.js';
-import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatRadioCode, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes.js';
+import { DEFAULT_RUN_TYPE_CODES, RADIO_CODES, CLEARANCE_CODES, SITUATION_FOUND_NA, formatCallWithSituationFound, isEligibleCitationSummons, normalizeRadioCode, normalizeSituationFoundCode, isValidRadioCode, isValidSituationFoundCode } from '@/lib/radio-codes.js';
 import { alignRunDateToShift, parseRunDateTime } from '@/lib/run-details.js';
 import { useDeficiencyEditor } from '@/hooks/use-deficiency-editor.js';
 import { DeficiencyDialog } from '@/components/deficiency-dialog.js';
@@ -1268,7 +1268,7 @@ export default function ReportEditor() {
                    <div className="min-w-0"><div className="font-semibold text-sm">{form?.label ?? 'Training run'}</div><div className="text-xs text-muted-foreground">{formatDateTimeMDY(run.occurredAt)} · {run.isDispatched?'Dispatched':'Self-initiated'}</div></div>
                   <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]"><span className="rounded bg-muted px-2 py-0.5" data-testid={`status-run-form-${run.id}`}>{run.formStatus.replace('_',' ')}</span>{supplements.map(name=><span key={name} className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5">{name}</span>)}</div>
                    {run.incidentNumber&&<p className="mt-1 text-xs mono" data-testid={`text-run-incident-number-${run.id}`}>Incident number · {run.incidentNumber}</p>}
-                   <p className="mt-1 text-xs">Run: {run.dispatchedCode ? `10-${run.dispatchedCode}`:'Not recorded'} · Found: {run.situationFoundCode ? formatRadioCode(run.situationFoundCode):'Not recorded'} · Clearance: {run.clearanceCode || 'Not recorded'}</p>
+                   <p className="mt-1 text-xs">Run: {formatCallWithSituationFound(run.dispatchedCode, run.situationFoundCode) || 'Not recorded'} · Clearance: {run.clearanceCode || 'Not recorded'}</p>
                       {(run.runKind==='traffic_stop'||run.runKind==='high_risk_stop')&&run.trafficMode!=='none'&&<p className="mt-1 text-xs">Traffic violator: {run.trafficMode.replaceAll('_',' ')}{run.activityFlags?.solveCitationSummons?' · Solve Citation/Summons selected':''}</p>}
                    {failureSummaries.length>0&&<div className="mt-2 rounded border border-destructive/30 bg-destructive/5 p-2" data-testid={`list-run-failures-${run.id}`}>
                      <div className="text-xs font-bold">Unchecked run checklist items</div>

@@ -2264,6 +2264,7 @@ components:
         zone: { type: string, maxLength: 40 }
         cruiserDistrict: { type: string, maxLength: 40 }
         dispatchedCode: { type: string, pattern: "^\\d{1,3}[A-Z]{0,2}$" }
+        situationFoundCode: { type: string, maxLength: 8, pattern: "^\\d{1,3}[A-Z]{0,2}$" }
         clearanceCode:
           type: string
           enum: ["", "1V", "2V", "3V", "4V"]
@@ -2333,6 +2334,10 @@ components:
           type: string
           maxLength: 40
         dispatchedCode:
+          type: string
+          maxLength: 8
+          pattern: "^\\d{1,3}[A-Z]{0,2}$"
+        situationFoundCode:
           type: string
           maxLength: 8
           pattern: "^\\d{1,3}[A-Z]{0,2}$"

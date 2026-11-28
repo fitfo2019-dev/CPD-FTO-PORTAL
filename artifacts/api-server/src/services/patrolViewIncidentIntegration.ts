@@ -33,6 +33,30 @@ function incidentTime(source:Record<string,unknown>,keys:string[]):string|undefi
   if(typeof value!=='string'||!/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)||!Number.isFinite(Date.parse(value)))return invalid();
   return new Date(value).toISOString();
 }
+const CLEARED_NOTE=/^\s*(?:\d{3,4}\s*:\s*)?([A-Z0-9]{2,10})[a-z-]*\s*-+\s*CLEARED\s+([1-4]V)\b/i;
+const unitBase=(unit:string)=>unit.trim().replace(/[-a-z]+$/,'').toUpperCase();
+/**
+ * Dispatch writes each unit's clearance into the call notes ("154B - CLEARED 2V").
+ * Returns the unit's last clearance from those notes. The notes themselves never leave the server.
+ */
+export function clearanceFromNotes(source:Record<string,unknown>|undefined,unit:string|undefined):''|'1V'|'2V'|'3V'|'4V' {
+  if(!source||!unit)return '';
+  const notes=[source.notes,source.remarks,source.comments].find(Array.isArray) as unknown[]|undefined;
+  let found:''|'1V'|'2V'|'3V'|'4V'='';
+  for(const note of notes??[]){
+    const text=typeof note==='string'?note:typeof object(note)?.text==='string'?String(object(note)?.text):'';
+    const match=CLEARED_NOTE.exec(text);
+    if(match&&match[1].toUpperCase()===unitBase(unit))found=match[2].toUpperCase() as typeof found;
+  }
+  return found;
+}
+function situationFoundOf(source:Record<string,unknown>):string|undefined {
+  const raw=['situationFoundCode','situation_found_code','situationFound','situation_found'].map(key=>source[key]).find(value=>value!==undefined&&value!==null&&value!=='');
+  if(raw===undefined)return;
+  if(typeof raw!=='string')return invalid();
+  const code=raw.trim().replace(/^10[\s-]*/i,'').toUpperCase();
+  return /^\d{1,3}[A-Z]{0,2}$/.test(code)?code:invalid();
+}
 /** Canonical approved adapter rows; unit times are never taken from another unit. */
 export function mapPatrolViewIncident(payload:unknown,incidentNumber:string):DispatchIncidentPrefill[] {
   const root=object(payload);
@@ -44,17 +68,36 @@ export function mapPatrolViewIncident(payload:unknown,incidentNumber:string):Dis
   if(incidentDispatchedAt&&incidentClearedAt&&Date.parse(incidentClearedAt)<Date.parse(incidentDispatchedAt))return invalid();
   let rows:unknown[];
   if(single&&Array.isArray(single.units)){
-    const common=mapPatrolViewEvent(single);
+    // Clearance belongs to each car. A run-level clearance is used only when one car is on the run;
+    // with several cars it is never copied onto every unit.
+    // Situation found is logged once for the whole run by one officer, who may not be the FTO's cruiser,
+    // so it applies to every car. Two different logged codes are left blank for the FTO to enter.
+    const event=mapPatrolViewEvent(single);
+    const {clearanceCode:runClearance,situationFoundCode:_eventSituation,...shared}=event;
+    const common=single.units.length===1?event:shared;
+    void runClearance; void _eventSituation;
+    const logged=[event.situationFoundCode,...single.units.map(unit=>{
+      const detail=object(unit);
+      return detail?situationFoundOf(detail):undefined;
+    })].filter((value):value is string=>!!value);
+    const runSituationFound=new Set(logged).size===1?logged[0]:undefined;
     rows=single.units.map(unit=>{
       const detail=object(unit);
       if(!detail)return invalid();
       const unitDispatchedAt=optionalTime(detail,'dispatchedAt','dispatched_at');
       const unitClearedAt=optionalTime(detail,'clearedAt','cleared_at');
+      const unitNumber=optionalUnit(detail);
+      const hasCadClearance=['clearanceCode','clearance_code'].some(key=>detail[key]!==undefined&&detail[key]!==null&&detail[key]!=='');
+      const noteClearance=hasCadClearance?'':clearanceFromNotes(single,unitNumber);
       return {
         ...common,
         ...(incidentDispatchedAt?{dispatchedAt:incidentDispatchedAt}:{}),
         ...(incidentClearedAt?{clearedAt:incidentClearedAt}:{}),
         ...detail,
+        ...(noteClearance?{clearanceCode:noteClearance}:{}),
+        // Every alias is replaced by the one run-wide value so no car keeps a conflicting code.
+        situationFoundCode:undefined,situation_found_code:undefined,situationFound:undefined,situation_found:undefined,
+        ...(runSituationFound?{situationFoundCode:runSituationFound}:{}),
         ...(unitDispatchedAt?{dispatchedAt:unitDispatchedAt}:{}),
         ...(unitClearedAt?{clearedAt:unitClearedAt}:{}),
       };
