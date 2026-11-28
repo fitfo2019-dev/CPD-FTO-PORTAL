@@ -553,7 +553,7 @@ The requested feature registry below is retained verbatim. Its labels are descri
 - **Encrypted offline storage:** IndexedDB records and drafts are encrypted with AES-GCM using a passphrase-derived key. Locking or signing out clears decrypted state and the in-memory key while preserving the encrypted device data. This is not a device-compliance certification or a server backup.
 - **Offline queue and recovery:** The storage layer can keep encrypted pending changes, but no live sync transport is connected. Queue entries are not automatically uploaded when connectivity returns. The 15-second import timeout and retry states apply to the component-preview harness and selected requests; they are not a general network fallback for Field Training views.
 - **Workbook and file input:** The portal generates XLSX workbooks. Formula-safe text conversion is used on user-provided text in the export paths; this is not an XLSX upload/parser feature. The roster import accepts CSV and DOCX, not XLSX. DOCX is parsed locally with Mammoth and extracted as text from a detached document; the 2 MB compressed-file limit reduces input size but is not a guarantee against every parser or decompression denial-of-service case.
-- **Monthly workbook week policy:** Excel exports contain four distinct weekly tabs. If a month or approved phase timeline requires more than four weekly ranges, or any selected source record falls outside those ranges, export stops with a clear message. Weeks are never merged or silently omitted.
+- **Phase summary week policy:** the Monthly Performance Summary page exports one phase at a time, as a PDF and as an Excel workbook with the same layout. Each Sunday–Saturday week of the phase gets its own tab (Excel) or page (PDF): Phase I–III have four, Phase IV has three. A limbo extension that lengthens Week 1 is split into "Week 1", then "Week 1 Extension 1", then Week 2. Approved extra weeks follow as "Week N (Extension Week)". A selected record outside the phase's weekly ranges stops export with a clear message. Weeks are never merged or silently omitted.
 - **Authentication and isolation:** Clerk sign-in is required before portal views mount. Workspace state is cleared and remounted on account changes, and the React Query cache is cleared. Clerk session presence alone does not establish agency employment, department role, record scope, or server authorization.
 - **Packaging note:** `pnpm run bundle:production` creates the combined API and portal archive and includes the current `HANDOVER_MANUAL.md`. It rebuilds the portal, recreates the output folder and archive, and verifies the ZIP and approved size limit.
 
@@ -711,7 +711,7 @@ After the FTO explicitly confirms checklist review, the run form can seed an edi
 
 ### Monthly Excel aggregation
 
-The monthly summary selects the chosen PO’s saved daily records by `YYYY-MM`. Its Excel output contains exactly **Week 1**, **Week 2**, **Week 3**, and **Week 4** tabs, each formatted after the U-10.174 form: landscape, fit to one page, officer/phase/date header, three side-by-side SEG panels, a four-part Daily Activity Summary grid, optional FTO-comments area, and rating legend. The approved 30-category set appears above the complete activity matrix with centered counts, bold section headings, and thin black borders. Unused tabs remain present with zero counts. If the source month or approved phase ranges require more than four weekly ranges, export stops with an explanation; it never merges separate weeks into one tab or silently drops records. A selected record outside the four ranges also stops export. Raw incident/location values, charge descriptions, and narratives are excluded from this aggregate workbook.
+The Monthly Performance Summary page shows month totals on screen, and its export buttons (Export Phase N PDF and Export Phase N Excel) cover the whole selected phase of the chosen PO, even when the phase crosses months. The Export phase selector appears when the PO has records in more than one phase. Both files share one layout built in `lib/monthly-export.ts` (`buildPhaseWorkbook`); the PDF is rendered from the same workbook by `lib/phase-summary-print.ts` and saved from the print window, one US Letter landscape page per week with the wordmark upper left, patch upper right, badge lower left and 0.5-inch margins. Each week shows an officer/phase/date header (Phase Week #, FTO Week # and Week, the week of the 15-week program), three side-by-side SEG panels with wide category columns, a three-part Daily Activity Summary, an optional FTO comments area and the rating legend. Row heights grow with their text so nothing wraps vertically. Excel tabs print fit to one US Letter landscape page (paper size 1). Weeks without records stay present with zero counts. Raw incident/location values, charge descriptions and narratives are excluded.
 
 Applicable unchecked tasks on newly created or explicitly edited duty/run checklists project UA into named categories immediately, except on Limbo days. That immediate marker is not a weekly rating count: an exception articulation group is not offered for editing until the associated checklist has been explicitly reviewed, and weekly A-ceiling suppression and counts use reviewed, non-Limbo daily summaries only. Multiple failed tasks in the same category on one run remain one articulation group with all source coordinates. The owner approved named-category meanings rather than historical manual numbers as worksheet ordinals. This is user-directed local prototype behavior, not independent certification of a manual-mandated algorithm. Explicit Not Applicable sections and Limbo-day rating restrictions remain respected. No numeric performance rating is used.
 
@@ -726,15 +726,14 @@ an API integration or a substitute for FTO review.
 The weekly form retains its three evaluation partitions and four activity
 partitions during class workbook assembly. Workbook formatting uses bold uppercase
 section headings, bordered rating cells, centered integer counts, and left-aligned
-labels. The four-tab monthly grid replaces the earlier Monthly Totals/Run Support
+labels. The phase summary workbook replaces the earlier Monthly Totals/Run Support
 pair; detailed run evidence remains in the class workbook. Formula-like user
 text remains literal spreadsheet text.
 
 The approved UA default and named-category interpretation are active in the
-local checklist workflow. The four-tab exporter fails explicitly when a month
-or approved phase schedule needs more than four separate weekly ranges. It never
-changes phase lengths, combines source weeks, or omits records to fit the
-workbook. Articulations do not assert that training occurred; new source-linked
+local checklist workflow. The phase summary exporter gives every week of the
+phase its own tab or page, including limbo extensions and approved extra weeks.
+It never changes phase lengths, combines source weeks, or omits records. Articulations do not assert that training occurred; new source-linked
 weekly entries leave actual training time blank.
 
 ## 11. SHIFT-LOCAL OPERATIONAL PAGE COORDINATOR
@@ -887,7 +886,7 @@ For agency developers working outside Replit, open the workspace-root registry i
 a standard text editor, change the approved phase's `durationInWeeks` value, and from the repository root
 run `pnpm typecheck` followed by `pnpm run build`. Review the phase-setup date
 range validation, Limbo boundaries, weekly numbering, export tests, and
-four-tab workbook behavior before release. These checks must run on the
+phase summary workbook and PDF behavior before release. These checks must run on the
 agency-managed workspace with the project's pnpm lockfile.
 
 ### Updating validation bounds and exported totals
@@ -904,9 +903,9 @@ agency-managed workspace with the project's pnpm lockfile.
    1V/2V/3V/4V rules, prevent manual-plus-derived double counting, and add tests
    for each multiplier and its invalid combinations.
 5. The weekly summary and monthly workbook consume the shared rating and
-   activity helpers. The monthly workbook builds four weekly tabs in
-   `lib/monthly-export.ts`; it stops rather than merge or omit ranges when data
-   do not fit. Keep spreadsheet formula escaping in `lib/spreadsheet-text.ts`.
+   activity helpers. The phase summary builds one tab per phase week in
+   `lib/monthly-export.ts` and the matching PDF in `lib/phase-summary-print.ts`;
+   it stops rather than merge or omit records outside the phase's ranges. Keep spreadsheet formula escaping in `lib/spreadsheet-text.ts`.
 6. Run the focused Field Training tests, `pnpm typecheck`, and the Field
    Training build. Only then use `pnpm run bundle:production` for the combined
    API and freshly built portal archive. Agency hosting and trusted
