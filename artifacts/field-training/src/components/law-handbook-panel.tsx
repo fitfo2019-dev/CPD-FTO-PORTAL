@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ExternalLink, Scale } from 'lucide-react';
+import { ExternalLink, Hand, Scale } from 'lucide-react';
+import { useClickToEngage } from '@/hooks/use-click-to-engage.js';
 import './geography-map-panel.css';
 
 const HANDBOOK_ROOT = `${import.meta.env.BASE_URL}law-handbook/index.html`;
@@ -14,6 +15,8 @@ type Workbook = keyof typeof WORKBOOKS;
 export function LawHandbookPanel() {
   const [workbook, setWorkbook] = useState<Workbook>('ohio');
   const active = WORKBOOKS[workbook];
+  // The handbook takes scroll only after a click, so the page scrolls past it (owner, Nov 28, 2026).
+  const { ref, engaged, engage, release } = useClickToEngage<HTMLDivElement>();
   return (
     <section className="geography-map-panel law-handbook-panel" aria-labelledby="law-handbook-title" data-testid="section-law-handbook">
       <header className="geography-map-head">
@@ -22,6 +25,7 @@ export function LawHandbookPanel() {
           <div>
             <p className="geography-map-eyebrow">LAW REFERENCE</p>
             <h2 id="law-handbook-title" data-testid="text-law-handbook-title">Ohio and Columbus Law Handbook</h2>
+            <p className="geography-map-description" data-testid="text-handbook-click-note">Click the handbook to scroll or search it.</p>
             <div className="law-handbook-tabs" role="tablist" aria-label="Workbook">
               {(Object.keys(WORKBOOKS) as Workbook[]).map(key => (
                 <button
@@ -43,7 +47,7 @@ export function LawHandbookPanel() {
           <ExternalLink size={16} aria-hidden="true" /> Open Full Page
         </a>
       </header>
-      <div className="geography-map-frame-wrap law-handbook-frame-wrap">
+      <div className={`geography-map-frame-wrap law-handbook-frame-wrap${engaged ? ' is-active' : ''}`} ref={ref} onMouseLeave={release}>
         <iframe
           key={workbook}
           src={active.src}
@@ -51,6 +55,11 @@ export function LawHandbookPanel() {
           loading="lazy"
           data-testid="frame-law-handbook"
         />
+        {!engaged && (
+          <button type="button" className="geography-map-shield" onClick={engage} data-testid="button-activate-law-handbook">
+            <span><Hand size={16} aria-hidden="true" /> Click to use the handbook</span>
+          </button>
+        )}
       </div>
     </section>
   );
