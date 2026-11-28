@@ -604,3 +604,12 @@
      height and shares the remaining space, so no card is cut short. */
   .print-document.print-reference-pilot.print-run-page:has(.print-run-narrative-box) .print-run-checklist-groups { grid-auto-rows: minmax(min-content,1fr); }
 }
+@media print {
+  /* U-10.192: the narrative box runs to the bottom margin like the official
+     form, leaving room for a handwritten addition when one is required. */
+  .print-document.print-narrative-page > .print-page-frame { height: 718pt; }
+  .print-document.print-narrative-page .print-page-body { height: 100%; display: flex; flex-direction: column; gap: 4pt; }
+  .print-document.print-narrative-page .print-page-body > * { flex-shrink: 0; }
+  .print-document.print-reference-pilot.print-narrative-page .print-page-body > .print-narrative-continuation { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+  .print-document.print-reference-pilot.print-narrative-page .print-narrative-continuation > p { flex: 1 1 auto; }
+}

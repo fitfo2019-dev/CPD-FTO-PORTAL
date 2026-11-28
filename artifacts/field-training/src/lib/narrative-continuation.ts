@@ -9,9 +9,10 @@ type PrintableNarrativeLayout = {
 // The browser canvas supplies the active engine's Arial metrics when available.
 export const RUN_NARRATIVE_LAYOUT: PrintableNarrativeLayout = {
   widthPoints: 7.8 * 72,
-  // Continuation-sheet print rules use 8pt Lato at 1.25 leading; 3.9in
-  // leaves measured room for the repeated header, identity fields and footer.
-  heightPoints: 3.9 * 72,
+  // Continuation-sheet print rules use 8pt Lato at 1.25 leading. The U-10.192
+  // box runs to the bottom margin and measures 39 lines in print; 5.0in (36
+  // lines) leaves room for identity fields that wrap to a second line.
+  heightPoints: 5.0 * 72,
   font: "8pt Lato, Arial, sans-serif",
   lineHeightPoints: 8 * 1.25,
 };
