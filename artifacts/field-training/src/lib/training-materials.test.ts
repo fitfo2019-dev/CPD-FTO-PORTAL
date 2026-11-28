@@ -6,6 +6,7 @@ import { parseReferenceEntries, reviewedTrainingMaterials } from './training-mat
 test('multiple training references appear as separate, labeled review rows', () => {
   const record = {
     ...defaultDirectiveReviewRecord(),
+    divisionDirectives: true, ohioRevisedCode: true, columbusCityCode: true, other: true,
     selectedDirectives: ['5.07'],
     directiveDetails: '5.08 Additional directive\n5.09 Another directive',
     selectedOrcReferences: ['2903.13 — Assault', '2921.33 — Failure to comply'],

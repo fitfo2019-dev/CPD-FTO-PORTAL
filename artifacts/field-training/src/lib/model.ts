@@ -432,7 +432,8 @@ export interface DirectiveReviewRecord {
   otherDetails:string;
 }
 export function defaultDirectiveReviewRecord():DirectiveReviewRecord {
-  return {divisionDirectives:true,selectedDirectives:[],directiveDetails:'',ohioRevisedCode:true,selectedOrcReferences:[],columbusCityCode:true,selectedColumbusCodeReferences:[],other:true,otherDetails:''};
+  // References start unselected; the FTO checks only what was reviewed (owner, Nov 28, 2026).
+  return {divisionDirectives:false,selectedDirectives:[],directiveDetails:'',ohioRevisedCode:false,selectedOrcReferences:[],columbusCityCode:false,selectedColumbusCodeReferences:[],other:false,otherDetails:''};
 }
 export type DirectiveReviewForm=PrimaryRunForm|SupplementalRunForm;
 export type DirectiveReviews=Partial<Record<DirectiveReviewForm,DirectiveReviewRecord>>;
