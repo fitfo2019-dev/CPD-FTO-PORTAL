@@ -148,29 +148,31 @@ test('phase workbook renders the phase weekly ranges without leaking incident de
     ]);
   }
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Week 1'], { header: 1 }) as unknown[][];
-  const formUsageRows = rows.filter(row => row[8] === 'Form Usage');
+  const formUsageRows = rows.filter(row => row[6] === 'Form Usage');
   assert.equal(formUsageRows.length, 1);
-  assert.equal(formUsageRows[0][12], 1);
-  assert.equal(formUsageRows[0][14], 0);
+  assert.equal(formUsageRows[0][8], 1);
+  assert.equal(formUsageRows[0][10], 0);
   const secondRows=XLSX.utils.sheet_to_json(workbook.Sheets['Week 2'],{header:1}) as unknown[][];
-  assert.equal(secondRows.find(row=>row[8]==='Form Usage')?.[14],1);
-  const formUsageRow = rows.findIndex(row => row[8] === 'Form Usage');
+  assert.equal(secondRows.find(row=>row[6]==='Form Usage')?.[10],1);
+  const formUsageRow = rows.findIndex(row => row[6] === 'Form Usage');
   const sheet = workbook.Sheets['Week 1'];
-  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 13 })].s.border.top.style, 'thin');
-  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 13 })].s.alignment.horizontal, 'center');
-  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 13 })].s.border.top.color.rgb, 'FF000000');
-  const trafficStops = rows.find(row => row[0] === 'Traffic Stops');
-  assert.equal(trafficStops?.[5],2);
-  assert.equal(secondRows.find(row=>row[0]==='Traffic Stops')?.[5],8);
+  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 9 })].s.border.top.style, 'thin');
+  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 9 })].s.alignment.horizontal, 'center');
+  assert.equal(sheet[XLSX.utils.encode_cell({ r: formUsageRow, c: 9 })].s.border.top.color.rgb, 'FF000000');
+  assert.equal(trafficStopsOn(workbook,'Week 1'),2);
+  assert.equal(trafficStopsOn(workbook,'Week 2'),8);
   assert.ok(rows.some(row=>row[0]==='Columbus Division of Police'));
   assert.ok(rows.some(row=>row[0]==='DAILY ACTIVITY SUMMARY'));
   assert.ok(rows.some(row=>row[0]==='FTO Comments (Optional)'));
   for(const name of workbook.SheetNames){
     const values=XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][];
-    assert.equal(values.slice(4,21).flat().filter(value=>SEG_CATEGORIES.some(category=>category.label===value)).length,30);
+    assert.equal(values.slice(5,values.findIndex(row=>row[0]==='DAILY ACTIVITY SUMMARY')).flat().filter(value=>SEG_CATEGORIES.some(category=>category.label===value)).length,30);
     assert.ok(values.some(row=>row[0]==='DAILY ACTIVITY SUMMARY'));
   }
-  assert.equal(workbook.Sheets['Week 1']!['!cols']?.length,24);
+  assert.equal(workbook.Sheets['Week 1']!['!cols']?.length,18);
+  assert.ok(rows.some(row=>row[12]==='Week:'));
+  assert.equal(rows.flat().includes('Program Week:'),false);
+  workbook.Sheets['Week 1']['!rows']!.forEach((sheetRow,index)=>{if(rows[index]?.some(value=>value!==''))assert.ok((sheetRow.hpt??0)>=18);});
   assert.equal(workbook.Sheets['Week 1']['!pageSetup'].orientation,'landscape');
   assert.equal(workbook.Sheets['Week 1']['!pageSetup'].paperSize,1);
   const saved=serializePhaseWorkbook(workbook);
@@ -197,8 +199,14 @@ test('phase workbook renders the phase weekly ranges without leaking incident de
   for(const sheet of Object.values(workbook.Sheets))assert.equal(Object.values(sheet).some(cell=>typeof cell==='object'&&cell!==null&&'f'in cell),false);
 });
 
-const dateCell=(workbook:XLSX.WorkBook,name:string)=>String((XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][])[2][10]);
-const trafficStopsOn=(workbook:XLSX.WorkBook,name:string)=>(XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][]).find(row=>row[0]==='Traffic Stops')?.[5];
+const dateCell=(workbook:XLSX.WorkBook,name:string)=>String((XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][])[0][13]);
+function trafficStopsOn(workbook:XLSX.WorkBook,name:string){
+  for(const row of XLSX.utils.sheet_to_json(workbook.Sheets[name],{header:1}) as unknown[][]){
+    const column=row.indexOf('Traffic Stops');
+    if(column>=0)return row[column+5];
+  }
+  return undefined;
+}
 
 test('a phase that crosses months stays in one workbook with every day counted',()=>{
   const reports=[
