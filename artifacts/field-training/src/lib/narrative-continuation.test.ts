@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DAILY_NARRATIVE_LAYOUT, dailyLogContinuations, needsRunNarrativeContinuation,
-  paginateNarrativeToPages, RUN_NARRATIVE_LAYOUT, splitNarrativeContinuation } from './narrative-continuation.js';
+  paginateNarrativeToPages, RUN_BOX_NARRATIVE_LINES, RUN_NARRATIVE_LAYOUT, splitNarrativeContinuation, splitRunNarrativeBox } from './narrative-continuation.js';
 
 test('long run narratives are moved to numbered continuation sheets without truncation',()=>{
   assert.equal(needsRunNarrativeContinuation('Short run note.'),false);
@@ -74,4 +74,31 @@ test('unbroken tokens, blank final lines and empty input do not create a blank t
   assert.equal(pages.join(''),`${longToken}\n\n`);
   assert.ok(pages.at(-1));
   assert.deepEqual(splitNarrativeContinuation(''),['']);
+});
+
+test('run narrative box keeps short text on the run sheet',()=>{
+  assert.deepEqual(splitRunNarrativeBox(''),{box:'',continuation:[]});
+  const short='FICTIONAL TEST ONLY. The PO handled the made-up call and documented it.';
+  assert.deepEqual(splitRunNarrativeBox(short),{box:short,continuation:[]});
+  const fiveLines=Array.from({length:RUN_BOX_NARRATIVE_LINES},(_,i)=>`Line ${i+1}`).join('\n');
+  assert.deepEqual(splitRunNarrativeBox(fiveLines).continuation,[]);
+});
+
+test('long run narratives start in the box and continue at the next word without loss',()=>{
+  const narrative='FICTIONAL TEST ONLY — the PO approached, spoke with the made-up caller and documented the result. '.repeat(60);
+  const split=splitRunNarrativeBox(narrative);
+  assert.ok(split.box.length>0);
+  assert.ok(split.continuation.length>=1);
+  assert.equal(split.box+split.continuation.join(''),narrative);
+  assert.match(split.box,/\s$/u);
+  const sixLines=Array.from({length:RUN_BOX_NARRATIVE_LINES+1},(_,i)=>`Line ${i+1}`).join('\n');
+  const six=splitRunNarrativeBox(sixLines);
+  assert.equal(six.box,'Line 1\nLine 2\nLine 3\nLine 4\n');
+  assert.deepEqual(six.continuation,['Line 5\nLine 6']);
+});
+
+test('a required Narrative Addition always gets a continuation page, even for short text',()=>{
+  const split=splitRunNarrativeBox('Short run note.',true);
+  assert.equal(split.box,'Short run note.');
+  assert.deepEqual(split.continuation,['']);
 });

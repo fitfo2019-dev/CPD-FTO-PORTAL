@@ -129,6 +129,40 @@ export function paginateNarrativeToPages(
   return pages;
 }
 
+/** Full-width run narrative box across the bottom of every run and supplement sheet. */
+export const RUN_BOX_NARRATIVE_LINES = 5;
+export const RUN_BOX_NARRATIVE_LAYOUT: PrintableNarrativeLayout = {
+  // 7.5in printable width less the box border and padding, rounded down so
+  // the measured wrap never runs wider than the printed box.
+  widthPoints: 7.2 * 72,
+  heightPoints: RUN_BOX_NARRATIVE_LINES * 8.5 * 1.25,
+  font: "8.5pt Lato, Arial, sans-serif",
+  lineHeightPoints: 8.5 * 1.25,
+};
+
+export type RunNarrativeBoxSplit = {
+  /** Text printed inside the run-page box, exactly as entered. */
+  box: string;
+  /** Remaining text, one entry per Narrative Addition / Continuation (U-10.192) page. */
+  continuation: string[];
+};
+
+/**
+ * The box holds the opening lines. When the narrative is longer, or a
+ * Narrative Addition is required, the last box line is kept for the
+ * continuation reference and the rest starts on U-10.192 at the next word.
+ */
+export function splitRunNarrativeBox(value: string, explicitlyRequired = false): RunNarrativeBoxSplit {
+  const lines = value ? visualLines(value, RUN_BOX_NARRATIVE_LAYOUT.widthPoints, RUN_BOX_NARRATIVE_LAYOUT.font) : [];
+  const shown = lines.length && value.endsWith("\n") ? lines.length - 1 : lines.length;
+  if (!explicitlyRequired && shown <= RUN_BOX_NARRATIVE_LINES) return { box: value, continuation: [] };
+  const keep = RUN_BOX_NARRATIVE_LINES - 1;
+  const box = lines.slice(0, keep).join("");
+  const rest = lines.slice(keep).join("");
+  if (box + rest !== value) throw new Error("Narrative box split did not preserve the source text.");
+  return { box, continuation: rest.trim() ? paginateNarrativeToPages(rest, RUN_NARRATIVE_LAYOUT) : [""] };
+}
+
 /** Keep the existing continuation trigger; only the page-fit calculation changes. */
 export function needsRunNarrativeContinuation(value: string, explicitlyRequired = false): boolean {
   return explicitlyRequired || value.length > 220 || value.split("\n").length > 3;
