@@ -28,7 +28,8 @@ const TEXT_RULES: [string, RegExp][] = [
   ["camera file name", /\bIMG_\d{3,}|\.heic\b/i],
   ["numbered file name", /_\d{10,}\.(pdf|docx?|xlsx?|pptx|png|jpe?g|txt)\b/i],
   ["transfer folder", /\battach[a-z]*_[a-z]+\/|\/attachments\//i],
-  ["source-file wording", /\b(uploaded|supplied|attached|pasted) (photos?|photographs?|screenshots?|images?|manuals?|originals?|copies)\b/i],
+  ["source-file wording", /\b(uploaded|supplied|attached|pasted) (photos?|photographs?|screenshots?|images?|manuals?|maps?|originals?|copies)\b/i],
+  ["source-file wording", /\b(uploaded|supplied|pasted)( [a-z-]+){1,3} (photos?|photographs?|screenshots?|images?|manuals?|maps?|originals?)\b/i],
   ["source-file wording", /\b(user|owner)[- ]uploaded\b|\b(user|owner)'s (photos?|screenshots?)\b/i],
 ];
 
