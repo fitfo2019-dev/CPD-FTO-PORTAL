@@ -1461,19 +1461,23 @@ main button.seg-rating-choice {
     -webkit-print-color-adjust: exact;
   }
 
+  body.print-monthly-route .min-h-screen:has(> [data-app-shell]) { min-height: 0 !important; height: auto !important; }
+  body.print-monthly-route .min-h-screen:has(> [data-app-shell]) > [role="status"] { display: none !important; }
   body.print-monthly-route [data-app-shell] {
     min-height: 0 !important;
     display: block !important;
   }
-  body.print-monthly-route [data-app-shell] > :not(main) { display: none !important; }
-  body.print-monthly-route [data-app-shell] > main {
+  body.print-monthly-route [data-app-shell] > :not(:has(main)) { display: none !important; }
+  body.print-monthly-route [data-app-shell].portal-frame div:has(> main) { display: block !important; width: 100% !important; min-height: 0 !important; }
+  body.print-monthly-route [data-app-shell].portal-frame div:has(> main) > :not(main) { display: none !important; }
+  body.print-monthly-route [data-app-shell] main {
     display: block !important;
     width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
   }
-  body.print-monthly-route [data-app-shell] > main > :not(.monthly-summary-page) { display: none !important; }
+  body.print-monthly-route [data-app-shell] main > :not(.monthly-summary-page) { display: none !important; }
   body.print-monthly-route .monthly-summary-page {
     display: block !important;
     width: 100% !important;
@@ -1497,19 +1501,23 @@ main button.seg-rating-choice {
   body.print-weekly-packet-route .weekly-packet-page > .print-weekly-log,
   body.print-weekly-packet-route .weekly-packet-page > .print-daily-package { position: static !important; display: block !important; width: 100% !important; break-after: page; page-break-after: always; }
   body.print-weekly-packet-route .weekly-packet-page > .print-daily-package:last-child { break-after: auto; page-break-after: auto; }
+  body.print-daily-route .min-h-screen:has(> [data-app-shell]) { min-height: 0 !important; height: auto !important; }
+  body.print-daily-route .min-h-screen:has(> [data-app-shell]) > [role="status"] { display: none !important; }
   body.print-daily-route [data-app-shell] {
     min-height: 0 !important;
     display: block !important;
   }
-  body.print-daily-route [data-app-shell] > :not(main) { display: none !important; }
-  body.print-daily-route [data-app-shell] > main {
+  body.print-daily-route [data-app-shell] > :not(:has(main)) { display: none !important; }
+  body.print-daily-route [data-app-shell].portal-frame div:has(> main) { display: block !important; width: 100% !important; min-height: 0 !important; }
+  body.print-daily-route [data-app-shell].portal-frame div:has(> main) > :not(main) { display: none !important; }
+  body.print-daily-route [data-app-shell] main {
     display: block !important;
     width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
   }
-  body.print-daily-route [data-app-shell] > main > :not(.report-editor-page) { display: none !important; }
+  body.print-daily-route [data-app-shell] main > :not(.report-editor-page) { display: none !important; }
   body.print-daily-route .report-editor-page {
     display: block !important;
     width: 100% !important;
@@ -1536,15 +1544,17 @@ main button.seg-rating-choice {
     min-height: 0 !important;
     display: block !important;
   }
-  body.print-substation-route [data-app-shell] > :not(main) { display: none !important; }
-  body.print-substation-route [data-app-shell] > main {
+  body.print-substation-route [data-app-shell] > :not(:has(main)) { display: none !important; }
+  body.print-substation-route [data-app-shell].portal-frame div:has(> main) { display: block !important; width: 100% !important; min-height: 0 !important; }
+  body.print-substation-route [data-app-shell].portal-frame div:has(> main) > :not(main) { display: none !important; }
+  body.print-substation-route [data-app-shell] main {
     display: block !important;
     width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
   }
-  body.print-substation-route [data-app-shell] > main > :not(.orientation-page) { display: none !important; }
+  body.print-substation-route [data-app-shell] main > :not(.orientation-page) { display: none !important; }
   body.print-substation-route .orientation-page {
     display: block !important;
     width: 100% !important;

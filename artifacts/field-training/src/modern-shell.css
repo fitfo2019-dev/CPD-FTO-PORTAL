@@ -220,4 +220,4 @@
   .sign-in-card-area .cl-cardBox { box-shadow: 0 1px 3px rgb(15 36 70 / .12), 0 8px 24px rgb(15 36 70 / .08); border: 1px solid hsl(var(--border)); }
   @media (prefers-reduced-motion: reduce) { .sign-in-photos img { transition: none; } }
 }
-@media print { .page-hero-photo, .sign-in-photos { display: none !important; } .page-hero { color: inherit; background: none; box-shadow: none; } .page-hero::after { display: none; } }
+@media print { .page-hero-photo, .sign-in-photos, .portal-crumbs, .min-h-screen:has(> [data-app-shell]) > [role="status"], [role="region"][aria-label^="Notifications"] { display: none !important; } .min-h-screen:has(> [data-app-shell]) { min-height: 0 !important; height: auto !important; } .page-hero { color: inherit; background: none; box-shadow: none; } .page-hero::after { display: none; } }
