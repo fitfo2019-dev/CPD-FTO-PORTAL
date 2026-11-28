@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { AutoGrowTextarea } from '@/components/auto-grow-textarea.js';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, ShieldAlert, Lock, Trash2, Info, Printer, Plus, ClipboardList, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
 import { useOperationalStateMachine, useWorkspace } from '@/state/workspace.js';
@@ -1215,7 +1216,7 @@ export default function ReportEditor() {
               box={runUaBox} onChange={setRunUaBox}
               onChangeCategory={category=>deficiencyEditor.open(deficiencyGroupId(editingRunId??runDraftId,category))}
               suggestions={category=>uaIssueSuggestions(ws.reports,r,editingRunId??runDraftId,category,parseRunDateTime(runDateTimeText))}/></Suspense>
-            <F l="Training narrative · performance, coaching, response"><textarea rows={3} disabled={!editable} className="mt-3 w-full rounded border bg-card p-2.5 text-sm" value={runNarrative} onChange={e=>setRunNarrative(e.target.value)} placeholder="Describe observed performance, response, and coaching." data-testid="input-run-narrative" /></F>
+            <F l="Training narrative · performance, coaching, response"><AutoGrowTextarea minRows={6} disabled={!editable} className="mt-3 w-full rounded border bg-card p-2.5 text-sm leading-6" value={runNarrative} onChange={e=>setRunNarrative(e.target.value)} placeholder="Describe observed performance, response, and coaching." data-testid="input-run-narrative" /></F>
             {runUaText&&<p className="mt-2 whitespace-pre-wrap rounded border bg-muted/30 p-2.5 text-sm" data-testid="text-run-ua-appended">{runUaText}</p>}
             {narrativeAdditionRequired&&<button type="button" onClick={()=>{document.body.classList.add('print-narrative-only');window.addEventListener('afterprint',()=>document.body.classList.remove('print-narrative-only'),{once:true});window.print();}} className="mt-2 min-h-10 rounded border bg-card px-3 text-sm font-semibold" data-testid="button-print-narrative-continuation">Print narrative continuation pages only</button>}
             </div>}

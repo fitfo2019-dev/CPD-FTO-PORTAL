@@ -18,7 +18,7 @@ import {
   getTrainingFolderDayReference,
   type TrainingFolderDayReference,
 } from './training-calendar.js';
-import { dailyLogContinuations, needsRunNarrativeContinuation, splitNarrativeContinuation } from './narrative-continuation.js';
+import { dailyLogContinuations, splitRunNarrativeBox } from './narrative-continuation.js';
 import { fullRunNarrative } from './run-ua-box.js';
 import { orientationPrintLayout } from './orientation-print-layout.js';
 import { trafficDataCollectionNotApplicable } from './traffic-data-collection.js';
@@ -163,15 +163,13 @@ export function buildOperationalPacket(report: Report, context: PacketContext = 
       });
       captureRunTasks(supplement, RUN_SUPPLEMENT_CHECKLIST_SECTIONS[form], `supp-${form}-`, run.checklist[`na-supp-${form}`] === true);
     }
-    if (needsRunNarrativeContinuation(fullRunNarrative(run), run.narrativeAdditionRequired)) {
-      splitNarrativeContinuation(fullRunNarrative(run)).forEach((_, index) => append({
-        id: `run:${run.id}:continuation:${index + 1}`,
-        kind: 'run_continuation',
-        title: 'Narrative Addition / Continuation',
-        runId: run.id,
-        part: index + 1,
-      }));
-    }
+    splitRunNarrativeBox(fullRunNarrative(run), run.narrativeAdditionRequired).continuation.forEach((_, index) => append({
+      id: `run:${run.id}:continuation:${index + 1}`,
+      kind: 'run_continuation',
+      title: 'Narrative Addition / Continuation',
+      runId: run.id,
+      part: index + 1,
+    }));
   }
 
   // Overflow is separate U-10.192 material, not an extra orientation checklist

@@ -4,7 +4,7 @@ import { buildOperationalPacket, invalidateOperationalReferences, migrateOperati
 import { seedReports } from './seed.js';
 import { newRunChecklist, type PhaseCaseFolder, type SubstationOrientationRecord, type TrainingRun, type WeeklyPerformanceLog } from './model.js';
 import { createEmptyWorkspace } from './empty-workspace.js';
-import { splitNarrativeContinuation } from './narrative-continuation.js';
+import { splitRunNarrativeBox } from './narrative-continuation.js';
 import { buildClassWorkbook } from './exportWorkbook.js';
 import XLSX from 'xlsx-js-style';
 
@@ -91,7 +91,7 @@ test('conditional supplements and every continuation consume their own sequentia
   const packet = buildOperationalPacket({ ...report, runs: [run] }, { dayReference: { week: 2, day: 3 } });
   assert.deepEqual(packet.pages.slice(0, 4).map(page => page.kind), ['duty', 'run', 'supplement', 'supplement']);
   assert.deepEqual(packet.pages.slice(2, 4).map(page => page.supplement), ['arrest_process', 'ovi_process']);
-  assert.equal(packet.pages.filter(page => page.kind === 'run_continuation').length, splitNarrativeContinuation(narrative).length);
+  assert.equal(packet.pages.filter(page => page.kind === 'run_continuation').length, splitRunNarrativeBox(narrative).continuation.length);
   assert.equal(new Set(packet.pages.map(page => page.reference)).size, packet.pages.length);
   assert.equal(packet.pages.at(-1)?.kind, 'daily_summary');
   assert.deepEqual(run, makeRun('run', { arrestMade: true, oviProcessed: true, narrative }));

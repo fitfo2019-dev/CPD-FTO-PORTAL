@@ -1,6 +1,6 @@
 import React, { Fragment } from 'react';
 import { REVISED_PRIMARY_CHECKLISTS, REVISED_SUPPLEMENT_CHECKLISTS, partitionRevisedChecklist, revisedRowState, unitState, type RevisedChecklistRow, type RevisedChecklistSection } from '@/lib/revised-run-checklists.js';
-import { PrintDocument, PrintTitleBlock, PrintFieldGrid, PrintField, PrintSectionPanel, PrintChecklistRow, PrintNotesArea, PrintFooter } from '@/components/print-template.js';
+import { PrintDocument, PrintTitleBlock, PrintFieldGrid, PrintField, PrintSectionPanel, PrintChecklistRow, PrintFooter } from '@/components/print-template.js';
 import {
   DAILY_DUTY_CHECKLIST,
   DAILY_ACTIVITY_FIELDS,
@@ -28,7 +28,7 @@ import {
 import { PrintableOrientationContinuations, PrintableSubstationOrientation } from '@/components/printable-extended-forms.js';
 import type { SubstationOrientationRecord } from '@/lib/model.js';
 import { fullRunNarrative, runFailureSentences } from '@/lib/run-ua-box.js';
-import { splitNarrativeContinuation } from '@/lib/narrative-continuation.js';
+import { splitRunNarrativeBox } from '@/lib/narrative-continuation.js';
 import { buildOperationalPacket, type OperationalPacket } from '@/lib/operational-state-machine.js';
 import { DIVISION_DIRECTIVE_SOURCE_REVISION } from '@/lib/division-directives.js';
 import { reviewedTrainingMaterials } from '@/lib/training-materials.js';
@@ -126,12 +126,7 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
   const additionalItems=[...attachedForms,...relatedActivity.map(item=>item.label)];
   const trafficStop=run.runKind==='traffic_stop'||run.runKind==='high_risk_stop';
   const {sections}=partitionRevisedChecklist(REVISED_PRIMARY_CHECKLISTS[run.runKind]);
-  const failureLines=runFailureSentences(run);
-  const uaTail=[run.uaBox?.whatHappened?.trim(),run.uaBox?.correctiveTraining?.trim()].filter(Boolean).join(' ');
-  const hasUaText=failureLines.length>0||!!uaTail;
-  const narrativeSupport=<PrintNotesArea title="Run narrative">{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the following narrative continuation page'}.`:<>{run.narrative?.trim()}{run.narrative?.trim()&&hasUaText?'\n\n':''}{failureLines.map(line=><span key={line} className="print-po-failed-line">{line} </span>)}{uaTail}{!run.narrative?.trim()&&!hasUaText?'—':null}</>}</PrintNotesArea>;
-  const separateNarrative=sections.length===9;
-  const support=<><DirectiveReviewPrint run={run} formKey={run.runKind} prefix="task-"/>{!separateNarrative&&narrativeSupport}</>;
+  const support=<DirectiveReviewPrint run={run} formKey={run.runKind} prefix="task-"/>;
   const insetSupport=sections.length===7;
   return <PrintDocument className={`print-run-page ${run.runKind==='traffic_stop'||run.runKind==='building_search'?'print-run-dense':''}`} data-form-key={run.runKind} data-testid={`print-run-${run.id}`}>
     <PageHeader title={form?.label||'Primary Run Form'} formNumber={form?.formNumber||''} report={report} run={run} pageReference={pageReference} subtitle={`Run ${formatTime(run.occurredAt)} · ${run.formStatus.replace('_',' ')}`}/>
@@ -157,14 +152,14 @@ function RunPage({report,run,pageReference,narrativeReferences}:{report:Report;r
       {citationSummons&&<span data-print-field="Solve Citation/Summons*"><b>Solve Citation/Summons*:</b> 1</span>}
     </div>
       <Checklist title="Primary form checklist" sections={sections} state={run.checklist} failures={run.checklistFailures} itemNotApplicable={run.checklistNotApplicable} itemFtoPerformed={run.checklistFtoPerformed} prefix="task-" notApplicable={!!run.checklist['na-task']} support={support} tail={insetSupport?support:undefined}/>
-    {separateNarrative&&narrativeSupport}
+    <RunNarrativeBox run={run} title="Run narrative" narrativeReferences={narrativeReferences}/>
     <PrintFooter className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.<span className="print-source-note">Division directive index revised {DIVISION_DIRECTIVE_SOURCE_REVISION}.</span></PrintFooter>
   </PrintDocument>;
 }
 
 function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{report:Report;run:TrainingRun;formKey:typeof SUPPLEMENTAL_RUN_FORMS[number]['key'];pageReference?:string;narrativeReferences:(string|undefined)[]}) {
   const form=SUPPLEMENTAL_RUN_FORMS.find(item=>item.key===formKey);
-  const support=<><DirectiveReviewPrint run={run} formKey={formKey} prefix={`supp-${formKey}-`}/><section className="print-run-narrative"><b>Related primary narrative</b><p>{narrativeReferences.length?`Continued on ${narrativeReferences.filter(Boolean).join(', ')||'the narrative continuation page'}.`:fullRunNarrative(run)||'—'}</p></section></>;
+  const support=<DirectiveReviewPrint run={run} formKey={formKey} prefix={`supp-${formKey}-`}/>;
   const insetSupport=REVISED_SUPPLEMENT_CHECKLISTS[formKey].length===7;
   return <PrintDocument className="print-run-page print-run-dense" data-form-key={formKey} data-testid={`print-supplement-${run.id}-${formKey}`}>
     <PageHeader title={form?.label||'Supplemental Form'} formNumber={form?.formNumber||''} report={report} run={run} pageReference={pageReference} subtitle={`Related run · ${formatTime(run.occurredAt)}`}/>
@@ -186,6 +181,7 @@ function SupplementPage({report,run,formKey,pageReference,narrativeReferences}:{
       <span data-print-field="Dispatched"><b>Dispatched:</b> {run.isDispatched?'Yes':'No'}</span>
     </div>
       {REVISED_SUPPLEMENT_CHECKLISTS[formKey].length>0&&<Checklist title={`${form?.label||'Supplemental'} checklist`} sections={REVISED_SUPPLEMENT_CHECKLISTS[formKey]} state={run.checklist} failures={run.checklistFailures} itemNotApplicable={run.checklistNotApplicable} itemFtoPerformed={run.checklistFtoPerformed} prefix={`supp-${formKey}-`} notApplicable={!!run.checklist[`na-supp-${formKey}`]} support={support} tail={insetSupport?support:undefined}/>}
+    <RunNarrativeBox run={run} title="Related primary narrative" narrativeReferences={narrativeReferences}/>
     <footer className="print-run-footer">Checklist review: {run.checklistReviewedAt?'Confirmed on this device':'Not confirmed'} · Not an identity-verified or electronically signed record.<span className="print-source-note">Division directive index revised {DIVISION_DIRECTIVE_SOURCE_REVISION}.</span><PrintableColumbusFooterMarks /></footer>
   </PrintDocument>;
 }
@@ -220,7 +216,7 @@ function DirectiveReviewPrint({run,formKey,prefix}:{run:TrainingRun;formKey:Dire
 }
 
 function NarrativeContinuationPages({report,run,pageReferences}:{report:Report;run:TrainingRun;pageReferences:(string|undefined)[]}) {
-  const pages=splitNarrativeContinuation(fullRunNarrative(run));
+  const pages=splitRunNarrativeBox(fullRunNarrative(run),run.narrativeAdditionRequired).continuation;
   return <Fragment>{pages.map((text,index)=>{
     const reference=pageReferences[index];
     return <PrintDocument className="print-run-page print-narrative-page" key={`${run.id}-continuation-${index}`} data-testid={`print-narrative-continuation-${run.id}-${index+1}`}>
@@ -232,12 +228,40 @@ function NarrativeContinuationPages({report,run,pageReferences}:{report:Report;r
       <Field label="Run date and time" value={formatDateTimeMDY(run.occurredAt)}/>
       <Field label="Primary form" value={PRIMARY_RUN_FORMS.find(item=>item.key===run.runKind)?.label||run.runKind}/>
     </div>
-    <section className="print-run-narrative print-narrative-continuation"><b>Narrative · continuation</b><p>{text||' '}</p></section>
+    <section className="print-run-narrative print-narrative-continuation"><b>Narrative · continuation</b><p>{text?<NarrativeText run={run} text={text}/>:' '}</p></section>
     <footer className="print-run-footer">Narrative continued from the related run record · {reference??'Training-folder reference unavailable'}.<PrintableColumbusFooterMarks /></footer>
     </PrintDocument>;
   })}</Fragment>;
 }
 
+
+/** Prints the narrative exactly as entered; the run's "PO failed to" sentences stay bold wherever they appear. */
+function NarrativeText({run,text}:{run:TrainingRun;text:string}) {
+  const failures=[...new Set(runFailureSentences(run))].sort((a,b)=>b.length-a.length);
+  if(!failures.length)return <>{text}</>;
+  const parts:React.ReactNode[]=[];
+  let rest=text;
+  while(rest){
+    const hits=failures.map(line=>({line,at:rest.indexOf(line)})).filter(hit=>hit.at>=0).sort((a,b)=>a.at-b.at);
+    const hit=hits[0];
+    if(!hit){parts.push(rest);break;}
+    if(hit.at>0)parts.push(rest.slice(0,hit.at));
+    parts.push(<span key={parts.length} className="print-po-failed-line">{hit.line}</span>);
+    rest=rest.slice(hit.at+hit.line.length);
+  }
+  return <>{parts.map((part,index)=><Fragment key={index}>{part}</Fragment>)}</>;
+}
+
+/** Full-width narrative box across the bottom of run and supplement sheets. */
+function RunNarrativeBox({run,title,narrativeReferences}:{run:TrainingRun;title:string;narrativeReferences:(string|undefined)[]}) {
+  const split=splitRunNarrativeBox(fullRunNarrative(run),run.narrativeAdditionRequired);
+  const continued=split.continuation.length>0;
+  const where=narrativeReferences.filter(Boolean).join(', ')||'the following narrative continuation page';
+  return <section className="print-run-narrative-box" data-narrative-continues={continued||undefined}>
+    <b>{title}</b>
+    <p>{split.box?<NarrativeText run={run} text={split.box}/>:continued?null:'—'}{continued&&<span className="print-narrative-continued">{split.box&&!split.box.endsWith('\n')?'\n':''}Continued on {where}.</span>}</p>
+  </section>;
+}
 
 function PrintRowLabel({row,state,prefix,itemNotApplicable,itemFtoPerformed}:{row:RevisedChecklistRow;state:Record<string,boolean>;prefix:string;itemNotApplicable?:Record<string,true>;itemFtoPerformed?:Record<string,true>}) {
   return <>{row.units.map((unit,position)=>{
