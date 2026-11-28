@@ -257,7 +257,8 @@ test('approved extra training weeks get their own Extension Week tab',()=>{
   assert.doesNotMatch(dateCell(workbook,'Week 4'),/Extension/);
 });
 
-test('a limbo extension splits the long first week into separate tabs',()=>{
+// Daily Activity Summary always counts Limbo Days (owner, Nov 28, 2026).
+test('a limbo extension splits the long first week into separate tabs and still counts limbo-day activity',()=>{
   const phaseWeekRanges=[
     {startDate:'2027-01-03',endDate:'2027-01-16'},
     {startDate:'2027-01-17',endDate:'2027-01-23'},
@@ -265,8 +266,8 @@ test('a limbo extension splits the long first week into separate tabs',()=>{
     {startDate:'2027-01-31',endDate:'2027-02-06'},
   ];
   const reports=[
-    makeReport('limbo-1',{date:'2027-01-05',phase:3,phaseWeek:1,activity:{...emptyDailyActivitySummary(),trafficStops:1}}),
-    makeReport('limbo-2',{date:'2027-01-12',phase:3,phaseWeek:1,activity:{...emptyDailyActivitySummary(),trafficStops:5}}),
+    makeReport('limbo-1',{date:'2027-01-05',phase:3,phaseWeek:1,limboDay:true,ratingsReviewedAt:undefined,activity:{...emptyDailyActivitySummary(),trafficStops:1}}),
+    makeReport('limbo-2',{date:'2027-01-12',phase:3,phaseWeek:1,limboDay:true,ratingsReviewedAt:undefined,activity:{...emptyDailyActivitySummary(),trafficStops:5}}),
   ];
   const workbook=buildPhaseWorkbook(reports,3,{phaseStartDate:'2027-01-03',phaseWeekRanges,limboExtensionWeeks:1});
   assert.deepEqual(workbook.SheetNames,['Week 1','Week 1 Extension 1','Week 2','Week 3','Week 4']);
